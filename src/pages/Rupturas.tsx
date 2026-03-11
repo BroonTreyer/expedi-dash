@@ -85,12 +85,17 @@ export default function Rupturas() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-6 w-6 text-amber-500" />
-            <h1 className="text-2xl font-bold tracking-tight">Rupturas</h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-amber-500" />
+              <h1 className="text-2xl font-bold tracking-tight">Rupturas</h1>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
+          <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
+          </Button>
         </div>
 
         {/* KPIs */}
