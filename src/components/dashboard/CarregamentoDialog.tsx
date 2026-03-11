@@ -156,6 +156,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         nome_produto: item.nome_produto,
         quantidade: item.quantidade,
         peso: item.peso,
+        ruptura: item.ruptura,
       });
     } else {
       for (const item of items) {
@@ -165,6 +166,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           nome_produto: item.nome_produto,
           quantidade: item.quantidade,
           peso: item.peso,
+          ruptura: item.ruptura,
         });
       }
     }
