@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { STATUSES } from "@/lib/constants";
+import { Separator } from "@/components/ui/separator";
+import { STATUSES, RUPTURA_STATUSES } from "@/lib/constants";
 import { Search } from "lucide-react";
 
 interface Props {
