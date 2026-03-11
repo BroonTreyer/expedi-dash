@@ -9,10 +9,12 @@ interface AuthState {
   session: Session | null;
   role: AppRole | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, nome: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
+
+const REMEMBER_KEY = "frico_remember_me";
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
@@ -24,6 +26,15 @@ export function useAuthState(): AuthState {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // On mount, apply stored storage preference
+  useEffect(() => {
+    const remembered = localStorage.getItem(REMEMBER_KEY);
+    if (remembered === "false") {
+      // Move session to sessionStorage if not remembering
+      (supabase.auth as any).storage = sessionStorage;
+    }
+  }, []);
+
   const fetchRole = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("user_roles")
@@ -34,13 +45,11 @@ export function useAuthState(): AuthState {
   }, []);
 
   useEffect(() => {
-    // Set up listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          // Use setTimeout to avoid Supabase deadlock
           setTimeout(() => fetchRole(session.user.id), 0);
         } else {
           setRole(null);
@@ -49,7 +58,6 @@ export function useAuthState(): AuthState {
       }
     );
 
-    // Then check existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -62,7 +70,16 @@ export function useAuthState(): AuthState {
     return () => subscription.unsubscribe();
   }, [fetchRole]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string, rememberMe: boolean = true) => {
+    // Set storage based on preference BEFORE signing in
+    if (rememberMe) {
+      (supabase.auth as any).storage = localStorage;
+      localStorage.setItem(REMEMBER_KEY, "true");
+    } else {
+      (supabase.auth as any).storage = sessionStorage;
+      localStorage.setItem(REMEMBER_KEY, "false");
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
   }, []);
@@ -78,6 +95,8 @@ export function useAuthState(): AuthState {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem(REMEMBER_KEY);
+    (supabase.auth as any).storage = localStorage;
   }, []);
 
   return { user, session, role, loading, signIn, signUp, signOut };
