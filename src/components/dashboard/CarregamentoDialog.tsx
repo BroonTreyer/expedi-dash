@@ -38,6 +38,7 @@ interface Props {
   tiposCaminhao: { nome_tipo: string }[];
   produtos: { codigo_produto: string; nome_produto: string; peso_padrao: number | null }[];
   selectedDate: string;
+  defaultRuptura?: boolean;
 }
 
 const TITLES: Record<DialogMode, string> = {
@@ -52,7 +53,7 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
   editar: "Edite todos os campos do carregamento",
 };
 
-export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate }: Props) {
+export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate, defaultRuptura }: Props) {
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
   const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
@@ -71,7 +72,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         pesoPadrao: p?.peso_padrao ?? 0,
       }]);
     } else {
-      setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas" });
+      setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
       setCodigoVendedorInput("");
       setItems([emptyItem()]);
     }

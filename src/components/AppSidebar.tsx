@@ -8,11 +8,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const allNavItems = [
   { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
   { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin"] },
   { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin"] },
   { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck, roles: ["admin"] },
   { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
-  { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
 ];
 
 interface Props {

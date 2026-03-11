@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
-import { useCarregamentos, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
+import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
@@ -11,7 +11,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Weight, Package } from "lucide-react";
+import { AlertTriangle, Weight, Package, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -29,6 +30,7 @@ export default function Rupturas() {
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
+  const createMut = useCreateCarregamento();
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
 
@@ -83,12 +85,17 @@ export default function Rupturas() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-6 w-6 text-amber-500" />
-            <h1 className="text-2xl font-bold tracking-tight">Rupturas</h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-amber-500" />
+              <h1 className="text-2xl font-bold tracking-tight">Rupturas</h1>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
+          <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
+          </Button>
         </div>
 
         {/* KPIs */}
@@ -153,13 +160,20 @@ export default function Rupturas() {
         <CarregamentoDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          onSubmit={(values) => updateMut.mutate(values)}
+          onSubmit={(values) => {
+            if (editing) {
+              updateMut.mutate(values);
+            } else {
+              createMut.mutate({ ...values, ruptura: true });
+            }
+          }}
           editing={editing}
           mode={dialogMode}
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
           selectedDate={date}
+          defaultRuptura
         />
 
         <DeleteConfirmDialog
