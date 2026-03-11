@@ -101,7 +101,7 @@ export default function Usuarios() {
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Novo Usuário</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Criar Usuário</DialogTitle>
               </DialogHeader>
