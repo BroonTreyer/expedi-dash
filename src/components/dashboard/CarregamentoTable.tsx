@@ -39,7 +39,12 @@ function PendingCell({ value }: { value: string | null }) {
   return <span className="text-xs text-muted-foreground/60 italic">Pendente</span>;
 }
 
-function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole }: Props) {
+function formatPesoAprox(peso: number | null, tipoCaminhao: string | null) {
+  const ton = ((peso ?? 0) / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return tipoCaminhao ? `${ton} TON - ${tipoCaminhao}` : `${ton} TON`;
+}
+
+function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const canChangeStatus = isAdmin || isLogistica;
