@@ -248,7 +248,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     + (hideColumns.includes("qtd") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
     + (showPesoAprox ? 1 : 0)
-    + ((isAdmin || isLogistica) ? 1 : 0);
+    + (hasActions ? 1 : 0);
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-x-auto">
