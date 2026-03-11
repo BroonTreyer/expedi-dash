@@ -117,7 +117,7 @@ export default function Rupturas() {
               <Weight className="h-5 w-5 text-amber-600" />
               <div>
                 <p className="text-xs text-muted-foreground">Peso Total</p>
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{totalPeso.toLocaleString("pt-BR")} kg</p>
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{(totalPeso / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON</p>
               </div>
             </CardContent>
           </Card>
