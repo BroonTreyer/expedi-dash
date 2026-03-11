@@ -413,7 +413,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                           </Button>
                         )}
                         {canEdit && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(groupKey) : onEdit(first)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.pedido!) : onEdit(first)}>
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
                         )}
