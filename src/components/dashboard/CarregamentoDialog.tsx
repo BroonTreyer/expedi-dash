@@ -6,9 +6,26 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { STATUSES, UF_LIST } from "@/lib/constants";
+import { Plus, X } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 export type DialogMode = "vendas" | "logistica" | "editar";
+
+interface ProductItem {
+  codigo_produto: string;
+  nome_produto: string;
+  quantidade: number;
+  peso: number;
+  pesoPadrao: number;
+}
+
+const emptyItem = (): ProductItem => ({
+  codigo_produto: "",
+  nome_produto: "",
+  quantidade: 1,
+  peso: 0,
+  pesoPadrao: 0,
+});
 
 interface Props {
   open: boolean;
@@ -37,7 +54,7 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
 export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate }: Props) {
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
-  const [pesoPadrao, setPesoPadrao] = useState<number>(0);
+  const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
 
   useEffect(() => {
     if (editing) {
@@ -45,11 +62,17 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       const v = vendedores.find(v => v.id === editing.vendedor_id);
       setCodigoVendedorInput(v?.codigo_vendedor ?? "");
       const p = produtos.find(p => p.codigo_produto === editing.codigo_produto);
-      setPesoPadrao(p?.peso_padrao ?? 0);
+      setItems([{
+        codigo_produto: editing.codigo_produto ?? "",
+        nome_produto: editing.nome_produto ?? "",
+        quantidade: editing.quantidade ?? 1,
+        peso: editing.peso ?? 0,
+        pesoPadrao: p?.peso_padrao ?? 0,
+      }]);
     } else {
-      setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", quantidade: 1, peso: 0 });
+      setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas" });
       setCodigoVendedorInput("");
-      setPesoPadrao(0);
+      setItems([emptyItem()]);
     }
   }, [editing, open, selectedDate]);
 
@@ -62,28 +85,74 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
   };
 
-  const handleCodigoProduto = (codigo: string) => {
-    set("codigo_produto", codigo);
+  const updateItem = (index: number, updates: Partial<ProductItem>) => {
+    setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
+  };
+
+  const handleItemCodigo = (index: number, codigo: string) => {
     const found = produtos.find((p) => p.codigo_produto.toLowerCase() === codigo.toLowerCase());
     if (found) {
       const pp = found.peso_padrao ?? 0;
-      setPesoPadrao(pp);
-      setForm((f) => ({ ...f, nome_produto: found.nome_produto, peso: pp * (f.quantidade ?? 1) }));
+      const item = items[index];
+      updateItem(index, {
+        codigo_produto: codigo,
+        nome_produto: found.nome_produto,
+        pesoPadrao: pp,
+        peso: pp * (item.quantidade ?? 1),
+      });
+    } else {
+      updateItem(index, { codigo_produto: codigo, nome_produto: "", pesoPadrao: 0, peso: 0 });
     }
   };
 
-  const handleQuantidade = (qty: number) => {
-    setForm((f) => ({ ...f, quantidade: qty, peso: pesoPadrao * qty }));
+  const handleItemQuantidade = (index: number, qty: number) => {
+    const item = items[index];
+    updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty });
+  };
+
+  const addItem = () => setItems(prev => [...prev, emptyItem()]);
+
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      setItems(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const handleSubmit = () => {
-    const payload: Record<string, any> = { ...form };
-    delete payload.vendedores;
-    if (editing) payload.id = editing.id;
+    const basePayload: Record<string, any> = { ...form };
+    delete basePayload.vendedores;
+    delete basePayload.codigo_produto;
+    delete basePayload.nome_produto;
+    delete basePayload.quantidade;
+    delete basePayload.peso;
+
     if (mode === "logistica") {
-      payload.etapa = "logistica";
+      basePayload.etapa = "logistica";
     }
-    onSubmit(payload);
+
+    if (editing) {
+      // Edit mode: single item
+      const item = items[0];
+      onSubmit({
+        ...basePayload,
+        id: editing.id,
+        codigo_produto: item.codigo_produto,
+        nome_produto: item.nome_produto,
+        quantidade: item.quantidade,
+        peso: item.peso,
+      });
+    } else {
+      // Create mode: one submission per item
+      for (const item of items) {
+        onSubmit({
+          ...basePayload,
+          codigo_produto: item.codigo_produto,
+          nome_produto: item.nome_produto,
+          quantidade: item.quantidade,
+          peso: item.peso,
+        });
+      }
+    }
     onOpenChange(false);
   };
 
@@ -125,32 +194,67 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Código Produto</Label>
-                <Input value={form.codigo_produto ?? ""} onChange={(e) => handleCodigoProduto(e.target.value)} placeholder="Digite o código" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Nome Produto</Label>
-                <Input value={form.nome_produto ?? ""} onChange={(e) => set("nome_produto", e.target.value)} readOnly className="bg-muted/50" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Quantidade</Label>
-                <Input type="number" value={form.quantidade ?? 0} onChange={(e) => handleQuantidade(Number(e.target.value))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Peso (kg)</Label>
-                <Input type="number" value={form.peso ?? 0} onChange={(e) => set("peso", Number(e.target.value))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Cidade</Label>
-                <Input value={form.cidade ?? ""} onChange={(e) => set("cidade", e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
                 <Label className="text-xs">UF</Label>
                 <Select value={form.uf ?? ""} onValueChange={(v) => set("uf", v)}>
                   <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
                   <SelectContent>{UF_LIST.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+
+              {/* === PRODUCT ITEMS === */}
+              <div className="col-span-2 border-t border-border pt-3 mt-1 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Produtos</span>
+                  {!editing && (
+                    <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-7 text-xs">
+                      <Plus className="h-3 w-3 mr-1" /> Adicionar Produto
+                    </Button>
+                  )}
+                </div>
+                {items.map((item, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_1.5fr_80px_100px_32px] gap-2 items-end">
+                    <div className="space-y-1">
+                      {idx === 0 && <Label className="text-xs">Código</Label>}
+                      <Input
+                        value={item.codigo_produto}
+                        onChange={(e) => handleItemCodigo(idx, e.target.value)}
+                        placeholder="Código"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      {idx === 0 && <Label className="text-xs">Nome Produto</Label>}
+                      <Input value={item.nome_produto} readOnly className="h-9 text-sm bg-muted/50" />
+                    </div>
+                    <div className="space-y-1">
+                      {idx === 0 && <Label className="text-xs">Qtd</Label>}
+                      <Input
+                        type="number"
+                        value={item.quantidade}
+                        onChange={(e) => handleItemQuantidade(idx, Number(e.target.value))}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      {idx === 0 && <Label className="text-xs">Peso (kg)</Label>}
+                      <Input
+                        type="number"
+                        value={item.peso}
+                        onChange={(e) => updateItem(idx, { peso: Number(e.target.value) })}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div>
+                      {items.length > 1 ? (
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-8 text-destructive" onClick={() => removeItem(idx)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : <div className="h-9 w-8" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Observações</Label>
                 <Textarea value={form.observacoes ?? ""} onChange={(e) => set("observacoes", e.target.value)} rows={2} />
@@ -209,7 +313,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 <span className="text-muted-foreground">Qtd / Peso:</span>
                 <span>{editing.quantidade ?? 0} un / {(editing.peso ?? 0).toLocaleString("pt-BR")} kg</span>
                 <span className="text-muted-foreground">Destino:</span>
-                <span>{editing.cidade ?? "—"}{editing.uf ? `/${editing.uf}` : ""}</span>
+                <span>{editing.uf ?? "—"}</span>
               </div>
             </div>
           )}

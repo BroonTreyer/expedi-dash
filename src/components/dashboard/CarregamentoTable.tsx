@@ -46,7 +46,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Caminhão</TableHead>
             <TableHead>Placa</TableHead>
             <TableHead>Motorista</TableHead>
-            <TableHead>Cidade</TableHead>
+            
             <TableHead>UF</TableHead>
             <TableHead>Previsto</TableHead>
             <TableHead>Início</TableHead>
@@ -58,7 +58,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
         <TableBody>
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
                 Nenhum carregamento encontrado
               </TableCell>
             </TableRow>
@@ -77,7 +77,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
               <TableCell><PendingCell value={c.placa} /></TableCell>
               <TableCell><PendingCell value={c.motorista} /></TableCell>
-              <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
+              
               <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_previsto)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
