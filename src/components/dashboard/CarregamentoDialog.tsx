@@ -134,7 +134,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Quantidade</Label>
-                <Input type="number" value={form.quantidade ?? 0} onChange={(e) => set("quantidade", Number(e.target.value))} />
+                <Input type="number" value={form.quantidade ?? 0} onChange={(e) => handleQuantidade(Number(e.target.value))} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Peso (kg)</Label>
