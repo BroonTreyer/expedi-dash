@@ -75,14 +75,6 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
           className="h-9 w-[200px] pl-8 text-sm"
         />
       </div>
-      <div className="relative">
-        <Input
-          placeholder="Cidade..."
-          value={filters.cidade}
-          onChange={(e) => set("cidade", e.target.value)}
-          className="h-9 w-[140px] text-sm"
-        />
-      </div>
     </div>
   );
 }
