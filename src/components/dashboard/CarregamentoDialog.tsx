@@ -18,6 +18,7 @@ interface ProductItem {
   quantidade: number;
   peso: number;
   pesoPadrao: number;
+  ruptura: boolean;
 }
 
 const emptyItem = (): ProductItem => ({
@@ -26,6 +27,7 @@ const emptyItem = (): ProductItem => ({
   quantidade: 1,
   peso: 0,
   pesoPadrao: 0,
+  ruptura: false,
 });
 
 interface Props {
@@ -73,6 +75,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         quantidade: editing.quantidade ?? 1,
         peso: editing.peso ?? 0,
         pesoPadrao: p?.peso_padrao ?? 0,
+        ruptura: editing.ruptura ?? false,
       }]);
     } else {
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
@@ -153,6 +156,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         nome_produto: item.nome_produto,
         quantidade: item.quantidade,
         peso: item.peso,
+        ruptura: item.ruptura,
       });
     } else {
       for (const item of items) {
@@ -162,6 +166,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           nome_produto: item.nome_produto,
           quantidade: item.quantidade,
           peso: item.peso,
+          ruptura: item.ruptura,
         });
       }
     }
@@ -252,7 +257,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   )}
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_80px_100px_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
+                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_80px_100px_auto_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
                     <div className="space-y-1">
                       <Label className="text-xs sm:hidden">Código</Label>
                       {idx === 0 && <Label className="text-xs hidden sm:block">Código</Label>}
@@ -290,6 +295,19 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                         />
                       </div>
                     </div>
+                    <div className="space-y-1">
+                      {idx === 0 && <Label className="text-xs hidden sm:block">Ruptura</Label>}
+                      <div className="flex items-center gap-1.5 h-9 sm:justify-center">
+                        <Checkbox
+                          id={`ruptura-${idx}`}
+                          checked={item.ruptura}
+                          onCheckedChange={(checked) => updateItem(idx, { ruptura: !!checked })}
+                        />
+                        <Label htmlFor={`ruptura-${idx}`} className="text-xs text-amber-600 cursor-pointer sm:hidden">
+                          Ruptura
+                        </Label>
+                      </div>
+                    </div>
                     <div className="flex justify-end sm:block">
                       {items.length > 1 ? (
                         <Button type="button" variant="ghost" size="icon" className="h-9 w-8 text-destructive" onClick={() => removeItem(idx)}>
@@ -301,16 +319,6 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 ))}
               </div>
 
-              <div className="sm:col-span-2 flex items-center gap-2 pt-1">
-                <Checkbox
-                  id="ruptura"
-                  checked={form.ruptura ?? false}
-                  onCheckedChange={(checked) => set("ruptura", !!checked)}
-                />
-                <Label htmlFor="ruptura" className="text-xs font-medium text-amber-600 cursor-pointer">
-                  Ruptura de estoque (item sem disponibilidade)
-                </Label>
-              </div>
 
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs">Observações</Label>
