@@ -8,6 +8,7 @@ import { Trash2, Edit, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { AppRole } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 interface Props {
   data: Carregamento[];
