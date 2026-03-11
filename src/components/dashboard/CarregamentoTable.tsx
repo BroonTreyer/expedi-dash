@@ -348,7 +348,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             const hasRuptura = group.items.some(i => i.ruptura);
 
             return (
-              <React.Fragment key={`group-${group.pedido}`}>
+              <Fragment key={`group-${group.pedido}`}>
                 {/* Summary row */}
                 <TableRow
                   className={cn(
