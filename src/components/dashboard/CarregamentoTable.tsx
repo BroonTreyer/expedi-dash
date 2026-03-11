@@ -45,7 +45,7 @@ function formatPesoAprox(peso: number | null, tipoCaminhao: string | null) {
   return tipoCaminhao ? `${ton} TON - ${tipoCaminhao}` : `${ton} TON`;
 }
 
-function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox }: Props) {
+function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [] }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const canChangeStatus = isAdmin || isLogistica;
