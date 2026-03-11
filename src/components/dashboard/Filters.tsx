@@ -21,15 +21,15 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
   const set = (key: string, value: string) => onChange({ ...filters, [key]: value });
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap items-center gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap lg:flex-nowrap items-center gap-2">
       <Input
         type="date"
         value={filters.data}
         onChange={(e) => set("data", e.target.value)}
-        className="h-9 text-sm col-span-2 sm:col-span-1 md:w-[150px]"
+        className="h-9 text-sm col-span-2 sm:col-span-1 md:w-[140px]"
       />
       <Select value={filters.etapa} onValueChange={(v) => set("etapa", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[170px]">
+        <SelectTrigger className="h-9 text-sm md:w-[150px]">
           <SelectValue placeholder="Etapa" />
         </SelectTrigger>
         <SelectContent>
@@ -39,7 +39,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         </SelectContent>
       </Select>
       <Select value={filters.status} onValueChange={(v) => set("status", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[170px]">
+        <SelectTrigger className="h-9 text-sm md:w-[150px]">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -48,7 +48,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         </SelectContent>
       </Select>
       <Select value={filters.vendedor} onValueChange={(v) => set("vendedor", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[170px]">
+        <SelectTrigger className="h-9 text-sm md:w-[150px]">
           <SelectValue placeholder="Vendedor" />
         </SelectTrigger>
         <SelectContent>
@@ -57,7 +57,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         </SelectContent>
       </Select>
       <Select value={filters.tipoCaminhao} onValueChange={(v) => set("tipoCaminhao", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[170px]">
+        <SelectTrigger className="h-9 text-sm md:w-[150px]">
           <SelectValue placeholder="Tipo Caminhão" />
         </SelectTrigger>
         <SelectContent>
@@ -65,7 +65,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
           {tiposCaminhao.map((t) => <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>)}
         </SelectContent>
       </Select>
-      <div className="relative col-span-2 sm:col-span-1 md:flex-1 md:min-w-[150px] md:max-w-[200px]">
+      <div className="relative col-span-2 sm:col-span-1 md:flex-1 md:min-w-[130px] md:max-w-[180px]">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Buscar produto..."
