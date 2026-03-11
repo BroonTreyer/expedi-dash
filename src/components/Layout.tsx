@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { AppSidebar } from "./AppSidebar";
-import { Menu, X } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div className="flex min-h-screen">
@@ -16,10 +17,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 md:relative md:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 transform transition-all duration-200 md:relative md:translate-x-0",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <AppSidebar onNavigate={() => setMobileOpen(false)} />
+        <AppSidebar collapsed={collapsed} onNavigate={() => setMobileOpen(false)} />
       </div>
 
       <div className="flex-1 flex flex-col overflow-auto">
@@ -29,6 +30,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="h-5 w-5" />
           </Button>
           <span className="ml-2 text-sm font-semibold">Expedição</span>
+        </header>
+        {/* Desktop toggle */}
+        <header className="hidden md:flex items-center h-10 border-b border-border px-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(c => !c)}>
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
         </header>
         <main className="flex-1 overflow-auto">
           {children}
