@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusSelect } from "./StatusSelect";
 import { EtapaBadge } from "./EtapaBadge";
@@ -348,7 +348,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             const hasRuptura = group.items.some(i => i.ruptura);
 
             return (
-              <React.Fragment key={`group-${group.pedido}`}>
+              <Fragment key={`group-${group.pedido}`}>
                 {/* Summary row */}
                 <TableRow
                   className={cn(
@@ -451,7 +451,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {(isAdmin || isLogistica) && <TableCell />}
                   </TableRow>
                 ))}
-              </React.Fragment>
+              </Fragment>
             );
           })}
         </TableBody>
