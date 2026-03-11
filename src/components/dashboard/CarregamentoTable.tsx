@@ -180,7 +180,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               </TableCell>
               <TableCell>
                 {canChangeStatus ? (
-                  <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} />
+                  <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
                 ) : (
                   <span className="text-sm">{c.status}</span>
                 )}
