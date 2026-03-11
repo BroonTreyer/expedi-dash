@@ -141,7 +141,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const canChangeStatus = isAdmin || isLogistica;
 
   if (isMobile) {
-    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} />;
+    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} />;
   }
 
   return (
