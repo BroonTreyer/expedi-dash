@@ -175,6 +175,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
               <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
               <TableCell><PendingCell value={c.motorista} /></TableCell>
+              <TableCell className="text-sm">{c.cliente ?? "—"}</TableCell>
               <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
