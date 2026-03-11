@@ -320,7 +320,16 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     )}
                   </TableCell>
                   <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
-                  <TableCell className="text-sm font-mono">{c.codigo_produto ?? "—"}</TableCell>
+                  <TableCell className="text-sm font-mono">
+                    <span className="flex items-center gap-1.5">
+                      {c.codigo_produto ?? "—"}
+                      {c.ruptura && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                          <AlertTriangle className="h-3 w-3" /> Ruptura
+                        </span>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
                   {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>}
                   {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
