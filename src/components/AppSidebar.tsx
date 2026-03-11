@@ -22,6 +22,12 @@ interface Props {
   onNavigate?: () => void;
 }
 
+// forwardRef wrapper for Link to avoid ref warnings with TooltipTrigger
+const RefLink = forwardRef<HTMLAnchorElement, React.ComponentProps<typeof Link>>((props, ref) => (
+  <Link ref={ref} {...props} />
+));
+RefLink.displayName = "RefLink";
+
 export function AppSidebar({ collapsed, onNavigate }: Props) {
   const location = useLocation();
   const { role, signOut, user } = useAuth();
