@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut } from "lucide-react";
+import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo.png";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,7 @@ const allNavItems = [
   { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin"] },
   { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck, roles: ["admin"] },
   { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
+  { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
 ];
 
 interface Props {
