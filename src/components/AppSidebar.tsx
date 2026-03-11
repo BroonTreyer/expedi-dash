@@ -27,7 +27,7 @@ export function AppSidebar({ onNavigate }: Props) {
     <aside className="w-60 min-h-screen bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
       <div className="p-5 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
-          <Truck className="h-7 w-7 text-sidebar-primary" />
+          <img src={fricoLogo} alt="Frico Alimentos" className="h-9 w-auto" />
           <div>
             <h1 className="text-base font-bold text-sidebar-primary-foreground tracking-tight">Expedição</h1>
             <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-widest">Painel Logístico</p>
