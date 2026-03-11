@@ -65,7 +65,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <EtapaBadge etapa={c.etapa} />
-                <StatusBadge status={c.status} />
+                <StatusBadge status={c.status} statusColors={statusColors} />
                 {c.ruptura && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
                     <AlertTriangle className="h-3 w-3" /> Ruptura
