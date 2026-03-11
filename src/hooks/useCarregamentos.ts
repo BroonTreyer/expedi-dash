@@ -22,6 +22,7 @@ export type Carregamento = {
   status: string;
   etapa: string;
   observacoes: string | null;
+  ruptura: boolean;
   created_at: string;
   updated_at: string;
   vendedores?: { nome_vendedor: string } | null;
