@@ -157,6 +157,9 @@ export default function Rupturas() {
             onDelete={handleDeleteRequest}
             onComplete={handleComplete}
             userRole={role}
+            statuses={RUPTURA_STATUSES}
+            statusColors={RUPTURA_STATUS_COLORS}
+            showPesoAprox
           />
         )}
 
