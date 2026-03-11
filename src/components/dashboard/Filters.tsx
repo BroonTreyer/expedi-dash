@@ -65,13 +65,13 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
           {tiposCaminhao.map((t) => <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>)}
         </SelectContent>
       </Select>
-      <div className="relative col-span-2 sm:col-span-1">
+      <div className="relative col-span-2 sm:col-span-1 md:flex-1 md:min-w-[150px] md:max-w-[200px]">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Buscar produto..."
           value={filters.busca}
           onChange={(e) => set("busca", e.target.value)}
-          className="h-9 pl-8 text-sm md:w-[200px]"
+          className="h-9 pl-8 text-sm w-full"
         />
       </div>
     </div>
