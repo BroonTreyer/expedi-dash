@@ -65,6 +65,16 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
           {tiposCaminhao.map((t) => <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>)}
         </SelectContent>
       </Select>
+      <Select value={filters.ruptura} onValueChange={(v) => set("ruptura", v)}>
+        <SelectTrigger className="h-9 text-sm md:w-[140px]">
+          <SelectValue placeholder="Ruptura" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todas</SelectItem>
+          <SelectItem value="sim">Com Ruptura</SelectItem>
+          <SelectItem value="nao">Sem Ruptura</SelectItem>
+        </SelectContent>
+      </Select>
       <div className="relative col-span-2 sm:col-span-1 md:flex-1 md:min-w-[130px] md:max-w-[180px]">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
