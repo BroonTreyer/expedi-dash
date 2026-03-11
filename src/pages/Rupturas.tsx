@@ -173,6 +173,7 @@ export default function Rupturas() {
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
+          clientes={clientes}
           selectedDate={date}
           defaultRuptura
         />

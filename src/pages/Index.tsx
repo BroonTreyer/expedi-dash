@@ -175,6 +175,7 @@ export default function Index() {
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
+          clientes={clientes}
           selectedDate={filters.data}
         />
 
