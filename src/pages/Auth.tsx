@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Truck } from "lucide-react";
+import fricoLogo from "@/assets/frico-logo.png";
 import { toast } from "sonner";
 
 export default function Auth() {
@@ -53,9 +53,7 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="rounded-full bg-primary/10 p-3">
-              <Truck className="h-8 w-8 text-primary" />
-            </div>
+            <img src={fricoLogo} alt="Frico Alimentos" className="h-16 w-auto" />
           </div>
           <CardTitle className="text-2xl">Expedição</CardTitle>
           <CardDescription>
