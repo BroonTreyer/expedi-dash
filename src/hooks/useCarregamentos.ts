@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 export type Carregamento = {
   id: string;
@@ -27,6 +28,30 @@ export type Carregamento = {
 };
 
 export function useCarregamentos(date: string) {
+  const queryClient = useQueryClient();
+
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("carregamentos-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "carregamentos_dia",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ["carregamentos", date],
     queryFn: async () => {
@@ -38,6 +63,8 @@ export function useCarregamentos(date: string) {
       if (error) throw error;
       return data as Carregamento[];
     },
+    staleTime: 5000,
+    refetchInterval: 30000,
   });
 }
 
