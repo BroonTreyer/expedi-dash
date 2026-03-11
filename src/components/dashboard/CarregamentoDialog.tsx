@@ -38,6 +38,7 @@ interface Props {
   tiposCaminhao: { nome_tipo: string }[];
   produtos: { codigo_produto: string; nome_produto: string; peso_padrao: number | null }[];
   selectedDate: string;
+  defaultRuptura?: boolean;
 }
 
 const TITLES: Record<DialogMode, string> = {
