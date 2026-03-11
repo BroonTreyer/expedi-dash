@@ -272,7 +272,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
             <TableHead>Obs</TableHead>
-            {(isAdmin || isLogistica) && <TableHead className="w-[110px]"></TableHead>}
+            {hasActions && <TableHead className="w-[110px]"></TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
