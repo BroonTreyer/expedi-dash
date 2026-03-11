@@ -89,14 +89,10 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
               <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
               <div className="text-muted-foreground">Caminhão</div>
               <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
-              <div className="text-muted-foreground">Placa</div>
-              <div className="font-mono uppercase">{c.placa || <span className="text-muted-foreground/60 italic font-sans normal-case">Pendente</span>}</div>
               <div className="text-muted-foreground">Motorista</div>
               <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
               <div className="text-muted-foreground">UF</div>
               <div>{c.uf ?? "—"}</div>
-              <div className="text-muted-foreground">Previsto</div>
-              <div>{formatTime(c.horario_previsto)}</div>
             </div>
 
             {canChangeStatus && (
