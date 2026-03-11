@@ -31,9 +31,9 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
         "min-h-screen bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border transition-all duration-200",
         collapsed ? "w-14" : "w-60"
       )}>
-        <div className="p-5 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <img src={fricoLogo} alt="Frico Alimentos" className={cn("h-9 w-auto", collapsed && "mx-auto")} />
+        <div className={cn("border-b border-sidebar-border transition-all duration-200", collapsed ? "p-2" : "p-5")}>
+          <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-2")}>
+            <img src={fricoLogo} alt="Frico Alimentos" className={cn("w-auto object-contain transition-all duration-200", collapsed ? "h-7" : "h-9")} />
             {!collapsed && (
               <div>
                 <h1 className="text-base font-bold text-sidebar-primary-foreground tracking-tight">Expedição</h1>
