@@ -51,12 +51,17 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   return (
     <div className="space-y-3">
       {data.map((c) => (
-        <Card key={c.id} className="border-border/60">
+        <Card key={c.id} className={cn("border-border/60", c.ruptura && "border-l-4 border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20")}>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <EtapaBadge etapa={c.etapa} />
                 <StatusBadge status={c.status} />
+                {c.ruptura && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
+                    <AlertTriangle className="h-3 w-3" /> Ruptura
+                  </span>
+                )}
               </div>
               {(isAdmin || isLogistica) && (
                 <div className="flex gap-1 shrink-0">
