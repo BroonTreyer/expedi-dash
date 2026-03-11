@@ -72,6 +72,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   const isFaturamento = userRole === "faturamento";
   const canChangeStatus = isAdmin || isLogistica || isFaturamento;
   const canEdit = isAdmin || isFaturamento;
+  const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -116,7 +117,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
               {isOpen && (
                 <div className="divide-y divide-border/40">
                   {group.items.map((c, idx) => (
-                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} />
+                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} />
                   ))}
                 </div>
               )}
@@ -124,14 +125,14 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
           );
         }
         const c = group.items[0];
-        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} />;
+        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} />;
       })}
     </div>
   );
 }
 
-function MobileCardItem({ c, isAdmin, canEdit, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
-  c: Carregamento; isAdmin: boolean; canEdit: boolean; hasActions: boolean; canChangeStatus: boolean;
+function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
+  c: Carregamento; isAdmin: boolean; canEdit: boolean; canComplete: boolean; hasActions: boolean; canChangeStatus: boolean;
   onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onComplete: (c: Carregamento) => void;
   statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean;
 }) {
@@ -149,7 +150,7 @@ function MobileCardItem({ c, isAdmin, canEdit, hasActions, canChangeStatus, onSt
         </div>
         {hasActions && (
           <div className="flex gap-1 shrink-0">
-            {c.etapa === "vendas" && (
+            {canComplete && c.etapa === "vendas" && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
                 <ClipboardCheck className="h-3.5 w-3.5" />
               </Button>
@@ -226,6 +227,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const isFaturamento = userRole === "faturamento";
   const canChangeStatus = isAdmin || isLogistica || isFaturamento;
   const canEdit = isAdmin || isFaturamento;
+  const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -324,7 +326,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   {hasActions && (
                     <TableCell>
                       <div className="flex gap-1">
-                        {c.etapa === "vendas" && (
+                        {canComplete && c.etapa === "vendas" && (
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
                             <ClipboardCheck className="h-3.5 w-3.5" />
                           </Button>
@@ -404,7 +406,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   {hasActions && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
-                        {first.etapa === "vendas" && (
+                        {canComplete && first.etapa === "vendas" && (
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(first)}>
                             <ClipboardCheck className="h-3.5 w-3.5" />
                           </Button>

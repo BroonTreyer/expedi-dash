@@ -89,11 +89,11 @@ export default function Index() {
   }, [canEdit]);
 
   const handleComplete = useCallback((c: Carregamento) => {
-    if (!isAdmin && !isLogistica && !isFaturamento) return;
+    if (!isAdmin && !isLogistica) return;
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
-  }, [isAdmin, isLogistica, isFaturamento]);
+  }, [isAdmin, isLogistica]);
 
   const handleNewPedido = useCallback(() => {
     setEditing(null);

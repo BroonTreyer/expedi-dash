@@ -75,11 +75,11 @@ export default function Rupturas() {
   }, [canEdit]);
 
   const handleComplete = useCallback((c: Carregamento) => {
-    if (!isAdmin && !isLogistica && !isFaturamento) return;
+    if (!isAdmin && !isLogistica) return;
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
-  }, [isAdmin, isLogistica, isFaturamento]);
+  }, [isAdmin, isLogistica]);
 
   const handleDeleteRequest = useCallback((id: string) => setDeleteId(id), []);
   const handleDeleteConfirm = useCallback(() => {
