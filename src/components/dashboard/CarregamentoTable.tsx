@@ -4,10 +4,11 @@ import { EtapaBadge } from "./EtapaBadge";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, Edit, ClipboardCheck } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { AppRole } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 interface Props {
   data: Carregamento[];
@@ -51,12 +52,17 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   return (
     <div className="space-y-3">
       {data.map((c) => (
-        <Card key={c.id} className="border-border/60">
+        <Card key={c.id} className={cn("border-border/60", c.ruptura && "border-l-4 border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20")}>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <EtapaBadge etapa={c.etapa} />
                 <StatusBadge status={c.status} />
+                {c.ruptura && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
+                    <AlertTriangle className="h-3 w-3" /> Ruptura
+                  </span>
+                )}
               </div>
               {(isAdmin || isLogistica) && (
                 <div className="flex gap-1 shrink-0">
@@ -147,8 +153,13 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             </TableRow>
           )}
           {data.map((c) => (
-            <TableRow key={c.id} className="hover:bg-muted/30">
-              <TableCell><EtapaBadge etapa={c.etapa} /></TableCell>
+             <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  <EtapaBadge etapa={c.etapa} />
+                  {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                </div>
+              </TableCell>
               <TableCell>
                 {canChangeStatus ? (
                   <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} />

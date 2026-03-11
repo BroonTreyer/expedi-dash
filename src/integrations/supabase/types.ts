@@ -31,6 +31,7 @@ export type Database = {
           peso: number | null
           placa: string | null
           quantidade: number | null
+          ruptura: boolean
           status: string
           tipo_caminhao: string | null
           uf: string | null
@@ -53,6 +54,7 @@ export type Database = {
           peso?: number | null
           placa?: string | null
           quantidade?: number | null
+          ruptura?: boolean
           status?: string
           tipo_caminhao?: string | null
           uf?: string | null
@@ -75,6 +77,7 @@ export type Database = {
           peso?: number | null
           placa?: string | null
           quantidade?: number | null
+          ruptura?: boolean
           status?: string
           tipo_caminhao?: string | null
           uf?: string | null

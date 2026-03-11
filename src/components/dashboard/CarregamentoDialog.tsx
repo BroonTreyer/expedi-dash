@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -257,6 +258,17 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+                <Checkbox
+                  id="ruptura"
+                  checked={form.ruptura ?? false}
+                  onCheckedChange={(checked) => set("ruptura", !!checked)}
+                />
+                <Label htmlFor="ruptura" className="text-xs font-medium text-amber-600 cursor-pointer">
+                  Ruptura de estoque (item sem disponibilidade)
+                </Label>
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
