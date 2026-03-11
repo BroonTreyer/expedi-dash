@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           cidade: string | null
           cliente: string | null
+          codigo_cliente: string | null
           codigo_produto: string | null
           created_at: string
           data: string
@@ -42,6 +43,7 @@ export type Database = {
         Insert: {
           cidade?: string | null
           cliente?: string | null
+          codigo_cliente?: string | null
           codigo_produto?: string | null
           created_at?: string
           data?: string
@@ -66,6 +68,7 @@ export type Database = {
         Update: {
           cidade?: string | null
           cliente?: string | null
+          codigo_cliente?: string | null
           codigo_produto?: string | null
           created_at?: string
           data?: string
@@ -96,6 +99,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      clientes: {
+        Row: {
+          ativo: boolean
+          codigo_cliente: string
+          created_at: string
+          id: string
+          nome_cliente: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo_cliente: string
+          created_at?: string
+          id?: string
+          nome_cliente: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo_cliente?: string
+          created_at?: string
+          id?: string
+          nome_cliente?: string
+        }
+        Relationships: []
       }
       produtos: {
         Row: {
