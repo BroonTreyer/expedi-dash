@@ -8,7 +8,7 @@ interface Props {
     status: string;
     vendedor: string;
     tipoCaminhao: string;
-    cidade: string;
+    
     busca: string;
     data: string;
     etapa: string;
