@@ -11,6 +11,7 @@ import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
 import { Button } from "@/components/ui/button";
 import { Plus, TableIcon, Columns3 } from "lucide-react";
+import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 
 const today = new Date().toISOString().split("T")[0];
 
