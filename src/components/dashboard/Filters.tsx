@@ -11,6 +11,7 @@ interface Props {
     busca: string;
     data: string;
     etapa: string;
+    ruptura: string;
   };
   onChange: (f: Props["filters"]) => void;
   vendedores: { id: string; nome_vendedor: string }[];

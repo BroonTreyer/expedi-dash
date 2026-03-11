@@ -51,6 +51,8 @@ export default function Index() {
       if (filters.vendedor !== "todos" && c.vendedor_id !== filters.vendedor) return false;
       if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
       if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
+      if (filters.ruptura === "sim" && !c.ruptura) return false;
+      if (filters.ruptura === "nao" && c.ruptura) return false;
       if (filters.busca) {
         const b = filters.busca.toLowerCase();
         if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b)) return false;
