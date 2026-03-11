@@ -69,7 +69,10 @@ function buildGroups(data: Carregamento[]): Group[] {
 function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [] }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
-  const canChangeStatus = isAdmin || isLogistica;
+  const isFaturamento = userRole === "faturamento";
+  const canChangeStatus = isAdmin || isLogistica || isFaturamento;
+  const canEdit = isAdmin || isFaturamento;
+  const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const groups = useMemo(() => buildGroups(data), [data]);
