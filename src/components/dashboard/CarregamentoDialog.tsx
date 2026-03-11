@@ -18,6 +18,7 @@ interface ProductItem {
   quantidade: number;
   peso: number;
   pesoPadrao: number;
+  ruptura: boolean;
 }
 
 const emptyItem = (): ProductItem => ({
