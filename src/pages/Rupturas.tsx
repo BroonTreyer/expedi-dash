@@ -75,7 +75,7 @@ export default function Rupturas() {
   }, [canEdit]);
 
   const handleComplete = useCallback((c: Carregamento) => {
-    if (!isAdmin && !isLogistica && !isFaturamento) return;
+    if (!isAdmin && !isLogistica) return;
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
