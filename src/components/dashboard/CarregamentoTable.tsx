@@ -226,10 +226,12 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             </TableRow>
           )}
           {data.map((c, idx) => {
-            // Determine if this row starts a new pedido group for visual grouping
             const prevPedido = idx > 0 ? data[idx - 1].numero_pedido : null;
+            const nextPedido = idx < data.length - 1 ? data[idx + 1].numero_pedido : null;
             const isNewGroup = c.numero_pedido !== null && c.numero_pedido !== prevPedido;
             const isGrouped = c.numero_pedido !== null && idx > 0 && c.numero_pedido === prevPedido;
+            const isLastInGroup = c.numero_pedido !== null && c.numero_pedido !== nextPedido;
+            const isInGroup = isNewGroup || isGrouped;
 
             return (
               <TableRow
@@ -238,36 +240,43 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   "hover:bg-muted/30",
                   c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20",
                   isNewGroup && "border-t-2 border-t-primary/30",
-                  isGrouped && "bg-muted/10"
+                  isInGroup && "bg-primary/[0.03]",
+                  isGrouped && "border-t-0",
+                  isInGroup && !isLastInGroup && "border-b-0"
                 )}
               >
                 <TableCell className="text-sm font-mono font-medium text-primary">
-                  {c.numero_pedido ?? "—"}
+                  {isGrouped ? "" : (c.numero_pedido ?? "—")}
                 </TableCell>
               {!hideColumns.includes("etapa") && (
                 <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <EtapaBadge etapa={c.etapa} />
-                    {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-                  </div>
+                  {!isGrouped && (
+                    <div className="flex items-center gap-1.5">
+                      <EtapaBadge etapa={c.etapa} />
+                      {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                    </div>
+                  )}
+                  {isGrouped && c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                 </TableCell>
               )}
               <TableCell>
-                {canChangeStatus ? (
-                  <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
-                ) : (
-                  <span className="text-sm">{c.status}</span>
-                )}
+                {!isGrouped ? (
+                  canChangeStatus ? (
+                    <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
+                  ) : (
+                    <span className="text-sm">{c.status}</span>
+                  )
+                ) : null}
               </TableCell>
-              <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
+              <TableCell className="text-sm">{isGrouped ? "" : (c.vendedores?.nome_vendedor ?? "—")}</TableCell>
               <TableCell className="text-sm font-mono">{c.codigo_produto ?? "—"}</TableCell>
               <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
               {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>}
               {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
-              <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
-              <TableCell><PendingCell value={c.motorista} /></TableCell>
-              <TableCell className="text-sm">{c.cliente ?? "—"}</TableCell>
-              <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
+              <TableCell>{isGrouped ? "" : <PendingCell value={c.tipo_caminhao} />}</TableCell>
+              <TableCell>{isGrouped ? "" : <PendingCell value={c.motorista} />}</TableCell>
+              <TableCell className="text-sm">{isGrouped ? "" : (c.cliente ?? "—")}</TableCell>
+              <TableCell className="text-sm">{isGrouped ? "" : (c.uf ?? "—")}</TableCell>
               {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
