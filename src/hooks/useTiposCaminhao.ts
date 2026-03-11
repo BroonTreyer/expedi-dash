@@ -10,6 +10,7 @@ export function useTiposCaminhao() {
       if (error) throw error;
       return data;
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 

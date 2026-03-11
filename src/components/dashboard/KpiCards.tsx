@@ -6,7 +6,9 @@ interface Props {
   data: Carregamento[];
 }
 
-export function KpiCards({ data }: Props) {
+import React from "react";
+
+export const KpiCards = React.memo(function KpiCards({ data }: Props) {
   const totalCargas = data.length;
   const pesoTotal = data.reduce((s, c) => s + (c.peso ?? 0), 0);
   const pesoCarregado = data.filter(c => c.status === "Carregado").reduce((s, c) => s + (c.peso ?? 0), 0);
