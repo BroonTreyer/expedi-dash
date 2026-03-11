@@ -90,7 +90,10 @@ export default function Index() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Painel de Expedição</h1>
-            <p className="text-sm text-muted-foreground">Acompanhamento diário de carregamentos</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">Acompanhamento diário de carregamentos</p>
+              <RealtimeIndicator />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex border border-border rounded-md">
