@@ -461,7 +461,22 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
                     <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
                     <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>{c.observacoes || "—"}</TableCell>
-                    {hasActions && <TableCell />}
+                    {hasActions && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-1">
+                          {canEdit && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {isAdmin && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </Fragment>
