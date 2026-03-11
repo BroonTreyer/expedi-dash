@@ -1,5 +1,5 @@
 import React from "react";
-import { Package, Weight, Truck, Clock, CheckCircle, ClipboardList } from "lucide-react";
+import { Package, Weight, Truck, Clock, CheckCircle, ClipboardList, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
