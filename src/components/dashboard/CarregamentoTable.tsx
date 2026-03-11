@@ -119,7 +119,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
 
             {canChangeStatus && (
               <div className="pt-1 border-t border-border">
-                <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} />
+                <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
               </div>
             )}
           </CardContent>
