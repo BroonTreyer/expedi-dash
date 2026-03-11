@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { STATUSES } from "@/lib/constants";
+import { Separator } from "@/components/ui/separator";
+import { STATUSES, RUPTURA_STATUSES } from "@/lib/constants";
 import { Search } from "lucide-react";
 
 interface Props {
@@ -46,6 +47,8 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         <SelectContent>
           <SelectItem value="todos">Todos os Status</SelectItem>
           {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          <Separator className="my-1" />
+          {RUPTURA_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={filters.vendedor} onValueChange={(v) => set("vendedor", v)}>
