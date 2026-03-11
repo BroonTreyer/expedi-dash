@@ -155,6 +155,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Motorista</TableHead>
             <TableHead>Cliente</TableHead>
             <TableHead>UF</TableHead>
+            {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
             <TableHead>Obs</TableHead>
