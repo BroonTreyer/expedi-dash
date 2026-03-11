@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { forwardRef } from "react";
 import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2 } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo.png";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,12 @@ interface Props {
   collapsed?: boolean;
   onNavigate?: () => void;
 }
+
+// forwardRef wrapper for Link to avoid ref warnings with TooltipTrigger
+const RefLink = forwardRef<HTMLAnchorElement, React.ComponentProps<typeof Link>>((props, ref) => (
+  <Link ref={ref} {...props} />
+));
+RefLink.displayName = "RefLink";
 
 export function AppSidebar({ collapsed, onNavigate }: Props) {
   const location = useLocation();
@@ -48,7 +55,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
           {navItems.map((item) => {
             const active = location.pathname === item.to;
             const link = (
-              <Link
+              <RefLink
                 key={item.to}
                 to={item.to}
                 onClick={onNavigate}
@@ -62,7 +69,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
               >
                 <item.icon className="h-4 w-4 shrink-0" />
                 {!collapsed && item.label}
-              </Link>
+              </RefLink>
             );
 
             if (collapsed) {

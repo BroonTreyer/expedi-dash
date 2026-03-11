@@ -53,16 +53,23 @@ function formatPesoAprox(peso: number | null, tipoCaminhao: string | null) {
 }
 
 function buildGroups(data: Carregamento[]): Group[] {
-  const groups: Group[] = [];
+  const map = new Map<string, Group>();
+  const singles: Group[] = [];
   for (const c of data) {
-    const last = groups[groups.length - 1];
-    if (c.numero_pedido !== null && last && last.pedido === c.numero_pedido) {
-      last.items.push(c);
+    if (c.numero_pedido !== null) {
+      const key = String(c.numero_pedido);
+      if (map.has(key)) {
+        map.get(key)!.items.push(c);
+      } else {
+        const g: Group = { pedido: c.numero_pedido, items: [c] };
+        map.set(key, g);
+      }
     } else {
-      groups.push({ pedido: c.numero_pedido, items: [c] });
+      singles.push({ pedido: null, items: [c] });
     }
   }
-  return groups;
+  // Preserve insertion order from map, then singles at end
+  return [...map.values(), ...singles];
 }
 
 // ─── Mobile ───
@@ -246,7 +253,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     });
   };
 
-  const colCount = 11
+  // Fixed columns: chevron, pedido, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, UF, inicio, fim, obs = 13
+  const colCount = 13
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("qtd") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
@@ -384,7 +392,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   )}
                   <TableCell>
                     {canChangeStatus ? (
-                      <StatusSelect value={first.status} onChange={(s) => onStatusChange(first.id, s)} statuses={statuses} statusColors={statusColors} />
+                      <StatusSelect value={first.status} onChange={(s) => group.items.forEach(i => onStatusChange(i.id, s))} statuses={statuses} statusColors={statusColors} />
                     ) : (
                       <StatusBadge status={first.status} statusColors={statusColors} />
                     )}
@@ -418,7 +426,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                           </Button>
                         )}
                         {isAdmin && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(first.id)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => group.items.forEach(i => onDelete(i.id))}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
