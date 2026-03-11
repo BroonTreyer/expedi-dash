@@ -11,6 +11,7 @@ interface Props {
     busca: string;
     data: string;
     etapa: string;
+    ruptura: string;
   };
   onChange: (f: Props["filters"]) => void;
   vendedores: { id: string; nome_vendedor: string }[];
@@ -63,6 +64,16 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         <SelectContent>
           <SelectItem value="todos">Todos Tipos</SelectItem>
           {tiposCaminhao.map((t) => <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={filters.ruptura} onValueChange={(v) => set("ruptura", v)}>
+        <SelectTrigger className="h-9 text-sm md:w-[140px]">
+          <SelectValue placeholder="Ruptura" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todas</SelectItem>
+          <SelectItem value="sim">Com Ruptura</SelectItem>
+          <SelectItem value="nao">Sem Ruptura</SelectItem>
         </SelectContent>
       </Select>
       <div className="relative col-span-2 sm:col-span-1 md:flex-1 md:min-w-[130px] md:max-w-[180px]">
