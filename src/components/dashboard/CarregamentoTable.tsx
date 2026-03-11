@@ -223,7 +223,10 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
-  const canChangeStatus = isAdmin || isLogistica;
+  const isFaturamento = userRole === "faturamento";
+  const canChangeStatus = isAdmin || isLogistica || isFaturamento;
+  const canEdit = isAdmin || isFaturamento;
+  const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const groups = useMemo(() => buildGroups(data), [data]);
