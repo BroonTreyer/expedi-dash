@@ -9,11 +9,9 @@ import fricoLogo from "@/assets/frico-logo.png";
 import { toast } from "sonner";
 
 export default function Auth() {
-  const { user, loading, signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const { user, loading, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [nome, setNome] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
@@ -30,19 +28,8 @@ export default function Auth() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) toast.error(error);
-      } else {
-        if (!nome.trim()) {
-          toast.error("Informe seu nome");
-          setSubmitting(false);
-          return;
-        }
-        const { error } = await signUp(email, password, nome);
-        if (error) toast.error(error);
-        else toast.success("Conta criada com sucesso!");
-      }
+      const { error } = await signIn(email, password);
+      if (error) toast.error(error);
     } finally {
       setSubmitting(false);
     }
@@ -56,18 +43,10 @@ export default function Auth() {
             <img src={fricoLogo} alt="Frico Alimentos" className="h-16 w-auto" />
           </div>
           <CardTitle className="text-2xl">Expedição</CardTitle>
-          <CardDescription>
-            {isLogin ? "Entre com suas credenciais" : "Crie sua conta"}
-          </CardDescription>
+          <CardDescription>Entre com suas credenciais</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome</Label>
-                <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" required={!isLogin} />
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" required />
@@ -77,14 +56,9 @@ export default function Auth() {
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
             </div>
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Aguarde..." : isLogin ? "Entrar" : "Criar conta"}
+              {submitting ? "Aguarde..." : "Entrar"}
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            <button type="button" className="text-sm text-primary hover:underline" onClick={() => setIsLogin(!isLogin)}>
-              {isLogin ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>
