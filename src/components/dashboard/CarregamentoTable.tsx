@@ -20,6 +20,7 @@ interface Props {
   statuses?: readonly string[];
   statusColors?: Record<string, string>;
   showPesoAprox?: boolean;
+  hideColumns?: string[];
 }
 
 function formatTime(val: string | null) {
@@ -44,7 +45,7 @@ function formatPesoAprox(peso: number | null, tipoCaminhao: string | null) {
   return tipoCaminhao ? `${ton} TON - ${tipoCaminhao}` : `${ton} TON`;
 }
 
-function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox }: Props) {
+function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [] }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const canChangeStatus = isAdmin || isLogistica;
@@ -64,7 +65,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
           <CardContent className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <EtapaBadge etapa={c.etapa} />
+                {!hideColumns.includes("etapa") && <EtapaBadge etapa={c.etapa} />}
                 <StatusBadge status={c.status} statusColors={statusColors} />
                 {c.ruptura && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
@@ -99,8 +100,12 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              <div className="text-muted-foreground">Qtd / Peso</div>
-              <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
+              {!hideColumns.includes("qtd") && !hideColumns.includes("peso") && (
+                <>
+                  <div className="text-muted-foreground">Qtd / Peso</div>
+                  <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
+                </>
+              )}
               {showPesoAprox && (
                 <>
                   <div className="text-muted-foreground">Peso Aprox.</div>
@@ -129,14 +134,14 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   );
 }
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox }: Props) {
+export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [] }: Props) {
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const canChangeStatus = isAdmin || isLogistica;
 
   if (isMobile) {
-    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} />;
+    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} />;
   }
 
   return (
@@ -144,13 +149,13 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40">
-            <TableHead className="w-[120px]">Etapa</TableHead>
+            {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
             <TableHead className="w-[160px]">Status</TableHead>
             <TableHead>Vendedor</TableHead>
             <TableHead>Cód. Produto</TableHead>
             <TableHead>Produto</TableHead>
-            <TableHead className="text-right">Qtd</TableHead>
-            <TableHead className="text-right">Peso (kg)</TableHead>
+            {!hideColumns.includes("qtd") && <TableHead className="text-right">Qtd</TableHead>}
+            {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
             <TableHead>Caminhão</TableHead>
             <TableHead>Motorista</TableHead>
             <TableHead>Cliente</TableHead>
@@ -165,19 +170,21 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
         <TableBody>
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={(isAdmin || isLogistica ? 15 : 14) + (showPesoAprox ? 1 : 0)} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={99} className="text-center py-8 text-muted-foreground">
                 Nenhum carregamento encontrado
               </TableCell>
             </TableRow>
           )}
           {data.map((c) => (
              <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
-              <TableCell>
-                <div className="flex items-center gap-1.5">
-                  <EtapaBadge etapa={c.etapa} />
-                  {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-                </div>
-              </TableCell>
+              {!hideColumns.includes("etapa") && (
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <EtapaBadge etapa={c.etapa} />
+                    {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                  </div>
+                </TableCell>
+              )}
               <TableCell>
                 {canChangeStatus ? (
                   <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
@@ -188,8 +195,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
               <TableCell className="text-sm font-mono">{c.codigo_produto ?? "—"}</TableCell>
               <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
-              <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>
-              <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
+              {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>}
+              {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
               <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
               <TableCell><PendingCell value={c.motorista} /></TableCell>
               <TableCell className="text-sm">{c.cliente ?? "—"}</TableCell>
