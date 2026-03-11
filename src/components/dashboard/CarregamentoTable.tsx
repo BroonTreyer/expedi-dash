@@ -221,12 +221,12 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
 
 // ─── Desktop ───
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [] }: Props) {
+export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const isFaturamento = userRole === "faturamento";
-  const canChangeStatus = isAdmin || isLogistica || isFaturamento;
+  const canChangeStatus = canChangeStatusProp ?? (isAdmin || isLogistica || isFaturamento);
   const canEdit = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;

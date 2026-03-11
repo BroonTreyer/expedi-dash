@@ -165,6 +165,7 @@ export default function Rupturas() {
             statusColors={RUPTURA_STATUS_COLORS}
             showPesoAprox
             hideColumns={["etapa", "qtd", "peso"]}
+            canChangeStatus={isAdmin || isLogistica}
           />
         )}
 
