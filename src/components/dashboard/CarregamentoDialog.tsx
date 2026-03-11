@@ -53,7 +53,7 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
   editar: "Edite todos os campos do carregamento",
 };
 
-export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate }: Props) {
+export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate, defaultRuptura }: Props) {
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
   const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
