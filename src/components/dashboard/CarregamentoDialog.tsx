@@ -27,6 +27,7 @@ const emptyItem = (): ProductItem => ({
   quantidade: 1,
   peso: 0,
   pesoPadrao: 0,
+  ruptura: false,
 });
 
 interface Props {
