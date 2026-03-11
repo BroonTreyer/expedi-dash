@@ -34,13 +34,13 @@
 
     --radius: 0.5rem;
 
-    --sidebar-background: 358 76% 48%;
+    --sidebar-background: 358 76% 30%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 358 76% 42%;
+    --sidebar-accent: 358 76% 25%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 358 76% 40%;
+    --sidebar-border: 358 76% 22%;
     --sidebar-ring: 0 0% 100%;
 
     /* Status colors */

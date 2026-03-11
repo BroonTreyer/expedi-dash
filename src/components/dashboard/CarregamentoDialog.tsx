@@ -37,14 +37,19 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
 export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate }: Props) {
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
+  const [pesoPadrao, setPesoPadrao] = useState<number>(0);
+
   useEffect(() => {
     if (editing) {
       setForm({ ...editing });
       const v = vendedores.find(v => v.id === editing.vendedor_id);
       setCodigoVendedorInput(v?.codigo_vendedor ?? "");
+      const p = produtos.find(p => p.codigo_produto === editing.codigo_produto);
+      setPesoPadrao(p?.peso_padrao ?? 0);
     } else {
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", quantidade: 1, peso: 0 });
       setCodigoVendedorInput("");
+      setPesoPadrao(0);
     }
   }, [editing, open, selectedDate]);
 
@@ -61,9 +66,14 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     set("codigo_produto", codigo);
     const found = produtos.find((p) => p.codigo_produto.toLowerCase() === codigo.toLowerCase());
     if (found) {
-      set("nome_produto", found.nome_produto);
-      set("peso", found.peso_padrao ?? 0);
+      const pp = found.peso_padrao ?? 0;
+      setPesoPadrao(pp);
+      setForm((f) => ({ ...f, nome_produto: found.nome_produto, peso: pp * (f.quantidade ?? 1) }));
     }
+  };
+
+  const handleQuantidade = (qty: number) => {
+    setForm((f) => ({ ...f, quantidade: qty, peso: pesoPadrao * qty }));
   };
 
   const handleSubmit = () => {
@@ -124,7 +134,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Quantidade</Label>
-                <Input type="number" value={form.quantidade ?? 0} onChange={(e) => set("quantidade", Number(e.target.value))} />
+                <Input type="number" value={form.quantidade ?? 0} onChange={(e) => handleQuantidade(Number(e.target.value))} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Peso (kg)</Label>
