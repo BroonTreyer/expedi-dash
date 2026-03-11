@@ -65,6 +65,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       setForm({ ...editing });
       const v = vendedores.find(v => v.id === editing.vendedor_id);
       setCodigoVendedorInput(v?.codigo_vendedor ?? "");
+      setCodigoClienteInput(editing.codigo_cliente ?? "");
       const p = produtos.find(p => p.codigo_produto === editing.codigo_produto);
       setItems([{
         codigo_produto: editing.codigo_produto ?? "",
