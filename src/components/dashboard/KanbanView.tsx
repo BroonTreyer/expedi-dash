@@ -20,10 +20,13 @@ const COLUMN_BORDER: Record<CarregamentoStatus, string> = {
 };
 
 export function KanbanView({ data, onStatusChange }: Props) {
+  // Filter out items that have ruptura-specific statuses (they belong in the Rupturas page)
+  const dashboardData = data.filter((c) => !RUPTURA_STATUSES.includes(c.status as any));
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {STATUSES.map((status) => {
-        const items = data.filter((c) => c.status === status);
+        const items = dashboardData.filter((c) => c.status === status);
         return (
           <div key={status} className={cn("rounded-lg border border-border bg-muted/30 border-t-4", COLUMN_BORDER[status])}>
             <div className="p-3 border-b border-border flex items-center justify-between">

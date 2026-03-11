@@ -253,7 +253,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     });
   };
 
-  const colCount = 11
+  // Fixed columns: chevron, pedido, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, UF, inicio, fim, obs = 13
+  const colCount = 13
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("qtd") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)

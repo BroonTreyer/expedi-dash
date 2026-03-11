@@ -69,7 +69,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
               >
                 <item.icon className="h-4 w-4 shrink-0" />
                 {!collapsed && item.label}
-              </Link>
+              </RefLink>
             );
 
             if (collapsed) {
