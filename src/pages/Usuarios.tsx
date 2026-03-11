@@ -19,6 +19,81 @@ interface UserRow {
   role: AppRole;
 }
 
+const ROLE_LABELS: Record<AppRole, string> = {
+  admin: "Admin",
+  logistica: "Logística",
+  faturamento: "Faturamento",
+};
+
+function RoleSelect({ value, onChange }: { value: AppRole; onChange: (v: AppRole) => void }) {
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as AppRole)}>
+      <SelectTrigger className="h-8 text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="admin">Admin</SelectItem>
+        <SelectItem value="logistica">Logística</SelectItem>
+        <SelectItem value="faturamento">Faturamento</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function UserList({ users, onRoleChange }: { users: UserRow[]; onRoleChange: (id: string, role: AppRole) => void }) {
+  const isMobile = useIsMobile();
+
+  if (users.length === 0) {
+    return <p className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</p>;
+  }
+
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {users.map((u) => (
+          <div key={u.id} className="rounded-lg border border-border bg-card p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium">{u.nome || "—"}</p>
+              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Nível</span>
+              <div className="w-[140px]">
+                <RoleSelect value={u.role} onChange={(v) => onRoleChange(u.id, v)} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/40">
+            <TableHead>Nome</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead className="w-[180px]">Nível</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {users.map((u) => (
+            <TableRow key={u.id}>
+              <TableCell className="text-sm font-medium">{u.nome || "—"}</TableCell>
+              <TableCell className="text-sm">{u.email}</TableCell>
+              <TableCell>
+                <RoleSelect value={u.role} onChange={(v) => onRoleChange(u.id, v)} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export default function Usuarios() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
