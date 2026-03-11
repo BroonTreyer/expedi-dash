@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useCallback, useRef } from "react";
 
 export type Carregamento = {
   id: string;
@@ -27,32 +27,76 @@ export type Carregamento = {
   vendedores?: { nome_vendedor: string } | null;
 };
 
+export type RealtimeStatus = "connecting" | "connected" | "disconnected";
+
 export function useCarregamentos(date: string) {
   const queryClient = useQueryClient();
+  const realtimeStatusRef = useRef<RealtimeStatus>("connecting");
+  const statusCallbackRef = useRef<((s: RealtimeStatus) => void) | null>(null);
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel("carregamentos-realtime")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "carregamentos_dia",
-        },
-        () => {
+        { event: "INSERT", schema: "public", table: "carregamentos_dia" },
+        (payload) => {
+          // For inserts, invalidate to get full data with joins
           queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
         }
       )
-      .subscribe();
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "carregamentos_dia" },
+        (payload) => {
+          const updated = payload.new as any;
+          // Patch cache directly instead of refetching
+          queryClient.setQueriesData<Carregamento[]>(
+            { queryKey: ["carregamentos"] },
+            (old) => {
+              if (!old) return old;
+              return old.map((item) =>
+                item.id === updated.id ? { ...item, ...updated } : item
+              );
+            }
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "carregamentos_dia" },
+        (payload) => {
+          const deleted = payload.old as any;
+          queryClient.setQueriesData<Carregamento[]>(
+            { queryKey: ["carregamentos"] },
+            (old) => {
+              if (!old) return old;
+              return old.filter((item) => item.id !== deleted.id);
+            }
+          );
+        }
+      )
+      .subscribe((state) => {
+        const s: RealtimeStatus =
+          state === "SUBSCRIBED" ? "connected" :
+          state === "CLOSED" || state === "CHANNEL_ERROR" ? "disconnected" :
+          "connecting";
+        realtimeStatusRef.current = s;
+        statusCallbackRef.current?.(s);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
 
-  return useQuery({
+  const subscribeStatus = useCallback((cb: (s: RealtimeStatus) => void) => {
+    statusCallbackRef.current = cb;
+    cb(realtimeStatusRef.current);
+    return () => { statusCallbackRef.current = null; };
+  }, []);
+
+  const query = useQuery({
     queryKey: ["carregamentos", date],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -63,9 +107,10 @@ export function useCarregamentos(date: string) {
       if (error) throw error;
       return data as Carregamento[];
     },
-    staleTime: 5000,
-    refetchInterval: 30000,
+    staleTime: 30_000,
   });
+
+  return { ...query, subscribeStatus };
 }
 
 export function useCreateCarregamento() {
@@ -92,10 +137,36 @@ export function useUpdateCarregamento() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+    onMutate: async (variables) => {
+      const { id, ...values } = variables;
+      // Cancel outgoing refetches
+      await qc.cancelQueries({ queryKey: ["carregamentos"] });
+      // Snapshot previous value
+      const previousQueries = qc.getQueriesData<Carregamento[]>({ queryKey: ["carregamentos"] });
+      // Optimistically update all matching queries
+      qc.setQueriesData<Carregamento[]>(
+        { queryKey: ["carregamentos"] },
+        (old) => {
+          if (!old) return old;
+          return old.map((item) =>
+            item.id === id ? { ...item, ...values } : item
+          );
+        }
+      );
+      return { previousQueries };
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any, _vars, context) => {
+      // Rollback on error
+      if (context?.previousQueries) {
+        for (const [key, data] of context.previousQueries) {
+          qc.setQueryData(key, data);
+        }
+      }
+      toast.error(e.message);
+    },
+    onSettled: () => {
+      // Don't invalidate — realtime will patch the cache
+    },
   });
 }
 
@@ -106,10 +177,25 @@ export function useDeleteCarregamento() {
       const { error } = await supabase.from("carregamentos_dia").delete().eq("id", id);
       if (error) throw error;
     },
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["carregamentos"] });
+      const previousQueries = qc.getQueriesData<Carregamento[]>({ queryKey: ["carregamentos"] });
+      qc.setQueriesData<Carregamento[]>(
+        { queryKey: ["carregamentos"] },
+        (old) => old ? old.filter((item) => item.id !== id) : old
+      );
+      return { previousQueries };
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["carregamentos"] });
       toast.success("Carregamento excluído");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any, _id, context) => {
+      if (context?.previousQueries) {
+        for (const [key, data] of context.previousQueries) {
+          qc.setQueryData(key, data);
+        }
+      }
+      toast.error(e.message);
+    },
   });
 }

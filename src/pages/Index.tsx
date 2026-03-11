@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { Filters } from "@/components/dashboard/Filters";
@@ -44,53 +44,61 @@ export default function Index() {
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
 
-  const filtered = carregamentos.filter((c) => {
-    if (filters.status !== "todos" && c.status !== filters.status) return false;
-    if (filters.vendedor !== "todos" && c.vendedor_id !== filters.vendedor) return false;
-    if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
-    if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
-    if (filters.busca) {
-      const b = filters.busca.toLowerCase();
-      if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b)) return false;
-    }
-    return true;
-  });
+  const filtered = useMemo(() => {
+    return carregamentos.filter((c) => {
+      if (filters.status !== "todos" && c.status !== filters.status) return false;
+      if (filters.vendedor !== "todos" && c.vendedor_id !== filters.vendedor) return false;
+      if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
+      if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
+      if (filters.busca) {
+        const b = filters.busca.toLowerCase();
+        if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b)) return false;
+      }
+      return true;
+    });
+  }, [carregamentos, filters]);
 
-  const handleStatusChange = (id: string, status: string) => {
+  const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica) return;
     const updates: Record<string, any> = { id, status };
     if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
     if (status === "Carregado") updates.horario_fim = new Date().toISOString();
     updateMut.mutate(updates);
-  };
+  }, [isAdmin, isLogistica, updateMut]);
 
-  const handleSubmit = (values: Record<string, any>) => {
+  const handleSubmit = useCallback((values: Record<string, any>) => {
     if (values.id) {
       updateMut.mutate(values);
     } else {
       createMut.mutate(values);
     }
-  };
+  }, [updateMut, createMut]);
 
-  const handleEdit = (c: Carregamento) => {
+  const handleEdit = useCallback((c: Carregamento) => {
     if (!isAdmin) return;
     setEditing(c);
     setDialogMode("editar");
     setDialogOpen(true);
-  };
+  }, [isAdmin]);
 
-  const handleComplete = (c: Carregamento) => {
+  const handleComplete = useCallback((c: Carregamento) => {
     if (!isAdmin && !isLogistica) return;
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
-  };
+  }, [isAdmin, isLogistica]);
 
-  const handleNewPedido = () => {
+  const handleNewPedido = useCallback(() => {
     setEditing(null);
     setDialogMode("vendas");
     setDialogOpen(true);
-  };
+  }, []);
+
+  const handleDeleteRequest = useCallback((id: string) => setDeleteId(id), []);
+  const handleDeleteConfirm = useCallback(() => {
+    if (deleteId) deleteMut.mutate(deleteId);
+    setDeleteId(null);
+  }, [deleteId, deleteMut]);
 
   return (
     <Layout>
@@ -146,7 +154,7 @@ export default function Index() {
             data={filtered}
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
-            onDelete={(id) => setDeleteId(id)}
+            onDelete={handleDeleteRequest}
             onComplete={handleComplete}
             userRole={role}
           />
@@ -169,7 +177,7 @@ export default function Index() {
         <DeleteConfirmDialog
           open={!!deleteId}
           onOpenChange={(o) => !o && setDeleteId(null)}
-          onConfirm={() => { if (deleteId) deleteMut.mutate(deleteId); setDeleteId(null); }}
+          onConfirm={handleDeleteConfirm}
           description="Tem certeza que deseja excluir este carregamento? Esta ação não pode ser desfeita."
         />
       </div>
