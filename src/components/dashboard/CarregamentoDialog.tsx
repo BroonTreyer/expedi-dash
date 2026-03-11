@@ -40,8 +40,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   useEffect(() => {
     if (editing) {
       setForm({ ...editing });
+      const v = vendedores.find(v => v.id === editing.vendedor_id);
+      setCodigoVendedorInput(v?.codigo_vendedor ?? "");
     } else {
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", quantidade: 1, peso: 0 });
+      setCodigoVendedorInput("");
     }
   }, [editing, open, selectedDate]);
 
