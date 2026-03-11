@@ -396,4 +396,4 @@ export const CarregamentoDialog = React.forwardRef<HTMLDivElement, Props>(
       </DialogContent>
     </Dialog>
   );
-}
+});
