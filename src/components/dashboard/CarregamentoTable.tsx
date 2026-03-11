@@ -134,7 +134,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   );
 }
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox }: Props) {
+export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [] }: Props) {
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
