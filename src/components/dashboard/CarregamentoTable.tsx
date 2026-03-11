@@ -406,7 +406,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   {hasActions && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
-                        {first.etapa === "vendas" && (
+                        {canComplete && first.etapa === "vendas" && (
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(first)}>
                             <ClipboardCheck className="h-3.5 w-3.5" />
                           </Button>

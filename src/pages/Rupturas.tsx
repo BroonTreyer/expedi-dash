@@ -79,7 +79,7 @@ export default function Rupturas() {
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
-  }, [isAdmin, isLogistica, isFaturamento]);
+  }, [isAdmin, isLogistica]);
 
   const handleDeleteRequest = useCallback((id: string) => setDeleteId(id), []);
   const handleDeleteConfirm = useCallback(() => {

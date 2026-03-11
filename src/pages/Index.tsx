@@ -93,7 +93,7 @@ export default function Index() {
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
-  }, [isAdmin, isLogistica, isFaturamento]);
+  }, [isAdmin, isLogistica]);
 
   const handleNewPedido = useCallback(() => {
     setEditing(null);
