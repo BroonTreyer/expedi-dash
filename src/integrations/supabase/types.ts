@@ -29,6 +29,7 @@ export type Database = {
           id: string
           motorista: string | null
           nome_produto: string | null
+          numero_pedido: number | null
           observacoes: string | null
           peso: number | null
           placa: string | null
@@ -54,6 +55,7 @@ export type Database = {
           id?: string
           motorista?: string | null
           nome_produto?: string | null
+          numero_pedido?: number | null
           observacoes?: string | null
           peso?: number | null
           placa?: string | null
@@ -79,6 +81,7 @@ export type Database = {
           id?: string
           motorista?: string | null
           nome_produto?: string | null
+          numero_pedido?: number | null
           observacoes?: string | null
           peso?: number | null
           placa?: string | null
@@ -244,6 +247,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      next_numero_pedido: { Args: { _data: string }; Returns: number }
     }
     Enums: {
       app_role: "admin" | "logistica" | "faturamento"
