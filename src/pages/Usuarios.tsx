@@ -3,7 +3,12 @@ import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Plus } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
 interface UserRow {
@@ -16,6 +21,9 @@ interface UserRow {
 export default function Usuarios() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ email: "", password: "", nome: "", role: "logistica" as AppRole });
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -52,11 +60,83 @@ export default function Usuarios() {
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.email || !form.password || !form.nome) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: { email: form.email, password: form.password, nome: form.nome, role: form.role },
+      });
+      if (error) {
+        toast.error(error.message || "Erro ao criar usuário");
+      } else if (data?.error) {
+        toast.error(data.error);
+      } else {
+        toast.success("Usuário criado com sucesso");
+        setForm({ email: "", password: "", nome: "", role: "logistica" });
+        setDialogOpen(false);
+        fetchUsers();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro inesperado");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <h1 className="text-2xl font-bold tracking-tight">Gerenciar Usuários</h1>
-        <p className="text-sm text-muted-foreground">Defina os níveis de acesso dos usuários</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Gerenciar Usuários</h1>
+            <p className="text-sm text-muted-foreground">Defina os níveis de acesso dos usuários</p>
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Novo Usuário</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Criar Usuário</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Nome completo" required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@exemplo.com" required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Senha</Label>
+                  <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mínimo 6 caracteres" required minLength={6} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nível de Acesso</Label>
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as AppRole })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="logistica">Logística</SelectItem>
+                      <SelectItem value="faturamento">Faturamento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="w-full" disabled={creating}>
+                  {creating ? "Criando..." : "Criar Usuário"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
 
         {loading ? (
           <p className="text-center py-8 text-muted-foreground">Carregando...</p>
