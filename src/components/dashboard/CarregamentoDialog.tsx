@@ -155,16 +155,9 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: item.peso,
       });
     } else {
-      // All items in the same order share the same numero_pedido
-      // The hook will generate it for the first item; we need to get it and reuse
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { data: nextNum } = await supabase.rpc("next_numero_pedido", { _data: basePayload.data });
-      const numeroPedido = nextNum ?? 1;
-
       for (const item of items) {
         onSubmit({
           ...basePayload,
-          numero_pedido: numeroPedido,
           codigo_produto: item.codigo_produto,
           nome_produto: item.nome_produto,
           quantidade: item.quantidade,
@@ -189,6 +182,15 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           {/* === VENDAS FIELDS === */}
           {showVendas && (
             <>
+              <div className="space-y-1.5">
+                <Label className="text-xs">N° Pedido</Label>
+                <Input
+                  type="number"
+                  value={form.numero_pedido ?? ""}
+                  onChange={(e) => set("numero_pedido", e.target.value ? Number(e.target.value) : null)}
+                  placeholder="Ex: 1234"
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Data</Label>
                 <Input type="date" value={form.data ?? ""} onChange={(e) => set("data", e.target.value)} />
