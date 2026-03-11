@@ -391,7 +391,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   )}
                   <TableCell>
                     {canChangeStatus ? (
-                      <StatusSelect value={first.status} onChange={(s) => onStatusChange(first.id, s)} statuses={statuses} statusColors={statusColors} />
+                      <StatusSelect value={first.status} onChange={(s) => group.items.forEach(i => onStatusChange(i.id, s))} statuses={statuses} statusColors={statusColors} />
                     ) : (
                       <StatusBadge status={first.status} statusColors={statusColors} />
                     )}
