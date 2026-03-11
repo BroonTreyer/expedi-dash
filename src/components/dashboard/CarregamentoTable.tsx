@@ -95,7 +95,12 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
             </div>
 
             <div className="space-y-1.5">
-              <div className="font-medium text-sm">{c.nome_produto || c.codigo_produto || "Sem produto"}</div>
+              <div className="flex items-center gap-2">
+                {c.numero_pedido && (
+                  <span className="text-xs font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">#{c.numero_pedido}</span>
+                )}
+                <span className="font-medium text-sm">{c.nome_produto || c.codigo_produto || "Sem produto"}</span>
+              </div>
               <div className="text-xs text-muted-foreground">{c.vendedores?.nome_vendedor ?? "—"}</div>
             </div>
 
