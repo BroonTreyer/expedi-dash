@@ -98,13 +98,13 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
               <div className="space-y-1.5">
                 <Label className="text-xs">Cód. Vendedor</Label>
                 <Input
-                  value={(() => { const v = vendedores.find(v => v.id === form.vendedor_id); return v?.codigo_vendedor ?? ""; })()}
+                  value={codigoVendedorInput}
                   onChange={(e) => {
                     const codigo = e.target.value;
+                    setCodigoVendedorInput(codigo);
                     handleCodigoVendedor(codigo);
                   }}
                   placeholder="Ex: 114"
-                  className="w-full"
                 />
               </div>
               <div className="space-y-1.5">
