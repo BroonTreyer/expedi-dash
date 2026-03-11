@@ -50,6 +50,12 @@
     --status-carregando: 45 93% 47%;
     --status-carregado: 122 39% 49%;
     --status-problema: 0 72% 51%;
+
+    /* Ruptura status colors */
+    --status-ruptura-aguardando: 220 60% 50%;
+    --status-ruptura-liberado: 160 55% 42%;
+    --status-ruptura-montagem: 280 50% 55%;
+    --status-ruptura-produto: 40 90% 50%;
   }
 
   .dark {

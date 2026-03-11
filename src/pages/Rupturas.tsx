@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, Weight, Package, Plus } from "lucide-react";
+import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 
 const today = new Date().toISOString().split("T")[0];
@@ -116,7 +117,7 @@ export default function Rupturas() {
               <Weight className="h-5 w-5 text-amber-600" />
               <div>
                 <p className="text-xs text-muted-foreground">Peso Total</p>
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{totalPeso.toLocaleString("pt-BR")} kg</p>
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{(totalPeso / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON</p>
               </div>
             </CardContent>
           </Card>
@@ -138,9 +139,9 @@ export default function Rupturas() {
             <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos status</SelectItem>
-              <SelectItem value="Aguardando">Aguardando</SelectItem>
-              <SelectItem value="Carregando">Carregando</SelectItem>
-              <SelectItem value="Carregado">Carregado</SelectItem>
+              {RUPTURA_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-48" />
@@ -156,6 +157,9 @@ export default function Rupturas() {
             onDelete={handleDeleteRequest}
             onComplete={handleComplete}
             userRole={role}
+            statuses={RUPTURA_STATUSES}
+            statusColors={RUPTURA_STATUS_COLORS}
+            showPesoAprox
           />
         )}
 
@@ -166,7 +170,7 @@ export default function Rupturas() {
             if (editing) {
               updateMut.mutate(values);
             } else {
-              createMut.mutate({ ...values, ruptura: true });
+              createMut.mutate({ ...values, ruptura: true, status: "Aguardando pedido" });
             }
           }}
           editing={editing}

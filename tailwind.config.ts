@@ -64,6 +64,10 @@ export default {
           carregando: "hsl(var(--status-carregando))",
           carregado: "hsl(var(--status-carregado))",
           problema: "hsl(var(--status-problema))",
+          "ruptura-aguardando": "hsl(var(--status-ruptura-aguardando))",
+          "ruptura-liberado": "hsl(var(--status-ruptura-liberado))",
+          "ruptura-montagem": "hsl(var(--status-ruptura-montagem))",
+          "ruptura-produto": "hsl(var(--status-ruptura-produto))",
         },
       },
       borderRadius: {

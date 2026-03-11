@@ -17,6 +17,9 @@ interface Props {
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
   userRole?: AppRole | null;
+  statuses?: readonly string[];
+  statusColors?: Record<string, string>;
+  showPesoAprox?: boolean;
 }
 
 function formatTime(val: string | null) {
@@ -36,7 +39,12 @@ function PendingCell({ value }: { value: string | null }) {
   return <span className="text-xs text-muted-foreground/60 italic">Pendente</span>;
 }
 
-function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole }: Props) {
+function formatPesoAprox(peso: number | null, tipoCaminhao: string | null) {
+  const ton = ((peso ?? 0) / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return tipoCaminhao ? `${ton} TON - ${tipoCaminhao}` : `${ton} TON`;
+}
+
+function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const canChangeStatus = isAdmin || isLogistica;
@@ -57,7 +65,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <EtapaBadge etapa={c.etapa} />
-                <StatusBadge status={c.status} />
+                <StatusBadge status={c.status} statusColors={statusColors} />
                 {c.ruptura && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
                     <AlertTriangle className="h-3 w-3" /> Ruptura
@@ -93,6 +101,12 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <div className="text-muted-foreground">Qtd / Peso</div>
               <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
+              {showPesoAprox && (
+                <>
+                  <div className="text-muted-foreground">Peso Aprox.</div>
+                  <div className="font-medium">{formatPesoAprox(c.peso, c.tipo_caminhao)}</div>
+                </>
+              )}
               <div className="text-muted-foreground">Caminhão</div>
               <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
               <div className="text-muted-foreground">Motorista</div>
@@ -105,7 +119,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
 
             {canChangeStatus && (
               <div className="pt-1 border-t border-border">
-                <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} />
+                <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
               </div>
             )}
           </CardContent>
@@ -115,14 +129,14 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   );
 }
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole }: Props) {
+export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox }: Props) {
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const canChangeStatus = isAdmin || isLogistica;
 
   if (isMobile) {
-    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} />;
+    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} />;
   }
 
   return (
@@ -141,6 +155,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Motorista</TableHead>
             <TableHead>Cliente</TableHead>
             <TableHead>UF</TableHead>
+            {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
             <TableHead>Obs</TableHead>
@@ -150,7 +165,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
         <TableBody>
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={isAdmin || isLogistica ? 15 : 14} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={(isAdmin || isLogistica ? 15 : 14) + (showPesoAprox ? 1 : 0)} className="text-center py-8 text-muted-foreground">
                 Nenhum carregamento encontrado
               </TableCell>
             </TableRow>
@@ -165,7 +180,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               </TableCell>
               <TableCell>
                 {canChangeStatus ? (
-                  <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} />
+                  <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
                 ) : (
                   <span className="text-sm">{c.status}</span>
                 )}
@@ -179,6 +194,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell><PendingCell value={c.motorista} /></TableCell>
               <TableCell className="text-sm">{c.cliente ?? "—"}</TableCell>
               <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
+              {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
               <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>
