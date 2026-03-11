@@ -17,13 +17,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 transform transition-all duration-200 md:relative md:translate-x-0",
-        mobileOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed inset-y-0 left-0 z-50 transform transition-all duration-200 md:translate-x-0",
+        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <AppSidebar collapsed={collapsed} onNavigate={() => setMobileOpen(false)} />
       </div>
 
-      <div className="flex-1 flex flex-col overflow-auto">
+      <div className={cn("flex-1 flex flex-col h-screen overflow-auto transition-all duration-200", collapsed ? "md:ml-14" : "md:ml-60")}>
         {/* Mobile header */}
         <header className="flex items-center h-12 border-b border-border px-3 md:hidden">
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
