@@ -160,13 +160,20 @@ export default function Rupturas() {
         <CarregamentoDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          onSubmit={(values) => updateMut.mutate(values)}
+          onSubmit={(values) => {
+            if (editing) {
+              updateMut.mutate(values);
+            } else {
+              createMut.mutate({ ...values, ruptura: true });
+            }
+          }}
           editing={editing}
           mode={dialogMode}
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
           selectedDate={date}
+          defaultRuptura
         />
 
         <DeleteConfirmDialog

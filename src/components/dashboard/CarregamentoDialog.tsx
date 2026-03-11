@@ -72,7 +72,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         pesoPadrao: p?.peso_padrao ?? 0,
       }]);
     } else {
-      setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas" });
+      setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
       setCodigoVendedorInput("");
       setItems([emptyItem()]);
     }
