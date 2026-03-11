@@ -47,6 +47,8 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         <SelectContent>
           <SelectItem value="todos">Todos os Status</SelectItem>
           {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          <Separator className="my-1" />
+          {RUPTURA_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={filters.vendedor} onValueChange={(v) => set("vendedor", v)}>
