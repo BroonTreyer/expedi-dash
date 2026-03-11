@@ -21,7 +21,7 @@ export default function Index() {
     status: "todos",
     vendedor: "todos",
     tipoCaminhao: "todos",
-    cidade: "",
+    
     busca: "",
     data: today,
     etapa: "todos",
