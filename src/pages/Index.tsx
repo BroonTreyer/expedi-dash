@@ -137,7 +137,7 @@ export default function Index() {
                 <Columns3 className="h-4 w-4 mr-1" /> Kanban
               </Button>
             </div>
-            {isAdmin && (
+            {canEdit && (
               <Button onClick={handleNewPedido}>
                 <Plus className="h-4 w-4 mr-1" /> Novo Pedido
               </Button>
