@@ -58,84 +58,128 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
     );
   }
 
+  // Group by numero_pedido
+  const groups: { pedido: number | null; items: Carregamento[] }[] = [];
+  for (const c of data) {
+    const last = groups[groups.length - 1];
+    if (c.numero_pedido !== null && last && last.pedido === c.numero_pedido) {
+      last.items.push(c);
+    } else {
+      groups.push({ pedido: c.numero_pedido, items: [c] });
+    }
+  }
+
   return (
     <div className="space-y-3">
-      {data.map((c) => (
-        <Card key={c.id} className={cn("border-border/60", c.ruptura && "border-l-4 border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20")}>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                {!hideColumns.includes("etapa") && <EtapaBadge etapa={c.etapa} />}
-                <StatusBadge status={c.status} statusColors={statusColors} />
-                {c.ruptura && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
-                    <AlertTriangle className="h-3 w-3" /> Ruptura
-                  </span>
-                )}
+      {groups.map((group) => {
+        const isMulti = group.pedido !== null && group.items.length > 1;
+        if (isMulti) {
+          const first = group.items[0];
+          return (
+            <div key={group.items[0].id} className="rounded-lg border-2 border-primary/20 overflow-hidden">
+              <div className="bg-primary/5 px-3 py-1.5 flex items-center justify-between">
+                <span className="text-xs font-mono font-bold text-primary">Pedido #{group.pedido}</span>
+                <span className="text-xs text-muted-foreground">{group.items.length} itens</span>
               </div>
-              {(isAdmin || isLogistica) && (
-                <div className="flex gap-1 shrink-0">
-                  {c.etapa === "vendas" && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
-                      <ClipboardCheck className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {isAdmin && (
-                    <>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                {c.numero_pedido && (
-                  <span className="text-xs font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">#{c.numero_pedido}</span>
-                )}
-                <span className="font-medium text-sm">{c.nome_produto || c.codigo_produto || "Sem produto"}</span>
+              <div className="divide-y divide-border/40">
+                {group.items.map((c, idx) => (
+                  <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} isLogistica={isLogistica} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} />
+                ))}
               </div>
-              <div className="text-xs text-muted-foreground">{c.vendedores?.nome_vendedor ?? "—"}</div>
             </div>
-
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              {!hideColumns.includes("qtd") && !hideColumns.includes("peso") && (
-                <>
-                  <div className="text-muted-foreground">Qtd / Peso</div>
-                  <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
-                </>
-              )}
-              {showPesoAprox && (
-                <>
-                  <div className="text-muted-foreground">Peso Aprox.</div>
-                  <div className="font-medium">{formatPesoAprox(c.peso, c.tipo_caminhao)}</div>
-                </>
-              )}
-              <div className="text-muted-foreground">Caminhão</div>
-              <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
-              <div className="text-muted-foreground">Motorista</div>
-              <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
-              <div className="text-muted-foreground">Cliente</div>
-              <div>{c.cliente ?? "—"}</div>
-              <div className="text-muted-foreground">UF</div>
-              <div>{c.uf ?? "—"}</div>
-            </div>
-
-            {canChangeStatus && (
-              <div className="pt-1 border-t border-border">
-                <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+          );
+        }
+        const c = group.items[0];
+        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} isLogistica={isLogistica} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} />;
+      })}
     </div>
+  );
+}
+
+function MobileCardItem({ c, isAdmin, isLogistica, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
+  c: Carregamento; isAdmin: boolean; isLogistica: boolean; canChangeStatus: boolean;
+  onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onComplete: (c: Carregamento) => void;
+  statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean;
+}) {
+  return (
+    <CardContent className="p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {!isGrouped && !hideColumns.includes("etapa") && <EtapaBadge etapa={c.etapa} />}
+          {!isGrouped && <StatusBadge status={c.status} statusColors={statusColors} />}
+          {c.ruptura && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
+              <AlertTriangle className="h-3 w-3" /> Ruptura
+            </span>
+          )}
+        </div>
+        {(isAdmin || isLogistica) && (
+          <div className="flex gap-1 shrink-0">
+            {c.etapa === "vendas" && (
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
+                <ClipboardCheck className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {isAdmin && (
+              <>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                  <Edit className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        {!isGrouped && c.numero_pedido && (
+          <span className="text-xs font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">#{c.numero_pedido}</span>
+        )}
+        <span className="font-medium text-sm">{c.nome_produto || c.codigo_produto || "Sem produto"}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {!isGrouped && (
+          <>
+            <div className="text-muted-foreground">Vendedor</div>
+            <div>{c.vendedores?.nome_vendedor ?? "—"}</div>
+          </>
+        )}
+        {!hideColumns.includes("qtd") && !hideColumns.includes("peso") && (
+          <>
+            <div className="text-muted-foreground">Qtd / Peso</div>
+            <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
+          </>
+        )}
+        {showPesoAprox && (
+          <>
+            <div className="text-muted-foreground">Peso Aprox.</div>
+            <div className="font-medium">{formatPesoAprox(c.peso, c.tipo_caminhao)}</div>
+          </>
+        )}
+        {!isGrouped && (
+          <>
+            <div className="text-muted-foreground">Caminhão</div>
+            <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+            <div className="text-muted-foreground">Motorista</div>
+            <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+            <div className="text-muted-foreground">Cliente</div>
+            <div>{c.cliente ?? "—"}</div>
+            <div className="text-muted-foreground">UF</div>
+            <div>{c.uf ?? "—"}</div>
+          </>
+        )}
+      </div>
+
+      {!isGrouped && canChangeStatus && (
+        <div className="pt-1 border-t border-border">
+          <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
+        </div>
+      )}
+    </CardContent>
   );
 }
 
@@ -182,10 +226,12 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             </TableRow>
           )}
           {data.map((c, idx) => {
-            // Determine if this row starts a new pedido group for visual grouping
             const prevPedido = idx > 0 ? data[idx - 1].numero_pedido : null;
+            const nextPedido = idx < data.length - 1 ? data[idx + 1].numero_pedido : null;
             const isNewGroup = c.numero_pedido !== null && c.numero_pedido !== prevPedido;
             const isGrouped = c.numero_pedido !== null && idx > 0 && c.numero_pedido === prevPedido;
+            const isLastInGroup = c.numero_pedido !== null && c.numero_pedido !== nextPedido;
+            const isInGroup = isNewGroup || isGrouped;
 
             return (
               <TableRow
@@ -194,36 +240,43 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   "hover:bg-muted/30",
                   c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20",
                   isNewGroup && "border-t-2 border-t-primary/30",
-                  isGrouped && "bg-muted/10"
+                  isInGroup && "bg-primary/[0.03]",
+                  isGrouped && "border-t-0",
+                  isInGroup && !isLastInGroup && "border-b-0"
                 )}
               >
                 <TableCell className="text-sm font-mono font-medium text-primary">
-                  {c.numero_pedido ?? "—"}
+                  {isGrouped ? "" : (c.numero_pedido ?? "—")}
                 </TableCell>
               {!hideColumns.includes("etapa") && (
                 <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <EtapaBadge etapa={c.etapa} />
-                    {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-                  </div>
+                  {!isGrouped && (
+                    <div className="flex items-center gap-1.5">
+                      <EtapaBadge etapa={c.etapa} />
+                      {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                    </div>
+                  )}
+                  {isGrouped && c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                 </TableCell>
               )}
               <TableCell>
-                {canChangeStatus ? (
-                  <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
-                ) : (
-                  <span className="text-sm">{c.status}</span>
-                )}
+                {!isGrouped ? (
+                  canChangeStatus ? (
+                    <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
+                  ) : (
+                    <span className="text-sm">{c.status}</span>
+                  )
+                ) : null}
               </TableCell>
-              <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
+              <TableCell className="text-sm">{isGrouped ? "" : (c.vendedores?.nome_vendedor ?? "—")}</TableCell>
               <TableCell className="text-sm font-mono">{c.codigo_produto ?? "—"}</TableCell>
               <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
               {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>}
               {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
-              <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
-              <TableCell><PendingCell value={c.motorista} /></TableCell>
-              <TableCell className="text-sm">{c.cliente ?? "—"}</TableCell>
-              <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
+              <TableCell>{isGrouped ? "" : <PendingCell value={c.tipo_caminhao} />}</TableCell>
+              <TableCell>{isGrouped ? "" : <PendingCell value={c.motorista} />}</TableCell>
+              <TableCell className="text-sm">{isGrouped ? "" : (c.cliente ?? "—")}</TableCell>
+              <TableCell className="text-sm">{isGrouped ? "" : (c.uf ?? "—")}</TableCell>
               {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
