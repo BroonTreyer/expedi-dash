@@ -137,6 +137,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead className="text-right">Peso (kg)</TableHead>
             <TableHead>Caminhão</TableHead>
             <TableHead>Motorista</TableHead>
+            <TableHead>Cliente</TableHead>
             <TableHead>UF</TableHead>
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
