@@ -93,10 +93,22 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 <Input type="date" value={form.data ?? ""} onChange={(e) => set("data", e.target.value)} />
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs">Cód. Vendedor</Label>
+                <Input
+                  value={(() => { const v = vendedores.find(v => v.id === form.vendedor_id); return v?.codigo_vendedor ?? ""; })()}
+                  onChange={(e) => {
+                    const codigo = e.target.value;
+                    handleCodigoVendedor(codigo);
+                  }}
+                  placeholder="Ex: 114"
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs">Vendedor *</Label>
                 <Select value={form.vendedor_id ?? ""} onValueChange={(v) => set("vendedor_id", v)}>
                   <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>{vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}</SelectContent>
+                  <SelectContent>{vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.codigo_vendedor} - {v.nome_vendedor}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
