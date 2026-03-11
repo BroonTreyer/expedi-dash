@@ -183,6 +183,15 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           {showVendas && (
             <>
               <div className="space-y-1.5">
+                <Label className="text-xs">N° Pedido</Label>
+                <Input
+                  type="number"
+                  value={form.numero_pedido ?? ""}
+                  onChange={(e) => set("numero_pedido", e.target.value ? Number(e.target.value) : null)}
+                  placeholder="Ex: 1234"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs">Data</Label>
                 <Input type="date" value={form.data ?? ""} onChange={(e) => set("data", e.target.value)} />
               </div>
