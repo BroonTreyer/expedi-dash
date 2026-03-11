@@ -17,6 +17,9 @@ interface Props {
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
   userRole?: AppRole | null;
+  statuses?: readonly string[];
+  statusColors?: Record<string, string>;
+  showPesoAprox?: boolean;
 }
 
 function formatTime(val: string | null) {
