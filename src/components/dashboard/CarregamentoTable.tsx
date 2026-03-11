@@ -67,11 +67,11 @@ function buildGroups(data: Carregamento[]): Group[] {
 
 // ─── Mobile ───
 
-function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [] }: Props) {
+function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const isFaturamento = userRole === "faturamento";
-  const canChangeStatus = isAdmin || isLogistica || isFaturamento;
+  const canChangeStatus = canChangeStatusProp ?? (isAdmin || isLogistica || isFaturamento);
   const canEdit = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
