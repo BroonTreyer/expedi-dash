@@ -91,6 +91,14 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
   };
 
+  const handleCodigoCliente = (codigo: string) => {
+    const found = clientes.find((c) => c.codigo_cliente.toLowerCase() === codigo.toLowerCase());
+    if (found) {
+      set("cliente", found.nome_cliente);
+      set("codigo_cliente", found.codigo_cliente);
+    }
+  };
+
   const updateItem = (index: number, updates: Partial<ProductItem>) => {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
   };
