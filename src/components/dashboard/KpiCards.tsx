@@ -1,3 +1,4 @@
+import React from "react";
 import { Package, Weight, Truck, Clock, CheckCircle, ClipboardList } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -5,8 +6,6 @@ import type { Carregamento } from "@/hooks/useCarregamentos";
 interface Props {
   data: Carregamento[];
 }
-
-import React from "react";
 
 export const KpiCards = React.memo(function KpiCards({ data }: Props) {
   const totalCargas = data.length;
