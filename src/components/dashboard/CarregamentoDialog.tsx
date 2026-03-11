@@ -47,12 +47,19 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
   const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
 
+  const handleCodigoVendedor = (codigo: string) => {
+    const found = vendedores.find((v) => v.codigo_vendedor === codigo);
+    if (found) {
+      set("vendedor_id", found.id);
+    }
+  };
+
   const handleCodigoProduto = (codigo: string) => {
     set("codigo_produto", codigo);
     const found = produtos.find((p) => p.codigo_produto.toLowerCase() === codigo.toLowerCase());
     if (found) {
       set("nome_produto", found.nome_produto);
-      if (!form.peso || form.peso === 0) set("peso", found.peso_padrao ?? 0);
+      set("peso", found.peso_padrao ?? 0);
     }
   };
 
