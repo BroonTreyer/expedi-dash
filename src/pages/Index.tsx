@@ -4,7 +4,7 @@ import { KpiCards } from "@/components/dashboard/KpiCards";
 import { Filters } from "@/components/dashboard/Filters";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { KanbanView } from "@/components/dashboard/KanbanView";
-import { CarregamentoDialog } from "@/components/dashboard/CarregamentoDialog";
+import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
@@ -23,9 +23,11 @@ export default function Index() {
     cidade: "",
     busca: "",
     data: today,
+    etapa: "todos",
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Carregamento | null>(null);
+  const [dialogMode, setDialogMode] = useState<DialogMode>("vendas");
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
   const { data: vendedores = [] } = useVendedores();
@@ -39,6 +41,7 @@ export default function Index() {
     if (filters.status !== "todos" && c.status !== filters.status) return false;
     if (filters.vendedor !== "todos" && c.vendedor_id !== filters.vendedor) return false;
     if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
+    if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
     if (filters.cidade && !c.cidade?.toLowerCase().includes(filters.cidade.toLowerCase())) return false;
     if (filters.busca) {
       const b = filters.busca.toLowerCase();
@@ -64,6 +67,19 @@ export default function Index() {
 
   const handleEdit = (c: Carregamento) => {
     setEditing(c);
+    setDialogMode("editar");
+    setDialogOpen(true);
+  };
+
+  const handleComplete = (c: Carregamento) => {
+    setEditing(c);
+    setDialogMode("logistica");
+    setDialogOpen(true);
+  };
+
+  const handleNewPedido = () => {
+    setEditing(null);
+    setDialogMode("vendas");
     setDialogOpen(true);
   };
 
@@ -94,8 +110,8 @@ export default function Index() {
                 <Columns3 className="h-4 w-4 mr-1" /> Kanban
               </Button>
             </div>
-            <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Novo Carregamento
+            <Button onClick={handleNewPedido}>
+              <Plus className="h-4 w-4 mr-1" /> Novo Pedido
             </Button>
           </div>
         </div>
@@ -117,6 +133,7 @@ export default function Index() {
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
             onDelete={(id) => deleteMut.mutate(id)}
+            onComplete={handleComplete}
           />
         ) : (
           <KanbanView data={filtered} onStatusChange={handleStatusChange} />
@@ -127,6 +144,7 @@ export default function Index() {
           onOpenChange={setDialogOpen}
           onSubmit={handleSubmit}
           editing={editing}
+          mode={dialogMode}
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}

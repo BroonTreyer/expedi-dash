@@ -11,6 +11,7 @@ interface Props {
     cidade: string;
     busca: string;
     data: string;
+    etapa: string;
   };
   onChange: (f: Props["filters"]) => void;
   vendedores: { id: string; nome_vendedor: string }[];
@@ -28,6 +29,16 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         onChange={(e) => set("data", e.target.value)}
         className="h-9 w-[150px] text-sm"
       />
+      <Select value={filters.etapa} onValueChange={(v) => set("etapa", v)}>
+        <SelectTrigger className="h-9 w-[170px] text-sm">
+          <SelectValue placeholder="Etapa" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todas Etapas</SelectItem>
+          <SelectItem value="vendas">Pendentes Logística</SelectItem>
+          <SelectItem value="logistica">Logística Completa</SelectItem>
+        </SelectContent>
+      </Select>
       <Select value={filters.status} onValueChange={(v) => set("status", v)}>
         <SelectTrigger className="h-9 w-[170px] text-sm">
           <SelectValue placeholder="Status" />
