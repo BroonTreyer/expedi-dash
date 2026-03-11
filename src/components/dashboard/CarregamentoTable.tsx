@@ -89,14 +89,10 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
               <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
               <div className="text-muted-foreground">Caminhão</div>
               <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
-              <div className="text-muted-foreground">Placa</div>
-              <div className="font-mono uppercase">{c.placa || <span className="text-muted-foreground/60 italic font-sans normal-case">Pendente</span>}</div>
               <div className="text-muted-foreground">Motorista</div>
               <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
               <div className="text-muted-foreground">UF</div>
               <div>{c.uf ?? "—"}</div>
-              <div className="text-muted-foreground">Previsto</div>
-              <div>{formatTime(c.horario_previsto)}</div>
             </div>
 
             {canChangeStatus && (
@@ -134,10 +130,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead className="text-right">Qtd</TableHead>
             <TableHead className="text-right">Peso (kg)</TableHead>
             <TableHead>Caminhão</TableHead>
-            <TableHead>Placa</TableHead>
             <TableHead>Motorista</TableHead>
             <TableHead>UF</TableHead>
-            <TableHead>Previsto</TableHead>
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
             <TableHead>Obs</TableHead>
@@ -147,7 +141,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
         <TableBody>
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={isAdmin || isLogistica ? 16 : 15} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={isAdmin || isLogistica ? 14 : 13} className="text-center py-8 text-muted-foreground">
                 Nenhum carregamento encontrado
               </TableCell>
             </TableRow>
@@ -168,10 +162,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>
               <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
               <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
-              <TableCell><PendingCell value={c.placa} /></TableCell>
               <TableCell><PendingCell value={c.motorista} /></TableCell>
               <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
-              <TableCell className="text-sm">{formatTime(c.horario_previsto)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
               <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>
