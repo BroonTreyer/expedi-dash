@@ -14,13 +14,14 @@ export const KpiCards = React.memo(function KpiCards({ data }: Props) {
   const pesoCarregando = data.filter(c => c.status === "Carregando").reduce((s, c) => s + (c.peso ?? 0), 0);
   const totalVeiculos = new Set(data.filter(c => c.placa).map(c => c.placa)).size;
   const pendentesLogistica = data.filter(c => c.etapa === "vendas").length;
+  const rupturas = data.filter(c => c.ruptura).length;
 
   const cards = [
     { label: "Total Cargas", value: totalCargas, icon: Package, color: "text-primary" },
     { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500" },
+    { label: "Rupturas", value: rupturas, icon: AlertTriangle, color: "text-amber-600" },
     { label: "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
     { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado" },
-    { label: "Em Carreg.", value: `${pesoCarregando.toLocaleString("pt-BR")} kg`, icon: Clock, color: "text-status-carregando" },
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
   ];
 
