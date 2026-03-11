@@ -97,6 +97,8 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
               <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
               <div className="text-muted-foreground">Motorista</div>
               <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+              <div className="text-muted-foreground">Cliente</div>
+              <div>{c.cliente ?? "—"}</div>
               <div className="text-muted-foreground">UF</div>
               <div>{c.uf ?? "—"}</div>
             </div>
@@ -137,6 +139,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead className="text-right">Peso (kg)</TableHead>
             <TableHead>Caminhão</TableHead>
             <TableHead>Motorista</TableHead>
+            <TableHead>Cliente</TableHead>
             <TableHead>UF</TableHead>
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
@@ -147,7 +150,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
         <TableBody>
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={isAdmin || isLogistica ? 14 : 13} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={isAdmin || isLogistica ? 15 : 14} className="text-center py-8 text-muted-foreground">
                 Nenhum carregamento encontrado
               </TableCell>
             </TableRow>
@@ -174,6 +177,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
               <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
               <TableCell><PendingCell value={c.motorista} /></TableCell>
+              <TableCell className="text-sm">{c.cliente ?? "—"}</TableCell>
               <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
