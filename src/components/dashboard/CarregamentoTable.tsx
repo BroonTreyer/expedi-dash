@@ -97,6 +97,8 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
               <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
               <div className="text-muted-foreground">Motorista</div>
               <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+              <div className="text-muted-foreground">Cliente</div>
+              <div>{c.cliente ?? "—"}</div>
               <div className="text-muted-foreground">UF</div>
               <div>{c.uf ?? "—"}</div>
             </div>

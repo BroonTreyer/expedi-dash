@@ -16,6 +16,7 @@ export type Carregamento = {
   motorista: string | null;
   cidade: string | null;
   uf: string | null;
+  cliente: string | null;
   horario_previsto: string | null;
   horario_inicio: string | null;
   horario_fim: string | null;

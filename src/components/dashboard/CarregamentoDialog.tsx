@@ -200,6 +200,10 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   <SelectContent>{UF_LIST.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Cliente</Label>
+                <Input value={form.cliente ?? ""} onChange={(e) => set("cliente", e.target.value)} placeholder="Nome do cliente" />
+              </div>
 
               {/* === PRODUCT ITEMS === */}
               <div className="sm:col-span-2 border-t border-border pt-3 mt-1 space-y-3">

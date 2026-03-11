@@ -17,6 +17,7 @@ export type Database = {
       carregamentos_dia: {
         Row: {
           cidade: string | null
+          cliente: string | null
           codigo_produto: string | null
           created_at: string
           data: string
@@ -40,6 +41,7 @@ export type Database = {
         }
         Insert: {
           cidade?: string | null
+          cliente?: string | null
           codigo_produto?: string | null
           created_at?: string
           data?: string
@@ -63,6 +65,7 @@ export type Database = {
         }
         Update: {
           cidade?: string | null
+          cliente?: string | null
           codigo_produto?: string | null
           created_at?: string
           data?: string
