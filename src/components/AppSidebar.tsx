@@ -55,7 +55,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
           {navItems.map((item) => {
             const active = location.pathname === item.to;
             const link = (
-              <Link
+              <RefLink
                 key={item.to}
                 to={item.to}
                 onClick={onNavigate}
