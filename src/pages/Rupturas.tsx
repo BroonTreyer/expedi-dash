@@ -11,7 +11,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Weight, Package } from "lucide-react";
+import { AlertTriangle, Weight, Package, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const today = new Date().toISOString().split("T")[0];
 
