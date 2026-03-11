@@ -386,7 +386,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {canChangeStatus ? (
                       <StatusSelect value={first.status} onChange={(s) => onStatusChange(first.id, s)} statuses={statuses} statusColors={statusColors} />
                     ) : (
-                      <span className="text-sm">{first.status}</span>
+                      <StatusBadge status={first.status} statusColors={statusColors} />
                     )}
                   </TableCell>
                   <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
