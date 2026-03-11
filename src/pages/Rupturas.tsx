@@ -139,9 +139,9 @@ export default function Rupturas() {
             <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos status</SelectItem>
-              <SelectItem value="Aguardando">Aguardando</SelectItem>
-              <SelectItem value="Carregando">Carregando</SelectItem>
-              <SelectItem value="Carregado">Carregado</SelectItem>
+              {RUPTURA_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-48" />
