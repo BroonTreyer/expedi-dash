@@ -95,7 +95,12 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
             </div>
 
             <div className="space-y-1.5">
-              <div className="font-medium text-sm">{c.nome_produto || c.codigo_produto || "Sem produto"}</div>
+              <div className="flex items-center gap-2">
+                {c.numero_pedido && (
+                  <span className="text-xs font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">#{c.numero_pedido}</span>
+                )}
+                <span className="font-medium text-sm">{c.nome_produto || c.codigo_produto || "Sem produto"}</span>
+              </div>
               <div className="text-xs text-muted-foreground">{c.vendedores?.nome_vendedor ?? "—"}</div>
             </div>
 
@@ -149,6 +154,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40">
+            <TableHead className="w-[80px]">N. Pedido</TableHead>
             {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
             <TableHead className="w-[160px]">Status</TableHead>
             <TableHead>Vendedor</TableHead>
@@ -175,8 +181,25 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               </TableCell>
             </TableRow>
           )}
-          {data.map((c) => (
-             <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
+          {data.map((c, idx) => {
+            // Determine if this row starts a new pedido group for visual grouping
+            const prevPedido = idx > 0 ? data[idx - 1].numero_pedido : null;
+            const isNewGroup = c.numero_pedido !== null && c.numero_pedido !== prevPedido;
+            const isGrouped = c.numero_pedido !== null && idx > 0 && c.numero_pedido === prevPedido;
+
+            return (
+              <TableRow
+                key={c.id}
+                className={cn(
+                  "hover:bg-muted/30",
+                  c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20",
+                  isNewGroup && "border-t-2 border-t-primary/30",
+                  isGrouped && "bg-muted/10"
+                )}
+              >
+                <TableCell className="text-sm font-mono font-medium text-primary">
+                  {c.numero_pedido ?? "—"}
+                </TableCell>
               {!hideColumns.includes("etapa") && (
                 <TableCell>
                   <div className="flex items-center gap-1.5">
@@ -229,7 +252,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                 </TableCell>
               )}
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </div>
