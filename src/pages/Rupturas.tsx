@@ -60,12 +60,12 @@ export default function Rupturas() {
   const totalPeso = useMemo(() => rupturas.reduce((s, c) => s + (c.peso ?? 0), 0), [rupturas]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
-    if (!isAdmin && !isLogistica && !isFaturamento) return;
+    if (!isAdmin && !isLogistica) return;
     const updates: Record<string, any> = { id, status };
     if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
     if (status === "Carregado") updates.horario_fim = new Date().toISOString();
     updateMut.mutate(updates);
-  }, [isAdmin, isLogistica, isFaturamento, updateMut]);
+  }, [isAdmin, isLogistica, updateMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
     if (!canEdit) return;
@@ -165,6 +165,7 @@ export default function Rupturas() {
             statusColors={RUPTURA_STATUS_COLORS}
             showPesoAprox
             hideColumns={["etapa", "qtd", "peso"]}
+            canChangeStatus={isAdmin || isLogistica}
           />
         )}
 
