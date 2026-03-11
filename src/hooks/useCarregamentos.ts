@@ -121,6 +121,11 @@ export function useCreateCarregamento() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: Record<string, any>) => {
+      // If numero_pedido not set, generate the next one for this date
+      if (!values.numero_pedido && values.data) {
+        const { data: nextNum } = await supabase.rpc("next_numero_pedido", { _data: values.data });
+        values.numero_pedido = nextNum ?? 1;
+      }
       const { data, error } = await supabase.from("carregamentos_dia").insert(values).select().single();
       if (error) throw error;
       return data;

@@ -96,9 +96,11 @@ export default function Rupturas() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
-          <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
+            </Button>
+          )}
         </div>
 
         {/* KPIs */}
