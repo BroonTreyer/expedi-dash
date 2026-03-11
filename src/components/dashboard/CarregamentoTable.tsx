@@ -130,10 +130,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead className="text-right">Qtd</TableHead>
             <TableHead className="text-right">Peso (kg)</TableHead>
             <TableHead>Caminhão</TableHead>
-            <TableHead>Placa</TableHead>
             <TableHead>Motorista</TableHead>
             <TableHead>UF</TableHead>
-            <TableHead>Previsto</TableHead>
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
             <TableHead>Obs</TableHead>
