@@ -454,7 +454,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
                     <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
                     <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>{c.observacoes || "—"}</TableCell>
-                    {(isAdmin || isLogistica) && <TableCell />}
+                    {hasActions && <TableCell />}
                   </TableRow>
                 ))}
               </Fragment>
