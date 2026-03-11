@@ -8,7 +8,6 @@ interface Props {
     status: string;
     vendedor: string;
     tipoCaminhao: string;
-    
     busca: string;
     data: string;
     etapa: string;
@@ -22,15 +21,15 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
   const set = (key: string, value: string) => onChange({ ...filters, [key]: value });
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap items-center gap-2">
       <Input
         type="date"
         value={filters.data}
         onChange={(e) => set("data", e.target.value)}
-        className="h-9 w-[150px] text-sm"
+        className="h-9 text-sm col-span-2 sm:col-span-1 md:w-[150px]"
       />
       <Select value={filters.etapa} onValueChange={(v) => set("etapa", v)}>
-        <SelectTrigger className="h-9 w-[170px] text-sm">
+        <SelectTrigger className="h-9 text-sm md:w-[170px]">
           <SelectValue placeholder="Etapa" />
         </SelectTrigger>
         <SelectContent>
@@ -40,7 +39,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         </SelectContent>
       </Select>
       <Select value={filters.status} onValueChange={(v) => set("status", v)}>
-        <SelectTrigger className="h-9 w-[170px] text-sm">
+        <SelectTrigger className="h-9 text-sm md:w-[170px]">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -49,7 +48,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         </SelectContent>
       </Select>
       <Select value={filters.vendedor} onValueChange={(v) => set("vendedor", v)}>
-        <SelectTrigger className="h-9 w-[170px] text-sm">
+        <SelectTrigger className="h-9 text-sm md:w-[170px]">
           <SelectValue placeholder="Vendedor" />
         </SelectTrigger>
         <SelectContent>
@@ -58,7 +57,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
         </SelectContent>
       </Select>
       <Select value={filters.tipoCaminhao} onValueChange={(v) => set("tipoCaminhao", v)}>
-        <SelectTrigger className="h-9 w-[170px] text-sm">
+        <SelectTrigger className="h-9 text-sm md:w-[170px]">
           <SelectValue placeholder="Tipo Caminhão" />
         </SelectTrigger>
         <SelectContent>
@@ -66,13 +65,13 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props)
           {tiposCaminhao.map((t) => <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>)}
         </SelectContent>
       </Select>
-      <div className="relative">
+      <div className="relative col-span-2 sm:col-span-1">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Buscar produto..."
           value={filters.busca}
           onChange={(e) => set("busca", e.target.value)}
-          className="h-9 w-[200px] pl-8 text-sm"
+          className="h-9 pl-8 text-sm md:w-[200px]"
         />
       </div>
     </div>

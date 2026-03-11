@@ -131,7 +131,6 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
 
     if (editing) {
-      // Edit mode: single item
       const item = items[0];
       onSubmit({
         ...basePayload,
@@ -142,7 +141,6 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: item.peso,
       });
     } else {
-      // Create mode: one submission per item
       for (const item of items) {
         onSubmit({
           ...basePayload,
@@ -161,12 +159,12 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
           <DialogTitle>{TITLES[mode]}</DialogTitle>
           <DialogDescription>{DESCRIPTIONS[mode]}</DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* === VENDAS FIELDS === */}
           {showVendas && (
             <>
@@ -202,17 +200,17 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
               </div>
 
               {/* === PRODUCT ITEMS === */}
-              <div className="col-span-2 border-t border-border pt-3 mt-1 space-y-3">
+              <div className="sm:col-span-2 border-t border-border pt-3 mt-1 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Produtos</span>
                   {!editing && (
                     <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-7 text-xs">
-                      <Plus className="h-3 w-3 mr-1" /> Adicionar Produto
+                      <Plus className="h-3 w-3 mr-1" /> Adicionar
                     </Button>
                   )}
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-[1fr_1.5fr_80px_100px_32px] gap-2 items-end">
+                  <div key={idx} className="grid grid-cols-2 sm:grid-cols-[1fr_1.5fr_80px_100px_32px] gap-2 items-end">
                     <div className="space-y-1">
                       {idx === 0 && <Label className="text-xs">Código</Label>}
                       <Input
@@ -255,7 +253,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 ))}
               </div>
 
-              <div className="space-y-1.5 col-span-2">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs">Observações</Label>
                 <Textarea value={form.observacoes ?? ""} onChange={(e) => set("observacoes", e.target.value)} rows={2} />
               </div>
@@ -266,7 +264,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           {showLogistica && (
             <>
               {mode === "editar" && (
-                <div className="col-span-2 border-t border-border pt-3 mt-1">
+                <div className="sm:col-span-2 border-t border-border pt-3 mt-1">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dados de Transporte</span>
                 </div>
               )}
@@ -303,7 +301,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
           {/* Info summary when in logistica mode */}
           {mode === "logistica" && editing && (
-            <div className="col-span-2 rounded-md bg-muted/50 p-3 space-y-1">
+            <div className="sm:col-span-2 rounded-md bg-muted/50 p-3 space-y-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dados do Pedido</span>
               <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
                 <span className="text-muted-foreground">Vendedor:</span>
@@ -318,7 +316,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button
             onClick={handleSubmit}
