@@ -22,6 +22,8 @@ export default function Rupturas() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
+  const isFaturamento = role === "faturamento";
+  const canEdit = isAdmin || isFaturamento;
 
   const [date, setDate] = useState(today);
   const [statusFilter, setStatusFilter] = useState("todos");
@@ -58,26 +60,26 @@ export default function Rupturas() {
   const totalPeso = useMemo(() => rupturas.reduce((s, c) => s + (c.peso ?? 0), 0), [rupturas]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
-    if (!isAdmin && !isLogistica) return;
+    if (!isAdmin && !isLogistica && !isFaturamento) return;
     const updates: Record<string, any> = { id, status };
     if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
     if (status === "Carregado") updates.horario_fim = new Date().toISOString();
     updateMut.mutate(updates);
-  }, [isAdmin, isLogistica, updateMut]);
+  }, [isAdmin, isLogistica, isFaturamento, updateMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
-    if (!isAdmin) return;
+    if (!canEdit) return;
     setEditing(c);
     setDialogMode("editar");
     setDialogOpen(true);
-  }, [isAdmin]);
+  }, [canEdit]);
 
   const handleComplete = useCallback((c: Carregamento) => {
-    if (!isAdmin && !isLogistica) return;
+    if (!isAdmin && !isLogistica && !isFaturamento) return;
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
-  }, [isAdmin, isLogistica]);
+  }, [isAdmin, isLogistica, isFaturamento]);
 
   const handleDeleteRequest = useCallback((id: string) => setDeleteId(id), []);
   const handleDeleteConfirm = useCallback(() => {
@@ -96,7 +98,7 @@ export default function Rupturas() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
-          {isAdmin && (
+          {canEdit && (
             <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
               <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
             </Button>

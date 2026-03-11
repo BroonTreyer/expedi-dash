@@ -22,6 +22,8 @@ export default function Index() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
+  const isFaturamento = role === "faturamento";
+  const canEdit = isAdmin || isFaturamento;
 
   const [view, setView] = useState<"table" | "kanban">("table");
   const [filters, setFilters] = useState({
@@ -64,12 +66,12 @@ export default function Index() {
   }, [carregamentos, filters]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
-    if (!isAdmin && !isLogistica) return;
+    if (!isAdmin && !isLogistica && !isFaturamento) return;
     const updates: Record<string, any> = { id, status };
     if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
     if (status === "Carregado") updates.horario_fim = new Date().toISOString();
     updateMut.mutate(updates);
-  }, [isAdmin, isLogistica, updateMut]);
+  }, [isAdmin, isLogistica, isFaturamento, updateMut]);
 
   const handleSubmit = useCallback((values: Record<string, any>) => {
     if (values.id) {
@@ -80,18 +82,18 @@ export default function Index() {
   }, [updateMut, createMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
-    if (!isAdmin) return;
+    if (!canEdit) return;
     setEditing(c);
     setDialogMode("editar");
     setDialogOpen(true);
-  }, [isAdmin]);
+  }, [canEdit]);
 
   const handleComplete = useCallback((c: Carregamento) => {
-    if (!isAdmin && !isLogistica) return;
+    if (!isAdmin && !isLogistica && !isFaturamento) return;
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
-  }, [isAdmin, isLogistica]);
+  }, [isAdmin, isLogistica, isFaturamento]);
 
   const handleNewPedido = useCallback(() => {
     setEditing(null);
@@ -135,7 +137,7 @@ export default function Index() {
                 <Columns3 className="h-4 w-4 mr-1" /> Kanban
               </Button>
             </div>
-            {isAdmin && (
+            {canEdit && (
               <Button onClick={handleNewPedido}>
                 <Plus className="h-4 w-4 mr-1" /> Novo Pedido
               </Button>
