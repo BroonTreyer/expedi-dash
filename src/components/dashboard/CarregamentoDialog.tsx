@@ -182,18 +182,28 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           {/* === VENDAS FIELDS === */}
           {showVendas && (
             <>
-              <div className="space-y-1.5">
-                <Label className="text-xs">N° Pedido</Label>
-                <Input
-                  type="number"
-                  value={form.numero_pedido ?? ""}
-                  onChange={(e) => set("numero_pedido", e.target.value ? Number(e.target.value) : null)}
-                  placeholder="Ex: 1234"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Data</Label>
-                <Input type="date" value={form.data ?? ""} onChange={(e) => set("data", e.target.value)} />
+              {/* Primeira linha: Data, N° Pedido, UF */}
+              <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Data</Label>
+                  <Input type="date" value={form.data ?? ""} onChange={(e) => set("data", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">N° Pedido</Label>
+                  <Input
+                    type="number"
+                    value={form.numero_pedido ?? ""}
+                    onChange={(e) => set("numero_pedido", e.target.value ? Number(e.target.value) : null)}
+                    placeholder="Ex: 1234"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">UF</Label>
+                  <Select value={form.uf ?? ""} onValueChange={(v) => set("uf", v)}>
+                    <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+                    <SelectContent>{UF_LIST.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Cód. Vendedor</Label>
@@ -212,13 +222,6 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 <Select value={form.vendedor_id ?? ""} onValueChange={(v) => set("vendedor_id", v)}>
                   <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>{vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.codigo_vendedor} - {v.nome_vendedor}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">UF</Label>
-                <Select value={form.uf ?? ""} onValueChange={(v) => set("uf", v)}>
-                  <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
-                  <SelectContent>{UF_LIST.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
