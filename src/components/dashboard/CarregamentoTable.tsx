@@ -321,23 +321,23 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
                   <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
                   <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>{c.observacoes || "—"}</TableCell>
-                  {(isAdmin || isLogistica) && (
+                  {hasActions && (
                     <TableCell>
                       <div className="flex gap-1">
-                        {(isAdmin || isLogistica) && c.etapa === "vendas" && (
+                        {c.etapa === "vendas" && (
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
                             <ClipboardCheck className="h-3.5 w-3.5" />
                           </Button>
                         )}
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         {isAdmin && (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                       </div>
                     </TableCell>
