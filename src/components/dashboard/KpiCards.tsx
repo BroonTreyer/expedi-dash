@@ -40,4 +40,4 @@ export const KpiCards = React.memo(function KpiCards({ data }: Props) {
       ))}
     </div>
   );
-}
+});
