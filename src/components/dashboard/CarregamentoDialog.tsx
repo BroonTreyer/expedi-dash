@@ -16,7 +16,7 @@ interface Props {
   onSubmit: (values: Record<string, any>) => void;
   editing: Carregamento | null;
   mode: DialogMode;
-  vendedores: { id: string; nome_vendedor: string }[];
+  vendedores: { id: string; nome_vendedor: string; codigo_vendedor: string }[];
   tiposCaminhao: { nome_tipo: string }[];
   produtos: { codigo_produto: string; nome_produto: string; peso_padrao: number | null }[];
   selectedDate: string;
