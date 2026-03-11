@@ -46,7 +46,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Caminhão</TableHead>
             <TableHead>Placa</TableHead>
             <TableHead>Motorista</TableHead>
-            <TableHead>Cidade</TableHead>
+            
             <TableHead>UF</TableHead>
             <TableHead>Previsto</TableHead>
             <TableHead>Início</TableHead>
