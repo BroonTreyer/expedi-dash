@@ -1,19 +1,28 @@
 
 
-# Remover fundo da logo Frico
+# Tornar usuário admin + remover cadastro público
 
-## Problema
-A logo da Frico tem um fundo residual que aparece na sidebar e na tela de login. O usuário quer transparência total, mantendo a linha branca central.
+## Alterações
 
-## Abordagem
-Não é possível editar imagens binárias diretamente no código. Duas opções:
+### 1. Banco de dados
+- Atualizar o role do usuário `matheuss-s@hotmail.com` (id: `7fae2387-3696-4dbb-b14e-348c4db9140d`) para `admin` na tabela `user_roles`
 
-### Opção 1: CSS (rápido, aproximado)
-Aplicar `mix-blend-mode` na imagem para misturar com o fundo. Limitação: pode afetar a linha branca dependendo do contraste.
+### 2. Página de login (`src/pages/Auth.tsx`)
+- Remover completamente o formulário de cadastro e o botão "Não tem conta? Cadastre-se"
+- Manter apenas o formulário de login (email + senha)
 
-### Opção 2: Imagem reprocessada (recomendado)
-O usuário faz upload de uma versão com fundo 100% transparente usando uma ferramenta como [remove.bg](https://remove.bg) ou editor de imagem, e eu substituo o arquivo.
+### 3. Página de Usuários (`src/pages/Usuarios.tsx`)
+- Adicionar funcionalidade para o admin criar novos usuários (email, nome, senha, role)
+- Usar uma edge function com service_role key para criar usuários via `supabase.auth.admin.createUser()`
 
-## Recomendação
-A melhor solução é o usuário fornecer a imagem já com fundo transparente. Se preferir a solução CSS imediata, posso aplicar `mix-blend-mode: multiply` na sidebar (fundo escuro) e ajustar o contraste.
+### 4. Edge Function (`supabase/functions/create-user`)
+- Recebe email, password, nome, role
+- Valida que o chamador é admin (via JWT)
+- Cria o usuário com `auth.admin.createUser()` (auto-confirma email)
+- O trigger existente já cria profile e role padrão; a function atualiza o role se necessário
+
+### Arquivos alterados
+- `src/pages/Auth.tsx` — remover signup
+- `src/pages/Usuarios.tsx` — adicionar formulário de criar usuário
+- `supabase/functions/create-user/index.ts` — nova edge function
 
