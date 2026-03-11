@@ -149,13 +149,13 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40">
-            <TableHead className="w-[120px]">Etapa</TableHead>
+            {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
             <TableHead className="w-[160px]">Status</TableHead>
             <TableHead>Vendedor</TableHead>
             <TableHead>Cód. Produto</TableHead>
             <TableHead>Produto</TableHead>
-            <TableHead className="text-right">Qtd</TableHead>
-            <TableHead className="text-right">Peso (kg)</TableHead>
+            {!hideColumns.includes("qtd") && <TableHead className="text-right">Qtd</TableHead>}
+            {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
             <TableHead>Caminhão</TableHead>
             <TableHead>Motorista</TableHead>
             <TableHead>Cliente</TableHead>
