@@ -9,7 +9,11 @@ const navItems = [
   { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck },
 ];
 
-export function AppSidebar() {
+interface Props {
+  onNavigate?: () => void;
+}
+
+export function AppSidebar({ onNavigate }: Props) {
   const location = useLocation();
 
   return (
@@ -30,6 +34,7 @@ export function AppSidebar() {
             <Link
               key={item.to}
               to={item.to}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                 active

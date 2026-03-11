@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Search } from "lucide-react";
+import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
+import { Plus, Edit, Trash2, Search, Users } from "lucide-react";
 
 export default function Vendedores() {
   const { data: vendedores = [], isLoading } = useVendedores();
@@ -19,6 +20,7 @@ export default function Vendedores() {
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ codigo_vendedor: "", nome_vendedor: "", ativo: true });
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filtered = vendedores.filter((v) => {
     const s = search.toLowerCase();
@@ -50,7 +52,16 @@ export default function Vendedores() {
               <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {filtered.map((v) => (
+              {isLoading ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <Users className="h-8 w-8 text-muted-foreground/40" />
+                    <span>Nenhum vendedor encontrado</span>
+                  </div>
+                </TableCell></TableRow>
+              ) : filtered.map((v) => (
                 <TableRow key={v.id}>
                   <TableCell className="font-mono text-sm">{v.codigo_vendedor}</TableCell>
                   <TableCell className="text-sm">{v.nome_vendedor}</TableCell>
@@ -58,7 +69,7 @@ export default function Vendedores() {
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(v)}><Edit className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMut.mutate(v.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(v.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -68,7 +79,10 @@ export default function Vendedores() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Editar Vendedor" : "Novo Vendedor"}</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>{editing ? "Editar Vendedor" : "Novo Vendedor"}</DialogTitle>
+              <DialogDescription>{editing ? "Edite os dados do vendedor" : "Preencha os dados do novo vendedor"}</DialogDescription>
+            </DialogHeader>
             <div className="space-y-4">
               <div><Label className="text-xs">Código</Label><Input value={form.codigo_vendedor} onChange={(e) => setForm(f => ({ ...f, codigo_vendedor: e.target.value }))} /></div>
               <div><Label className="text-xs">Nome</Label><Input value={form.nome_vendedor} onChange={(e) => setForm(f => ({ ...f, nome_vendedor: e.target.value }))} /></div>
@@ -77,6 +91,12 @@ export default function Vendedores() {
             </div>
           </DialogContent>
         </Dialog>
+        <DeleteConfirmDialog
+          open={!!deleteId}
+          onOpenChange={(o) => !o && setDeleteId(null)}
+          onConfirm={() => { if (deleteId) deleteMut.mutate(deleteId); setDeleteId(null); }}
+          description="Tem certeza que deseja excluir este vendedor? Esta ação não pode ser desfeita."
+        />
       </div>
     </Layout>
   );

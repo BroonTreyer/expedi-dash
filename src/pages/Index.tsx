@@ -5,6 +5,7 @@ import { Filters } from "@/components/dashboard/Filters";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { KanbanView } from "@/components/dashboard/KanbanView";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
+import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
@@ -21,7 +22,6 @@ export default function Index() {
     status: "todos",
     vendedor: "todos",
     tipoCaminhao: "todos",
-    
     busca: "",
     data: today,
     etapa: "todos",
@@ -29,6 +29,7 @@ export default function Index() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Carregamento | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>("vendas");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
   const { data: vendedores = [] } = useVendedores();
@@ -43,7 +44,6 @@ export default function Index() {
     if (filters.vendedor !== "todos" && c.vendedor_id !== filters.vendedor) return false;
     if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
     if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
-    
     if (filters.busca) {
       const b = filters.busca.toLowerCase();
       if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b)) return false;
@@ -86,8 +86,8 @@ export default function Index() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-5">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Painel de Expedição</h1>
             <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export default function Index() {
             data={filtered}
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
-            onDelete={(id) => deleteMut.mutate(id)}
+            onDelete={(id) => setDeleteId(id)}
             onComplete={handleComplete}
           />
         ) : (
@@ -153,6 +153,13 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
           selectedDate={filters.data}
+        />
+
+        <DeleteConfirmDialog
+          open={!!deleteId}
+          onOpenChange={(o) => !o && setDeleteId(null)}
+          onConfirm={() => { if (deleteId) deleteMut.mutate(deleteId); setDeleteId(null); }}
+          description="Tem certeza que deseja excluir este carregamento? Esta ação não pode ser desfeita."
         />
       </div>
     </Layout>
