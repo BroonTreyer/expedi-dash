@@ -20,6 +20,7 @@ interface Props {
   statuses?: readonly string[];
   statusColors?: Record<string, string>;
   showPesoAprox?: boolean;
+  hideColumns?: string[];
 }
 
 function formatTime(val: string | null) {

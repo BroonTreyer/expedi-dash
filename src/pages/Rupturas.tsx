@@ -160,6 +160,7 @@ export default function Rupturas() {
             statuses={RUPTURA_STATUSES}
             statusColors={RUPTURA_STATUS_COLORS}
             showPesoAprox
+            hideColumns={["etapa", "qtd", "peso"]}
           />
         )}
 
