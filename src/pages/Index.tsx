@@ -66,12 +66,12 @@ export default function Index() {
   }, [carregamentos, filters]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
-    if (!isAdmin && !isLogistica) return;
+    if (!isAdmin && !isLogistica && !isFaturamento) return;
     const updates: Record<string, any> = { id, status };
     if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
     if (status === "Carregado") updates.horario_fim = new Date().toISOString();
     updateMut.mutate(updates);
-  }, [isAdmin, isLogistica, updateMut]);
+  }, [isAdmin, isLogistica, isFaturamento, updateMut]);
 
   const handleSubmit = useCallback((values: Record<string, any>) => {
     if (values.id) {
