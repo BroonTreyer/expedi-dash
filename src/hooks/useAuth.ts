@@ -83,8 +83,17 @@ export function useAuthState(): AuthState {
   return { user, session, role, loading, signIn, signUp, signOut };
 }
 
+const defaultAuth: AuthState = {
+  user: null,
+  session: null,
+  role: null,
+  loading: true,
+  signIn: async () => ({ error: "Not initialized" }),
+  signUp: async () => ({ error: "Not initialized" }),
+  signOut: async () => {},
+};
+
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  return ctx ?? defaultAuth;
 }
