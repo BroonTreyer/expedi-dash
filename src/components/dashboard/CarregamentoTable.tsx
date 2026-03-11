@@ -4,7 +4,7 @@ import { EtapaBadge } from "./EtapaBadge";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, Edit, ClipboardCheck } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { AppRole } from "@/hooks/useAuth";
