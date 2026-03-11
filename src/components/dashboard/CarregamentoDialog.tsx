@@ -37,6 +37,7 @@ interface Props {
   vendedores: { id: string; nome_vendedor: string; codigo_vendedor: string }[];
   tiposCaminhao: { nome_tipo: string }[];
   produtos: { codigo_produto: string; nome_produto: string; peso_padrao: number | null }[];
+  clientes: { codigo_cliente: string; nome_cliente: string }[];
   selectedDate: string;
   defaultRuptura?: boolean;
 }
@@ -53,9 +54,10 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
   editar: "Edite todos os campos do carregamento",
 };
 
-export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate, defaultRuptura }: Props) {
+export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura }: Props) {
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
+  const [codigoClienteInput, setCodigoClienteInput] = useState("");
   const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
 
   useEffect(() => {
@@ -63,6 +65,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       setForm({ ...editing });
       const v = vendedores.find(v => v.id === editing.vendedor_id);
       setCodigoVendedorInput(v?.codigo_vendedor ?? "");
+      setCodigoClienteInput(editing.codigo_cliente ?? "");
       const p = produtos.find(p => p.codigo_produto === editing.codigo_produto);
       setItems([{
         codigo_produto: editing.codigo_produto ?? "",
@@ -74,6 +77,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     } else {
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
       setCodigoVendedorInput("");
+      setCodigoClienteInput("");
       setItems([emptyItem()]);
     }
   }, [editing, open, selectedDate]);
@@ -84,6 +88,14 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     const found = vendedores.find((v) => v.codigo_vendedor === codigo);
     if (found) {
       set("vendedor_id", found.id);
+    }
+  };
+
+  const handleCodigoCliente = (codigo: string) => {
+    const found = clientes.find((c) => c.codigo_cliente.toLowerCase() === codigo.toLowerCase());
+    if (found) {
+      set("cliente", found.nome_cliente);
+      set("codigo_cliente", found.codigo_cliente);
     }
   };
 
@@ -201,8 +213,20 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 </Select>
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs">Cód. Cliente</Label>
+                <Input
+                  value={codigoClienteInput}
+                  onChange={(e) => {
+                    const codigo = e.target.value;
+                    setCodigoClienteInput(codigo);
+                    handleCodigoCliente(codigo);
+                  }}
+                  placeholder="Ex: 001"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs">Cliente</Label>
-                <Input value={form.cliente ?? ""} onChange={(e) => set("cliente", e.target.value)} placeholder="Nome do cliente" />
+                <Input value={form.cliente ?? ""} readOnly className="bg-muted/50" placeholder="Auto-preenchido" />
               </div>
 
               {/* === PRODUCT ITEMS === */}

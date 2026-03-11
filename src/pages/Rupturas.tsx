@@ -7,6 +7,7 @@ import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDele
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
+import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ export default function Rupturas() {
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
+  const { data: clientes = [] } = useClientes();
   const createMut = useCreateCarregamento();
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
@@ -172,6 +174,7 @@ export default function Rupturas() {
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
+          clientes={clientes}
           selectedDate={date}
           defaultRuptura
         />

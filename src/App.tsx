@@ -11,6 +11,7 @@ import Vendedores from "./pages/Vendedores";
 import TiposCaminhao from "./pages/TiposCaminhao";
 import Usuarios from "./pages/Usuarios";
 import Rupturas from "./pages/Rupturas";
+import Clientes from "./pages/Clientes";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -36,6 +37,7 @@ function AppRoutes() {
         <Route path="/vendedores" element={<ProtectedRoute allowedRoles={["admin"]}><Vendedores /></ProtectedRoute>} />
         <Route path="/tipos-caminhao" element={<ProtectedRoute allowedRoles={["admin"]}><TiposCaminhao /></ProtectedRoute>} />
         <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["admin"]}><Usuarios /></ProtectedRoute>} />
+        <Route path="/clientes" element={<ProtectedRoute allowedRoles={["admin"]}><Clientes /></ProtectedRoute>} />
         <Route path="/rupturas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Rupturas /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>

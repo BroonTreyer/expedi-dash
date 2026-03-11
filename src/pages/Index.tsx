@@ -10,6 +10,7 @@ import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDele
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
+import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Plus, TableIcon, Columns3 } from "lucide-react";
@@ -41,6 +42,7 @@ export default function Index() {
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
+  const { data: clientes = [] } = useClientes();
   const createMut = useCreateCarregamento();
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
@@ -174,6 +176,7 @@ export default function Index() {
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
+          clientes={clientes}
           selectedDate={filters.data}
         />
 
