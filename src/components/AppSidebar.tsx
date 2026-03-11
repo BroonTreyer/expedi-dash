@@ -12,6 +12,7 @@ const allNavItems = [
   { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin"] },
   { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck, roles: ["admin"] },
   { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
+  { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
 ];
 
 interface Props {
