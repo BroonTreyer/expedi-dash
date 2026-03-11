@@ -147,22 +147,22 @@ function MobileCardItem({ c, isAdmin, canEdit, hasActions, canChangeStatus, onSt
             </span>
           )}
         </div>
-        {(isAdmin || isLogistica) && (
+        {hasActions && (
           <div className="flex gap-1 shrink-0">
             {c.etapa === "vendas" && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
                 <ClipboardCheck className="h-3.5 w-3.5" />
               </Button>
             )}
+            {canEdit && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+            )}
             {isAdmin && (
-              <>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
-                  <Edit className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             )}
           </div>
         )}
