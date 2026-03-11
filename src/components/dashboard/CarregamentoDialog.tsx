@@ -36,7 +36,7 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
 
 export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate }: Props) {
   const [form, setForm] = useState<Record<string, any>>({});
-
+  const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
   useEffect(() => {
     if (editing) {
       setForm({ ...editing });
