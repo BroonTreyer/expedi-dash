@@ -3,13 +3,35 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuthState, AuthProvider } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Produtos from "./pages/Produtos";
 import Vendedores from "./pages/Vendedores";
 import TiposCaminhao from "./pages/TiposCaminhao";
+import Usuarios from "./pages/Usuarios";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function AppRoutes() {
+  const auth = useAuthState();
+
+  return (
+    <AuthProvider value={auth}>
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+        <Route path="/produtos" element={<ProtectedRoute allowedRoles={["admin"]}><Produtos /></ProtectedRoute>} />
+        <Route path="/vendedores" element={<ProtectedRoute allowedRoles={["admin"]}><Vendedores /></ProtectedRoute>} />
+        <Route path="/tipos-caminhao" element={<ProtectedRoute allowedRoles={["admin"]}><TiposCaminhao /></ProtectedRoute>} />
+        <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["admin"]}><Usuarios /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -17,13 +39,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/produtos" element={<Produtos />} />
-          <Route path="/vendedores" element={<Vendedores />} />
-          <Route path="/tipos-caminhao" element={<TiposCaminhao />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AppRoutes />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

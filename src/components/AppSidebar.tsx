@@ -1,12 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, Users, Truck } from "lucide-react";
+import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
-const navItems = [
-  { to: "/", label: "Painel", icon: LayoutDashboard },
-  { to: "/produtos", label: "Produtos", icon: Package },
-  { to: "/vendedores", label: "Vendedores", icon: Users },
-  { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck },
+const allNavItems = [
+  { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin"] },
+  { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin"] },
+  { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck, roles: ["admin"] },
+  { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
 ];
 
 interface Props {
@@ -15,6 +18,9 @@ interface Props {
 
 export function AppSidebar({ onNavigate }: Props) {
   const location = useLocation();
+  const { role, signOut, user } = useAuth();
+
+  const navItems = allNavItems.filter((item) => !role || item.roles.includes(role));
 
   return (
     <aside className="w-60 min-h-screen bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
@@ -48,6 +54,22 @@ export function AppSidebar({ onNavigate }: Props) {
           );
         })}
       </nav>
+      {user && (
+        <div className="p-3 border-t border-sidebar-border">
+          <div className="px-3 py-1 mb-2">
+            <p className="text-xs text-sidebar-foreground/60 truncate">{user.email}</p>
+            <p className="text-[10px] text-sidebar-foreground/40 uppercase">{role ?? "..."}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={signOut}
+          >
+            <LogOut className="h-4 w-4 mr-2" /> Sair
+          </Button>
+        </div>
+      )}
     </aside>
   );
 }

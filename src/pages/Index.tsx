@@ -10,6 +10,7 @@ import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDele
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Plus, TableIcon, Columns3 } from "lucide-react";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
@@ -17,6 +18,10 @@ import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 const today = new Date().toISOString().split("T")[0];
 
 export default function Index() {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
+  const isLogistica = role === "logistica";
+
   const [view, setView] = useState<"table" | "kanban">("table");
   const [filters, setFilters] = useState({
     status: "todos",
@@ -52,6 +57,7 @@ export default function Index() {
   });
 
   const handleStatusChange = (id: string, status: string) => {
+    if (!isAdmin && !isLogistica) return;
     const updates: Record<string, any> = { id, status };
     if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
     if (status === "Carregado") updates.horario_fim = new Date().toISOString();
@@ -67,12 +73,14 @@ export default function Index() {
   };
 
   const handleEdit = (c: Carregamento) => {
+    if (!isAdmin) return;
     setEditing(c);
     setDialogMode("editar");
     setDialogOpen(true);
   };
 
   const handleComplete = (c: Carregamento) => {
+    if (!isAdmin && !isLogistica) return;
     setEditing(c);
     setDialogMode("logistica");
     setDialogOpen(true);
@@ -114,9 +122,11 @@ export default function Index() {
                 <Columns3 className="h-4 w-4 mr-1" /> Kanban
               </Button>
             </div>
-            <Button onClick={handleNewPedido}>
-              <Plus className="h-4 w-4 mr-1" /> Novo Pedido
-            </Button>
+            {isAdmin && (
+              <Button onClick={handleNewPedido}>
+                <Plus className="h-4 w-4 mr-1" /> Novo Pedido
+              </Button>
+            )}
           </div>
         </div>
 
@@ -138,6 +148,7 @@ export default function Index() {
             onEdit={handleEdit}
             onDelete={(id) => setDeleteId(id)}
             onComplete={handleComplete}
+            userRole={role}
           />
         ) : (
           <KanbanView data={filtered} onStatusChange={handleStatusChange} />
