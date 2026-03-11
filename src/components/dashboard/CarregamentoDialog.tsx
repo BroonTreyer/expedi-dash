@@ -37,6 +37,7 @@ interface Props {
   vendedores: { id: string; nome_vendedor: string; codigo_vendedor: string }[];
   tiposCaminhao: { nome_tipo: string }[];
   produtos: { codigo_produto: string; nome_produto: string; peso_padrao: number | null }[];
+  clientes: { codigo_cliente: string; nome_cliente: string }[];
   selectedDate: string;
   defaultRuptura?: boolean;
 }
