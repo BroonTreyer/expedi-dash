@@ -7,7 +7,7 @@ export function EtapaBadge({ etapa }: { etapa: string }) {
     <Badge
       variant="outline"
       className={cn(
-        "text-[9px] font-semibold px-1.5 py-0.5",
+        "text-[9px] font-semibold px-1.5 py-0.5 whitespace-nowrap rounded-md",
         isVendas
           ? "border-amber-500/50 text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400"
           : "border-emerald-500/50 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400"
