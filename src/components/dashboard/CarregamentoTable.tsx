@@ -148,7 +148,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
         <TableBody>
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={isAdmin || isLogistica ? 14 : 13} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={isAdmin || isLogistica ? 15 : 14} className="text-center py-8 text-muted-foreground">
                 Nenhum carregamento encontrado
               </TableCell>
             </TableRow>
