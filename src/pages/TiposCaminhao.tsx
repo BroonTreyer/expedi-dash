@@ -5,15 +5,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
+import { Plus, Trash2, Truck } from "lucide-react";
 
 export default function TiposCaminhao() {
-  const { data: tipos = [] } = useTiposCaminhao();
+  const { data: tipos = [], isLoading } = useTiposCaminhao();
   const createMut = useCreateTipoCaminhao();
   const deleteMut = useDeleteTipoCaminhao();
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const handleSubmit = () => {
     if (!nome.trim()) return;
@@ -35,11 +37,20 @@ export default function TiposCaminhao() {
               <TableHead>Nome</TableHead><TableHead className="w-[60px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {tipos.map((t) => (
+              {isLoading ? (
+                <TableRow><TableCell colSpan={2} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              ) : tipos.length === 0 ? (
+                <TableRow><TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <Truck className="h-8 w-8 text-muted-foreground/40" />
+                    <span>Nenhum tipo cadastrado</span>
+                  </div>
+                </TableCell></TableRow>
+              ) : tipos.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="text-sm">{t.nome_tipo}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMut.mutate(t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -48,13 +59,22 @@ export default function TiposCaminhao() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="max-w-sm">
-            <DialogHeader><DialogTitle>Novo Tipo de Caminhão</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Novo Tipo de Caminhão</DialogTitle>
+              <DialogDescription>Informe o nome do tipo de caminhão</DialogDescription>
+            </DialogHeader>
             <div className="space-y-4">
               <div><Label className="text-xs">Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Truck, Carreta, Bitrem" /></div>
               <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>Criar</Button></div>
             </div>
           </DialogContent>
         </Dialog>
+        <DeleteConfirmDialog
+          open={!!deleteId}
+          onOpenChange={(o) => !o && setDeleteId(null)}
+          onConfirm={() => { if (deleteId) deleteMut.mutate(deleteId); setDeleteId(null); }}
+          description="Tem certeza que deseja excluir este tipo de caminhão? Esta ação não pode ser desfeita."
+        />
       </div>
     </Layout>
   );

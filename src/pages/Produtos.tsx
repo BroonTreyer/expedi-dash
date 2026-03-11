@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Search } from "lucide-react";
+import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
+import { Plus, Edit, Trash2, Search, Package } from "lucide-react";
 
 export default function Produtos() {
   const { data: produtos = [], isLoading } = useProdutos();
@@ -19,6 +20,7 @@ export default function Produtos() {
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ codigo_produto: "", nome_produto: "", peso_padrao: 0, ativo: true });
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filtered = produtos.filter((p) => {
     const s = search.toLowerCase();
@@ -54,7 +56,16 @@ export default function Produtos() {
               <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead className="text-right">Peso Padrão (kg)</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {filtered.map((p) => (
+              {isLoading ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <Package className="h-8 w-8 text-muted-foreground/40" />
+                    <span>Nenhum produto encontrado</span>
+                  </div>
+                </TableCell></TableRow>
+              ) : filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-sm">{p.codigo_produto}</TableCell>
                   <TableCell className="text-sm">{p.nome_produto}</TableCell>
@@ -63,7 +74,7 @@ export default function Produtos() {
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}><Edit className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMut.mutate(p.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(p.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -73,7 +84,10 @@ export default function Produtos() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Editar Produto" : "Novo Produto"}</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>{editing ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+              <DialogDescription>{editing ? "Edite os dados do produto" : "Preencha os dados do novo produto"}</DialogDescription>
+            </DialogHeader>
             <div className="space-y-4">
               <div><Label className="text-xs">Código</Label><Input value={form.codigo_produto} onChange={(e) => setForm(f => ({ ...f, codigo_produto: e.target.value }))} /></div>
               <div><Label className="text-xs">Nome</Label><Input value={form.nome_produto} onChange={(e) => setForm(f => ({ ...f, nome_produto: e.target.value }))} /></div>
@@ -83,6 +97,12 @@ export default function Produtos() {
             </div>
           </DialogContent>
         </Dialog>
+        <DeleteConfirmDialog
+          open={!!deleteId}
+          onOpenChange={(o) => !o && setDeleteId(null)}
+          onConfirm={() => { if (deleteId) deleteMut.mutate(deleteId); setDeleteId(null); }}
+          description="Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita."
+        />
       </div>
     </Layout>
   );
