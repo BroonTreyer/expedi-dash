@@ -126,7 +126,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40">
-            <TableHead className="w-[70px]">Etapa</TableHead>
+            <TableHead className="w-[120px]">Etapa</TableHead>
             <TableHead className="w-[160px]">Status</TableHead>
             <TableHead>Vendedor</TableHead>
             <TableHead>Cód. Produto</TableHead>
