@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "./StatusBadge";
+import { EtapaBadge } from "./EtapaBadge";
 import { STATUSES, STATUS_COLORS, type CarregamentoStatus } from "@/lib/constants";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export function KanbanView({ data, onStatusChange }: Props) {
                   <CardContent className="p-3 space-y-1.5">
                     <div className="flex justify-between items-start">
                       <span className="text-xs font-semibold">{c.nome_produto || c.codigo_produto || "Sem produto"}</span>
+                      <EtapaBadge etapa={c.etapa} />
                     </div>
                     <div className="text-[11px] text-muted-foreground space-y-0.5">
                       <div>{c.vendedores?.nome_vendedor ?? "—"}</div>

@@ -1,4 +1,4 @@
-import { Package, Weight, Truck, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Package, Weight, Truck, Clock, CheckCircle, AlertTriangle, ClipboardList } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
@@ -13,13 +13,14 @@ export function KpiCards({ data }: Props) {
   const pesoCarregando = data.filter(c => c.status === "Carregando").reduce((s, c) => s + (c.peso ?? 0), 0);
   const pesoPendente = pesoTotal - pesoCarregado - pesoCarregando;
   const totalVeiculos = new Set(data.filter(c => c.placa).map(c => c.placa)).size;
+  const pendentesLogistica = data.filter(c => c.etapa === "vendas").length;
 
   const cards = [
     { label: "Total Cargas", value: totalCargas, icon: Package, color: "text-primary" },
+    { label: "Pendentes Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500" },
     { label: "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
     { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado" },
     { label: "Em Carregamento", value: `${pesoCarregando.toLocaleString("pt-BR")} kg`, icon: Clock, color: "text-status-carregando" },
-    { label: "Peso Pendente", value: `${pesoPendente.toLocaleString("pt-BR")} kg`, icon: AlertTriangle, color: "text-status-problema" },
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
   ];
 

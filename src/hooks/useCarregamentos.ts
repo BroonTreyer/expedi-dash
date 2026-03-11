@@ -19,6 +19,7 @@ export type Carregamento = {
   horario_inicio: string | null;
   horario_fim: string | null;
   status: string;
+  etapa: string;
   observacoes: string | null;
   created_at: string;
   updated_at: string;

@@ -20,6 +20,7 @@ export type Database = {
           codigo_produto: string | null
           created_at: string
           data: string
+          etapa: string
           horario_fim: string | null
           horario_inicio: string | null
           horario_previsto: string | null
@@ -41,6 +42,7 @@ export type Database = {
           codigo_produto?: string | null
           created_at?: string
           data?: string
+          etapa?: string
           horario_fim?: string | null
           horario_inicio?: string | null
           horario_previsto?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           codigo_produto?: string | null
           created_at?: string
           data?: string
+          etapa?: string
           horario_fim?: string | null
           horario_inicio?: string | null
           horario_previsto?: string | null
