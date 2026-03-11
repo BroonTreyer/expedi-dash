@@ -257,7 +257,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   )}
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_80px_100px_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
+                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_80px_100px_auto_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
                     <div className="space-y-1">
                       <Label className="text-xs sm:hidden">Código</Label>
                       {idx === 0 && <Label className="text-xs hidden sm:block">Código</Label>}
@@ -293,6 +293,19 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                           onChange={(e) => updateItem(idx, { peso: Number(e.target.value) })}
                           className="h-9 text-sm"
                         />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      {idx === 0 && <Label className="text-xs hidden sm:block">Ruptura</Label>}
+                      <div className="flex items-center gap-1.5 h-9 sm:justify-center">
+                        <Checkbox
+                          id={`ruptura-${idx}`}
+                          checked={item.ruptura}
+                          onCheckedChange={(checked) => updateItem(idx, { ruptura: !!checked })}
+                        />
+                        <Label htmlFor={`ruptura-${idx}`} className="text-xs text-amber-600 cursor-pointer sm:hidden">
+                          Ruptura
+                        </Label>
                       </div>
                     </div>
                     <div className="flex justify-end sm:block">
