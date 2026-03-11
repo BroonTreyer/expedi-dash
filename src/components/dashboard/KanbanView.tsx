@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { EtapaBadge } from "./EtapaBadge";
-import { STATUSES, STATUS_COLORS, type CarregamentoStatus } from "@/lib/constants";
+import { STATUSES, STATUS_COLORS, RUPTURA_STATUSES, type CarregamentoStatus } from "@/lib/constants";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { cn } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
