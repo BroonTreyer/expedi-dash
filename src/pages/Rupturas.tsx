@@ -176,7 +176,7 @@ export default function Rupturas() {
             if (editing) {
               updateMut.mutate(values);
             } else {
-              createMut.mutate({ ...values, ruptura: true, status: "Aguardando pedido" });
+              createMut.mutate({ ...values, status: "Aguardando pedido" });
             }
           }}
           editing={editing}
