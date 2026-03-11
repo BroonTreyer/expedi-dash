@@ -82,11 +82,11 @@ export default function Index() {
   }, [updateMut, createMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
-    if (!isAdmin) return;
+    if (!canEdit) return;
     setEditing(c);
     setDialogMode("editar");
     setDialogOpen(true);
-  }, [isAdmin]);
+  }, [canEdit]);
 
   const handleComplete = useCallback((c: Carregamento) => {
     if (!isAdmin && !isLogistica) return;
