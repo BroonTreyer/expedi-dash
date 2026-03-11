@@ -177,12 +177,14 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
           )}
           {data.map((c) => (
              <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
-              <TableCell>
-                <div className="flex items-center gap-1.5">
-                  <EtapaBadge etapa={c.etapa} />
-                  {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-                </div>
-              </TableCell>
+              {!hideColumns.includes("etapa") && (
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <EtapaBadge etapa={c.etapa} />
+                    {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                  </div>
+                </TableCell>
+              )}
               <TableCell>
                 {canChangeStatus ? (
                   <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
