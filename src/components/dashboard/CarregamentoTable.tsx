@@ -77,7 +77,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
               <TableCell><PendingCell value={c.placa} /></TableCell>
               <TableCell><PendingCell value={c.motorista} /></TableCell>
-              <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
+              
               <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_previsto)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
