@@ -77,6 +77,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     } else {
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
       setCodigoVendedorInput("");
+      setCodigoClienteInput("");
       setItems([emptyItem()]);
     }
   }, [editing, open, selectedDate]);
