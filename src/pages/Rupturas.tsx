@@ -60,12 +60,12 @@ export default function Rupturas() {
   const totalPeso = useMemo(() => rupturas.reduce((s, c) => s + (c.peso ?? 0), 0), [rupturas]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
-    if (!isAdmin && !isLogistica) return;
+    if (!isAdmin && !isLogistica && !isFaturamento) return;
     const updates: Record<string, any> = { id, status };
     if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
     if (status === "Carregado") updates.horario_fim = new Date().toISOString();
     updateMut.mutate(updates);
-  }, [isAdmin, isLogistica, updateMut]);
+  }, [isAdmin, isLogistica, isFaturamento, updateMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
     if (!isAdmin) return;
