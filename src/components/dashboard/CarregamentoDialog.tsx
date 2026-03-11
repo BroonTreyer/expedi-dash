@@ -210,9 +210,10 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   )}
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-2 sm:grid-cols-[1fr_1.5fr_80px_100px_32px] gap-2 items-end">
+                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_80px_100px_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
                     <div className="space-y-1">
-                      {idx === 0 && <Label className="text-xs">Código</Label>}
+                      <Label className="text-xs sm:hidden">Código</Label>
+                      {idx === 0 && <Label className="text-xs hidden sm:block">Código</Label>}
                       <Input
                         value={item.codigo_produto}
                         onChange={(e) => handleItemCodigo(idx, e.target.value)}
@@ -221,33 +222,38 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                       />
                     </div>
                     <div className="space-y-1">
-                      {idx === 0 && <Label className="text-xs">Nome Produto</Label>}
+                      <Label className="text-xs sm:hidden">Nome Produto</Label>
+                      {idx === 0 && <Label className="text-xs hidden sm:block">Nome Produto</Label>}
                       <Input value={item.nome_produto} readOnly className="h-9 text-sm bg-muted/50" />
                     </div>
-                    <div className="space-y-1">
-                      {idx === 0 && <Label className="text-xs">Qtd</Label>}
-                      <Input
-                        type="number"
-                        value={item.quantidade}
-                        onChange={(e) => handleItemQuantidade(idx, Number(e.target.value))}
-                        className="h-9 text-sm"
-                      />
+                    <div className="grid grid-cols-2 gap-2 sm:contents">
+                      <div className="space-y-1">
+                        <Label className="text-xs sm:hidden">Qtd</Label>
+                        {idx === 0 && <Label className="text-xs hidden sm:block">Qtd</Label>}
+                        <Input
+                          type="number"
+                          value={item.quantidade}
+                          onChange={(e) => handleItemQuantidade(idx, Number(e.target.value))}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs sm:hidden">Peso (kg)</Label>
+                        {idx === 0 && <Label className="text-xs hidden sm:block">Peso (kg)</Label>}
+                        <Input
+                          type="number"
+                          value={item.peso}
+                          onChange={(e) => updateItem(idx, { peso: Number(e.target.value) })}
+                          className="h-9 text-sm"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      {idx === 0 && <Label className="text-xs">Peso (kg)</Label>}
-                      <Input
-                        type="number"
-                        value={item.peso}
-                        onChange={(e) => updateItem(idx, { peso: Number(e.target.value) })}
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                    <div>
+                    <div className="flex justify-end sm:block">
                       {items.length > 1 ? (
                         <Button type="button" variant="ghost" size="icon" className="h-9 w-8 text-destructive" onClick={() => removeItem(idx)}>
                           <X className="h-3.5 w-3.5" />
                         </Button>
-                      ) : <div className="h-9 w-8" />}
+                      ) : <div className="h-9 w-8 hidden sm:block" />}
                     </div>
                   </div>
                 ))}
