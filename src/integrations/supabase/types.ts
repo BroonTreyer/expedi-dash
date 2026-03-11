@@ -14,7 +14,149 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      carregamentos_dia: {
+        Row: {
+          cidade: string | null
+          codigo_produto: string | null
+          created_at: string
+          data: string
+          horario_fim: string | null
+          horario_inicio: string | null
+          horario_previsto: string | null
+          id: string
+          motorista: string | null
+          nome_produto: string | null
+          observacoes: string | null
+          peso: number | null
+          placa: string | null
+          quantidade: number | null
+          status: string
+          tipo_caminhao: string | null
+          uf: string | null
+          updated_at: string
+          vendedor_id: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          codigo_produto?: string | null
+          created_at?: string
+          data?: string
+          horario_fim?: string | null
+          horario_inicio?: string | null
+          horario_previsto?: string | null
+          id?: string
+          motorista?: string | null
+          nome_produto?: string | null
+          observacoes?: string | null
+          peso?: number | null
+          placa?: string | null
+          quantidade?: number | null
+          status?: string
+          tipo_caminhao?: string | null
+          uf?: string | null
+          updated_at?: string
+          vendedor_id?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          codigo_produto?: string | null
+          created_at?: string
+          data?: string
+          horario_fim?: string | null
+          horario_inicio?: string | null
+          horario_previsto?: string | null
+          id?: string
+          motorista?: string | null
+          nome_produto?: string | null
+          observacoes?: string | null
+          peso?: number | null
+          placa?: string | null
+          quantidade?: number | null
+          status?: string
+          tipo_caminhao?: string | null
+          uf?: string | null
+          updated_at?: string
+          vendedor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carregamentos_dia_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "vendedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produtos: {
+        Row: {
+          ativo: boolean
+          codigo_produto: string
+          created_at: string
+          id: string
+          nome_produto: string
+          peso_padrao: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          codigo_produto: string
+          created_at?: string
+          id?: string
+          nome_produto: string
+          peso_padrao?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          codigo_produto?: string
+          created_at?: string
+          id?: string
+          nome_produto?: string
+          peso_padrao?: number | null
+        }
+        Relationships: []
+      }
+      tipos_caminhao: {
+        Row: {
+          created_at: string
+          id: string
+          nome_tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome_tipo: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome_tipo?: string
+        }
+        Relationships: []
+      }
+      vendedores: {
+        Row: {
+          ativo: boolean
+          codigo_vendedor: string
+          created_at: string
+          id: string
+          nome_vendedor: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo_vendedor: string
+          created_at?: string
+          id?: string
+          nome_vendedor: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo_vendedor?: string
+          created_at?: string
+          id?: string
+          nome_vendedor?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
