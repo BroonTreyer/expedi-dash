@@ -16,7 +16,7 @@ interface Props {
   onSubmit: (values: Record<string, any>) => void;
   editing: Carregamento | null;
   mode: DialogMode;
-  vendedores: { id: string; nome_vendedor: string }[];
+  vendedores: { id: string; nome_vendedor: string; codigo_vendedor: string }[];
   tiposCaminhao: { nome_tipo: string }[];
   produtos: { codigo_produto: string; nome_produto: string; peso_padrao: number | null }[];
   selectedDate: string;
@@ -36,23 +36,33 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
 
 export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, selectedDate }: Props) {
   const [form, setForm] = useState<Record<string, any>>({});
-
+  const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
   useEffect(() => {
     if (editing) {
       setForm({ ...editing });
+      const v = vendedores.find(v => v.id === editing.vendedor_id);
+      setCodigoVendedorInput(v?.codigo_vendedor ?? "");
     } else {
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", quantidade: 1, peso: 0 });
+      setCodigoVendedorInput("");
     }
   }, [editing, open, selectedDate]);
 
   const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
+
+  const handleCodigoVendedor = (codigo: string) => {
+    const found = vendedores.find((v) => v.codigo_vendedor === codigo);
+    if (found) {
+      set("vendedor_id", found.id);
+    }
+  };
 
   const handleCodigoProduto = (codigo: string) => {
     set("codigo_produto", codigo);
     const found = produtos.find((p) => p.codigo_produto.toLowerCase() === codigo.toLowerCase());
     if (found) {
       set("nome_produto", found.nome_produto);
-      if (!form.peso || form.peso === 0) set("peso", found.peso_padrao ?? 0);
+      set("peso", found.peso_padrao ?? 0);
     }
   };
 
@@ -86,10 +96,22 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 <Input type="date" value={form.data ?? ""} onChange={(e) => set("data", e.target.value)} />
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs">Cód. Vendedor</Label>
+                <Input
+                  value={codigoVendedorInput}
+                  onChange={(e) => {
+                    const codigo = e.target.value;
+                    setCodigoVendedorInput(codigo);
+                    handleCodigoVendedor(codigo);
+                  }}
+                  placeholder="Ex: 114"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs">Vendedor *</Label>
                 <Select value={form.vendedor_id ?? ""} onValueChange={(v) => set("vendedor_id", v)}>
                   <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>{vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}</SelectContent>
+                  <SelectContent>{vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.codigo_vendedor} - {v.nome_vendedor}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
