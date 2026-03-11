@@ -213,8 +213,20 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 </Select>
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs">Cód. Cliente</Label>
+                <Input
+                  value={codigoClienteInput}
+                  onChange={(e) => {
+                    const codigo = e.target.value;
+                    setCodigoClienteInput(codigo);
+                    handleCodigoCliente(codigo);
+                  }}
+                  placeholder="Ex: 001"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs">Cliente</Label>
-                <Input value={form.cliente ?? ""} onChange={(e) => set("cliente", e.target.value)} placeholder="Nome do cliente" />
+                <Input value={form.cliente ?? ""} readOnly className="bg-muted/50" placeholder="Auto-preenchido" />
               </div>
 
               {/* === PRODUCT ITEMS === */}
