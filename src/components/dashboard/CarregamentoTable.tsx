@@ -451,7 +451,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {(isAdmin || isLogistica) && <TableCell />}
                   </TableRow>
                 ))}
-              </React.Fragment>
+              </Fragment>
             );
           })}
         </TableBody>
