@@ -91,7 +91,7 @@ export default function Usuarios() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Gerenciar Usuários</h1>
             <p className="text-sm text-muted-foreground">Defina os níveis de acesso dos usuários</p>

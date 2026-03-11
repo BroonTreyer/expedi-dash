@@ -26,12 +26,12 @@ export default function TiposCaminhao() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-5">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Tipos de Caminhão</h1>
-          <Button onClick={() => { setNome(""); setOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Novo Tipo</Button>
+          <Button onClick={() => { setNome(""); setOpen(true); }} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-1" /> Novo Tipo</Button>
         </div>
-        <div className="rounded-lg border border-border bg-card max-w-lg">
+        <div className="rounded-lg border border-border bg-card overflow-x-auto max-w-full sm:max-w-lg">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
               <TableHead>Nome</TableHead><TableHead className="w-[60px]"></TableHead>
@@ -58,14 +58,14 @@ export default function TiposCaminhao() {
           </Table>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-sm w-[calc(100vw-2rem)] sm:w-full">
             <DialogHeader>
               <DialogTitle>Novo Tipo de Caminhão</DialogTitle>
               <DialogDescription>Informe o nome do tipo de caminhão</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div><Label className="text-xs">Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Truck, Carreta, Bitrem" /></div>
-              <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>Criar</Button></div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>Criar</Button></div>
             </div>
           </DialogContent>
         </Dialog>

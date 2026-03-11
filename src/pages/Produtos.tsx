@@ -41,16 +41,16 @@ export default function Produtos() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-5">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Novo Produto</Button>
+          <Button onClick={openNew} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-1" /> Novo Produto</Button>
         </div>
-        <div className="relative w-72">
+        <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
         </div>
-        <div className="rounded-lg border border-border bg-card">
+        <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
               <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead className="text-right">Peso Padrão (kg)</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
@@ -83,7 +83,7 @@ export default function Produtos() {
           </Table>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent>
+          <DialogContent className="w-[calc(100vw-2rem)] sm:w-full">
             <DialogHeader>
               <DialogTitle>{editing ? "Editar Produto" : "Novo Produto"}</DialogTitle>
               <DialogDescription>{editing ? "Edite os dados do produto" : "Preencha os dados do novo produto"}</DialogDescription>
@@ -93,7 +93,7 @@ export default function Produtos() {
               <div><Label className="text-xs">Nome</Label><Input value={form.nome_produto} onChange={(e) => setForm(f => ({ ...f, nome_produto: e.target.value }))} /></div>
               <div><Label className="text-xs">Peso Padrão (kg)</Label><Input type="number" value={form.peso_padrao} onChange={(e) => setForm(f => ({ ...f, peso_padrao: Number(e.target.value) }))} /></div>
               <div className="flex items-center gap-2"><Switch checked={form.ativo} onCheckedChange={(v) => setForm(f => ({ ...f, ativo: v }))} /><Label className="text-xs">Ativo</Label></div>
-              <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>{editing ? "Salvar" : "Criar"}</Button></div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>{editing ? "Salvar" : "Criar"}</Button></div>
             </div>
           </DialogContent>
         </Dialog>
