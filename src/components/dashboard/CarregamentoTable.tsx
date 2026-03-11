@@ -150,7 +150,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
         </div>
         {hasActions && (
           <div className="flex gap-1 shrink-0">
-            {c.etapa === "vendas" && (
+            {canComplete && c.etapa === "vendas" && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
                 <ClipboardCheck className="h-3.5 w-3.5" />
               </Button>
