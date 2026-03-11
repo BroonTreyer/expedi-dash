@@ -101,6 +101,12 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <div className="text-muted-foreground">Qtd / Peso</div>
               <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
+              {showPesoAprox && (
+                <>
+                  <div className="text-muted-foreground">Peso Aprox.</div>
+                  <div className="font-medium">{formatPesoAprox(c.peso, c.tipo_caminhao)}</div>
+                </>
+              )}
               <div className="text-muted-foreground">Caminhão</div>
               <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
               <div className="text-muted-foreground">Motorista</div>
