@@ -4,6 +4,7 @@ import { EtapaBadge } from "./EtapaBadge";
 import { Button } from "@/components/ui/button";
 import { Trash2, Edit, ClipboardCheck } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
+import type { AppRole } from "@/hooks/useAuth";
 
 interface Props {
   data: Carregamento[];
@@ -11,6 +12,7 @@ interface Props {
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
+  userRole?: AppRole | null;
 }
 
 function formatTime(val: string | null) {
@@ -30,7 +32,11 @@ function PendingCell({ value }: { value: string | null }) {
   return <span className="text-xs text-muted-foreground/60 italic">Pendente</span>;
 }
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete }: Props) {
+export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole }: Props) {
+  const isAdmin = userRole === "admin";
+  const isLogistica = userRole === "logistica";
+  const canChangeStatus = isAdmin || isLogistica;
+
   return (
     <div className="rounded-lg border border-border bg-card overflow-auto">
       <Table>
@@ -46,19 +52,18 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Caminhão</TableHead>
             <TableHead>Placa</TableHead>
             <TableHead>Motorista</TableHead>
-            
             <TableHead>UF</TableHead>
             <TableHead>Previsto</TableHead>
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
             <TableHead>Obs</TableHead>
-            <TableHead className="w-[110px]"></TableHead>
+            {(isAdmin || isLogistica) && <TableHead className="w-[110px]"></TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={isAdmin || isLogistica ? 16 : 15} className="text-center py-8 text-muted-foreground">
                 Nenhum carregamento encontrado
               </TableCell>
             </TableRow>
@@ -67,7 +72,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableRow key={c.id} className="hover:bg-muted/30">
               <TableCell><EtapaBadge etapa={c.etapa} /></TableCell>
               <TableCell>
-                <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} />
+                {canChangeStatus ? (
+                  <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} />
+                ) : (
+                  <span className="text-sm">{c.status}</span>
+                )}
               </TableCell>
               <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
               <TableCell className="text-sm font-mono">{c.codigo_produto ?? "—"}</TableCell>
@@ -77,7 +86,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
               <TableCell><PendingCell value={c.placa} /></TableCell>
               <TableCell><PendingCell value={c.motorista} /></TableCell>
-              
               <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_previsto)}</TableCell>
               <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
@@ -85,21 +93,27 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>
                 {c.observacoes || "—"}
               </TableCell>
-              <TableCell>
-                <div className="flex gap-1">
-                  {c.etapa === "vendas" && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
-                      <ClipboardCheck className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
-                    <Edit className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </TableCell>
+              {(isAdmin || isLogistica) && (
+                <TableCell>
+                  <div className="flex gap-1">
+                    {(isAdmin || isLogistica) && c.etapa === "vendas" && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
+                        <ClipboardCheck className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
