@@ -132,7 +132,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const basePayload: Record<string, any> = { ...form };
     delete basePayload.vendedores;
     delete basePayload.codigo_produto;
@@ -155,9 +155,16 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: item.peso,
       });
     } else {
+      // All items in the same order share the same numero_pedido
+      // The hook will generate it for the first item; we need to get it and reuse
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: nextNum } = await supabase.rpc("next_numero_pedido", { _data: basePayload.data });
+      const numeroPedido = nextNum ?? 1;
+
       for (const item of items) {
         onSubmit({
           ...basePayload,
+          numero_pedido: numeroPedido,
           codigo_produto: item.codigo_produto,
           nome_produto: item.nome_produto,
           quantidade: item.quantidade,
