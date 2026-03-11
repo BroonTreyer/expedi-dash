@@ -30,6 +30,7 @@ export default function Index() {
     busca: "",
     data: today,
     etapa: "todos",
+    ruptura: "todos",
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Carregamento | null>(null);
