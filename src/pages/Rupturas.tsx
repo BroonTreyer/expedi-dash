@@ -30,6 +30,7 @@ export default function Rupturas() {
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
+  const createMut = useCreateCarregamento();
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
 
