@@ -31,10 +31,11 @@ export function KanbanView({ data, onStatusChange }: Props) {
             </div>
             <div className="p-2 space-y-2 min-h-[60px] sm:min-h-[100px]">
               {items.map((c) => (
-                <Card key={c.id} className="border-border/60 shadow-sm">
+                <Card key={c.id} className={cn("border-border/60 shadow-sm", c.ruptura && "border-l-4 border-l-amber-500")}>
                   <CardContent className="p-3 space-y-1.5">
                     <div className="flex flex-col gap-1">
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-1">
+                        {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                         <EtapaBadge etapa={c.etapa} />
                       </div>
                       <span className="text-xs font-semibold">{c.nome_produto || c.codigo_produto || "Sem produto"}</span>
