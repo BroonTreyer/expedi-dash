@@ -324,8 +324,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
         style={{ scrollbarWidth: 'none' }}
       >
         <Table>
-          <TableHeader className="sticky top-0 z-10 bg-card">
-            <TableRow className="bg-muted/40">
+          <TableHeader className="sticky top-0 z-20 bg-background shadow-sm">
+            <TableRow className="[&>th]:bg-muted/40">
               {selectable && (
                 <TableHead className="w-[40px]">
                   <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
