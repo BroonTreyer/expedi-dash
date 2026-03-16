@@ -103,6 +103,8 @@
   @page {
     size: A4 portrait;
     margin: 15mm;
+    margin-top: 10mm;
+    margin-bottom: 10mm;
   }
 
   /* Only activate print layout when body has the printing class */
