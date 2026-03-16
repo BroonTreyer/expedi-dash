@@ -34,7 +34,7 @@ interface Props {
 }
 
 export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes = [], userRole, carregamentos = [] }: Props) {
-  const set = (key: string, value: string) => onChange({ ...filters, [key]: value });
+  const set = (key: string, value: any) => onChange({ ...filters, [key]: value });
   const isLogistica = userRole === "logistica";
 
   // Derive dynamic options from actual data
