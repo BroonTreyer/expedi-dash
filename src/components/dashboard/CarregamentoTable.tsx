@@ -320,12 +320,12 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
       <div
         ref={tableScrollRef}
         onScroll={handleTableScroll}
-        className="overflow-x-auto overflow-y-visible [scrollbar-width:none] [&::-webkit-scrollbar]:!hidden [-ms-overflow-style:none]"
+        className="overflow-x-auto overflow-y-clip [scrollbar-width:none] [&::-webkit-scrollbar]:!hidden [-ms-overflow-style:none]"
         style={{ scrollbarWidth: 'none' }}
       >
         <Table>
-          <TableHeader className="sticky top-0 z-20 bg-background shadow-sm">
-            <TableRow className="[&>th]:bg-muted/40">
+          <TableHeader className="sticky top-0 z-30 bg-background shadow-[0_1px_3px_0_hsl(var(--border)/0.6)]">
+            <TableRow className="[&>th]:bg-background">
               {selectable && (
                 <TableHead className="w-[40px]">
                   <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />

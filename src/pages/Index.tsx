@@ -70,12 +70,18 @@ export default function Index() {
     });
   }, [carregamentos, filters]);
 
+  // Prune selection when filtered data changes
+  const filteredIds = useMemo(() => new Set(filtered.map(c => c.id)), [filtered]);
+  const selectedInView = useMemo(() => {
+    return selectedIds.filter(id => filteredIds.has(id));
+  }, [selectedIds, filteredIds]);
+
   // Compute selected weight
   const selectedWeight = useMemo(() => {
-    if (selectedIds.length === 0) return 0;
-    const idSet = new Set(selectedIds);
+    if (selectedInView.length === 0) return 0;
+    const idSet = new Set(selectedInView);
     return filtered.filter(c => idSet.has(c.id)).reduce((s, c) => s + (c.peso ?? 0), 0);
-  }, [selectedIds, filtered]);
+  }, [selectedInView, filtered]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica && !isFaturamento) return;
@@ -157,7 +163,7 @@ export default function Index() {
           </div>
         </div>
 
-        <KpiCards data={filtered} selectedData={selectedIds.length > 0 ? filtered.filter(c => new Set(selectedIds).has(c.id)) : undefined} />
+        <KpiCards data={filtered} selectedData={selectedInView.length > 0 ? filtered.filter(c => new Set(selectedInView).has(c.id)) : undefined} />
 
         <Filters
           filters={filters}
@@ -170,9 +176,9 @@ export default function Index() {
         />
 
         {/* Selection summary for logistics */}
-        {isLogistica && selectedIds.length > 0 && (
+        {selectedInView.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm font-medium">
-            <span>{selectedIds.length} selecionado{selectedIds.length > 1 ? "s" : ""}</span>
+            <span>{selectedInView.length} selecionado{selectedInView.length > 1 ? "s" : ""}</span>
             <span className="text-muted-foreground">·</span>
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds([])}>
@@ -191,7 +197,7 @@ export default function Index() {
             onDelete={handleDeleteRequest}
             onComplete={handleComplete}
             userRole={role}
-            selectable={isLogistica}
+            selectable={isAdmin || isLogistica || isFaturamento}
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
           />
