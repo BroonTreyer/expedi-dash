@@ -211,6 +211,8 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
             <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
             <div className="text-muted-foreground">Cliente</div>
             <div>{c.cliente ?? "—"}</div>
+            <div className="text-muted-foreground">Cidade</div>
+            <div>{c.cidade ?? "—"}</div>
             <div className="text-muted-foreground">UF</div>
             <div>{c.uf ?? "—"}</div>
           </>
@@ -253,8 +255,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     });
   };
 
-  // Fixed columns: chevron, pedido, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, UF, inicio, fim, obs = 13
-  const colCount = 13
+  // Fixed columns: chevron, pedido, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, cidade, UF, inicio, fim, obs = 14
+  const colCount = 14
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("qtd") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
@@ -278,6 +280,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Caminhão</TableHead>
             <TableHead>Motorista</TableHead>
             <TableHead>Cliente</TableHead>
+            <TableHead>Cidade</TableHead>
             <TableHead>UF</TableHead>
             {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
             <TableHead>Início</TableHead>
@@ -336,6 +339,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={c.motorista} /></TableCell>
                   <TableCell className="text-sm">{c.cliente ?? "—"}</TableCell>
+                  <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
                   <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
                   {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                   <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
@@ -416,6 +420,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={first.motorista} /></TableCell>
                   <TableCell className="text-sm">{first.cliente ?? "—"}</TableCell>
+                  <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
                   <TableCell className="text-sm">{first.uf ?? "—"}</TableCell>
                   {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
                   <TableCell className="text-sm">{formatTime(first.horario_inicio)}</TableCell>
@@ -471,6 +476,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
                     {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>}
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
+                    <TableCell />
                     <TableCell />
                     <TableCell />
                     <TableCell />

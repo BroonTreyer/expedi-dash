@@ -48,7 +48,7 @@ export function KanbanView({ data, onStatusChange }: Props) {
                       <div>{c.vendedores?.nome_vendedor ?? "—"}</div>
                       <div className="font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
                       {c.placa && <div className="font-mono uppercase">{c.placa}</div>}
-                      {c.uf && <div>{c.uf}</div>}
+                      {(c.cidade || c.uf) && <div>{[c.cidade, c.uf].filter(Boolean).join(" - ")}</div>}
                     </div>
                   </CardContent>
                 </Card>
