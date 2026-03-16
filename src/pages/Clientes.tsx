@@ -19,16 +19,16 @@ export default function Clientes() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", ativo: true });
+  const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const filtered = clientes.filter((c) => {
+  const filtered = clientes.filter((c: any) => {
     const s = search.toLowerCase();
-    return !s || c.nome_cliente.toLowerCase().includes(s) || c.codigo_cliente.toLowerCase().includes(s);
+    return !s || c.nome_cliente.toLowerCase().includes(s) || c.codigo_cliente.toLowerCase().includes(s) || (c.cidade && c.cidade.toLowerCase().includes(s));
   });
 
-  const openNew = () => { setEditing(null); setForm({ codigo_cliente: "", nome_cliente: "", ativo: true }); setOpen(true); };
-  const openEdit = (c: any) => { setEditing(c); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, ativo: c.ativo }); setOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ codigo_cliente: "", nome_cliente: "", cidade: "", ativo: true }); setOpen(true); };
+  const openEdit = (c: any) => { setEditing(c); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, cidade: c.cidade || "", ativo: c.ativo }); setOpen(true); };
 
   const handleSubmit = () => {
     if (editing) { updateMut.mutate({ id: editing.id, ...form }); } else { createMut.mutate(form); }
@@ -49,22 +49,23 @@ export default function Clientes() {
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
-              <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
+              <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead>Cidade</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   <div className="flex flex-col items-center gap-2">
                     <Building2 className="h-8 w-8 text-muted-foreground/40" />
                     <span>Nenhum cliente encontrado</span>
                   </div>
                 </TableCell></TableRow>
-              ) : filtered.map((c) => (
+              ) : filtered.map((c: any) => (
                 <TableRow key={c.id}>
                   <TableCell className="font-mono text-sm">{c.codigo_cliente}</TableCell>
                   <TableCell className="text-sm">{c.nome_cliente}</TableCell>
+                  <TableCell className="text-sm">{c.cidade || "—"}</TableCell>
                   <TableCell><Badge variant={c.ativo ? "default" : "secondary"}>{c.ativo ? "Ativo" : "Inativo"}</Badge></TableCell>
                   <TableCell>
                     <div className="flex gap-1">
@@ -86,6 +87,7 @@ export default function Clientes() {
             <div className="space-y-4">
               <div><Label className="text-xs">Código</Label><Input value={form.codigo_cliente} onChange={(e) => setForm(f => ({ ...f, codigo_cliente: e.target.value }))} /></div>
               <div><Label className="text-xs">Nome</Label><Input value={form.nome_cliente} onChange={(e) => setForm(f => ({ ...f, nome_cliente: e.target.value }))} /></div>
+              <div><Label className="text-xs">Cidade</Label><Input value={form.cidade} onChange={(e) => setForm(f => ({ ...f, cidade: e.target.value }))} /></div>
               <div className="flex items-center gap-2"><Switch checked={form.ativo} onCheckedChange={(v) => setForm(f => ({ ...f, ativo: v }))} /><Label className="text-xs">Ativo</Label></div>
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>{editing ? "Salvar" : "Criar"}</Button></div>
             </div>
