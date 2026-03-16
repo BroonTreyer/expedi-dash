@@ -96,7 +96,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                 <table className="w-full text-xs">
                   <tbody>
                     {group.items.map((item) => (
-                      <tr key={item.id} className="border-b border-foreground/5 print:border-black/10 last:border-0">
+                      <tr key={item.id} className="border-b border-foreground/5 last:border-0">
                         <td className="py-0.5 pr-2">{item.nomeProduto ?? "Sem produto"}</td>
                         <td className="py-0.5 text-right font-mono whitespace-nowrap">
                           {item.peso.toLocaleString("pt-BR")} kg
