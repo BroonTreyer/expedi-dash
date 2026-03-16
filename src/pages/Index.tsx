@@ -283,6 +283,14 @@ export default function Index() {
           onConfirm={handleDeleteConfirm}
           description="Tem certeza que deseja excluir este carregamento? Esta ação não pode ser desfeita."
         />
+
+        <DeleteConfirmDialog
+          open={!!undoCargaId}
+          onOpenChange={(o) => !o && setUndoCargaId(null)}
+          onConfirm={handleUndoCargaConfirm}
+          title="Desfazer Carga"
+          description={`Tem certeza que deseja desfazer a carga ${undoCargaId ?? ""}? Todos os pedidos desta carga terão os dados de transporte removidos e voltarão para a etapa "vendas".`}
+        />
       </div>
     </Layout>
   );
