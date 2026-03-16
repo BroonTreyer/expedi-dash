@@ -35,7 +35,13 @@ export function useCreateCliente() {
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clientes"] }); toast.success("Cliente criado"); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => {
+      if (e.message?.includes("duplicate") || e.message?.includes("unique")) {
+        toast.error("Já existe um cliente com este código.");
+      } else {
+        toast.error(e.message);
+      }
+    },
   });
 }
 
