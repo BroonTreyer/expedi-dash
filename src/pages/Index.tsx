@@ -176,9 +176,9 @@ export default function Index() {
         />
 
         {/* Selection summary for logistics */}
-        {isLogistica && selectedIds.length > 0 && (
+        {selectedInView.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm font-medium">
-            <span>{selectedIds.length} selecionado{selectedIds.length > 1 ? "s" : ""}</span>
+            <span>{selectedInView.length} selecionado{selectedInView.length > 1 ? "s" : ""}</span>
             <span className="text-muted-foreground">·</span>
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds([])}>
