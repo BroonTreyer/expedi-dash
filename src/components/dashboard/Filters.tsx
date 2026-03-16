@@ -1,8 +1,9 @@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { STATUSES, RUPTURA_STATUSES } from "@/lib/constants";
+import { STATUSES, RUPTURA_STATUSES, UF_LIST } from "@/lib/constants";
 import { Search } from "lucide-react";
+import type { AppRole } from "@/hooks/useAuth";
 
 interface Props {
   filters: {
@@ -13,14 +14,53 @@ interface Props {
     data: string;
     etapa: string;
     ruptura: string;
+    cliente: string;
+    uf: string;
   };
   onChange: (f: Props["filters"]) => void;
   vendedores: { id: string; nome_vendedor: string }[];
   tiposCaminhao: { id: string; nome_tipo: string }[];
+  clientes?: { id: string; codigo_cliente: string; nome_cliente: string }[];
+  userRole?: AppRole | null;
 }
 
-export function Filters({ filters, onChange, vendedores, tiposCaminhao }: Props) {
+export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes = [], userRole }: Props) {
   const set = (key: string, value: string) => onChange({ ...filters, [key]: value });
+  const isLogistica = userRole === "logistica";
+
+  if (isLogistica) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={filters.vendedor} onValueChange={(v) => set("vendedor", v)}>
+          <SelectTrigger className="h-9 text-sm w-[180px]">
+            <SelectValue placeholder="Vendedor" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos Vendedores</SelectItem>
+            {vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filters.cliente} onValueChange={(v) => set("cliente", v)}>
+          <SelectTrigger className="h-9 text-sm w-[200px]">
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos Clientes</SelectItem>
+            {clientes.map((c) => <SelectItem key={c.id} value={c.codigo_cliente}>{c.codigo_cliente} – {c.nome_cliente}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
+          <SelectTrigger className="h-9 text-sm w-[120px]">
+            <SelectValue placeholder="UF" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas UFs</SelectItem>
+            {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap lg:flex-nowrap items-center gap-2">
