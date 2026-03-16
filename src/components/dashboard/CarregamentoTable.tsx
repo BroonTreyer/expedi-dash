@@ -5,6 +5,7 @@ import { EtapaBadge } from "./EtapaBadge";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -23,6 +24,9 @@ interface Props {
   showPesoAprox?: boolean;
   hideColumns?: string[];
   canChangeStatus?: boolean;
+  selectable?: boolean;
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
 }
 
 interface Group {
@@ -225,7 +229,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
 
 // ─── Desktop ───
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
+export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
@@ -236,13 +240,32 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const tableScrollRef = useRef<HTMLDivElement>(null);
-  const proxyScrollRef = useRef<HTMLDivElement>(null);
   const bottomProxyRef = useRef<HTMLDivElement>(null);
   const [proxyWidth, setProxyWidth] = useState(0);
   const [showProxy, setShowProxy] = useState(false);
   const isSyncing = useRef(false);
 
   const groups = useMemo(() => buildGroups(data), [data]);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const allIds = useMemo(() => data.map(c => c.id), [data]);
+  const allSelected = selectable && allIds.length > 0 && allIds.every(id => selectedSet.has(id));
+
+  const toggleSelect = useCallback((id: string) => {
+    if (!onSelectionChange) return;
+    const next = new Set(selectedSet);
+    next.has(id) ? next.delete(id) : next.add(id);
+    onSelectionChange(Array.from(next));
+  }, [selectedSet, onSelectionChange]);
+
+  const toggleSelectAll = useCallback(() => {
+    if (!onSelectionChange) return;
+    if (allSelected) {
+      onSelectionChange([]);
+    } else {
+      onSelectionChange(allIds);
+    }
+  }, [allSelected, allIds, onSelectionChange]);
 
   // Measure overflow and sync proxy width
   useEffect(() => {
@@ -264,13 +287,12 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     if (isSyncing.current || !source) return;
     isSyncing.current = true;
     const sl = source.scrollLeft;
-    [tableScrollRef, proxyScrollRef, bottomProxyRef].forEach(ref => {
+    [tableScrollRef, bottomProxyRef].forEach(ref => {
       if (ref.current && ref.current !== source) ref.current.scrollLeft = sl;
     });
     requestAnimationFrame(() => { isSyncing.current = false; });
   }, []);
 
-  const handleProxyScroll = useCallback(() => syncScroll(proxyScrollRef.current), [syncScroll]);
   const handleTableScroll = useCallback(() => syncScroll(tableScrollRef.current), [syncScroll]);
   const handleBottomProxyScroll = useCallback(() => syncScroll(bottomProxyRef.current), [syncScroll]);
 
@@ -286,8 +308,8 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     });
   };
 
-  // Fixed columns: chevron, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, cidade, UF, inicio, fim = 12
   const colCount = 12
+    + (selectable ? 1 : 0)
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
     + (showPesoAprox ? 1 : 0)
@@ -295,23 +317,25 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
 
   return (
     <div className="rounded-lg border border-border bg-card">
-      {/* Table container - native scrollbar hidden, bottom proxy handles it */}
-      {/* Table container - native scrollbar hidden, proxies handle it */}
       <div
         ref={tableScrollRef}
         onScroll={handleTableScroll}
         className="overflow-x-auto overflow-y-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <Table>
-          <TableHeader className="sticky top-3 z-10 bg-card">
+          <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow className="bg-muted/40">
+              {selectable && (
+                <TableHead className="w-[40px]">
+                  <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
+                </TableHead>
+              )}
               <TableHead className="w-[32px]"></TableHead>
               {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
               <TableHead className="w-[160px]">Status</TableHead>
               <TableHead>Vendedor</TableHead>
               <TableHead>Cód. Produto</TableHead>
               <TableHead>Produto</TableHead>
-              
               {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
               <TableHead>Caminhão</TableHead>
               <TableHead>Motorista</TableHead>
@@ -321,7 +345,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
               <TableHead>Início</TableHead>
               <TableHead>Fim</TableHead>
-              
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>
@@ -336,11 +359,15 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             {groups.map((group) => {
               const isMulti = group.codigoCliente !== null && group.items.length > 1;
 
-              // Single item or null codigoCliente — render normal row
               if (!isMulti) {
                 const c = group.items[0];
                 return (
                   <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
+                    {selectable && (
+                      <TableCell className="w-[40px]">
+                        <Checkbox checked={selectedSet.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
+                      </TableCell>
+                    )}
                     <TableCell />
                     {!hideColumns.includes("etapa") && (
                       <TableCell>
@@ -403,16 +430,15 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                 );
               }
 
-              // Multi-item group — accordion by cliente
+              // Multi-item group
               const first = group.items[0];
               const isOpen = expanded.has(group.codigoCliente!);
-              
               const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
               const hasRuptura = group.items.some(i => i.ruptura);
+              const groupAllSelected = selectable && group.items.every(i => selectedSet.has(i.id));
 
               return (
                 <Fragment key={`group-${group.codigoCliente}`}>
-                  {/* Summary row */}
                   <TableRow
                     className={cn(
                       "hover:bg-muted/30 cursor-pointer border-t-2 border-t-primary/30 bg-primary/[0.03]",
@@ -421,6 +447,23 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     )}
                     onClick={() => toggle(group.codigoCliente!)}
                   >
+                    {selectable && (
+                      <TableCell className="w-[40px]" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={groupAllSelected}
+                          onCheckedChange={() => {
+                            if (!onSelectionChange) return;
+                            const next = new Set(selectedSet);
+                            if (groupAllSelected) {
+                              group.items.forEach(i => next.delete(i.id));
+                            } else {
+                              group.items.forEach(i => next.add(i.id));
+                            }
+                            onSelectionChange(Array.from(next));
+                          }}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="px-2">
                       {isOpen
                         ? <ChevronDown className="h-4 w-4 text-primary" />
@@ -443,11 +486,9 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                       )}
                     </TableCell>
                     <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
-                    {/* Product summary spanning code + name */}
                     <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
                       {group.items.length} produtos
                     </TableCell>
-                    
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                     <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                     <TableCell><PendingCell value={first.motorista} /></TableCell>
@@ -461,7 +502,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
                           {canComplete && first.etapa === "vendas" && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onComplete(first)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(first)}>
                               <ClipboardCheck className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -480,7 +521,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     )}
                   </TableRow>
 
-                  {/* Expanded child rows */}
                   {isOpen && group.items.map((c) => (
                     <TableRow
                       key={c.id}
@@ -489,6 +529,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                         c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20"
                       )}
                     >
+                      {selectable && (
+                        <TableCell className="w-[40px]">
+                          <Checkbox checked={selectedSet.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
+                        </TableCell>
+                      )}
                       <TableCell />
                       {!hideColumns.includes("etapa") && <TableCell />}
                       <TableCell />
@@ -504,7 +549,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
-                      
                       {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
                       <TableCell />
                       <TableCell />
@@ -514,10 +558,14 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                       {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                       <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
                       <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
-                      
                       {hasActions && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
+                            {canComplete && c.etapa === "vendas" && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
+                                <ClipboardCheck className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             {canEdit && (
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
                                 <Edit className="h-3.5 w-3.5" />
@@ -539,7 +587,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
           </TableBody>
         </Table>
       </div>
-      {/* Bottom proxy scrollbar - sticky at bottom */}
       {showProxy && (
         <div
           ref={bottomProxyRef}
