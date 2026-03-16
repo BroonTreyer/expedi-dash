@@ -79,7 +79,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
           </div>
 
           {/* Separator */}
-          <div className="border-t border-foreground/10 print:border-black/20" />
+          <div className="border-t border-foreground/10" />
 
           {/* Groups by delivery order */}
           <div className="space-y-3">
