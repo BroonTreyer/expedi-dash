@@ -245,6 +245,7 @@ export default function Index() {
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
+            onUndoCarga={handleUndoCargaRequest}
             onComplete={handleComplete}
             userRole={role}
             selectable={isAdmin || isLogistica || isFaturamento}
