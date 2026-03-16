@@ -522,6 +522,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                             {first.ordem_entrega}ª
                           </span>
                         )}
+                        {first.carga_id && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
+                            {first.carga_id}
+                          </Badge>
+                        )}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
