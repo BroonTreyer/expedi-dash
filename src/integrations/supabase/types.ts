@@ -111,6 +111,7 @@ export type Database = {
           created_at: string
           id: string
           nome_cliente: string
+          uf: string | null
         }
         Insert: {
           ativo?: boolean
@@ -119,6 +120,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome_cliente: string
+          uf?: string | null
         }
         Update: {
           ativo?: boolean
@@ -127,6 +129,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome_cliente?: string
+          uf?: string | null
         }
         Relationships: []
       }
