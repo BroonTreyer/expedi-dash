@@ -294,6 +294,7 @@ export default function Index() {
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onUndoCarga={handleUndoCargaRequest}
+            onPrintCarga={handlePrintCarga}
             onComplete={handleComplete}
             userRole={role}
             selectable={isAdmin || isLogistica || isFaturamento}
