@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     if (!ibgeRes.ok) throw new Error("Erro ao consultar API do IBGE");
     const municipios = await ibgeRes.json();
 
-    // Build city -> UF map (normalized lowercase, no accents)
+    // Build city -> UF map (normalized)
     const normalize = (s: string) =>
       s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
@@ -34,38 +34,43 @@ Deno.serve(async (req) => {
       } catch { /* skip */ }
     }
 
-    // Fetch all clients with cidade but no uf
+    // Get offset from query param for chunked processing
+    const url = new URL(req.url);
+    const offset = parseInt(url.searchParams.get("offset") || "0");
+    const limit = 500;
+
     const { data: clientes, error: fetchErr } = await supabase
       .from("clientes")
       .select("id, cidade")
       .not("cidade", "is", null)
-      .is("uf", null);
+      .is("uf", null)
+      .range(offset, offset + limit - 1);
 
     if (fetchErr) throw fetchErr;
 
     let updated = 0;
-    const batchSize = 200;
+    const updates: { id: string; uf: string }[] = [];
 
-    for (let i = 0; i < (clientes?.length || 0); i += batchSize) {
-      const batch = clientes!.slice(i, i + batchSize);
-      const updates = batch
-        .map((c) => {
-          const uf = cityUfMap.get(normalize(c.cidade || ""));
-          return uf ? { id: c.id, uf } : null;
-        })
-        .filter(Boolean);
-
-      for (const u of updates) {
-        const { error } = await supabase
-          .from("clientes")
-          .update({ uf: u!.uf })
-          .eq("id", u!.id);
-        if (!error) updated++;
-      }
+    for (const c of clientes || []) {
+      const uf = cityUfMap.get(normalize(c.cidade || ""));
+      if (uf) updates.push({ id: c.id, uf });
     }
 
+    // Batch update using individual calls but in parallel chunks
+    const chunkSize = 50;
+    for (let i = 0; i < updates.length; i += chunkSize) {
+      const chunk = updates.slice(i, i + chunkSize);
+      const promises = chunk.map(u =>
+        supabase.from("clientes").update({ uf: u.uf }).eq("id", u.id)
+      );
+      const results = await Promise.all(promises);
+      updated += results.filter(r => !r.error).length;
+    }
+
+    const hasMore = (clientes?.length || 0) === limit;
+
     return new Response(
-      JSON.stringify({ success: true, updated, total: clientes?.length || 0 }),
+      JSON.stringify({ success: true, updated, fetched: clientes?.length || 0, hasMore, nextOffset: offset + limit }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
