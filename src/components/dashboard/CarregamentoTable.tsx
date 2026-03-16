@@ -18,6 +18,7 @@ interface Props {
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
+  onUndoCarga?: (cargaId: string) => void;
   userRole?: AppRole | null;
   statuses?: readonly string[];
   statusColors?: Record<string, string>;
