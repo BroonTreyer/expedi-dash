@@ -283,6 +283,14 @@ export default function Index() {
           items={selectedItems}
           tiposCaminhao={tiposCaminhao}
           onSubmit={handleLoteSubmit}
+          onPrintReady={handlePrintReady}
+          selectedDate={filters.data}
+        />
+
+        <CargaPrintDialog
+          open={printDialogOpen}
+          onOpenChange={setPrintDialogOpen}
+          data={printData}
         />
 
         <DeleteConfirmDialog
