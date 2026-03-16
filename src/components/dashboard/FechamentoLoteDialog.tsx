@@ -108,6 +108,21 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     );
     onSubmit(updates);
     onOpenChange(false);
+
+    // Trigger print preview
+    if (onPrintReady) {
+      onPrintReady({
+        cargaId,
+        data: selectedDate ?? now.toISOString().split("T")[0],
+        tipoCaminhao,
+        placa,
+        motorista,
+        horarioPrevisto: horarioPrevisto || undefined,
+        groups: groups.map(g => ({ ...g })),
+        totalPeso,
+        totalPedidos,
+      });
+    }
   };
 
   const totalPedidos = groups.reduce((s, g) => s + g.items.length, 0);
