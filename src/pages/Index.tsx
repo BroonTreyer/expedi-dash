@@ -197,7 +197,7 @@ export default function Index() {
             onDelete={handleDeleteRequest}
             onComplete={handleComplete}
             userRole={role}
-            selectable={isLogistica}
+            selectable={isAdmin || isLogistica || isFaturamento}
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
           />
