@@ -63,7 +63,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
             <img src={fricoLogo} alt="Frico" className="h-12 object-contain" />
             <div className="text-right">
               <h1 className="text-lg font-bold uppercase tracking-wide">Romaneio de Carga</h1>
-              <p className="text-sm text-muted-foreground print:text-gray-600">{data.cargaId}</p>
+              <p className="text-sm text-muted-foreground">{data.cargaId}</p>
             </div>
           </div>
 
