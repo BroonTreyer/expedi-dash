@@ -141,6 +141,14 @@
     border-color: #ccc !important;
   }
 
+  #carga-print-root #carga-print-content img {
+    display: inline-block !important;
+    visibility: visible !important;
+    max-height: 48px !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   #carga-print-root .break-inside-avoid {
     break-inside: avoid;
   }
