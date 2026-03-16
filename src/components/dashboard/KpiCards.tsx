@@ -8,7 +8,7 @@ interface Props {
 }
 
 export const KpiCards = React.memo(function KpiCards({ data }: Props) {
-  const totalPedidos = new Set(data.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
+  const totalClientes = new Set(data.filter(c => c.codigo_cliente).map(c => c.codigo_cliente)).size;
   const pesoTotal = data.reduce((s, c) => s + (c.peso ?? 0), 0);
   const pesoCarregado = data.filter(c => c.status === "Carregado").reduce((s, c) => s + (c.peso ?? 0), 0);
   const pesoCarregando = data.filter(c => c.status === "Carregando").reduce((s, c) => s + (c.peso ?? 0), 0);

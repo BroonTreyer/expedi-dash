@@ -26,7 +26,8 @@ interface Props {
 }
 
 interface Group {
-  pedido: number | null;
+  codigoCliente: string | null;
+  nomeCliente: string | null;
   items: Carregamento[];
 }
 
@@ -56,19 +57,17 @@ function buildGroups(data: Carregamento[]): Group[] {
   const map = new Map<string, Group>();
   const singles: Group[] = [];
   for (const c of data) {
-    if (c.numero_pedido !== null) {
-      const key = String(c.numero_pedido);
+    if (c.codigo_cliente) {
+      const key = c.codigo_cliente;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
-        const g: Group = { pedido: c.numero_pedido, items: [c] };
-        map.set(key, g);
+        map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
       }
     } else {
-      singles.push({ pedido: null, items: [c] });
+      singles.push({ codigoCliente: null, nomeCliente: null, items: [c] });
     }
   }
-  // Preserve insertion order from map, then singles at end
   return [...map.values(), ...singles];
 }
 
@@ -82,7 +81,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   const canEdit = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => buildGroups(data), [data]);
 
@@ -90,10 +89,10 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
     return <div className="text-center py-8 text-muted-foreground">Nenhum carregamento encontrado</div>;
   }
 
-  const toggle = (pedido: number) => {
+  const toggle = (key: string) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(pedido) ? next.delete(pedido) : next.add(pedido);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
   };
@@ -101,22 +100,22 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   return (
     <div className="space-y-3">
       {groups.map((group) => {
-        const isMulti = group.pedido !== null && group.items.length > 1;
+        const isMulti = group.codigoCliente !== null && group.items.length > 1;
         if (isMulti) {
           const first = group.items[0];
-          const isOpen = expanded.has(group.pedido!);
+          const isOpen = expanded.has(group.codigoCliente!);
           const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
           const totalQtd = group.items.reduce((s, i) => s + (i.quantidade ?? 0), 0);
           return (
-            <div key={group.items[0].id} className="rounded-lg border-2 border-primary/20 overflow-hidden">
+            <div key={`g-${group.codigoCliente}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
               <button
                 type="button"
                 className="w-full bg-primary/5 px-3 py-2 flex items-center justify-between gap-2 hover:bg-primary/10 transition-colors"
-                onClick={() => toggle(group.pedido!)}
+                onClick={() => toggle(group.codigoCliente!)}
               >
                 <div className="flex items-center gap-2">
                   {isOpen ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
-                  <span className="text-xs font-mono font-bold text-primary">Pedido #{group.pedido}</span>
+                  <span className="text-xs font-mono font-bold text-primary">{group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}</span>
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
                 </div>
@@ -178,9 +177,6 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
       </div>
 
       <div className="space-y-1.5">
-        {!isGrouped && c.numero_pedido && (
-          <span className="text-xs font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">#{c.numero_pedido}</span>
-        )}
         <span className="font-medium text-sm">{c.nome_produto || c.codigo_produto || "Sem produto"}</span>
       </div>
 
@@ -210,7 +206,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
             <div className="text-muted-foreground">Motorista</div>
             <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
             <div className="text-muted-foreground">Cliente</div>
-            <div>{c.cliente ?? "—"}</div>
+            <div>{c.codigo_cliente ? `${c.codigo_cliente} – ${c.cliente ?? ""}` : (c.cliente ?? "—")}</div>
             <div className="text-muted-foreground">Cidade</div>
             <div>{c.cidade ?? "—"}</div>
             <div className="text-muted-foreground">UF</div>
@@ -239,7 +235,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const canEdit = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => buildGroups(data), [data]);
 
@@ -247,16 +243,16 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} canChangeStatus={canChangeStatus} />;
   }
 
-  const toggle = (pedido: number) => {
+  const toggle = (key: string) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(pedido) ? next.delete(pedido) : next.add(pedido);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
   };
 
-  // Fixed columns: chevron, pedido, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, cidade, UF, inicio, fim, obs = 14
-  const colCount = 14
+  // Fixed columns: chevron, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, cidade, UF, inicio, fim, obs = 13
+  const colCount = 13
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("qtd") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
@@ -269,7 +265,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
         <TableHeader>
           <TableRow className="bg-muted/40">
             <TableHead className="w-[32px]"></TableHead>
-            <TableHead className="w-[80px]">N. Pedido</TableHead>
             {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
             <TableHead className="w-[160px]">Status</TableHead>
             <TableHead>Vendedor</TableHead>
@@ -298,15 +293,14 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             </TableRow>
           )}
           {groups.map((group) => {
-            const isMulti = group.pedido !== null && group.items.length > 1;
+            const isMulti = group.codigoCliente !== null && group.items.length > 1;
 
-            // Single item or null pedido — render normal row
+            // Single item or null codigoCliente — render normal row
             if (!isMulti) {
               const c = group.items[0];
               return (
                 <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
                   <TableCell />
-                  <TableCell className="text-sm font-mono font-medium text-primary">{c.numero_pedido ?? "—"}</TableCell>
                   {!hideColumns.includes("etapa") && (
                     <TableCell>
                       <div className="flex items-center gap-1.5">
@@ -338,7 +332,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
                   <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={c.motorista} /></TableCell>
-                  <TableCell className="text-sm">{c.cliente ?? "—"}</TableCell>
+                  <TableCell className="text-sm">{c.codigo_cliente ? `${c.codigo_cliente} – ${c.cliente ?? ""}` : (c.cliente ?? "—")}</TableCell>
                   <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
                   <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
                   {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
@@ -370,15 +364,15 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               );
             }
 
-            // Multi-item group — accordion
+            // Multi-item group — accordion by cliente
             const first = group.items[0];
-            const isOpen = expanded.has(group.pedido!);
+            const isOpen = expanded.has(group.codigoCliente!);
             const totalQtd = group.items.reduce((s, i) => s + (i.quantidade ?? 0), 0);
             const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
             const hasRuptura = group.items.some(i => i.ruptura);
 
             return (
-              <Fragment key={`group-${group.pedido}`}>
+              <Fragment key={`group-${group.codigoCliente}`}>
                 {/* Summary row */}
                 <TableRow
                   className={cn(
@@ -386,7 +380,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     hasRuptura && "bg-amber-50/40 dark:bg-amber-950/20",
                     !isOpen && "border-b"
                   )}
-                  onClick={() => toggle(group.pedido!)}
+                  onClick={() => toggle(group.codigoCliente!)}
                 >
                   <TableCell className="px-2">
                     {isOpen
@@ -394,7 +388,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                       : <ChevronRight className="h-4 w-4 text-primary" />
                     }
                   </TableCell>
-                  <TableCell className="text-sm font-mono font-bold text-primary">{group.pedido}</TableCell>
                   {!hideColumns.includes("etapa") && (
                     <TableCell>
                       <div className="flex items-center gap-1.5">
@@ -419,7 +412,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                   <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={first.motorista} /></TableCell>
-                  <TableCell className="text-sm">{first.cliente ?? "—"}</TableCell>
+                  <TableCell className="text-sm font-mono font-bold text-primary">{group.codigoCliente} – {group.nomeCliente ?? ""}</TableCell>
                   <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
                   <TableCell className="text-sm">{first.uf ?? "—"}</TableCell>
                   {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
@@ -430,12 +423,12 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
                         {canComplete && first.etapa === "vendas" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => group.items.length > 1 ? toggle(group.pedido!) : onComplete(first)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onComplete(first)}>
                             <ClipboardCheck className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         {canEdit && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.pedido!) : onEdit(first)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onEdit(first)}>
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
                         )}
@@ -459,8 +452,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     )}
                   >
                     <TableCell />
-                    <TableCell />
-                  {!hideColumns.includes("etapa") && <TableCell />}
+                    {!hideColumns.includes("etapa") && <TableCell />}
                     <TableCell />
                     <TableCell />
                     <TableCell className="text-sm font-mono">
