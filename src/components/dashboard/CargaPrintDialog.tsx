@@ -110,7 +110,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
           </div>
 
           {/* Footer totals */}
-          <div className="border-t-2 border-foreground/20 print:border-black/30 pt-3 flex justify-between items-center text-sm font-bold">
+          <div className="border-t-2 border-foreground/20 pt-3 flex justify-between items-center text-sm font-bold">
             <span>{data.totalPedidos} {data.totalPedidos === 1 ? "pedido" : "pedidos"} · {sortedGroups.length} {sortedGroups.length === 1 ? "cliente" : "clientes"}</span>
             <span>{data.totalPeso.toLocaleString("pt-BR")} kg</span>
           </div>
