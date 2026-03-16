@@ -549,6 +549,17 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
           </TableBody>
         </Table>
       </div>
+      {/* Bottom proxy scrollbar - sticky at bottom */}
+      {showProxy && (
+        <div
+          ref={bottomProxyRef}
+          onScroll={handleBottomProxyScroll}
+          className="sticky bottom-0 z-20 overflow-x-auto overflow-y-hidden bg-muted/30 border-t border-border"
+          style={{ height: 12 }}
+        >
+          <div style={{ width: proxyWidth, height: 1 }} />
+        </div>
+      )}
     </div>
   );
 }
