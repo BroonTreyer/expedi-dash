@@ -173,6 +173,11 @@ export default function Index() {
     setSelectedIds([]);
   }, [updateMut]);
 
+  const handlePrintReady = useCallback((data: CargaPrintData) => {
+    setPrintData(data);
+    setPrintDialogOpen(true);
+  }, []);
+
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
