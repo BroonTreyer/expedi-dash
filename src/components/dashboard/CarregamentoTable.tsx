@@ -105,7 +105,6 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
           const first = group.items[0];
           const isOpen = expanded.has(group.codigoCliente!);
           const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
-          const totalQtd = group.items.reduce((s, i) => s + (i.quantidade ?? 0), 0);
           return (
             <div key={`g-${group.codigoCliente}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
               <button
@@ -119,7 +118,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
                 </div>
-                <span className="text-xs text-muted-foreground">{group.items.length} itens · {totalQtd} un · {totalPeso.toLocaleString("pt-BR")} kg</span>
+                <span className="text-xs text-muted-foreground">{group.items.length} itens · {totalPeso.toLocaleString("pt-BR")} kg</span>
               </button>
               {isOpen && (
                 <div className="divide-y divide-border/40">
@@ -187,10 +186,10 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
             <div>{c.vendedores?.nome_vendedor ?? "—"}</div>
           </>
         )}
-        {!hideColumns.includes("qtd") && !hideColumns.includes("peso") && (
+        {!hideColumns.includes("peso") && (
           <>
-            <div className="text-muted-foreground">Qtd / Peso</div>
-            <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
+            <div className="text-muted-foreground">Peso</div>
+            <div className="font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
           </>
         )}
         {showPesoAprox && (
@@ -251,10 +250,9 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     });
   };
 
-  // Fixed columns: chevron, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, cidade, UF, inicio, fim, obs = 13
-  const colCount = 13
+  // Fixed columns: chevron, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, cidade, UF, inicio, fim = 12
+  const colCount = 12
     + (hideColumns.includes("etapa") ? 0 : 1)
-    + (hideColumns.includes("qtd") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
     + (showPesoAprox ? 1 : 0)
     + (hasActions ? 1 : 0);
@@ -270,7 +268,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Vendedor</TableHead>
             <TableHead>Cód. Produto</TableHead>
             <TableHead>Produto</TableHead>
-            {!hideColumns.includes("qtd") && <TableHead className="text-right">Qtd</TableHead>}
+            
             {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
             <TableHead>Caminhão</TableHead>
             <TableHead>Motorista</TableHead>
@@ -280,7 +278,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
-            <TableHead>Obs</TableHead>
+            
             {hasActions && <TableHead className="w-[110px]"></TableHead>}
           </TableRow>
         </TableHeader>
@@ -328,7 +326,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     </span>
                   </TableCell>
                   <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
-                  {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>}
                   {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
                   <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={c.motorista} /></TableCell>
@@ -338,7 +335,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                   <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
                   <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
-                  <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>{c.observacoes || "—"}</TableCell>
                   {hasActions && (
                     <TableCell>
                       <div className="flex gap-1">
@@ -367,7 +363,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             // Multi-item group — accordion by cliente
             const first = group.items[0];
             const isOpen = expanded.has(group.codigoCliente!);
-            const totalQtd = group.items.reduce((s, i) => s + (i.quantidade ?? 0), 0);
+            
             const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
             const hasRuptura = group.items.some(i => i.ruptura);
 
@@ -408,7 +404,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
                     {group.items.length} produtos
                   </TableCell>
-                  {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right font-semibold">{totalQtd}</TableCell>}
+                  
                   {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                   <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={first.motorista} /></TableCell>
@@ -418,7 +414,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
                   <TableCell className="text-sm">{formatTime(first.horario_inicio)}</TableCell>
                   <TableCell className="text-sm">{formatTime(first.horario_fim)}</TableCell>
-                  <TableCell />
                   {hasActions && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
@@ -466,7 +461,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
-                    {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>}
+                    
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
                     <TableCell />
                     <TableCell />
@@ -476,7 +471,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
                     <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
-                    <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>{c.observacoes || "—"}</TableCell>
+                    
                     {hasActions && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
