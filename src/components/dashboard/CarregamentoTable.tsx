@@ -6,7 +6,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2 } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -20,6 +20,7 @@ interface Props {
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
   onUndoCarga?: (cargaId: string) => void;
+  onPrintCarga?: (cargaId: string) => void;
   userRole?: AppRole | null;
   statuses?: readonly string[];
   statusColors?: Record<string, string>;
@@ -231,7 +232,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
 
 // ─── Desktop ───
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, onUndoCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
+export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
@@ -425,6 +426,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
+                          {(isAdmin || isLogistica) && c.carga_id && onPrintCarga && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Imprimir Romaneio" onClick={() => onPrintCarga(c.carga_id!)}>
+                              <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {(isAdmin || isLogistica) && c.carga_id && onUndoCarga && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Desfazer Carga" onClick={() => onUndoCarga(c.carga_id!)}>
                               <Undo2 className="h-3.5 w-3.5" />
@@ -537,6 +543,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {hasActions && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
+                          {(isAdmin || isLogistica) && first.carga_id && onPrintCarga && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Imprimir Romaneio" onClick={() => onPrintCarga(first.carga_id!)}>
+                              <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {(isAdmin || isLogistica) && first.carga_id && onUndoCarga && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Desfazer Carga" onClick={() => onUndoCarga(first.carga_id!)}>
                               <Undo2 className="h-3.5 w-3.5" />
