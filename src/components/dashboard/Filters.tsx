@@ -51,24 +51,20 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
   if (isLogistica) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={filters.vendedor} onValueChange={(v) => set("vendedor", v)}>
-          <SelectTrigger className="h-9 text-sm w-[180px]">
-            <SelectValue placeholder="Vendedor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos Vendedores</SelectItem>
-            {filteredVendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filters.cliente} onValueChange={(v) => set("cliente", v)}>
-          <SelectTrigger className="h-9 text-sm w-[200px]">
-            <SelectValue placeholder="Cliente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos Clientes</SelectItem>
-            {filteredClientes.map((c) => <SelectItem key={c.id} value={c.codigo_cliente}>{c.codigo_cliente} – {c.nome_cliente}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <MultiSelectFilter
+          options={filteredVendedores.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
+          selected={filters.vendedor}
+          onChange={(v) => set("vendedor", v)}
+          placeholder="Todos Vendedores"
+          className="w-[180px]"
+        />
+        <MultiSelectFilter
+          options={filteredClientes.map((c) => ({ value: c.codigo_cliente, label: `${c.codigo_cliente} – ${c.nome_cliente}` }))}
+          selected={filters.cliente}
+          onChange={(v) => set("cliente", v)}
+          placeholder="Todos Clientes"
+          className="w-[200px]"
+        />
         <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
           <SelectTrigger className="h-9 text-sm w-[120px]">
             <SelectValue placeholder="UF" />
