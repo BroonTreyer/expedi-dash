@@ -1,0 +1,1 @@
+ALTER TABLE public.carregamentos_dia ADD COLUMN carga_id text;
