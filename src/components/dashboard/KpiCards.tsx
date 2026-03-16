@@ -8,7 +8,7 @@ interface Props {
 }
 
 export const KpiCards = React.memo(function KpiCards({ data }: Props) {
-  const totalCargas = data.length;
+  const totalPedidos = new Set(data.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
   const pesoTotal = data.reduce((s, c) => s + (c.peso ?? 0), 0);
   const pesoCarregado = data.filter(c => c.status === "Carregado").reduce((s, c) => s + (c.peso ?? 0), 0);
   const pesoCarregando = data.filter(c => c.status === "Carregando").reduce((s, c) => s + (c.peso ?? 0), 0);
@@ -17,7 +17,7 @@ export const KpiCards = React.memo(function KpiCards({ data }: Props) {
   const rupturas = data.filter(c => c.ruptura).length;
 
   const cards = [
-    { label: "Total Cargas", value: totalCargas, icon: Package, color: "text-primary" },
+    { label: "Total Pedidos", value: totalPedidos, icon: Package, color: "text-primary" },
     { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500" },
     { label: "Rupturas", value: rupturas, icon: AlertTriangle, color: "text-amber-600" },
     { label: "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
