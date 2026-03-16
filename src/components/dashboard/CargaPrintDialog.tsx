@@ -57,7 +57,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
         </div>
 
         {/* Printable content */}
-        <div id="carga-print-content" className="space-y-4 text-foreground print:text-black">
+        <div id="carga-print-content" className="space-y-4 text-foreground">
           {/* Header */}
           <div className="flex items-center justify-between border-b-2 border-foreground/20 print:border-black/30 pb-3">
             <img src={fricoLogo} alt="Frico" className="h-12 object-contain" />
