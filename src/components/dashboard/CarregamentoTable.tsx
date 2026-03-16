@@ -306,11 +306,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
           <div style={{ width: proxyWidth, height: 1 }} />
         </div>
       )}
-      {/* Table container */}
+      {/* Table container - native scrollbar hidden, proxies handle it */}
       <div
         ref={tableScrollRef}
         onScroll={handleTableScroll}
-        className="overflow-x-auto overflow-y-visible"
+        className="overflow-x-auto overflow-y-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <Table>
           <TableHeader className="sticky top-3 z-10 bg-card">
