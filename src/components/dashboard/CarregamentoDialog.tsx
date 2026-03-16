@@ -39,7 +39,7 @@ interface Props {
   vendedores: { id: string; nome_vendedor: string; codigo_vendedor: string }[];
   tiposCaminhao: { nome_tipo: string }[];
   produtos: { codigo_produto: string; nome_produto: string; peso_padrao: number | null }[];
-  clientes: { codigo_cliente: string; nome_cliente: string }[];
+  clientes: { codigo_cliente: string; nome_cliente: string; cidade?: string | null; uf?: string | null }[];
   selectedDate: string;
   defaultRuptura?: boolean;
 }
@@ -99,6 +99,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     if (found) {
       set("cliente", found.nome_cliente);
       set("codigo_cliente", found.codigo_cliente);
+      set("cidade", found.cidade ?? "");
+      set("uf", found.uf ?? "");
     }
   };
 
