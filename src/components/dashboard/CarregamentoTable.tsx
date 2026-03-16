@@ -268,7 +268,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             <TableHead>Vendedor</TableHead>
             <TableHead>Cód. Produto</TableHead>
             <TableHead>Produto</TableHead>
-            {!hideColumns.includes("qtd") && <TableHead className="text-right">Qtd</TableHead>}
+            
             {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
             <TableHead>Caminhão</TableHead>
             <TableHead>Motorista</TableHead>
