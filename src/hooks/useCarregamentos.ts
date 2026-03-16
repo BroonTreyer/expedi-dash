@@ -26,6 +26,7 @@ export type Carregamento = {
   etapa: string;
   observacoes: string | null;
   ruptura: boolean;
+  carga_id: string | null;
   ordem_entrega: number | null;
   created_at: string;
   updated_at: string;
