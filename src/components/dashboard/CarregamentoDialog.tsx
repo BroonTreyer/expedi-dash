@@ -256,11 +256,9 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
               <div className="sm:col-span-2 border-t border-border pt-3 mt-1 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Produtos</span>
-                  {!editing && (
-                    <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-7 text-xs">
-                      <Plus className="h-3 w-3 mr-1" /> Adicionar
-                    </Button>
-                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-7 text-xs">
+                    <Plus className="h-3 w-3 mr-1" /> Adicionar
+                  </Button>
                 </div>
                 {items.map((item, idx) => (
                   <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_80px_100px_auto_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
