@@ -84,7 +84,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
           {/* Groups by delivery order */}
           <div className="space-y-3">
             {sortedGroups.map((group) => (
-              <div key={group.codigoCliente ?? group.ordem} className="border border-foreground/10 print:border-black/20 rounded-md p-3 print:break-inside-avoid">
+              <div key={group.codigoCliente ?? group.ordem} className="border border-foreground/10 rounded-md p-3 break-inside-avoid">
                 <div className="flex items-baseline justify-between mb-1">
                   <h3 className="text-sm font-bold">
                     {group.ordem}. {group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}
