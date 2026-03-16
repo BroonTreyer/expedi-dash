@@ -199,7 +199,7 @@ export default function Index() {
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             {(isAdmin || isLogistica) && (
               <Button size="sm" className="ml-2 h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
-                <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carreta
+                <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
               </Button>
             )}
             <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds([])}>

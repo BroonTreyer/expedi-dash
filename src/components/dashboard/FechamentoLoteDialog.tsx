@@ -96,7 +96,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5" /> Fechar Carreta
+            <Truck className="h-5 w-5" /> Fechar Carga
           </DialogTitle>
           <DialogDescription>
             Preencha os dados de transporte e defina a ordem de entrega dos {items.length} pedidos selecionados.
@@ -185,7 +185,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
-            Fechar Carreta ({orderedItems.length} pedidos)
+            Fechar Carga ({orderedItems.length} pedidos)
           </Button>
         </div>
       </DialogContent>
