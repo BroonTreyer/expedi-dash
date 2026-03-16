@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useVendedores, useCreateVendedor, useUpdateVendedor, useDeleteVendedor } from "@/hooks/useVendedores";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +9,10 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Plus, Edit, Trash2, Search, Users } from "lucide-react";
+
+const PAGE_SIZE = 50;
 
 export default function Vendedores() {
   const { data: vendedores = [], isLoading } = useVendedores();
@@ -19,13 +22,21 @@ export default function Vendedores() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState({ codigo_vendedor: "", nome_vendedor: "", ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => { setPage(1); }, [search]);
 
   const filtered = vendedores.filter((v) => {
     const s = search.toLowerCase();
     return !s || v.nome_vendedor.toLowerCase().includes(s) || v.codigo_vendedor.toLowerCase().includes(s);
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const startItem = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const endItem = Math.min(page * PAGE_SIZE, filtered.length);
 
   const openNew = () => { setEditing(null); setForm({ codigo_vendedor: "", nome_vendedor: "", ativo: true }); setOpen(true); };
   const openEdit = (v: any) => { setEditing(v); setForm({ codigo_vendedor: v.codigo_vendedor, nome_vendedor: v.nome_vendedor, ativo: v.ativo }); setOpen(true); };
@@ -33,6 +44,27 @@ export default function Vendedores() {
   const handleSubmit = () => {
     if (editing) { updateMut.mutate({ id: editing.id, ...form }); } else { createMut.mutate(form); }
     setOpen(false);
+  };
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisible = 5;
+    let start = Math.max(1, page - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+
+    if (start > 1) {
+      items.push(<PaginationItem key={1}><PaginationLink onClick={() => setPage(1)} isActive={page === 1}>1</PaginationLink></PaginationItem>);
+      if (start > 2) items.push(<PaginationItem key="e1"><PaginationEllipsis /></PaginationItem>);
+    }
+    for (let i = start; i <= end; i++) {
+      items.push(<PaginationItem key={i}><PaginationLink onClick={() => setPage(i)} isActive={page === i}>{i}</PaginationLink></PaginationItem>);
+    }
+    if (end < totalPages) {
+      if (end < totalPages - 1) items.push(<PaginationItem key="e2"><PaginationEllipsis /></PaginationItem>);
+      items.push(<PaginationItem key={totalPages}><PaginationLink onClick={() => setPage(totalPages)} isActive={page === totalPages}>{totalPages}</PaginationLink></PaginationItem>);
+    }
+    return items;
   };
 
   return (
@@ -54,14 +86,14 @@ export default function Vendedores() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
+              ) : paginated.length === 0 ? (
                 <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="h-8 w-8 text-muted-foreground/40" />
                     <span>Nenhum vendedor encontrado</span>
                   </div>
                 </TableCell></TableRow>
-              ) : filtered.map((v) => (
+              ) : paginated.map((v) => (
                 <TableRow key={v.id}>
                   <TableCell className="font-mono text-sm">{v.codigo_vendedor}</TableCell>
                   <TableCell className="text-sm">{v.nome_vendedor}</TableCell>
@@ -77,6 +109,28 @@ export default function Vendedores() {
             </TableBody>
           </Table>
         </div>
+
+        {filtered.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {startItem}–{endItem} de {filtered.length} vendedores
+            </p>
+            {totalPages > 1 && (
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious onClick={() => setPage(p => Math.max(1, p - 1))} className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                  </PaginationItem>
+                  {renderPaginationItems()}
+                  <PaginationItem>
+                    <PaginationNext onClick={() => setPage(p => Math.min(totalPages, p + 1))} className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </div>
+        )}
+
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="w-[calc(100vw-2rem)] sm:w-full">
             <DialogHeader>
