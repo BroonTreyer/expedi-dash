@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search } from "lucide-react";
+import { MultiSelectFilter } from "./MultiSelectFilter";
 import type { AppRole } from "@/hooks/useAuth";
 
 interface CarregamentoData {
@@ -14,13 +15,13 @@ interface CarregamentoData {
 interface Props {
   filters: {
     status: string;
-    vendedor: string;
+    vendedor: string[];
     tipoCaminhao: string;
     busca: string;
     data: string;
     etapa: string;
     ruptura: string;
-    cliente: string;
+    cliente: string[];
     uf: string;
   };
   onChange: (f: Props["filters"]) => void;
