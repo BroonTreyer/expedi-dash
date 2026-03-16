@@ -118,7 +118,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
                 </div>
-                <span className="text-xs text-muted-foreground">{group.items.length} itens · {totalQtd} un · {totalPeso.toLocaleString("pt-BR")} kg</span>
+                <span className="text-xs text-muted-foreground">{group.items.length} itens · {totalPeso.toLocaleString("pt-BR")} kg</span>
               </button>
               {isOpen && (
                 <div className="divide-y divide-border/40">
