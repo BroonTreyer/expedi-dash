@@ -137,6 +137,30 @@ export default function Index() {
     setDeleteId(null);
   }, [deleteId, deleteMut]);
 
+  const handleUndoCargaRequest = useCallback((cargaId: string) => setUndoCargaId(cargaId), []);
+  const handleUndoCargaConfirm = useCallback(async () => {
+    if (!undoCargaId) return;
+    const { error } = await supabase
+      .from("carregamentos_dia")
+      .update({
+        tipo_caminhao: null,
+        placa: null,
+        motorista: null,
+        ordem_entrega: null,
+        horario_previsto: null,
+        carga_id: null,
+        etapa: "vendas",
+      })
+      .eq("carga_id", undoCargaId);
+    if (error) {
+      toast.error("Erro ao desfazer carga: " + error.message);
+    } else {
+      toast.success("Carga desfeita com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+    }
+    setUndoCargaId(null);
+  }, [undoCargaId, queryClient]);
+
   const handleLoteSubmit = useCallback((updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; horario_previsto?: string }[]) => {
     for (const u of updates) {
       updateMut.mutate(u);
