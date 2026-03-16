@@ -6,7 +6,8 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { AppRole } from "@/hooks/useAuth";
@@ -18,6 +19,7 @@ interface Props {
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
+  onUndoCarga?: (cargaId: string) => void;
   userRole?: AppRole | null;
   statuses?: readonly string[];
   statusColors?: Record<string, string>;
@@ -229,7 +231,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
 
 // ─── Desktop ───
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
+export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, onUndoCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
@@ -408,6 +410,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                             {c.ordem_entrega}ª
                           </span>
                         )}
+                        {c.carga_id && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
+                            {c.carga_id}
+                          </Badge>
+                        )}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
@@ -418,6 +425,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
+                          {(isAdmin || isLogistica) && c.carga_id && onUndoCarga && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Desfazer Carga" onClick={() => onUndoCarga(c.carga_id!)}>
+                              <Undo2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {canComplete && c.etapa === "vendas" && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
                               <ClipboardCheck className="h-3.5 w-3.5" />
@@ -510,6 +522,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                             {first.ordem_entrega}ª
                           </span>
                         )}
+                        {first.carga_id && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
+                            {first.carga_id}
+                          </Badge>
+                        )}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
@@ -520,6 +537,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {hasActions && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
+                          {(isAdmin || isLogistica) && first.carga_id && onUndoCarga && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Desfazer Carga" onClick={() => onUndoCarga(first.carga_id!)}>
+                              <Undo2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {canComplete && first.etapa === "vendas" && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(first)}>
                               <ClipboardCheck className="h-3.5 w-3.5" />

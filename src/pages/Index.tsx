@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { Filters } from "@/components/dashboard/Filters";
@@ -16,11 +17,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Plus, TableIcon, Columns3, Truck } from "lucide-react";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const today = new Date().toISOString().split("T")[0];
 
 export default function Index() {
   const { role } = useAuth();
+  const queryClient = useQueryClient();
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
   const isFaturamento = role === "faturamento";
@@ -42,6 +46,7 @@ export default function Index() {
   const [editing, setEditing] = useState<Carregamento | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>("vendas");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [undoCargaId, setUndoCargaId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
 
@@ -134,6 +139,30 @@ export default function Index() {
     setDeleteId(null);
   }, [deleteId, deleteMut]);
 
+  const handleUndoCargaRequest = useCallback((cargaId: string) => setUndoCargaId(cargaId), []);
+  const handleUndoCargaConfirm = useCallback(async () => {
+    if (!undoCargaId) return;
+    const { error } = await supabase
+      .from("carregamentos_dia")
+      .update({
+        tipo_caminhao: null,
+        placa: null,
+        motorista: null,
+        ordem_entrega: null,
+        horario_previsto: null,
+        carga_id: null,
+        etapa: "vendas",
+      })
+      .eq("carga_id", undoCargaId);
+    if (error) {
+      toast.error("Erro ao desfazer carga: " + error.message);
+    } else {
+      toast.success("Carga desfeita com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+    }
+    setUndoCargaId(null);
+  }, [undoCargaId, queryClient]);
+
   const handleLoteSubmit = useCallback((updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; horario_previsto?: string }[]) => {
     for (const u of updates) {
       updateMut.mutate(u);
@@ -216,6 +245,7 @@ export default function Index() {
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
+            onUndoCarga={handleUndoCargaRequest}
             onComplete={handleComplete}
             userRole={role}
             selectable={isAdmin || isLogistica || isFaturamento}
@@ -252,6 +282,14 @@ export default function Index() {
           onOpenChange={(o) => !o && setDeleteId(null)}
           onConfirm={handleDeleteConfirm}
           description="Tem certeza que deseja excluir este carregamento? Esta ação não pode ser desfeita."
+        />
+
+        <DeleteConfirmDialog
+          open={!!undoCargaId}
+          onOpenChange={(o) => !o && setUndoCargaId(null)}
+          onConfirm={handleUndoCargaConfirm}
+          title="Desfazer Carga"
+          description={`Tem certeza que deseja desfazer a carga ${undoCargaId ?? ""}? Todos os pedidos desta carga terão os dados de transporte removidos e voltarão para a etapa "vendas".`}
         />
       </div>
     </Layout>

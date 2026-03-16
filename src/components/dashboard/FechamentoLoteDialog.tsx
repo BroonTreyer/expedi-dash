@@ -12,7 +12,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   items: Carregamento[];
   tiposCaminhao: { nome_tipo: string }[];
-  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; horario_previsto?: string }[]) => void;
+  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; carga_id: string; horario_previsto?: string }[]) => void;
 }
 
 interface ClienteGroup {
@@ -84,6 +84,12 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const canSubmit = tipoCaminhao && placa && motorista;
 
   const handleSubmit = () => {
+    // Generate a unique carga_id for this load
+    const now = new Date();
+    const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
+    const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 4);
+    const cargaId = `CG-${dateStr}-${timeStr}`;
+
     const updates = groups.flatMap(group =>
       group.items.map(item => ({
         id: item.id,
@@ -92,6 +98,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         motorista,
         ordem_entrega: group.ordem,
         etapa: "logistica",
+        carga_id: cargaId,
         ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
       }))
     );
