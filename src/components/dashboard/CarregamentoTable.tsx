@@ -326,7 +326,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     </span>
                   </TableCell>
                   <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
-                  {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right">{c.quantidade ?? 0}</TableCell>}
                   {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
                   <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={c.motorista} /></TableCell>
