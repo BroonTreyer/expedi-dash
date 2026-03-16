@@ -235,8 +235,47 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const proxyScrollRef = useRef<HTMLDivElement>(null);
+  const [proxyWidth, setProxyWidth] = useState(0);
+  const [showProxy, setShowProxy] = useState(false);
+  const isSyncing = useRef(false);
 
   const groups = useMemo(() => buildGroups(data), [data]);
+
+  // Measure overflow and sync proxy width
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      const sw = el.scrollWidth;
+      const cw = el.clientWidth;
+      setShowProxy(sw > cw + 1);
+      setProxyWidth(sw);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data, expanded]);
+
+  const handleProxyScroll = useCallback(() => {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (proxyScrollRef.current && tableScrollRef.current) {
+      tableScrollRef.current.scrollLeft = proxyScrollRef.current.scrollLeft;
+    }
+    requestAnimationFrame(() => { isSyncing.current = false; });
+  }, []);
+
+  const handleTableScroll = useCallback(() => {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (tableScrollRef.current && proxyScrollRef.current) {
+      proxyScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
+    }
+    requestAnimationFrame(() => { isSyncing.current = false; });
+  }, []);
 
   if (isMobile) {
     return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} canChangeStatus={canChangeStatus} />;
@@ -258,223 +297,108 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     + (hasActions ? 1 : 0);
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-x-auto overflow-y-visible">
-      <Table>
-        <TableHeader className="sticky top-0 z-10 bg-card">
-          <TableRow className="bg-muted/40">
-            <TableHead className="w-[32px]"></TableHead>
-            {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
-            <TableHead className="w-[160px]">Status</TableHead>
-            <TableHead>Vendedor</TableHead>
-            <TableHead>Cód. Produto</TableHead>
-            <TableHead>Produto</TableHead>
-            
-            {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
-            <TableHead>Caminhão</TableHead>
-            <TableHead>Motorista</TableHead>
-            <TableHead>Cliente</TableHead>
-            <TableHead>Cidade</TableHead>
-            <TableHead>UF</TableHead>
-            {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
-            <TableHead>Início</TableHead>
-            <TableHead>Fim</TableHead>
-            
-            {hasActions && <TableHead className="w-[110px]"></TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={colCount + 1} className="text-center py-8 text-muted-foreground">
-                Nenhum carregamento encontrado
-              </TableCell>
+    <div className="rounded-lg border border-border bg-card">
+      {/* Proxy scrollbar - sticky at top */}
+      {showProxy && (
+        <div
+          ref={proxyScrollRef}
+          onScroll={handleProxyScroll}
+          className="sticky top-0 z-20 overflow-x-auto overflow-y-hidden bg-muted/30 border-b border-border"
+          style={{ height: 12 }}
+        >
+          <div style={{ width: proxyWidth, height: 1 }} />
+        </div>
+      )}
+      {/* Table container */}
+      <div
+        ref={tableScrollRef}
+        onScroll={handleTableScroll}
+        className="overflow-x-auto overflow-y-visible"
+      >
+        <Table>
+          <TableHeader className="sticky top-3 z-10 bg-card">
+            <TableRow className="bg-muted/40">
+              <TableHead className="w-[32px]"></TableHead>
+              {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
+              <TableHead className="w-[160px]">Status</TableHead>
+              <TableHead>Vendedor</TableHead>
+              <TableHead>Cód. Produto</TableHead>
+              <TableHead>Produto</TableHead>
+              
+              {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
+              <TableHead>Caminhão</TableHead>
+              <TableHead>Motorista</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Cidade</TableHead>
+              <TableHead>UF</TableHead>
+              {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
+              <TableHead>Início</TableHead>
+              <TableHead>Fim</TableHead>
+              
+              {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
-          )}
-          {groups.map((group) => {
-            const isMulti = group.codigoCliente !== null && group.items.length > 1;
+          </TableHeader>
+          <TableBody>
+            {data.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={colCount + 1} className="text-center py-8 text-muted-foreground">
+                  Nenhum carregamento encontrado
+                </TableCell>
+              </TableRow>
+            )}
+            {groups.map((group) => {
+              const isMulti = group.codigoCliente !== null && group.items.length > 1;
 
-            // Single item or null codigoCliente — render normal row
-            if (!isMulti) {
-              const c = group.items[0];
-              return (
-                <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
-                  <TableCell />
-                  {!hideColumns.includes("etapa") && (
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <EtapaBadge etapa={c.etapa} />
-                        {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-                      </div>
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    {canChangeStatus ? (
-                      <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
-                    ) : (
-                      <StatusBadge status={c.status} statusColors={statusColors} />
+              // Single item or null codigoCliente — render normal row
+              if (!isMulti) {
+                const c = group.items[0];
+                return (
+                  <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
+                    <TableCell />
+                    {!hideColumns.includes("etapa") && (
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <EtapaBadge etapa={c.etapa} />
+                          {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                        </div>
+                      </TableCell>
                     )}
-                  </TableCell>
-                  <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
-                  <TableCell className="text-sm font-mono">
-                    <span className="flex items-center gap-1.5">
-                      {c.codigo_produto ?? "—"}
-                      {c.ruptura && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
-                          <AlertTriangle className="h-3 w-3" /> Ruptura
-                        </span>
+                    <TableCell>
+                      {canChangeStatus ? (
+                        <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
+                      ) : (
+                        <StatusBadge status={c.status} statusColors={statusColors} />
                       )}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
-                  {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
-                  <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
-                  <TableCell><PendingCell value={c.motorista} /></TableCell>
-                  <TableCell className="text-sm">{c.codigo_cliente ? `${c.codigo_cliente} – ${c.cliente ?? ""}` : (c.cliente ?? "—")}</TableCell>
-                  <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
-                  {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
-                  <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
-                  <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
-                  {hasActions && (
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {canComplete && c.etapa === "vendas" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
-                            <ClipboardCheck className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {canEdit && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {isAdmin && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
                     </TableCell>
-                  )}
-                </TableRow>
-              );
-            }
-
-            // Multi-item group — accordion by cliente
-            const first = group.items[0];
-            const isOpen = expanded.has(group.codigoCliente!);
-            
-            const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
-            const hasRuptura = group.items.some(i => i.ruptura);
-
-            return (
-              <Fragment key={`group-${group.codigoCliente}`}>
-                {/* Summary row */}
-                <TableRow
-                  className={cn(
-                    "hover:bg-muted/30 cursor-pointer border-t-2 border-t-primary/30 bg-primary/[0.03]",
-                    hasRuptura && "bg-amber-50/40 dark:bg-amber-950/20",
-                    !isOpen && "border-b"
-                  )}
-                  onClick={() => toggle(group.codigoCliente!)}
-                >
-                  <TableCell className="px-2">
-                    {isOpen
-                      ? <ChevronDown className="h-4 w-4 text-primary" />
-                      : <ChevronRight className="h-4 w-4 text-primary" />
-                    }
-                  </TableCell>
-                  {!hideColumns.includes("etapa") && (
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <EtapaBadge etapa={first.etapa} />
-                        {hasRuptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-                      </div>
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    {canChangeStatus ? (
-                      <StatusSelect value={first.status} onChange={(s) => group.items.forEach(i => onStatusChange(i.id, s))} statuses={statuses} statusColors={statusColors} />
-                    ) : (
-                      <StatusBadge status={first.status} statusColors={statusColors} />
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
-                  {/* Product summary spanning code + name */}
-                  <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
-                    {group.items.length} produtos
-                  </TableCell>
-                  
-                  {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
-                  <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
-                  <TableCell><PendingCell value={first.motorista} /></TableCell>
-                  <TableCell className="text-sm font-mono font-bold text-primary">{group.codigoCliente} – {group.nomeCliente ?? ""}</TableCell>
-                  <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{first.uf ?? "—"}</TableCell>
-                  {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
-                  <TableCell className="text-sm">{formatTime(first.horario_inicio)}</TableCell>
-                  <TableCell className="text-sm">{formatTime(first.horario_fim)}</TableCell>
-                  {hasActions && (
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-1">
-                        {canComplete && first.etapa === "vendas" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onComplete(first)}>
-                            <ClipboardCheck className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {canEdit && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onEdit(first)}>
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {isAdmin && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => group.items.forEach(i => onDelete(i.id))}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-
-                {/* Expanded child rows */}
-                {isOpen && group.items.map((c) => (
-                  <TableRow
-                    key={c.id}
-                    className={cn(
-                      "hover:bg-muted/20 bg-primary/[0.02]",
-                      c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20"
-                    )}
-                  >
-                    <TableCell />
-                    {!hideColumns.includes("etapa") && <TableCell />}
-                    <TableCell />
-                    <TableCell />
+                    <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell className="text-sm font-mono">
                       <span className="flex items-center gap-1.5">
                         {c.codigo_produto ?? "—"}
                         {c.ruptura && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
                             <AlertTriangle className="h-3 w-3" /> Ruptura
                           </span>
                         )}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
-                    
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
-                    <TableCell />
-                    <TableCell />
-                    <TableCell />
-                    <TableCell />
-                    <TableCell />
+                    <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
+                    <TableCell><PendingCell value={c.motorista} /></TableCell>
+                    <TableCell className="text-sm">{c.codigo_cliente ? `${c.codigo_cliente} – ${c.cliente ?? ""}` : (c.cliente ?? "—")}</TableCell>
+                    <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
                     <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
-                    
                     {hasActions && (
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell>
                         <div className="flex gap-1">
+                          {canComplete && c.etapa === "vendas" && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
+                              <ClipboardCheck className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {canEdit && (
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
                               <Edit className="h-3.5 w-3.5" />
@@ -489,12 +413,145 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                       </TableCell>
                     )}
                   </TableRow>
-                ))}
-              </Fragment>
-            );
-          })}
-        </TableBody>
-      </Table>
+                );
+              }
+
+              // Multi-item group — accordion by cliente
+              const first = group.items[0];
+              const isOpen = expanded.has(group.codigoCliente!);
+              
+              const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
+              const hasRuptura = group.items.some(i => i.ruptura);
+
+              return (
+                <Fragment key={`group-${group.codigoCliente}`}>
+                  {/* Summary row */}
+                  <TableRow
+                    className={cn(
+                      "hover:bg-muted/30 cursor-pointer border-t-2 border-t-primary/30 bg-primary/[0.03]",
+                      hasRuptura && "bg-amber-50/40 dark:bg-amber-950/20",
+                      !isOpen && "border-b"
+                    )}
+                    onClick={() => toggle(group.codigoCliente!)}
+                  >
+                    <TableCell className="px-2">
+                      {isOpen
+                        ? <ChevronDown className="h-4 w-4 text-primary" />
+                        : <ChevronRight className="h-4 w-4 text-primary" />
+                      }
+                    </TableCell>
+                    {!hideColumns.includes("etapa") && (
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <EtapaBadge etapa={first.etapa} />
+                          {hasRuptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                        </div>
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      {canChangeStatus ? (
+                        <StatusSelect value={first.status} onChange={(s) => group.items.forEach(i => onStatusChange(i.id, s))} statuses={statuses} statusColors={statusColors} />
+                      ) : (
+                        <StatusBadge status={first.status} statusColors={statusColors} />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
+                    {/* Product summary spanning code + name */}
+                    <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
+                      {group.items.length} produtos
+                    </TableCell>
+                    
+                    {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
+                    <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
+                    <TableCell><PendingCell value={first.motorista} /></TableCell>
+                    <TableCell className="text-sm font-mono font-bold text-primary">{group.codigoCliente} – {group.nomeCliente ?? ""}</TableCell>
+                    <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{first.uf ?? "—"}</TableCell>
+                    {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
+                    <TableCell className="text-sm">{formatTime(first.horario_inicio)}</TableCell>
+                    <TableCell className="text-sm">{formatTime(first.horario_fim)}</TableCell>
+                    {hasActions && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-1">
+                          {canComplete && first.etapa === "vendas" && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onComplete(first)}>
+                              <ClipboardCheck className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {canEdit && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onEdit(first)}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {isAdmin && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => group.items.forEach(i => onDelete(i.id))}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+
+                  {/* Expanded child rows */}
+                  {isOpen && group.items.map((c) => (
+                    <TableRow
+                      key={c.id}
+                      className={cn(
+                        "hover:bg-muted/20 bg-primary/[0.02]",
+                        c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20"
+                      )}
+                    >
+                      <TableCell />
+                      {!hideColumns.includes("etapa") && <TableCell />}
+                      <TableCell />
+                      <TableCell />
+                      <TableCell className="text-sm font-mono">
+                        <span className="flex items-center gap-1.5">
+                          {c.codigo_produto ?? "—"}
+                          {c.ruptura && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
+                              <AlertTriangle className="h-3 w-3" /> Ruptura
+                            </span>
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
+                      
+                      {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
+                      <TableCell />
+                      <TableCell />
+                      <TableCell />
+                      <TableCell />
+                      <TableCell />
+                      {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
+                      <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
+                      <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
+                      
+                      {hasActions && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-1">
+                            {canEdit && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {isAdmin && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
