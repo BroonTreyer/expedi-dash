@@ -16,6 +16,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Plus, TableIcon, Columns3, Truck } from "lucide-react";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const today = new Date().toISOString().split("T")[0];
 
