@@ -50,6 +50,8 @@ export default function Index() {
   const [undoCargaId, setUndoCargaId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
+  const [printData, setPrintData] = useState<CargaPrintData | null>(null);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
   const { data: vendedores = [] } = useVendedores();
