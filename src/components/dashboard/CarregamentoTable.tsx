@@ -237,6 +237,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const proxyScrollRef = useRef<HTMLDivElement>(null);
+  const bottomProxyRef = useRef<HTMLDivElement>(null);
   const [proxyWidth, setProxyWidth] = useState(0);
   const [showProxy, setShowProxy] = useState(false);
   const isSyncing = useRef(false);
