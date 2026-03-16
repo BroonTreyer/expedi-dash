@@ -150,15 +150,16 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
 
     if (editing) {
-      const item = items[0];
-      onSubmit({
-        ...basePayload,
-        id: editing.id,
-        codigo_produto: item.codigo_produto,
-        nome_produto: item.nome_produto,
-        quantidade: item.quantidade,
-        peso: item.peso,
-        ruptura: item.ruptura,
+      items.forEach((item, index) => {
+        onSubmit({
+          ...basePayload,
+          ...(index === 0 ? { id: editing.id } : {}),
+          codigo_produto: item.codigo_produto,
+          nome_produto: item.nome_produto,
+          quantidade: item.quantidade,
+          peso: item.peso,
+          ruptura: item.ruptura,
+        });
       });
     } else {
       for (const item of items) {
