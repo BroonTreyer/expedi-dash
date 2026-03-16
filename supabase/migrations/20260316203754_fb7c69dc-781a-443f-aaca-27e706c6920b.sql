@@ -1,0 +1,1 @@
+ALTER TABLE public.carregamentos_dia ADD COLUMN ordem_entrega integer DEFAULT NULL;
