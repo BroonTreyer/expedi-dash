@@ -278,7 +278,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
             <TableHead>Início</TableHead>
             <TableHead>Fim</TableHead>
-            <TableHead>Obs</TableHead>
+            
             {hasActions && <TableHead className="w-[110px]"></TableHead>}
           </TableRow>
         </TableHeader>
