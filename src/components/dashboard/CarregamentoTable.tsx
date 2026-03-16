@@ -237,6 +237,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const proxyScrollRef = useRef<HTMLDivElement>(null);
+  const bottomProxyRef = useRef<HTMLDivElement>(null);
   const [proxyWidth, setProxyWidth] = useState(0);
   const [showProxy, setShowProxy] = useState(false);
   const isSyncing = useRef(false);
@@ -259,23 +260,19 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     return () => ro.disconnect();
   }, [data, expanded]);
 
-  const handleProxyScroll = useCallback(() => {
-    if (isSyncing.current) return;
+  const syncScroll = useCallback((source: HTMLDivElement | null) => {
+    if (isSyncing.current || !source) return;
     isSyncing.current = true;
-    if (proxyScrollRef.current && tableScrollRef.current) {
-      tableScrollRef.current.scrollLeft = proxyScrollRef.current.scrollLeft;
-    }
+    const sl = source.scrollLeft;
+    [tableScrollRef, proxyScrollRef, bottomProxyRef].forEach(ref => {
+      if (ref.current && ref.current !== source) ref.current.scrollLeft = sl;
+    });
     requestAnimationFrame(() => { isSyncing.current = false; });
   }, []);
 
-  const handleTableScroll = useCallback(() => {
-    if (isSyncing.current) return;
-    isSyncing.current = true;
-    if (tableScrollRef.current && proxyScrollRef.current) {
-      proxyScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
-    }
-    requestAnimationFrame(() => { isSyncing.current = false; });
-  }, []);
+  const handleProxyScroll = useCallback(() => syncScroll(proxyScrollRef.current), [syncScroll]);
+  const handleTableScroll = useCallback(() => syncScroll(tableScrollRef.current), [syncScroll]);
+  const handleBottomProxyScroll = useCallback(() => syncScroll(bottomProxyRef.current), [syncScroll]);
 
   if (isMobile) {
     return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} canChangeStatus={canChangeStatus} />;
@@ -309,11 +306,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
           <div style={{ width: proxyWidth, height: 1 }} />
         </div>
       )}
-      {/* Table container */}
+      {/* Table container - native scrollbar hidden, proxies handle it */}
       <div
         ref={tableScrollRef}
         onScroll={handleTableScroll}
-        className="overflow-x-auto overflow-y-visible"
+        className="overflow-x-auto overflow-y-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <Table>
           <TableHeader className="sticky top-3 z-10 bg-card">
@@ -552,6 +549,17 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
           </TableBody>
         </Table>
       </div>
+      {/* Bottom proxy scrollbar - sticky at bottom */}
+      {showProxy && (
+        <div
+          ref={bottomProxyRef}
+          onScroll={handleBottomProxyScroll}
+          className="sticky bottom-0 z-20 overflow-x-auto overflow-y-hidden bg-muted/30 border-t border-border"
+          style={{ height: 12 }}
+        >
+          <div style={{ width: proxyWidth, height: 1 }} />
+        </div>
+      )}
     </div>
   );
 }
