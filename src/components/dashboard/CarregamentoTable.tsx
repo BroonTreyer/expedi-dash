@@ -295,17 +295,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
 
   return (
     <div className="rounded-lg border border-border bg-card">
-      {/* Proxy scrollbar - sticky at top */}
-      {showProxy && (
-        <div
-          ref={proxyScrollRef}
-          onScroll={handleProxyScroll}
-          className="sticky top-0 z-20 overflow-x-auto overflow-y-hidden bg-muted/30 border-b border-border"
-          style={{ height: 12 }}
-        >
-          <div style={{ width: proxyWidth, height: 1 }} />
-        </div>
-      )}
+      {/* Table container - native scrollbar hidden, bottom proxy handles it */}
       {/* Table container - native scrollbar hidden, proxies handle it */}
       <div
         ref={tableScrollRef}
