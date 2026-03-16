@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, Weight, Package, Plus } from "lucide-react";
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -26,7 +27,6 @@ export default function Rupturas() {
   const canEdit = isAdmin || isFaturamento;
 
   const [date, setDate] = useState(today);
-  const [statusFilter, setStatusFilter] = useState("todos");
   const [vendedorFilter, setVendedorFilter] = useState("todos");
   const [busca, setBusca] = useState("");
 
@@ -47,7 +47,6 @@ export default function Rupturas() {
   const rupturas = useMemo(() => {
     return carregamentos.filter((c) => {
       if (!c.ruptura) return false;
-      if (statusFilter !== "todos" && c.status !== statusFilter) return false;
       if (vendedorFilter !== "todos" && c.vendedor_id !== vendedorFilter) return false;
       if (busca) {
         const b = busca.toLowerCase();
@@ -55,9 +54,29 @@ export default function Rupturas() {
       }
       return true;
     });
-  }, [carregamentos, statusFilter, vendedorFilter, busca]);
+  }, [carregamentos, vendedorFilter, busca]);
+
+  // Dynamic filter options — only items with rupturas
+  const rupturaVendedorIds = useMemo(() => new Set(carregamentos.filter(c => c.ruptura).map(c => c.vendedor_id).filter(Boolean)), [carregamentos]);
+  const filteredVendedores = useMemo(() => vendedores.filter(v => rupturaVendedorIds.has(v.id)), [vendedores, rupturaVendedorIds]);
 
   const totalPeso = useMemo(() => rupturas.reduce((s, c) => s + (c.peso ?? 0), 0), [rupturas]);
+
+  // Group by product
+  const productSummary = useMemo(() => {
+    const map = new Map<string, { codigo: string; nome: string; count: number; peso: number }>();
+    for (const c of rupturas) {
+      const key = c.codigo_produto || "SEM_COD";
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+        existing.peso += c.peso ?? 0;
+      } else {
+        map.set(key, { codigo: c.codigo_produto || "—", nome: c.nome_produto || "—", count: 1, peso: c.peso ?? 0 });
+      }
+    }
+    return [...map.values()].sort((a, b) => b.peso - a.peso);
+  }, [rupturas]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica) return;
@@ -127,6 +146,37 @@ export default function Rupturas() {
           </Card>
         </div>
 
+        {/* Product breakdown */}
+        {productSummary.length > 0 && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800 overflow-hidden">
+            <div className="bg-amber-50/50 dark:bg-amber-950/30 px-4 py-2">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Resumo por Produto</p>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-xs">Código</TableHead>
+                    <TableHead className="text-xs">Produto</TableHead>
+                    <TableHead className="text-xs text-right">Qtd Rupturas</TableHead>
+                    <TableHead className="text-xs text-right">Peso Total (kg)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {productSummary.map((p) => (
+                    <TableRow key={p.codigo}>
+                      <TableCell className="text-xs font-mono">{p.codigo}</TableCell>
+                      <TableCell className="text-xs">{p.nome}</TableCell>
+                      <TableCell className="text-xs text-right font-medium">{p.count}</TableCell>
+                      <TableCell className="text-xs text-right font-medium">{p.peso.toLocaleString("pt-BR")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
         {/* Filtros */}
         <div className="flex flex-wrap gap-3">
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
@@ -134,17 +184,8 @@ export default function Rupturas() {
             <SelectTrigger className="w-48"><SelectValue placeholder="Vendedor" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos vendedores</SelectItem>
-              {vendedores.map((v) => (
+              {filteredVendedores.map((v) => (
                 <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos status</SelectItem>
-              {RUPTURA_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>

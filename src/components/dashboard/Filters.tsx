@@ -1,9 +1,15 @@
+import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { STATUSES, RUPTURA_STATUSES, UF_LIST } from "@/lib/constants";
 import { Search } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
+
+interface CarregamentoData {
+  vendedor_id?: string | null;
+  codigo_cliente?: string | null;
+  cliente?: string | null;
+  uf?: string | null;
+}
 
 interface Props {
   filters: {
@@ -22,11 +28,24 @@ interface Props {
   tiposCaminhao: { id: string; nome_tipo: string }[];
   clientes?: { id: string; codigo_cliente: string; nome_cliente: string }[];
   userRole?: AppRole | null;
+  /** Raw data for dynamic filter options */
+  carregamentos?: CarregamentoData[];
 }
 
-export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes = [], userRole }: Props) {
+export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes = [], userRole, carregamentos = [] }: Props) {
   const set = (key: string, value: string) => onChange({ ...filters, [key]: value });
   const isLogistica = userRole === "logistica";
+
+  // Derive dynamic options from actual data
+  const activeVendedorIds = useMemo(() => new Set(carregamentos.map(c => c.vendedor_id).filter(Boolean)), [carregamentos]);
+  const activeClienteCodes = useMemo(() => new Set(carregamentos.map(c => c.codigo_cliente).filter(Boolean)), [carregamentos]);
+  const activeUfs = useMemo(() => {
+    const ufs = [...new Set(carregamentos.map(c => c.uf).filter(Boolean) as string[])];
+    return ufs.sort();
+  }, [carregamentos]);
+
+  const filteredVendedores = useMemo(() => vendedores.filter(v => activeVendedorIds.has(v.id)), [vendedores, activeVendedorIds]);
+  const filteredClientes = useMemo(() => clientes.filter(c => activeClienteCodes.has(c.codigo_cliente)), [clientes, activeClienteCodes]);
 
   if (isLogistica) {
     return (
@@ -37,7 +56,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos Vendedores</SelectItem>
-            {vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}
+            {filteredVendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filters.cliente} onValueChange={(v) => set("cliente", v)}>
@@ -46,7 +65,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos Clientes</SelectItem>
-            {clientes.map((c) => <SelectItem key={c.id} value={c.codigo_cliente}>{c.codigo_cliente} – {c.nome_cliente}</SelectItem>)}
+            {filteredClientes.map((c) => <SelectItem key={c.id} value={c.codigo_cliente}>{c.codigo_cliente} – {c.nome_cliente}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
@@ -55,7 +74,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todas UFs</SelectItem>
-            {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+            {activeUfs.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -70,34 +89,13 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         onChange={(e) => set("data", e.target.value)}
         className="h-9 text-sm col-span-2 sm:col-span-1 md:w-[140px]"
       />
-      <Select value={filters.etapa} onValueChange={(v) => set("etapa", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[150px]">
-          <SelectValue placeholder="Etapa" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todas Etapas</SelectItem>
-          <SelectItem value="vendas">Pendentes Logística</SelectItem>
-          <SelectItem value="logistica">Logística Completa</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select value={filters.status} onValueChange={(v) => set("status", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[150px]">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todos os Status</SelectItem>
-          {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          <Separator className="my-1" />
-          {RUPTURA_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-        </SelectContent>
-      </Select>
       <Select value={filters.vendedor} onValueChange={(v) => set("vendedor", v)}>
         <SelectTrigger className="h-9 text-sm md:w-[150px]">
           <SelectValue placeholder="Vendedor" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="todos">Todos Vendedores</SelectItem>
-          {vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}
+          {filteredVendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={filters.cliente} onValueChange={(v) => set("cliente", v)}>
@@ -106,7 +104,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="todos">Todos Clientes</SelectItem>
-          {clientes.map((c) => <SelectItem key={c.id} value={c.codigo_cliente}>{c.codigo_cliente} – {c.nome_cliente}</SelectItem>)}
+          {filteredClientes.map((c) => <SelectItem key={c.id} value={c.codigo_cliente}>{c.codigo_cliente} – {c.nome_cliente}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
@@ -115,7 +113,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="todos">Todas UFs</SelectItem>
-          {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+          {activeUfs.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={filters.tipoCaminhao} onValueChange={(v) => set("tipoCaminhao", v)}>
