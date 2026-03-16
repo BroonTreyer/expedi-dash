@@ -10,6 +10,8 @@ interface CarregamentoData {
   codigo_cliente?: string | null;
   cliente?: string | null;
   uf?: string | null;
+  tipo_caminhao?: string | null;
+  ruptura?: boolean;
 }
 
 interface Props {
@@ -37,29 +39,60 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
   const set = (key: string, value: any) => onChange({ ...filters, [key]: value });
   const isLogistica = userRole === "logistica";
 
-  // Derive dynamic options from actual data
-  const activeVendedorIds = useMemo(() => new Set(carregamentos.map(c => c.vendedor_id).filter(Boolean)), [carregamentos]);
-  const activeClienteCodes = useMemo(() => new Set(carregamentos.map(c => c.codigo_cliente).filter(Boolean)), [carregamentos]);
-  const activeUfs = useMemo(() => {
-    const ufs = [...new Set(carregamentos.map(c => c.uf).filter(Boolean) as string[])];
-    return ufs.sort();
-  }, [carregamentos]);
+  // ── Cascading filter logic ──
+  // Each subsequent filter derives its options from data already filtered by previous filters.
+  // Order: Vendedor → Cliente → UF → Tipo Caminhão
 
-  const filteredVendedores = useMemo(() => vendedores.filter(v => activeVendedorIds.has(v.id)), [vendedores, activeVendedorIds]);
-  const filteredClientes = useMemo(() => clientes.filter(c => activeClienteCodes.has(c.codigo_cliente)), [clientes, activeClienteCodes]);
+  const afterVendedor = useMemo(() => {
+    if (filters.vendedor.length === 0) return carregamentos;
+    const set = new Set(filters.vendedor);
+    return carregamentos.filter(c => set.has(c.vendedor_id ?? ""));
+  }, [carregamentos, filters.vendedor]);
+
+  const afterCliente = useMemo(() => {
+    if (filters.cliente.length === 0) return afterVendedor;
+    const set = new Set(filters.cliente);
+    return afterVendedor.filter(c => set.has(c.codigo_cliente ?? ""));
+  }, [afterVendedor, filters.cliente]);
+
+  const afterUf = useMemo(() => {
+    if (filters.uf === "todos") return afterCliente;
+    return afterCliente.filter(c => c.uf === filters.uf);
+  }, [afterCliente, filters.uf]);
+
+  // Options derived from cascaded data
+  const vendedorOptions = useMemo(() => {
+    const ids = new Set(carregamentos.map(c => c.vendedor_id).filter(Boolean));
+    return vendedores.filter(v => ids.has(v.id));
+  }, [carregamentos, vendedores]);
+
+  const clienteOptions = useMemo(() => {
+    const codes = new Set(afterVendedor.map(c => c.codigo_cliente).filter(Boolean));
+    return clientes.filter(c => codes.has(c.codigo_cliente));
+  }, [afterVendedor, clientes]);
+
+  const ufOptions = useMemo(() => {
+    const ufs = [...new Set(afterCliente.map(c => c.uf).filter(Boolean) as string[])];
+    return ufs.sort();
+  }, [afterCliente]);
+
+  const tipoCaminhaoOptions = useMemo(() => {
+    const types = new Set(afterUf.map(c => c.tipo_caminhao).filter(Boolean));
+    return tiposCaminhao.filter(t => types.has(t.nome_tipo));
+  }, [afterUf, tiposCaminhao]);
 
   if (isLogistica) {
     return (
       <div className="flex flex-wrap items-center gap-2">
         <MultiSelectFilter
-          options={filteredVendedores.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
+          options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
           selected={filters.vendedor}
           onChange={(v) => set("vendedor", v)}
           placeholder="Todos Vendedores"
           className="w-[180px]"
         />
         <MultiSelectFilter
-          options={filteredClientes.map((c) => ({ value: c.codigo_cliente, label: `${c.codigo_cliente} – ${c.nome_cliente}` }))}
+          options={clienteOptions.map((c) => ({ value: c.codigo_cliente, label: `${c.codigo_cliente} – ${c.nome_cliente}` }))}
           selected={filters.cliente}
           onChange={(v) => set("cliente", v)}
           placeholder="Todos Clientes"
@@ -71,7 +104,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todas UFs</SelectItem>
-            {activeUfs.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+            {ufOptions.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -87,14 +120,14 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         className="h-9 text-sm col-span-2 sm:col-span-1 md:w-[140px]"
       />
       <MultiSelectFilter
-        options={filteredVendedores.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
+        options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
         selected={filters.vendedor}
         onChange={(v) => set("vendedor", v)}
         placeholder="Todos Vendedores"
         className="md:w-[150px]"
       />
       <MultiSelectFilter
-        options={filteredClientes.map((c) => ({ value: c.codigo_cliente, label: `${c.codigo_cliente} – ${c.nome_cliente}` }))}
+        options={clienteOptions.map((c) => ({ value: c.codigo_cliente, label: `${c.codigo_cliente} – ${c.nome_cliente}` }))}
         selected={filters.cliente}
         onChange={(v) => set("cliente", v)}
         placeholder="Todos Clientes"
@@ -106,7 +139,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="todos">Todas UFs</SelectItem>
-          {activeUfs.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+          {ufOptions.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={filters.tipoCaminhao} onValueChange={(v) => set("tipoCaminhao", v)}>
@@ -115,7 +148,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="todos">Todos Tipos</SelectItem>
-          {tiposCaminhao.map((t) => <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>)}
+          {tipoCaminhaoOptions.map((t) => <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={filters.ruptura} onValueChange={(v) => set("ruptura", v)}>
