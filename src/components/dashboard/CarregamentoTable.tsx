@@ -404,7 +404,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
                     {group.items.length} produtos
                   </TableCell>
-                  {!hideColumns.includes("qtd") && <TableCell className="text-sm text-right font-semibold">{totalQtd}</TableCell>}
+                  
                   {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                   <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={first.motorista} /></TableCell>
