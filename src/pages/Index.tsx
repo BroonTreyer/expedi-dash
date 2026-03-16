@@ -44,6 +44,7 @@ export default function Index() {
   const [editing, setEditing] = useState<Carregamento | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>("vendas");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [undoCargaId, setUndoCargaId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
 
