@@ -6,6 +6,7 @@ import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { KanbanView } from "@/components/dashboard/KanbanView";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
+import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
@@ -13,7 +14,7 @@ import { useProdutos } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Plus, TableIcon, Columns3 } from "lucide-react";
+import { Plus, TableIcon, Columns3, Truck } from "lucide-react";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 
 const today = new Date().toISOString().split("T")[0];
@@ -42,6 +43,7 @@ export default function Index() {
   const [dialogMode, setDialogMode] = useState<DialogMode>("vendas");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [loteDialogOpen, setLoteDialogOpen] = useState(false);
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
   const { data: vendedores = [] } = useVendedores();
@@ -81,6 +83,13 @@ export default function Index() {
     if (selectedInView.length === 0) return 0;
     const idSet = new Set(selectedInView);
     return filtered.filter(c => idSet.has(c.id)).reduce((s, c) => s + (c.peso ?? 0), 0);
+  }, [selectedInView, filtered]);
+
+  // Items for lote dialog
+  const selectedItems = useMemo(() => {
+    if (selectedInView.length === 0) return [];
+    const idSet = new Set(selectedInView);
+    return filtered.filter(c => idSet.has(c.id));
   }, [selectedInView, filtered]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
@@ -124,6 +133,13 @@ export default function Index() {
     if (deleteId) deleteMut.mutate(deleteId);
     setDeleteId(null);
   }, [deleteId, deleteMut]);
+
+  const handleLoteSubmit = useCallback((updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; horario_previsto?: string }[]) => {
+    for (const u of updates) {
+      updateMut.mutate(u);
+    }
+    setSelectedIds([]);
+  }, [updateMut]);
 
   return (
     <Layout>
@@ -175,12 +191,17 @@ export default function Index() {
           carregamentos={carregamentos}
         />
 
-        {/* Selection summary for logistics */}
+        {/* Selection summary */}
         {selectedInView.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm font-medium">
             <span>{selectedInView.length} selecionado{selectedInView.length > 1 ? "s" : ""}</span>
             <span className="text-muted-foreground">·</span>
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
+            {(isAdmin || isLogistica) && (
+              <Button size="sm" className="ml-2 h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
+                <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carreta
+              </Button>
+            )}
             <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds([])}>
               Limpar seleção
             </Button>
@@ -216,6 +237,14 @@ export default function Index() {
           produtos={produtos}
           clientes={clientes}
           selectedDate={filters.data}
+        />
+
+        <FechamentoLoteDialog
+          open={loteDialogOpen}
+          onOpenChange={setLoteDialogOpen}
+          items={selectedItems}
+          tiposCaminhao={tiposCaminhao}
+          onSubmit={handleLoteSubmit}
         />
 
         <DeleteConfirmDialog
