@@ -363,7 +363,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
             // Multi-item group — accordion by cliente
             const first = group.items[0];
             const isOpen = expanded.has(group.codigoCliente!);
-            const totalQtd = group.items.reduce((s, i) => s + (i.quantidade ?? 0), 0);
+            
             const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
             const hasRuptura = group.items.some(i => i.ruptura);
 
