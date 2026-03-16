@@ -335,7 +335,6 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                   <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
                   <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
-                  <TableCell className="text-sm max-w-[120px] truncate" title={c.observacoes ?? ""}>{c.observacoes || "—"}</TableCell>
                   {hasActions && (
                     <TableCell>
                       <div className="flex gap-1">
