@@ -16,13 +16,15 @@ export function useClientes() {
           .order("nome_cliente")
           .range(from, from + pageSize - 1);
         if (error) throw error;
+        if (!data || data.length === 0) break;
         allData = allData.concat(data);
         if (data.length < pageSize) break;
-        from += pageSize;
+        from += data.length;
       }
       return allData;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    refetchOnMount: "always",
   });
 }
 
@@ -30,18 +32,24 @@ export function useCreateCliente() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: { codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; ativo: boolean }) => {
+      // Check for duplicate before inserting
+      const { data: existing } = await supabase
+        .from("clientes")
+        .select("codigo_cliente, nome_cliente, cidade, uf")
+        .eq("codigo_cliente", values.codigo_cliente.trim())
+        .maybeSingle();
+
+      if (existing) {
+        const info = [existing.nome_cliente, existing.cidade, existing.uf].filter(Boolean).join(" – ");
+        throw new Error(`Já existe um cliente com o código ${values.codigo_cliente}: ${info}`);
+      }
+
       const { data, error } = await supabase.from("clientes").insert(values).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clientes"] }); toast.success("Cliente criado"); },
-    onError: (e: any) => {
-      if (e.message?.includes("duplicate") || e.message?.includes("unique")) {
-        toast.error("Já existe um cliente com este código.");
-      } else {
-        toast.error(e.message);
-      }
-    },
+    onError: (e: any) => toast.error(e.message),
   });
 }
 
