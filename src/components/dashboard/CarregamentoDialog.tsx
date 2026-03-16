@@ -187,8 +187,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           {/* === VENDAS FIELDS === */}
           {showVendas && (
             <>
-              {/* Primeira linha: Data, N° Pedido, UF */}
-              <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Primeira linha: Data, N° Pedido, Cidade, UF */}
+              <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Data</Label>
                   <Input type="date" value={form.data ?? ""} onChange={(e) => set("data", e.target.value)} />
@@ -201,6 +201,10 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                     onChange={(e) => set("numero_pedido", e.target.value ? Number(e.target.value) : null)}
                     placeholder="Ex: 1234"
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Cidade</Label>
+                  <Input value={form.cidade ?? ""} onChange={(e) => set("cidade", e.target.value)} placeholder="Ex: São Paulo" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">UF</Label>
