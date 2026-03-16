@@ -502,7 +502,16 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                     <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                     <TableCell><PendingCell value={first.motorista} /></TableCell>
-                    <TableCell className="text-sm font-mono font-bold text-primary">{group.codigoCliente} – {group.nomeCliente ?? ""}</TableCell>
+                    <TableCell className="text-sm font-mono font-bold text-primary">
+                      <span className="flex items-center gap-1.5">
+                        {group.codigoCliente} – {group.nomeCliente ?? ""}
+                        {first.ordem_entrega != null && (
+                          <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold h-5 min-w-5 px-1">
+                            {first.ordem_entrega}ª
+                          </span>
+                        )}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
                     <TableCell className="text-sm">{first.uf ?? "—"}</TableCell>
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
