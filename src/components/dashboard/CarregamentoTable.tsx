@@ -211,6 +211,8 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
             <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
             <div className="text-muted-foreground">Cliente</div>
             <div>{c.cliente ?? "—"}</div>
+            <div className="text-muted-foreground">Cidade</div>
+            <div>{c.cidade ?? "—"}</div>
             <div className="text-muted-foreground">UF</div>
             <div>{c.uf ?? "—"}</div>
           </>
