@@ -28,7 +28,10 @@ Deno.serve(async (req) => {
 
     const cityUfMap = new Map<string, string>();
     for (const m of municipios) {
-      cityUfMap.set(normalize(m.nome), m.microrregiao.mesorregiao.UF.sigla);
+      try {
+        const uf = m?.microrregiao?.mesorregiao?.UF?.sigla;
+        if (uf) cityUfMap.set(normalize(m.nome), uf);
+      } catch { /* skip */ }
     }
 
     // Fetch all clients with cidade but no uf
