@@ -1,23 +1,18 @@
 
 
-# Corrigir peso dos fatiados e adicionar Mussarela
+# Alterar KPI "Total Cargas" para contar pedidos únicos
 
-## Situação atual
-- **Fatiados** (Apresuntado, Mortadela Defumada, Presunto): cadastrados como `10×180g = 1,8 kg` — deveria ser `22×180g = 3,96 kg`
-- **Mussarela**: não existe no cadastro — precisa ser criada com `42×150g = 6,3 kg`
+## Alteração
 
-## Alterações
+No `KpiCards.tsx`, mudar o cálculo de `totalCargas` de `data.length` para contar valores únicos de `numero_pedido`:
 
-### 1. Atualizar peso_padrao dos 3 fatiados
-Update nos produtos:
-- `APRESUNTADO FATIADO 180G` → nome: `22x180g`, peso_padrao: `3.96`
-- `MORTADELA DEFUMADA FATIADA 180G` → nome: `22x180g`, peso_padrao: `3.96`
-- `PRESUNTO FATIADO 180G` → nome: `22x180g`, peso_padrao: `3.96`
+```typescript
+// De:
+const totalCargas = data.length;
 
-### 2. Criar produto Mussarela
-Inserir novo produto com `42×150g = 6,3 kg` de peso padrão. Será necessário definir um código de produto para a mussarela.
+// Para:
+const totalCargas = new Set(data.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
+```
 
-### Pergunta pendente
-- Qual o **código do produto** da Mussarela? (ex: 755, 760, etc.)
-- O nome completo seria algo como `MUSSARELA FATIADA 150G 42x150g`?
+Também renomear o label de "Total Cargas" para "Total Pedidos" para refletir melhor o que está sendo contado.
 
