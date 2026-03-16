@@ -60,7 +60,7 @@ export default function Index() {
       if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
       if (filters.ruptura === "sim" && !c.ruptura) return false;
       if (filters.ruptura === "nao" && c.ruptura) return false;
-      if (filters.cliente !== "todos" && c.codigo_cliente !== filters.cliente) return false;
+      if (filters.cliente.length > 0 && !filters.cliente.includes(c.codigo_cliente ?? "")) return false;
       if (filters.uf !== "todos" && c.uf !== filters.uf) return false;
       if (filters.busca) {
         const b = filters.busca.toLowerCase();
