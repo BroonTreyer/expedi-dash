@@ -100,26 +100,74 @@
 }
 
 @media print {
-  /* Hide everything except print content */
-  body * {
-    visibility: hidden;
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
   }
-  #carga-print-content,
-  #carga-print-content * {
-    visibility: visible;
+
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  #carga-print-content {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    padding: 1.5rem;
+
+  /* Hide all page content except the portal */
+  body > *:not([data-radix-portal]) {
+    display: none !important;
   }
-  /* Hide dialog overlay/backdrop */
-  [data-radix-portal],
-  [role="dialog"] {
+
+  /* Reset Radix portal positioning */
+  [data-radix-portal] {
     position: static !important;
+    display: block !important;
+  }
+
+  [data-radix-portal] > [role="dialog"],
+  [data-radix-portal] > div {
+    position: static !important;
+    transform: none !important;
     background: transparent !important;
+    border: none !important;
     box-shadow: none !important;
+    max-width: none !important;
+    max-height: none !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    inset: auto !important;
+    z-index: auto !important;
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Hide overlay backdrop */
+  [data-radix-portal] > [data-state] {
+    display: none !important;
+  }
+  [data-radix-portal] > [role="dialog"] {
+    display: block !important;
+  }
+
+  /* Hide screen-only elements */
+  .print\:hidden,
+  [data-radix-portal] button[class*="absolute"] {
+    display: none !important;
+  }
+
+  /* Print content styles */
+  #carga-print-content {
+    width: 100% !important;
+    padding: 0 !important;
+    color: black !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+
+  #carga-print-content * {
+    color: black !important;
+    border-color: #ccc !important;
   }
 }

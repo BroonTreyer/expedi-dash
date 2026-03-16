@@ -45,7 +45,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full print:max-w-none print:max-h-none print:w-full print:h-auto print:overflow-visible print:shadow-none print:border-none print:rounded-none print:p-0">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         {/* Screen-only buttons */}
         <div className="flex justify-end gap-2 mb-4 print:hidden">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
