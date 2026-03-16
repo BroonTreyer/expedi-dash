@@ -185,7 +185,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
-            Fechar Carreta ({orderedItems.length} pedidos)
+            Fechar Carga ({orderedItems.length} pedidos)
           </Button>
         </div>
       </DialogContent>
