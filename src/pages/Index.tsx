@@ -24,6 +24,7 @@ const today = new Date().toISOString().split("T")[0];
 
 export default function Index() {
   const { role } = useAuth();
+  const queryClient = useQueryClient();
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
   const isFaturamento = role === "faturamento";
