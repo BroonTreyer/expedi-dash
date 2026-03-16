@@ -166,6 +166,7 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           clientes={clientes}
           userRole={role}
+          carregamentos={carregamentos}
         />
 
         {/* Selection summary for logistics */}
