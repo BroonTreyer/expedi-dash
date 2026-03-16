@@ -34,11 +34,14 @@ export default function Index() {
     data: today,
     etapa: "todos",
     ruptura: "todos",
+    cliente: "todos",
+    uf: "todos",
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Carregamento | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>("vendas");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
   const { data: vendedores = [] } = useVendedores();
@@ -57,6 +60,8 @@ export default function Index() {
       if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
       if (filters.ruptura === "sim" && !c.ruptura) return false;
       if (filters.ruptura === "nao" && c.ruptura) return false;
+      if (filters.cliente !== "todos" && c.codigo_cliente !== filters.cliente) return false;
+      if (filters.uf !== "todos" && c.uf !== filters.uf) return false;
       if (filters.busca) {
         const b = filters.busca.toLowerCase();
         if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b)) return false;
@@ -64,6 +69,13 @@ export default function Index() {
       return true;
     });
   }, [carregamentos, filters]);
+
+  // Compute selected weight
+  const selectedWeight = useMemo(() => {
+    if (selectedIds.length === 0) return 0;
+    const idSet = new Set(selectedIds);
+    return filtered.filter(c => idSet.has(c.id)).reduce((s, c) => s + (c.peso ?? 0), 0);
+  }, [selectedIds, filtered]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica && !isFaturamento) return;
@@ -145,14 +157,28 @@ export default function Index() {
           </div>
         </div>
 
-        <KpiCards data={filtered} />
+        <KpiCards data={filtered} selectedData={selectedIds.length > 0 ? filtered.filter(c => new Set(selectedIds).has(c.id)) : undefined} />
 
         <Filters
           filters={filters}
           onChange={setFilters}
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
+          clientes={clientes}
+          userRole={role}
         />
+
+        {/* Selection summary for logistics */}
+        {isLogistica && selectedIds.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm font-medium">
+            <span>{selectedIds.length} selecionado{selectedIds.length > 1 ? "s" : ""}</span>
+            <span className="text-muted-foreground">·</span>
+            <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
+            <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds([])}>
+              Limpar seleção
+            </Button>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="text-center py-12 text-muted-foreground">Carregando dados...</div>
@@ -164,6 +190,9 @@ export default function Index() {
             onDelete={handleDeleteRequest}
             onComplete={handleComplete}
             userRole={role}
+            selectable={isLogistica}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
           />
         ) : (
           <KanbanView data={filtered} onStatusChange={handleStatusChange} />
