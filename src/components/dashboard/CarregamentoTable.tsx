@@ -250,10 +250,9 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     });
   };
 
-  // Fixed columns: chevron, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, cidade, UF, inicio, fim, obs = 13
-  const colCount = 13
+  // Fixed columns: chevron, status, vendedor, cod.produto, produto, caminhao, motorista, cliente, cidade, UF, inicio, fim = 12
+  const colCount = 12
     + (hideColumns.includes("etapa") ? 0 : 1)
-    + (hideColumns.includes("qtd") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
     + (showPesoAprox ? 1 : 0)
     + (hasActions ? 1 : 0);
