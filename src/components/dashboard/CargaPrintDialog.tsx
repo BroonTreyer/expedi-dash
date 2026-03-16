@@ -1,4 +1,5 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo.png";
@@ -30,10 +31,38 @@ interface Props {
 }
 
 export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
+  const cleanup = useCallback(() => {
+    document.body.classList.remove("printing-carga");
+    const root = document.getElementById("carga-print-root");
+    if (root) root.remove();
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("afterprint", cleanup);
+    return () => window.removeEventListener("afterprint", cleanup);
+  }, [cleanup]);
+
   if (!data) return null;
 
   const handlePrint = () => {
+    // Clone the print content out of the dialog into body root
+    const source = document.getElementById("carga-print-content");
+    if (!source) return;
+
+    // Remove any previous clone
+    const prev = document.getElementById("carga-print-root");
+    if (prev) prev.remove();
+
+    const wrapper = document.createElement("div");
+    wrapper.id = "carga-print-root";
+    wrapper.appendChild(source.cloneNode(true));
+    document.body.appendChild(wrapper);
+
+    document.body.classList.add("printing-carga");
     window.print();
+
+    // Fallback cleanup in case afterprint doesn't fire
+    setTimeout(cleanup, 2000);
   };
 
   const dataFormatada = (() => {
@@ -46,6 +75,11 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Romaneio de Carga</DialogTitle>
+          <DialogDescription>Visualização do romaneio para impressão</DialogDescription>
+        </DialogHeader>
+
         {/* Screen-only buttons */}
         <div className="flex justify-end gap-2 mb-4 print:hidden">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
