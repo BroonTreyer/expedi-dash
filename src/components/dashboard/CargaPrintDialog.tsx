@@ -89,7 +89,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                   <h3 className="text-sm font-bold">
                     {group.ordem}. {group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}
                   </h3>
-                  <span className="text-xs font-semibold text-muted-foreground print:text-gray-600">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     {group.pesoTotal.toLocaleString("pt-BR")} kg
                   </span>
                 </div>
