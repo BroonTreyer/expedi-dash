@@ -100,6 +100,24 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           {vendedores.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>)}
         </SelectContent>
       </Select>
+      <Select value={filters.cliente} onValueChange={(v) => set("cliente", v)}>
+        <SelectTrigger className="h-9 text-sm md:w-[180px]">
+          <SelectValue placeholder="Cliente" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todos Clientes</SelectItem>
+          {clientes.map((c) => <SelectItem key={c.id} value={c.codigo_cliente}>{c.codigo_cliente} – {c.nome_cliente}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
+        <SelectTrigger className="h-9 text-sm md:w-[100px]">
+          <SelectValue placeholder="UF" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todas UFs</SelectItem>
+          {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+        </SelectContent>
+      </Select>
       <Select value={filters.tipoCaminhao} onValueChange={(v) => set("tipoCaminhao", v)}>
         <SelectTrigger className="h-9 text-sm md:w-[150px]">
           <SelectValue placeholder="Tipo Caminhão" />
