@@ -173,6 +173,46 @@ export default function Index() {
     setSelectedIds([]);
   }, [updateMut]);
 
+  const handlePrintCarga = useCallback((cargaId: string) => {
+    const itemsInCarga = carregamentos.filter(c => c.carga_id === cargaId);
+    if (itemsInCarga.length === 0) return;
+    const first = itemsInCarga[0];
+
+    // Group by cliente
+    const groupMap = new Map<string, { codigoCliente: string | null; nomeCliente: string | null; items: { id: string; nomeProduto: string | null; peso: number }[]; pesoTotal: number; ordem: number }>();
+    for (const c of itemsInCarga) {
+      const key = c.codigo_cliente ?? "__none__";
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          codigoCliente: c.codigo_cliente,
+          nomeCliente: c.cliente,
+          items: [],
+          pesoTotal: 0,
+          ordem: c.ordem_entrega ?? 999,
+        });
+      }
+      const g = groupMap.get(key)!;
+      g.items.push({ id: c.id, nomeProduto: c.nome_produto, peso: c.peso ?? 0 });
+      g.pesoTotal += c.peso ?? 0;
+    }
+
+    const groups = Array.from(groupMap.values());
+    const totalPeso = itemsInCarga.reduce((s, c) => s + (c.peso ?? 0), 0);
+
+    setPrintData({
+      cargaId,
+      data: first.data,
+      tipoCaminhao: first.tipo_caminhao ?? "",
+      placa: first.placa ?? "",
+      motorista: first.motorista ?? "",
+      horarioPrevisto: first.horario_previsto ?? undefined,
+      groups,
+      totalPeso,
+      totalPedidos: itemsInCarga.length,
+    });
+    setPrintDialogOpen(true);
+  }, [carregamentos]);
+
   const handlePrintReady = useCallback((data: CargaPrintData) => {
     setPrintData(data);
     setPrintDialogOpen(true);
