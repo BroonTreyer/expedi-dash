@@ -8,6 +8,7 @@ import { KanbanView } from "@/components/dashboard/KanbanView";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialog";
+import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
@@ -49,6 +50,8 @@ export default function Index() {
   const [undoCargaId, setUndoCargaId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
+  const [printData, setPrintData] = useState<CargaPrintData | null>(null);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
   const { data: vendedores = [] } = useVendedores();
@@ -170,6 +173,11 @@ export default function Index() {
     setSelectedIds([]);
   }, [updateMut]);
 
+  const handlePrintReady = useCallback((data: CargaPrintData) => {
+    setPrintData(data);
+    setPrintDialogOpen(true);
+  }, []);
+
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
@@ -275,6 +283,14 @@ export default function Index() {
           items={selectedItems}
           tiposCaminhao={tiposCaminhao}
           onSubmit={handleLoteSubmit}
+          onPrintReady={handlePrintReady}
+          selectedDate={filters.data}
+        />
+
+        <CargaPrintDialog
+          open={printDialogOpen}
+          onOpenChange={setPrintDialogOpen}
+          data={printData}
         />
 
         <DeleteConfirmDialog

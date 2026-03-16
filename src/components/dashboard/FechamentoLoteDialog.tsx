@@ -7,12 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowUp, ArrowDown, Truck } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
+import type { CargaPrintData } from "./CargaPrintDialog";
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: Carregamento[];
   tiposCaminhao: { nome_tipo: string }[];
   onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; carga_id: string; horario_previsto?: string }[]) => void;
+  onPrintReady?: (data: CargaPrintData) => void;
+  selectedDate?: string;
 }
 
 interface ClienteGroup {
@@ -23,7 +27,7 @@ interface ClienteGroup {
   ordem: number;
 }
 
-export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit }: Props) {
+export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate }: Props) {
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
@@ -104,6 +108,21 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     );
     onSubmit(updates);
     onOpenChange(false);
+
+    // Trigger print preview
+    if (onPrintReady) {
+      onPrintReady({
+        cargaId,
+        data: selectedDate ?? now.toISOString().split("T")[0],
+        tipoCaminhao,
+        placa,
+        motorista,
+        horarioPrevisto: horarioPrevisto || undefined,
+        groups: groups.map(g => ({ ...g })),
+        totalPeso,
+        totalPedidos,
+      });
+    }
   };
 
   const totalPedidos = groups.reduce((s, g) => s + g.items.length, 0);
