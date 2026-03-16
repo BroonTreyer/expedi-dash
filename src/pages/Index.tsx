@@ -28,13 +28,13 @@ export default function Index() {
   const [view, setView] = useState<"table" | "kanban">("table");
   const [filters, setFilters] = useState({
     status: "todos",
-    vendedor: "todos",
+    vendedor: [] as string[],
     tipoCaminhao: "todos",
     busca: "",
     data: today,
     etapa: "todos",
     ruptura: "todos",
-    cliente: "todos",
+    cliente: [] as string[],
     uf: "todos",
   });
   const [dialogOpen, setDialogOpen] = useState(false);
