@@ -105,7 +105,6 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
           const first = group.items[0];
           const isOpen = expanded.has(group.codigoCliente!);
           const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
-          const totalQtd = group.items.reduce((s, i) => s + (i.quantidade ?? 0), 0);
           return (
             <div key={`g-${group.codigoCliente}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
               <button
