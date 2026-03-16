@@ -258,7 +258,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     + (hasActions ? 1 : 0);
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-auto max-h-[calc(100vh-320px)]">
+    <div className="rounded-lg border border-border bg-card overflow-x-auto overflow-y-visible">
       <Table>
         <TableHeader className="sticky top-0 z-10 bg-card">
           <TableRow className="bg-muted/40">
