@@ -28,13 +28,13 @@ export default function Index() {
   const [view, setView] = useState<"table" | "kanban">("table");
   const [filters, setFilters] = useState({
     status: "todos",
-    vendedor: "todos",
+    vendedor: [] as string[],
     tipoCaminhao: "todos",
     busca: "",
     data: today,
     etapa: "todos",
     ruptura: "todos",
-    cliente: "todos",
+    cliente: [] as string[],
     uf: "todos",
   });
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -55,12 +55,12 @@ export default function Index() {
   const filtered = useMemo(() => {
     return carregamentos.filter((c) => {
       if (filters.status !== "todos" && c.status !== filters.status) return false;
-      if (filters.vendedor !== "todos" && c.vendedor_id !== filters.vendedor) return false;
+      if (filters.vendedor.length > 0 && !filters.vendedor.includes(c.vendedor_id ?? "")) return false;
       if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
       if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
       if (filters.ruptura === "sim" && !c.ruptura) return false;
       if (filters.ruptura === "nao" && c.ruptura) return false;
-      if (filters.cliente !== "todos" && c.codigo_cliente !== filters.cliente) return false;
+      if (filters.cliente.length > 0 && !filters.cliente.includes(c.codigo_cliente ?? "")) return false;
       if (filters.uf !== "todos" && c.uf !== filters.uf) return false;
       if (filters.busca) {
         const b = filters.busca.toLowerCase();
