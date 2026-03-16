@@ -6,9 +6,21 @@ export function useClientes() {
   return useQuery({
     queryKey: ["clientes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("clientes").select("*").order("nome_cliente");
-      if (error) throw error;
-      return data;
+      let allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("clientes")
+          .select("*")
+          .order("nome_cliente")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allData = allData.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -23,7 +35,13 @@ export function useCreateCliente() {
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clientes"] }); toast.success("Cliente criado"); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => {
+      if (e.message?.includes("duplicate") || e.message?.includes("unique")) {
+        toast.error("Já existe um cliente com este código.");
+      } else {
+        toast.error(e.message);
+      }
+    },
   });
 }
 
