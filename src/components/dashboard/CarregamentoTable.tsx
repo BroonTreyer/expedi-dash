@@ -420,6 +420,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                   <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                   <TableCell><PendingCell value={first.motorista} /></TableCell>
                   <TableCell className="text-sm">{first.cliente ?? "—"}</TableCell>
+                  <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
                   <TableCell className="text-sm">{first.uf ?? "—"}</TableCell>
                   {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
                   <TableCell className="text-sm">{formatTime(first.horario_inicio)}</TableCell>
