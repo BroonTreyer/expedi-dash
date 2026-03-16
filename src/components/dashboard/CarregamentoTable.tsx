@@ -426,6 +426,11 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
+                          {(isAdmin || isLogistica) && c.carga_id && onPrintCarga && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Imprimir Romaneio" onClick={() => onPrintCarga(c.carga_id!)}>
+                              <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {(isAdmin || isLogistica) && c.carga_id && onUndoCarga && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Desfazer Carga" onClick={() => onUndoCarga(c.carga_id!)}>
                               <Undo2 className="h-3.5 w-3.5" />
