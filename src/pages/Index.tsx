@@ -70,12 +70,18 @@ export default function Index() {
     });
   }, [carregamentos, filters]);
 
+  // Prune selection when filtered data changes
+  const filteredIds = useMemo(() => new Set(filtered.map(c => c.id)), [filtered]);
+  const selectedInView = useMemo(() => {
+    return selectedIds.filter(id => filteredIds.has(id));
+  }, [selectedIds, filteredIds]);
+
   // Compute selected weight
   const selectedWeight = useMemo(() => {
-    if (selectedIds.length === 0) return 0;
-    const idSet = new Set(selectedIds);
+    if (selectedInView.length === 0) return 0;
+    const idSet = new Set(selectedInView);
     return filtered.filter(c => idSet.has(c.id)).reduce((s, c) => s + (c.peso ?? 0), 0);
-  }, [selectedIds, filtered]);
+  }, [selectedInView, filtered]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica && !isFaturamento) return;
