@@ -260,23 +260,19 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     return () => ro.disconnect();
   }, [data, expanded]);
 
-  const handleProxyScroll = useCallback(() => {
-    if (isSyncing.current) return;
+  const syncScroll = useCallback((source: HTMLDivElement | null) => {
+    if (isSyncing.current || !source) return;
     isSyncing.current = true;
-    if (proxyScrollRef.current && tableScrollRef.current) {
-      tableScrollRef.current.scrollLeft = proxyScrollRef.current.scrollLeft;
-    }
+    const sl = source.scrollLeft;
+    [tableScrollRef, proxyScrollRef, bottomProxyRef].forEach(ref => {
+      if (ref.current && ref.current !== source) ref.current.scrollLeft = sl;
+    });
     requestAnimationFrame(() => { isSyncing.current = false; });
   }, []);
 
-  const handleTableScroll = useCallback(() => {
-    if (isSyncing.current) return;
-    isSyncing.current = true;
-    if (tableScrollRef.current && proxyScrollRef.current) {
-      proxyScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
-    }
-    requestAnimationFrame(() => { isSyncing.current = false; });
-  }, []);
+  const handleProxyScroll = useCallback(() => syncScroll(proxyScrollRef.current), [syncScroll]);
+  const handleTableScroll = useCallback(() => syncScroll(tableScrollRef.current), [syncScroll]);
+  const handleBottomProxyScroll = useCallback(() => syncScroll(bottomProxyRef.current), [syncScroll]);
 
   if (isMobile) {
     return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} canChangeStatus={canChangeStatus} />;
