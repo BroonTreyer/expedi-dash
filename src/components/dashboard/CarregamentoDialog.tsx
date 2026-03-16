@@ -99,6 +99,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     if (found) {
       set("cliente", found.nome_cliente);
       set("codigo_cliente", found.codigo_cliente);
+      set("cidade", found.cidade ?? "");
+      set("uf", found.uf ?? "");
     }
   };
 
