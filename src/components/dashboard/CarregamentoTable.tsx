@@ -186,10 +186,10 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
             <div>{c.vendedores?.nome_vendedor ?? "—"}</div>
           </>
         )}
-        {!hideColumns.includes("qtd") && !hideColumns.includes("peso") && (
+        {!hideColumns.includes("peso") && (
           <>
-            <div className="text-muted-foreground">Qtd / Peso</div>
-            <div className="font-medium">{c.quantidade ?? 0} un / {(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
+            <div className="text-muted-foreground">Peso</div>
+            <div className="font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")} kg</div>
           </>
         )}
         {showPesoAprox && (
