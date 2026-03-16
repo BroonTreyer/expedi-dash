@@ -98,3 +98,28 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
+
+@media print {
+  /* Hide everything except print content */
+  body * {
+    visibility: hidden;
+  }
+  #carga-print-content,
+  #carga-print-content * {
+    visibility: visible;
+  }
+  #carga-print-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 1.5rem;
+  }
+  /* Hide dialog overlay/backdrop */
+  [data-radix-portal],
+  [role="dialog"] {
+    position: static !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}

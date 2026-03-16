@@ -7,12 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowUp, ArrowDown, Truck } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
+import type { CargaPrintData } from "./CargaPrintDialog";
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: Carregamento[];
   tiposCaminhao: { nome_tipo: string }[];
   onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; carga_id: string; horario_previsto?: string }[]) => void;
+  onPrintReady?: (data: CargaPrintData) => void;
+  selectedDate?: string;
 }
 
 interface ClienteGroup {
