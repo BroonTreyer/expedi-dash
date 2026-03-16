@@ -31,8 +31,6 @@ interface Props {
 }
 
 export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
-  if (!data) return null;
-
   const cleanup = useCallback(() => {
     document.body.classList.remove("printing-carga");
     const root = document.getElementById("carga-print-root");
@@ -43,6 +41,8 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
     window.addEventListener("afterprint", cleanup);
     return () => window.removeEventListener("afterprint", cleanup);
   }, [cleanup]);
+
+  if (!data) return null;
 
   const handlePrint = () => {
     // Clone the print content out of the dialog into body root
