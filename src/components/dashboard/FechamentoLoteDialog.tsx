@@ -58,6 +58,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setTipoCaminhao("");
       setPlaca("");
       setMotorista("");
+      setTransportadora("");
       setHorarioPrevisto("");
     }
   }, [open, items]);
