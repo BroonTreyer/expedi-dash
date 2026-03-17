@@ -104,10 +104,12 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="border-b-2 border-foreground/20">
+                <th className="text-left py-1.5 pr-2 font-semibold">Status</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Carga</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Tipo</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Placa</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Motorista</th>
+                <th className="text-left py-1.5 pr-2 font-semibold">Transportadora</th>
                 <th className="text-right py-1.5 pr-2 font-semibold">Peso (kg)</th>
                 <th className="text-center py-1.5 pr-2 font-semibold">Pedidos</th>
                 <th className="text-center py-1.5 pr-2 font-semibold">Clientes</th>
