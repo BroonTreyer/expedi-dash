@@ -56,6 +56,7 @@ export default function Index() {
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
   const [printData, setPrintData] = useState<CargaPrintData | null>(null);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [adicionarCargaOpen, setAdicionarCargaOpen] = useState(false);
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
   const { data: vendedores = [] } = useVendedores();
