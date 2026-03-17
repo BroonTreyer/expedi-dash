@@ -399,6 +399,14 @@ export default function Index() {
           data={printData}
         />
 
+        <AdicionarCargaDialog
+          open={adicionarCargaOpen}
+          onOpenChange={setAdicionarCargaOpen}
+          cargas={cargasFechadas}
+          items={selectedItems}
+          onSubmit={handleAdicionarCargaSubmit}
+        />
+
         <DeleteConfirmDialog
           open={!!deleteId}
           onOpenChange={(o) => !o && setDeleteId(null)}
