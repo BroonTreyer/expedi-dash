@@ -317,7 +317,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     });
   };
 
-  const colCount = 12
+  const colCount = 11
     + (selectable ? 1 : 0)
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
@@ -353,8 +353,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableHead>Cidade</TableHead>
               <TableHead>UF</TableHead>
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
-              <TableHead>Início</TableHead>
-              <TableHead>Fim</TableHead>
+              <TableHead>Frete</TableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>
@@ -431,8 +430,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
                     <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
-                    <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
-                    <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
+                    <TableCell className="text-sm">{c.tipo_frete ?? "—"}</TableCell>
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
@@ -548,8 +546,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
                     <TableCell className="text-sm">{first.uf ?? "—"}</TableCell>
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
-                    <TableCell className="text-sm">{formatTime(first.horario_inicio)}</TableCell>
-                    <TableCell className="text-sm">{formatTime(first.horario_fim)}</TableCell>
+                    <TableCell className="text-sm">{first.tipo_frete ?? "—"}</TableCell>
                     {hasActions && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
@@ -618,8 +615,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                       <TableCell />
                       <TableCell />
                       {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
-                      <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
-                      <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
+                      <TableCell />
                       {hasActions && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">

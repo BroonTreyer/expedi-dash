@@ -21,6 +21,7 @@ export type Carregamento = {
   horario_previsto: string | null;
   horario_inicio: string | null;
   horario_fim: string | null;
+  tipo_frete: string | null;
   numero_pedido: number | null;
   status: string;
   etapa: string;
