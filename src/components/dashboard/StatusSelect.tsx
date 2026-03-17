@@ -21,7 +21,7 @@ export function StatusSelect({ value, onChange, statuses, statusColors }: Props)
       <SelectContent>
         {items.map((s) => (
           <SelectItem key={s} value={s}>
-            <span className={cn("inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold", colors[s as CarregamentoStatus] ?? "bg-muted text-foreground")}>
+            <span className={cn("inline-block rounded px-1.5 py-0.5 text-[13px] font-semibold", colors[s as CarregamentoStatus] ?? "bg-muted text-foreground")}>
               {s}
             </span>
           </SelectItem>
