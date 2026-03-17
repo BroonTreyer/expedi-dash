@@ -249,7 +249,7 @@ export default function Consolidado() {
                 {groups.map((g) => {
                   const isOpen = expanded.has(g.cargaId);
                   return (
-                    <TooltipProvider key={g.cargaId} delayDuration={0}>
+                    <React.Fragment key={g.cargaId}>
                       <TableRow
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => toggleExpand(g.cargaId)}
