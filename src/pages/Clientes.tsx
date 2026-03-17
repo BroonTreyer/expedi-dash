@@ -38,7 +38,7 @@ export default function Clientes() {
 
   useEffect(() => { setPage(1); }, [search]);
 
-  const filtered = clientes.filter((c: any) => {
+  const filteredRaw = clientes.filter((c: any) => {
     const s = search.trim().toLowerCase();
     if (!s) return true;
     const codigo = String(c.codigo_cliente || "").toLowerCase();
@@ -46,6 +46,14 @@ export default function Clientes() {
     const cidade = String(c.cidade || "").toLowerCase();
     const uf = String(c.uf || "").toLowerCase();
     return codigo.includes(s) || nome.includes(s) || cidade.includes(s) || uf.includes(s);
+  });
+
+  const filtered = sortData(filteredRaw, {
+    codigo_cliente: (c: any) => c.codigo_cliente,
+    nome_cliente: (c: any) => c.nome_cliente,
+    cidade: (c: any) => c.cidade ?? "",
+    uf: (c: any) => c.uf ?? "",
+    ativo: (c: any) => c.ativo,
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
