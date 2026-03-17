@@ -284,6 +284,7 @@ export default function Consolidado() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-8" />
+                  <TableHead>Status</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Placa</TableHead>
                   <TableHead>Motorista</TableHead>
@@ -291,7 +292,6 @@ export default function Consolidado() {
                   <TableHead className="text-center">Pedidos</TableHead>
                   <TableHead className="text-center">Clientes</TableHead>
                   <TableHead>UFs</TableHead>
-                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -306,6 +306,12 @@ export default function Consolidado() {
                         <TableCell className="px-2">
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <StatusSelect
+                            value={g.status}
+                            onChange={(v) => handleStatusChange(g, v)}
+                          />
+                        </TableCell>
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
                         <TableCell className="text-xs">{g.motorista ?? "—"}</TableCell>
@@ -313,12 +319,6 @@ export default function Consolidado() {
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
                         <TableCell className="text-center text-xs">{g.clientes.size}</TableCell>
                         <TableCell className="text-xs">{[...g.ufs].sort().join(", ") || "—"}</TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <StatusSelect
-                            value={g.status}
-                            onChange={(v) => handleStatusChange(g, v)}
-                          />
-                        </TableCell>
                       </TableRow>
                       {isOpen && g.items.map((item) => (
                         <TableRow key={item.id} className="bg-muted/20">
