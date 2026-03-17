@@ -113,7 +113,7 @@ export function useCarregamentos(date: string) {
 
       if (date === todayStr) {
         // Today: also bring pending items from previous days
-        q = q.or(`data.eq.${date},and(data.lt.${date},status.neq.Carregado)`);
+        q = q.or(`data.eq.${date},and(data.lt.${date},carga_id.is.null)`);
       } else {
         q = q.eq("data", date);
       }
