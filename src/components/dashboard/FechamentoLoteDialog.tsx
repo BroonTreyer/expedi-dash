@@ -63,7 +63,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setHorarioPrevisto("");
       setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
     }
-  }, [open, items]);
+  }, [open, items, selectedDate]);
 
   const totalPeso = useMemo(() => groups.reduce((s, g) => s + g.pesoTotal, 0), [groups]);
 
