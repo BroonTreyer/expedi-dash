@@ -14,7 +14,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   items: Carregamento[];
   tiposCaminhao: { nome_tipo: string }[];
-  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; horario_previsto?: string }[]) => void;
+  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string }[]) => void;
   onPrintReady?: (data: CargaPrintData) => void;
   selectedDate?: string;
 }
@@ -33,6 +33,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [motorista, setMotorista] = useState("");
   const [transportadora, setTransportadora] = useState("");
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
+  const [dataCarregamento, setDataCarregamento] = useState("");
   const [groups, setGroups] = useState<ClienteGroup[]>([]);
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setMotorista("");
       setTransportadora("");
       setHorarioPrevisto("");
+      setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
     }
   }, [open, items]);
 
@@ -87,7 +89,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     setGroups(prev => prev.map((g, i) => i === idx ? { ...g, ordem: value } : g));
   };
 
-  const canSubmit = tipoCaminhao && placa && motorista;
+  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento;
 
   const handleSubmit = () => {
     // Generate a unique carga_id for this load
@@ -106,6 +108,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         ordem_entrega: group.ordem,
         etapa: "logistica",
         carga_id: cargaId,
+        data: dataCarregamento,
         ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
       }))
     );
@@ -116,7 +119,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     if (onPrintReady) {
       onPrintReady({
         cargaId,
-        data: selectedDate ?? now.toISOString().split("T")[0],
+        data: dataCarregamento,
         tipoCaminhao,
         placa,
         motorista,
@@ -144,6 +147,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         </DialogHeader>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Data do Carregamento *</Label>
+            <Input type="date" value={dataCarregamento} onChange={(e) => setDataCarregamento(e.target.value)} />
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Tipo Caminhão *</Label>
             <Select value={tipoCaminhao} onValueChange={setTipoCaminhao}>
