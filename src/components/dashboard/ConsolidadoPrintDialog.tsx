@@ -105,7 +105,7 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
             <thead>
               <tr className="border-b-2 border-foreground/20">
                 <th className="text-left py-1.5 pr-2 font-semibold">Status</th>
-                <th className="text-left py-1.5 pr-2 font-semibold">Carga</th>
+                
                 <th className="text-left py-1.5 pr-2 font-semibold">Tipo</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Placa</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Motorista</th>
@@ -120,7 +120,7 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
               {data.groups.map((g) => (
                 <tr key={g.cargaId} className="border-b border-foreground/5">
                   <td className="py-1 pr-2">{g.status}</td>
-                  <td className="py-1 pr-2 font-medium">{g.cargaId}</td>
+                  
                   <td className="py-1 pr-2">{g.tipoCaminhao ?? "—"}</td>
                   <td className="py-1 pr-2 font-mono">{g.placa ?? "—"}</td>
                   <td className="py-1 pr-2">{g.motorista ?? "—"}</td>
