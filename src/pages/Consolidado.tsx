@@ -21,7 +21,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
-const today = new Date().toISOString().split("T")[0];
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
 
 function getInitialDate() {
   const params = new URLSearchParams(window.location.search);
