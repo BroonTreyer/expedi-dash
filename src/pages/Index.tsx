@@ -208,6 +208,14 @@ export default function Index() {
     setSelectedIds([]);
   }, [updateMut]);
 
+  const handleAdicionarCargaSubmit = useCallback((updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => {
+    for (const u of updates) {
+      updateMut.mutate(u);
+    }
+    setSelectedIds([]);
+    toast.success(`${updates.length} pedido(s) adicionado(s) à carga`);
+  }, [updateMut]);
+
   const handlePrintCarga = useCallback((cargaId: string) => {
     const itemsInCarga = carregamentos.filter(c => c.carga_id === cargaId);
     if (itemsInCarga.length === 0) return;
