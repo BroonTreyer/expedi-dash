@@ -23,6 +23,7 @@ export default function Produtos() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ codigo_produto: "", nome_produto: "", peso_padrao: 0, ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { sort, toggleSort, sortData } = useSortableTable();
 
   const filtered = produtos.filter((p) => {
     const s = search.toLowerCase();
