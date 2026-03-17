@@ -86,6 +86,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   const isFaturamento = userRole === "faturamento";
   const canChangeStatus = canChangeStatusProp ?? (isAdmin || isLogistica || isFaturamento);
   const canEdit = isAdmin || isFaturamento;
+  const canDelete = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
