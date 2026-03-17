@@ -150,7 +150,14 @@ export default function Consolidado() {
   return (
     <Layout>
       <div className="p-4 sm:p-6 space-y-4">
-        <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
+          {groups.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+              <Printer className="h-4 w-4 mr-1" /> Imprimir
+            </Button>
+          )}
+        </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-2">
