@@ -44,6 +44,7 @@ export default function Rupturas() {
   const [editing, setEditing] = useState<Carregamento | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>("logistica");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
 
   const rupturas = useMemo(() => {
     return carregamentos.filter((c) => {
