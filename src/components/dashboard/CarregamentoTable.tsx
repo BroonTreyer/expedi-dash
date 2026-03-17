@@ -570,7 +570,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
-                          {isAdmin && (
+                          {canDelete && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => group.items.forEach(i => onDelete(i.id))}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
