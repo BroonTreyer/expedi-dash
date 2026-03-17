@@ -11,6 +11,7 @@ export type Carregamento = {
   nome_produto: string | null;
   quantidade: number | null;
   peso: number | null;
+  transportadora: string | null;
   tipo_caminhao: string | null;
   placa: string | null;
   motorista: string | null;

@@ -366,6 +366,10 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 <Input value={form.motorista ?? ""} onChange={(e) => set("motorista", e.target.value)} />
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs">Transportadora</Label>
+                <Input value={form.transportadora ?? ""} onChange={(e) => set("transportadora", e.target.value)} placeholder="Ex: Transportes XYZ" />
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs">Horário Previsto</Label>
                 <Input type="time" value={form.horario_previsto ?? ""} onChange={(e) => set("horario_previsto", e.target.value)} />
               </div>

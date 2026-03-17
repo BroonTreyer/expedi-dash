@@ -15,7 +15,7 @@ export function StatusSelect({ value, onChange, statuses, statusColors }: Props)
 
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs border-none p-1 px-2 focus:ring-0 focus:ring-offset-0">
+      <SelectTrigger className="h-8 w-auto min-w-[140px] text-sm border-none p-1 px-2 focus:ring-0 focus:ring-offset-0">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

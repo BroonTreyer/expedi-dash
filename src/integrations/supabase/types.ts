@@ -40,6 +40,7 @@ export type Database = {
           status: string
           tipo_caminhao: string | null
           tipo_frete: string | null
+          transportadora: string | null
           uf: string | null
           updated_at: string
           vendedor_id: string | null
@@ -69,6 +70,7 @@ export type Database = {
           status?: string
           tipo_caminhao?: string | null
           tipo_frete?: string | null
+          transportadora?: string | null
           uf?: string | null
           updated_at?: string
           vendedor_id?: string | null
@@ -98,6 +100,7 @@ export type Database = {
           status?: string
           tipo_caminhao?: string | null
           tipo_frete?: string | null
+          transportadora?: string | null
           uf?: string | null
           updated_at?: string
           vendedor_id?: string | null
