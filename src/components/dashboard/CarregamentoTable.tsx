@@ -86,6 +86,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   const isFaturamento = userRole === "faturamento";
   const canChangeStatus = canChangeStatusProp ?? (isAdmin || isLogistica || isFaturamento);
   const canEdit = isAdmin || isFaturamento;
+  const canDelete = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -179,7 +180,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canComplete, hasActions, canChang
                 <Edit className="h-3.5 w-3.5" />
               </Button>
             )}
-            {isAdmin && (
+            {canDelete && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -245,6 +246,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
   const isFaturamento = userRole === "faturamento";
   const canChangeStatus = canChangeStatusProp ?? (isAdmin || isLogistica || isFaturamento);
   const canEdit = isAdmin || isFaturamento;
+  const canDelete = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -454,7 +456,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
-                          {isAdmin && (
+                          {canDelete && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -570,7 +572,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
-                          {isAdmin && (
+                          {canDelete && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => group.items.forEach(i => onDelete(i.id))}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -629,7 +631,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                                 <Edit className="h-3.5 w-3.5" />
                               </Button>
                             )}
-                            {isAdmin && (
+                            {canDelete && (
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
