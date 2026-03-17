@@ -140,7 +140,20 @@ export default function Consolidado() {
     });
   }, [rawData, filterUf, filterStatus]);
 
-  const groups = useMemo(() => groupByCarga(filtered), [filtered]);
+  const rawGroups = useMemo(() => groupByCarga(filtered), [filtered]);
+
+  const consolidadoAccessors: Record<string, (g: CargaGroup) => any> = useMemo(() => ({
+    status: (g) => g.status,
+    tipoCaminhao: (g) => g.tipoCaminhao ?? "",
+    placa: (g) => g.placa ?? "",
+    motorista: (g) => g.motorista ?? "",
+    pesoTotal: (g) => g.pesoTotal,
+    qtdPedidos: (g) => g.qtdPedidos,
+    clientes: (g) => g.clientes.size,
+    ufs: (g) => [...g.ufs].sort().join(", "),
+  }), []);
+
+  const groups = useMemo(() => sortData(rawGroups, consolidadoAccessors), [rawGroups, sortData, consolidadoAccessors]);
 
   // KPIs — count unique pedidos globally
   const totalVeiculos = groups.length;
