@@ -24,7 +24,9 @@ import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const today = new Date().toISOString().split("T")[0];
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
 
 export default function Index() {
   const { role } = useAuth();
