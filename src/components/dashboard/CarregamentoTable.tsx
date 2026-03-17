@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   data: Carregamento[];
+  currentDate?: string;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
@@ -31,6 +32,27 @@ interface Props {
   selectable?: boolean;
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
+}
+
+function PreviousDayBadge({ itemDate, currentDate }: { itemDate: string; currentDate?: string }) {
+  if (!currentDate || itemDate === currentDate) return null;
+  const diff = Math.round((new Date(currentDate).getTime() - new Date(itemDate).getTime()) / 86400000);
+  if (diff <= 0) return null;
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30">
+            <CalendarClock className="h-3 w-3" />
+            D-{diff}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          <span>Pedido de {new Date(itemDate + "T12:00:00").toLocaleDateString("pt-BR")}</span>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 interface Group {
