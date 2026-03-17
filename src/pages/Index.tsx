@@ -263,6 +263,20 @@ export default function Index() {
                 <Plus className="h-4 w-4 mr-1" /> Novo Pedido
               </Button>
             )}
+            {finalizadosCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/consolidado?data=${filters.data}`)}
+                className="gap-1.5"
+              >
+                <PackageCheck className="h-4 w-4" />
+                Ver Finalizados
+                <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">
+                  {finalizadosCount}
+                </Badge>
+              </Button>
+            )}
           </div>
         </div>
 
