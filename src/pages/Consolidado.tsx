@@ -76,6 +76,9 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
     if (item.uf) g.ufs.add(item.uf);
     g.items.push(item);
   }
+  for (const [cargaId, pedidos] of pedidosMap) {
+    map.get(cargaId)!.qtdPedidos = pedidos.size;
+  }
   return Array.from(map.values());
 }
 
