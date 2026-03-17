@@ -50,9 +50,9 @@ export default function Vendedores() {
   const openNew = () => { setEditing(null); setForm({ codigo_vendedor: "", nome_vendedor: "", ativo: true }); setOpen(true); };
   const openEdit = (v: any) => { setEditing(v); setForm({ codigo_vendedor: v.codigo_vendedor, nome_vendedor: v.nome_vendedor, ativo: v.ativo }); setOpen(true); };
 
+  const isSubmitting = createMut.isPending || updateMut.isPending;
   const handleSubmit = () => {
-    if (editing) { updateMut.mutate({ id: editing.id, ...form }); } else { createMut.mutate(form); }
-    setOpen(false);
+    if (editing) { updateMut.mutate({ id: editing.id, ...form }, { onSuccess: () => setOpen(false) }); } else { createMut.mutate(form, { onSuccess: () => setOpen(false) }); }
   };
 
   const renderPaginationItems = () => {
