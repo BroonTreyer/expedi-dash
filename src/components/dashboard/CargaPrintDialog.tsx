@@ -46,11 +46,9 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
   if (!data) return null;
 
   const handlePrint = () => {
-    // Clone the print content out of the dialog into body root
     const source = document.getElementById("carga-print-content");
     if (!source) return;
 
-    // Remove any previous clone
     const prev = document.getElementById("carga-print-root");
     if (prev) prev.remove();
 
@@ -59,11 +57,21 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
     wrapper.appendChild(source.cloneNode(true));
     document.body.appendChild(wrapper);
 
-    document.body.classList.add("printing-carga");
-    window.print();
-
-    // Fallback cleanup in case afterprint doesn't fire
-    setTimeout(cleanup, 2000);
+    // Wait for all images to load in the clone before printing
+    const images = wrapper.querySelectorAll("img");
+    const promises = Array.from(images).map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete && img.naturalWidth > 0) return resolve();
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        })
+    );
+    Promise.all(promises).then(() => {
+      document.body.classList.add("printing-carga");
+      window.print();
+      setTimeout(cleanup, 2000);
+    });
   };
 
   const dataFormatada = (() => {

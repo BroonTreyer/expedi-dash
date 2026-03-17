@@ -58,9 +58,21 @@ export function RupturasPrintDialog({ open, onOpenChange, data }: Props) {
     wrapper.id = "carga-print-root";
     wrapper.appendChild(source.cloneNode(true));
     document.body.appendChild(wrapper);
-    document.body.classList.add("printing-carga");
-    window.print();
-    setTimeout(cleanup, 2000);
+
+    const images = wrapper.querySelectorAll("img");
+    const promises = Array.from(images).map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete && img.naturalWidth > 0) return resolve();
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        })
+    );
+    Promise.all(promises).then(() => {
+      document.body.classList.add("printing-carga");
+      window.print();
+      setTimeout(cleanup, 2000);
+    });
   };
 
   const dataFormatada = (() => {
