@@ -105,7 +105,7 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
             <thead>
               <tr className="border-b-2 border-foreground/20">
                 <th className="text-left py-1.5 pr-2 font-semibold">Status</th>
-                <th className="text-left py-1.5 pr-2 font-semibold">Carga</th>
+                
                 <th className="text-left py-1.5 pr-2 font-semibold">Tipo</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Placa</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Motorista</th>
