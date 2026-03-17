@@ -129,7 +129,7 @@ export default function Rupturas() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-6 w-6 text-amber-500" />
@@ -137,14 +137,14 @@ export default function Rupturas() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {rupturas.length > 0 && (
               <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
                 <Printer className="h-4 w-4 mr-1" /> Imprimir
               </Button>
             )}
             {canEdit && (
-              <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+              <Button size="sm" onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
                 <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
               </Button>
             )}
