@@ -9,6 +9,8 @@ interface CargaSummary {
   tipoCaminhao: string | null;
   placa: string | null;
   motorista: string | null;
+  transportadora: string | null;
+  status: string;
   pesoTotal: number;
   qtdPedidos: number;
   qtdClientes: number;
