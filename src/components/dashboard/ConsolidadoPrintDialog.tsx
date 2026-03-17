@@ -9,6 +9,8 @@ interface CargaSummary {
   tipoCaminhao: string | null;
   placa: string | null;
   motorista: string | null;
+  transportadora: string | null;
+  status: string;
   pesoTotal: number;
   qtdPedidos: number;
   qtdClientes: number;
@@ -102,10 +104,12 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="border-b-2 border-foreground/20">
+                <th className="text-left py-1.5 pr-2 font-semibold">Status</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Carga</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Tipo</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Placa</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Motorista</th>
+                <th className="text-left py-1.5 pr-2 font-semibold">Transportadora</th>
                 <th className="text-right py-1.5 pr-2 font-semibold">Peso (kg)</th>
                 <th className="text-center py-1.5 pr-2 font-semibold">Pedidos</th>
                 <th className="text-center py-1.5 pr-2 font-semibold">Clientes</th>
@@ -115,10 +119,12 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
             <tbody>
               {data.groups.map((g) => (
                 <tr key={g.cargaId} className="border-b border-foreground/5">
+                  <td className="py-1 pr-2">{g.status}</td>
                   <td className="py-1 pr-2 font-medium">{g.cargaId}</td>
                   <td className="py-1 pr-2">{g.tipoCaminhao ?? "—"}</td>
                   <td className="py-1 pr-2 font-mono">{g.placa ?? "—"}</td>
                   <td className="py-1 pr-2">{g.motorista ?? "—"}</td>
+                  <td className="py-1 pr-2">{g.transportadora ?? "—"}</td>
                   <td className="py-1 pr-2 text-right font-mono">{g.pesoTotal.toLocaleString("pt-BR")}</td>
                   <td className="py-1 pr-2 text-center">{g.qtdPedidos}</td>
                   <td className="py-1 pr-2 text-center">{g.qtdClientes}</td>

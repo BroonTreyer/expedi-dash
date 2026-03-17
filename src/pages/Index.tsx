@@ -248,6 +248,7 @@ export default function Index() {
       tipoCaminhao: first.tipo_caminhao ?? "",
       placa: first.placa ?? "",
       motorista: first.motorista ?? "",
+      transportadora: first.transportadora ?? "",
       horarioPrevisto: first.horario_previsto ?? undefined,
       groups,
       totalPeso,
