@@ -12,6 +12,7 @@ import TiposCaminhao from "./pages/TiposCaminhao";
 import Usuarios from "./pages/Usuarios";
 import Rupturas from "./pages/Rupturas";
 import Clientes from "./pages/Clientes";
+import Consolidado from "./pages/Consolidado";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
