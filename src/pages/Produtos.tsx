@@ -25,9 +25,14 @@ export default function Produtos() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable();
 
-  const filtered = produtos.filter((p) => {
+  const filtered = sortData(produtos.filter((p) => {
     const s = search.toLowerCase();
     return !s || p.nome_produto.toLowerCase().includes(s) || p.codigo_produto.toLowerCase().includes(s);
+  }), {
+    codigo_produto: (p) => p.codigo_produto,
+    nome_produto: (p) => p.nome_produto,
+    peso_padrao: (p) => p.peso_padrao ?? 0,
+    ativo: (p) => p.ativo,
   });
 
   const openNew = () => { setEditing(null); setForm({ codigo_produto: "", nome_produto: "", peso_padrao: 0, ativo: true }); setOpen(true); };
