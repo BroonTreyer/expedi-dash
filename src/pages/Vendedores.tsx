@@ -27,6 +27,7 @@ export default function Vendedores() {
   const [page, setPage] = useState(1);
   const [form, setForm] = useState({ codigo_vendedor: "", nome_vendedor: "", ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { sort, toggleSort, sortData } = useSortableTable();
 
   useEffect(() => { setPage(1); }, [search]);
 
