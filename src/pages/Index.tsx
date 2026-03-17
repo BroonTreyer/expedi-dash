@@ -10,6 +10,7 @@ import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/Carr
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialog";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
+import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
