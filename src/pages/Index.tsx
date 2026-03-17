@@ -332,9 +332,16 @@ export default function Index() {
             <span className="text-muted-foreground">·</span>
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             {(isAdmin || isLogistica) && (
-              <Button size="sm" className="ml-2 h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
-                <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
-              </Button>
+              <>
+                <Button size="sm" className="ml-2 h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
+                  <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
+                </Button>
+                {cargasFechadas.length > 0 && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAdicionarCargaOpen(true)}>
+                    <PackagePlus className="h-3.5 w-3.5 mr-1" /> Adicionar à Carga
+                  </Button>
+                )}
+              </>
             )}
             <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds([])}>
               Limpar seleção
