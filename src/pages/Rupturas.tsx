@@ -103,10 +103,7 @@ export default function Rupturas() {
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica) return;
-    const updates: Record<string, any> = { id, status };
-    if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
-    if (status === "Carregado") updates.horario_fim = new Date().toISOString();
-    updateMut.mutate(updates);
+    updateMut.mutate({ id, status });
   }, [isAdmin, isLogistica, updateMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
