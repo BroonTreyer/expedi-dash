@@ -33,6 +33,7 @@ export default function Clientes() {
   const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const { sort, toggleSort, sortData } = useSortableTable();
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setPage(1); }, [search]);
