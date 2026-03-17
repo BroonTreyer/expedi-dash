@@ -51,6 +51,7 @@ interface CargaGroup {
 
 function groupByCarga(data: Carregamento[]): CargaGroup[] {
   const map = new Map<string, CargaGroup>();
+  const pedidosMap = new Map<string, Set<number>>();
   for (const item of data) {
     if (!item.carga_id) continue;
     let g = map.get(item.carga_id);
@@ -67,9 +68,10 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         items: [],
       };
       map.set(item.carga_id, g);
+      pedidosMap.set(item.carga_id, new Set());
     }
     g.pesoTotal += item.peso ?? 0;
-    g.qtdPedidos += 1;
+    if (item.numero_pedido != null) pedidosMap.get(item.carga_id)!.add(item.numero_pedido);
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
     g.items.push(item);
