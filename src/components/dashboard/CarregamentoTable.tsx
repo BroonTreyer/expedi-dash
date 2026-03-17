@@ -262,7 +262,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
 
 // ─── Desktop ───
 
-export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onComplete, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
+export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, onDelete, onComplete, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
   const isMobile = useIsMobile();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
