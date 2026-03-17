@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { ConsolidadoPrintDialog, type ConsolidadoPrintData } from "@/components/dashboard/ConsolidadoPrintDialog";
 import { Layout } from "@/components/Layout";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
@@ -88,6 +89,7 @@ export default function Consolidado() {
   const [filterVendedor, setFilterVendedor] = useState<string[]>([]);
   const [filterTipo, setFilterTipo] = useState("todos");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [printOpen, setPrintOpen] = useState(false);
 
   const { data: rawData, isLoading } = useConsolidado(date);
   const { data: vendedores } = useVendedores();
@@ -118,6 +120,25 @@ export default function Consolidado() {
     return Array.from(map.entries()).map(([name, count]) => `${count} ${name}`).join(", ") || "—";
   }, [groups]);
 
+  const printData = useMemo<ConsolidadoPrintData | null>(() => {
+    if (groups.length === 0) return null;
+    return {
+      data: date,
+      groups: groups.map((g) => ({
+        cargaId: g.cargaId,
+        tipoCaminhao: g.tipoCaminhao,
+        placa: g.placa,
+        motorista: g.motorista,
+        pesoTotal: g.pesoTotal,
+        qtdPedidos: g.qtdPedidos,
+        qtdClientes: g.clientes.size,
+        ufs: [...g.ufs].sort().join(", ") || "—",
+      })),
+      totalVeiculos,
+      totalPeso: pesoTotal,
+      totalPedidos,
+    };
+  }, [groups, date, totalVeiculos, pesoTotal, totalPedidos]);
   // Unique UFs for filter
   const ufOptions = useMemo(() => {
     if (!rawData) return [];
@@ -149,7 +170,14 @@ export default function Consolidado() {
   return (
     <Layout>
       <div className="p-4 sm:p-6 space-y-4">
-        <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
+          {groups.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+              <Printer className="h-4 w-4 mr-1" /> Imprimir
+            </Button>
+          )}
+        </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-2">
@@ -288,6 +316,7 @@ export default function Consolidado() {
           </div>
         )}
       </div>
+      <ConsolidadoPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
     </Layout>
   );
 }

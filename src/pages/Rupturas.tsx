@@ -12,10 +12,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Weight, Package, Plus } from "lucide-react";
+import { AlertTriangle, Weight, Package, Plus, Printer } from "lucide-react";
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -43,6 +44,7 @@ export default function Rupturas() {
   const [editing, setEditing] = useState<Carregamento | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>("logistica");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
 
   const rupturas = useMemo(() => {
     return carregamentos.filter((c) => {
@@ -77,6 +79,25 @@ export default function Rupturas() {
     }
     return [...map.values()].sort((a, b) => b.peso - a.peso);
   }, [rupturas]);
+
+  const printData = useMemo<RupturasPrintData | null>(() => {
+    if (rupturas.length === 0) return null;
+    return {
+      data: date,
+      totalRupturas: rupturas.length,
+      totalPeso: totalPeso,
+      productSummary,
+      items: rupturas.map((c) => ({
+        id: c.id,
+        numero_pedido: c.numero_pedido,
+        nome_produto: c.nome_produto,
+        codigo_produto: c.codigo_produto,
+        cliente: c.cliente,
+        codigo_cliente: c.codigo_cliente,
+        peso: c.peso,
+      })),
+    };
+  }, [rupturas, date, totalPeso, productSummary]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica) return;
@@ -117,11 +138,18 @@ export default function Rupturas() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
-          {canEdit && (
-            <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {rupturas.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+                <Printer className="h-4 w-4 mr-1" /> Imprimir
+              </Button>
+            )}
+            {canEdit && (
+              <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+                <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* KPIs */}
@@ -236,6 +264,8 @@ export default function Rupturas() {
           onConfirm={handleDeleteConfirm}
           description="Tem certeza que deseja excluir este carregamento? Esta ação não pode ser desfeita."
         />
+
+        <RupturasPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
       </div>
     </Layout>
   );
