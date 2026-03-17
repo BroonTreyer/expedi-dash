@@ -111,6 +111,7 @@
   body.printing-carga {
     background: white !important;
     color: black !important;
+    font-size: 11pt;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -133,13 +134,11 @@
   #carga-print-root [id$="-print-content"] {
     width: 100% !important;
     padding: 0 !important;
-    color: black !important;
-    font-size: 11pt !important;
-    line-height: 1.4 !important;
+    color: black;
+    line-height: 1.4;
   }
 
   #carga-print-root [id$="-print-content"] * {
-    color: black !important;
     border-color: #ccc !important;
   }
 
