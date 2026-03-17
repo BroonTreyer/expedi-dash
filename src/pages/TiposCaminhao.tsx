@@ -12,7 +12,9 @@ import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog"
 import { Plus, Trash2, Truck } from "lucide-react";
 
 export default function TiposCaminhao() {
-  const { data: tipos = [], isLoading } = useTiposCaminhao();
+  const { data: tiposRaw = [], isLoading } = useTiposCaminhao();
+  const { sort, toggleSort, sortData } = useSortableTable();
+  const tipos = sortData(tiposRaw, { nome_tipo: (t) => t.nome_tipo });
   const createMut = useCreateTipoCaminhao();
   const deleteMut = useDeleteTipoCaminhao();
   const [open, setOpen] = useState(false);
