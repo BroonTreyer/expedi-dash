@@ -21,11 +21,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
-const today = new Date().toISOString().split("T")[0];
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
 
 function getInitialDate() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("data") || today;
+  return params.get("data") || getToday();
 }
 
 function useConsolidado(date: string) {
@@ -118,6 +120,7 @@ export default function Consolidado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["consolidado", date] });
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
       toast.success("Status atualizado");
     },
     onError: () => toast.error("Erro ao atualizar status"),
@@ -345,9 +348,9 @@ export default function Consolidado() {
                             Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.cliente ?? item.codigo_cliente ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground">{(item.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-center text-xs text-muted-foreground">{item.quantidade ?? "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
                           <TableCell />
                         </TableRow>

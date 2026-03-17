@@ -24,11 +24,12 @@ export function KanbanView({ data, onStatusChange }: Props) {
   const dashboardData = data.filter((c) => !RUPTURA_STATUSES.includes(c.status as any));
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="flex lg:grid lg:grid-cols-6 gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+      {/* Each column has min-w on mobile for horizontal scroll */}
       {STATUSES.map((status) => {
         const items = dashboardData.filter((c) => c.status === status);
         return (
-          <div key={status} className={cn("rounded-lg border border-border bg-muted/30 border-t-4", COLUMN_BORDER[status])}>
+          <div key={status} className={cn("rounded-lg border border-border bg-muted/30 border-t-4 min-w-[260px] lg:min-w-0 snap-start shrink-0 lg:shrink", COLUMN_BORDER[status])}>
             <div className="p-3 border-b border-border flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wide">{status}</span>
               <span className="text-xs text-muted-foreground font-mono">{items.length}</span>

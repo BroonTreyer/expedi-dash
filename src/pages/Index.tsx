@@ -24,7 +24,9 @@ import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const today = new Date().toISOString().split("T")[0];
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
 
 export default function Index() {
   const { role } = useAuth();
@@ -41,7 +43,7 @@ export default function Index() {
     vendedor: [] as string[],
     tipoCaminhao: "todos",
     busca: "",
-    data: today,
+    data: getToday(),
     etapa: "todos",
     ruptura: "todos",
     cliente: [] as string[],
@@ -314,7 +316,7 @@ export default function Index() {
           </div>
         </div>
 
-        <KpiCards data={filtered} selectedData={selectedInView.length > 0 ? filtered.filter(c => new Set(selectedInView).has(c.id)) : undefined} />
+        <KpiCards data={filtered} selectedData={selectedInView.length > 0 ? selectedItems : undefined} />
 
         <Filters
           filters={filters}

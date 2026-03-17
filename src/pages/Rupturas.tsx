@@ -18,7 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
 
-const today = new Date().toISOString().split("T")[0];
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
 
 export default function Rupturas() {
   const { role } = useAuth();
@@ -27,7 +29,7 @@ export default function Rupturas() {
   const isFaturamento = role === "faturamento";
   const canEdit = isAdmin || isFaturamento;
 
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(getToday);
   const [vendedorFilter, setVendedorFilter] = useState("todos");
   const [busca, setBusca] = useState("");
 
@@ -101,10 +103,7 @@ export default function Rupturas() {
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica) return;
-    const updates: Record<string, any> = { id, status };
-    if (status === "Carregando") updates.horario_inicio = new Date().toISOString();
-    if (status === "Carregado") updates.horario_fim = new Date().toISOString();
-    updateMut.mutate(updates);
+    updateMut.mutate({ id, status });
   }, [isAdmin, isLogistica, updateMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
@@ -130,7 +129,7 @@ export default function Rupturas() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-6 w-6 text-amber-500" />
@@ -138,14 +137,14 @@ export default function Rupturas() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {rupturas.length > 0 && (
               <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
                 <Printer className="h-4 w-4 mr-1" /> Imprimir
               </Button>
             )}
             {canEdit && (
-              <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+              <Button size="sm" onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
                 <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
               </Button>
             )}
@@ -206,10 +205,10 @@ export default function Rupturas() {
         )}
 
         {/* Filtros */}
-        <div className="flex flex-wrap gap-3">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           <Select value={vendedorFilter} onValueChange={setVendedorFilter}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Vendedor" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Vendedor" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos vendedores</SelectItem>
               {filteredVendedores.map((v) => (
@@ -217,7 +216,7 @@ export default function Rupturas() {
               ))}
             </SelectContent>
           </Select>
-          <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-48" />
+          <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} />
         </div>
 
         {isLoading ? (
