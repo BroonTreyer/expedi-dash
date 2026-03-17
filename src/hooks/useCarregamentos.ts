@@ -106,11 +106,19 @@ export function useCarregamentos(date: string) {
   const query = useQuery({
     queryKey: ["carregamentos", date],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const todayStr = new Date().toISOString().split("T")[0];
+      let q = supabase
         .from("carregamentos_dia")
-        .select("*, vendedores(nome_vendedor)")
-        .eq("data", date)
-        .order("created_at", { ascending: true });
+        .select("*, vendedores(nome_vendedor)");
+
+      if (date === todayStr) {
+        // Today: also bring pending items from previous days
+        q = q.or(`data.eq.${date},and(data.lt.${date},status.neq.Carregado)`);
+      } else {
+        q = q.eq("data", date);
+      }
+
+      const { data, error } = await q.order("created_at", { ascending: true });
       if (error) throw error;
       return data as Carregamento[];
     },
