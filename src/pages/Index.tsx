@@ -72,6 +72,29 @@ export default function Index() {
     return carregamentos.filter(c => c.carga_id != null).length;
   }, [carregamentos]);
 
+  // Closed loads for "Adicionar à Carga"
+  const cargasFechadas: CargaResumo[] = useMemo(() => {
+    const map = new Map<string, CargaResumo>();
+    for (const c of carregamentos) {
+      if (!c.carga_id) continue;
+      if (!map.has(c.carga_id)) {
+        map.set(c.carga_id, {
+          cargaId: c.carga_id,
+          placa: c.placa,
+          motorista: c.motorista,
+          tipoCaminhao: c.tipo_caminhao,
+          horarioPrevisto: c.horario_previsto,
+          pesoTotal: 0,
+          qtdPedidos: 0,
+        });
+      }
+      const entry = map.get(c.carga_id)!;
+      entry.pesoTotal += c.peso ?? 0;
+      entry.qtdPedidos += 1;
+    }
+    return Array.from(map.values());
+  }, [carregamentos]);
+
   const filtered = useMemo(() => {
     return carregamentos.filter((c) => {
       // Hide finalized items — they appear only in Consolidado
