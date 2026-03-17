@@ -164,6 +164,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             <Input value={motorista} onChange={(e) => setMotorista(e.target.value)} />
           </div>
           <div className="space-y-1.5">
+            <Label className="text-xs">Transportadora</Label>
+            <Input value={transportadora} onChange={(e) => setTransportadora(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
             <Label className="text-xs">Horário Previsto</Label>
             <Input type="time" value={horarioPrevisto} onChange={(e) => setHorarioPrevisto(e.target.value)} />
           </div>
