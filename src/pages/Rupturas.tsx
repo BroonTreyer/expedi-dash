@@ -138,11 +138,17 @@ export default function Rupturas() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
-          {canEdit && (
-            <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {rupturas.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+                <Printer className="h-4 w-4 mr-1" /> Imprimir
+              </Button>
+            )}
+            {canEdit && (
+              <Button onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+                <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
+              </Button>
+            )}
         </div>
 
         {/* KPIs */}
