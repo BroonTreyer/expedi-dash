@@ -80,6 +80,25 @@ export default function Rupturas() {
     return [...map.values()].sort((a, b) => b.peso - a.peso);
   }, [rupturas]);
 
+  const printData = useMemo<RupturasPrintData | null>(() => {
+    if (rupturas.length === 0) return null;
+    return {
+      data: date,
+      totalRupturas: rupturas.length,
+      totalPeso: totalPeso,
+      productSummary,
+      items: rupturas.map((c) => ({
+        id: c.id,
+        numero_pedido: c.numero_pedido,
+        nome_produto: c.nome_produto,
+        codigo_produto: c.codigo_produto,
+        cliente: c.cliente,
+        codigo_cliente: c.codigo_cliente,
+        peso: c.peso,
+      })),
+    };
+  }, [rupturas, date, totalPeso, productSummary]);
+
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica) return;
     const updates: Record<string, any> = { id, status };
