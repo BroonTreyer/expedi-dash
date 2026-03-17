@@ -31,6 +31,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
+  const [transportadora, setTransportadora] = useState("");
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [groups, setGroups] = useState<ClienteGroup[]>([]);
 
