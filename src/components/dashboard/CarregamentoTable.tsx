@@ -361,8 +361,12 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
           <TableBody>
             {data.length === 0 && (
               <TableRow>
-                <TableCell colSpan={colCount + 1} className="text-center py-8 text-muted-foreground">
-                  Nenhum carregamento encontrado
+                <TableCell colSpan={colCount + 1} className="text-center py-12 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <PackageSearch className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="text-sm">Nenhum carregamento encontrado</p>
+                    <p className="text-xs text-muted-foreground/60">Tente ajustar os filtros ou selecionar outra data</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
