@@ -33,6 +33,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [motorista, setMotorista] = useState("");
   const [transportadora, setTransportadora] = useState("");
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
+  const [dataCarregamento, setDataCarregamento] = useState("");
   const [groups, setGroups] = useState<ClienteGroup[]>([]);
 
   useEffect(() => {
