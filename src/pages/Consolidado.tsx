@@ -134,15 +134,7 @@ export default function Consolidado() {
   // KPIs — count unique pedidos globally
   const totalVeiculos = groups.length;
   const pesoTotal = groups.reduce((s, g) => s + g.pesoTotal, 0);
-  const totalPedidos = useMemo(() => {
-    const unique = new Set<number>();
-    for (const g of groups) {
-      for (const item of g.items) {
-        if (item.numero_pedido != null) unique.add(item.numero_pedido);
-      }
-    }
-    return unique.size;
-  }, [groups]);
+  const totalPedidos = groups.reduce((s, g) => s + g.qtdPedidos, 0);
 
   const tipoBreakdown = useMemo(() => {
     const map = new Map<string, number>();
