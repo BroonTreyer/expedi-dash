@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
