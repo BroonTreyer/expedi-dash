@@ -411,6 +411,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <EtapaBadge etapa={c.etapa} />
+                          <PreviousDayBadge itemDate={c.data} currentDate={currentDate} />
                           {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                         </div>
                       </TableCell>
