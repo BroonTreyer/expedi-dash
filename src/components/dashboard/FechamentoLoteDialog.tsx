@@ -119,7 +119,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     if (onPrintReady) {
       onPrintReady({
         cargaId,
-        data: selectedDate ?? now.toISOString().split("T")[0],
+        data: dataCarregamento,
         tipoCaminhao,
         placa,
         motorista,
