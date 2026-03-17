@@ -64,8 +64,15 @@ export default function Index() {
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
 
+  // Count finalized (hidden) items
+  const finalizadosCount = useMemo(() => {
+    return carregamentos.filter(c => c.status === "Carregado").length;
+  }, [carregamentos]);
+
   const filtered = useMemo(() => {
     return carregamentos.filter((c) => {
+      // Hide finalized items — they appear only in Consolidado
+      if (c.status === "Carregado") return false;
       if (filters.status !== "todos" && c.status !== filters.status) return false;
       if (filters.vendedor.length > 0 && !filters.vendedor.includes(c.vendedor_id ?? "")) return false;
       if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
