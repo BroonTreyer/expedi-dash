@@ -24,7 +24,8 @@ export function KanbanView({ data, onStatusChange }: Props) {
   const dashboardData = data.filter((c) => !RUPTURA_STATUSES.includes(c.status as any));
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="flex lg:grid lg:grid-cols-6 gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+      {/* Each column has min-w on mobile for horizontal scroll */}
       {STATUSES.map((status) => {
         const items = dashboardData.filter((c) => c.status === status);
         return (
