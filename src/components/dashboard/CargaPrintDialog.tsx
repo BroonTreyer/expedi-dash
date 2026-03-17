@@ -18,6 +18,7 @@ export interface CargaPrintData {
   tipoCaminhao: string;
   placa: string;
   motorista: string;
+  transportadora?: string;
   horarioPrevisto?: string;
   groups: ClienteGroup[];
   totalPeso: number;
