@@ -317,7 +317,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
     });
   };
 
-  const colCount = 12
+  const colCount = 11
     + (selectable ? 1 : 0)
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)

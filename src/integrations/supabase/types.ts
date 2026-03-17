@@ -39,6 +39,7 @@ export type Database = {
           ruptura: boolean
           status: string
           tipo_caminhao: string | null
+          tipo_frete: string | null
           uf: string | null
           updated_at: string
           vendedor_id: string | null
@@ -67,6 +68,7 @@ export type Database = {
           ruptura?: boolean
           status?: string
           tipo_caminhao?: string | null
+          tipo_frete?: string | null
           uf?: string | null
           updated_at?: string
           vendedor_id?: string | null
@@ -95,6 +97,7 @@ export type Database = {
           ruptura?: boolean
           status?: string
           tipo_caminhao?: string | null
+          tipo_frete?: string | null
           uf?: string | null
           updated_at?: string
           vendedor_id?: string | null

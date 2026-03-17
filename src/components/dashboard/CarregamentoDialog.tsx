@@ -190,8 +190,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           {/* === VENDAS FIELDS === */}
           {showVendas && (
             <>
-              {/* Primeira linha: Data, N° Pedido, Cidade, UF */}
-              <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-4 gap-4">
+              {/* Primeira linha: Data, N° Pedido, Cidade, UF, Frete */}
+              <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Data</Label>
                   <Input type="date" value={form.data ?? ""} onChange={(e) => set("data", e.target.value)} />
@@ -214,6 +214,16 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   <Select value={form.uf ?? ""} onValueChange={(v) => set("uf", v)}>
                     <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
                     <SelectContent>{UF_LIST.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Frete</Label>
+                  <Select value={form.tipo_frete ?? ""} onValueChange={(v) => set("tipo_frete", v)}>
+                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CIF">CIF</SelectItem>
+                      <SelectItem value="FOB">FOB</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
