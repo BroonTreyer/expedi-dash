@@ -2,7 +2,7 @@ import { useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
-import fricoLogo from "@/assets/frico-logo.png";
+import fricoLogo from "@/assets/frico-logo.webp";
 
 interface ProductSummaryItem {
   codigo: string;
@@ -100,7 +100,7 @@ export function RupturasPrintDialog({ open, onOpenChange, data }: Props) {
         <div id="rupturas-print-content" className="space-y-4 text-foreground">
           {/* Header */}
           <div className="flex items-center justify-between border-b-2 border-foreground/20 pb-3">
-            <img src={fricoLogo} alt="Frico" className="h-12 object-contain" />
+            <img src={fricoLogo} alt="Frico" className="h-12 object-contain" width={48} height={48} />
             <div className="text-right">
               <h1 className="text-lg font-bold uppercase tracking-wide">Relatório de Rupturas</h1>
               <p className="text-sm text-muted-foreground">{dataFormatada}</p>

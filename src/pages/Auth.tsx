@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import fricoLogo from "@/assets/frico-logo.png";
+import fricoLogo from "@/assets/frico-logo.webp";
 import { toast } from "sonner";
 
 export default function Auth() {
@@ -42,7 +42,7 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
-            <img src={fricoLogo} alt="Frico Alimentos" className="h-16 w-auto" />
+            <img src={fricoLogo} alt="Frico Alimentos" className="h-16 w-auto" width={64} height={64} fetchPriority="high" />
           </div>
           <CardTitle className="text-2xl">Expedição</CardTitle>
           <CardDescription>Entre com suas credenciais</CardDescription>
