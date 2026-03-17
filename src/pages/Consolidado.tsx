@@ -27,7 +27,7 @@ function getToday() {
 
 function getInitialDate() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("data") || today;
+  return params.get("data") || getToday();
 }
 
 function useConsolidado(date: string) {
