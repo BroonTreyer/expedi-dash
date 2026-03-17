@@ -96,7 +96,7 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
         <div id="consolidado-print-content" className="space-y-4 text-foreground">
           {/* Header */}
           <div className="flex items-center justify-between border-b-2 border-foreground/20 pb-3">
-            <img src={fricoLogo} alt="Frico" className="h-12 object-contain" />
+            <img src={fricoLogo} alt="Frico" className="h-12 object-contain" width={48} height={48} />
             <div className="text-right">
               <h1 className="text-lg font-bold uppercase tracking-wide">Consolidado de Cargas</h1>
               <p className="text-sm text-muted-foreground">{dataFormatada}</p>

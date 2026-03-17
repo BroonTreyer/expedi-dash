@@ -43,7 +43,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
       )}>
         <div className={cn("border-b border-sidebar-border transition-all duration-200", collapsed ? "p-2" : "p-5")}>
           <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-2")}>
-            <img src={fricoLogo} alt="Frico Alimentos" className={cn("w-auto object-contain transition-all duration-200", collapsed ? "h-7" : "h-9")} />
+            <img src={fricoLogo} alt="Frico Alimentos" className={cn("w-auto object-contain transition-all duration-200", collapsed ? "h-7" : "h-9")} width={36} height={36} />
             {!collapsed && (
               <div>
                 <h1 className="text-base font-bold text-sidebar-primary-foreground tracking-tight">Expedição</h1>
