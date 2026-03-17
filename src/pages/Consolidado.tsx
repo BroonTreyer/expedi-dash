@@ -318,6 +318,7 @@ export default function Consolidado() {
           </div>
         )}
       </div>
+      <ConsolidadoPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
     </Layout>
   );
 }
