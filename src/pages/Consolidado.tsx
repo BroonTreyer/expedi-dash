@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { ConsolidadoPrintDialog, type ConsolidadoPrintData } from "@/components/dashboard/ConsolidadoPrintDialog";
 import { Layout } from "@/components/Layout";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
