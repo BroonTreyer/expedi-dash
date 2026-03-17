@@ -30,12 +30,20 @@ function useConsolidado(date: string) {
   return useQuery({
     queryKey: ["consolidado", date],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const todayStr = new Date().toISOString().split("T")[0];
+      let q = supabase
         .from("carregamentos_dia")
         .select("*, vendedores(nome_vendedor)")
-        .eq("data", date)
-        .not("carga_id", "is", null)
-        .order("carga_id", { ascending: true });
+        .not("carga_id", "is", null);
+
+      if (date === todayStr) {
+        // Today: also bring non-loaded items from previous days
+        q = q.or(`data.eq.${date},and(data.lt.${date},status.neq.Carregado)`);
+      } else {
+        q = q.eq("data", date);
+      }
+
+      const { data, error } = await q.order("carga_id", { ascending: true });
       if (error) throw error;
       return data as Carregamento[];
     },
