@@ -22,6 +22,11 @@ import type { Carregamento } from "@/hooks/useCarregamentos";
 
 const today = new Date().toISOString().split("T")[0];
 
+function getInitialDate() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("data") || today;
+}
+
 function useConsolidado(date: string) {
   return useQuery({
     queryKey: ["consolidado", date],
