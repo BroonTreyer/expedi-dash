@@ -280,7 +280,7 @@ export default function Consolidado() {
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
                         </TableRow>
                       ))}
-                    </TooltipProvider>
+                    </React.Fragment>
                   );
                 })}
               </TableBody>
