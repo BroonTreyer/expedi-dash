@@ -67,7 +67,7 @@ export default function Index() {
 
   // Count finalized (hidden) items
   const finalizadosCount = useMemo(() => {
-    return carregamentos.filter(c => c.status === "Carregado").length;
+    return carregamentos.filter(c => c.carga_id != null).length;
   }, [carregamentos]);
 
   const filtered = useMemo(() => {
