@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const allNavItems = [
   { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
   { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "faturamento"] },
   { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "faturamento"] },
