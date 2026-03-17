@@ -98,7 +98,7 @@ export default function Index() {
   const filtered = useMemo(() => {
     return carregamentos.filter((c) => {
       // Hide finalized items — they appear only in Consolidado
-      if (c.carga_id != null) return false;
+      if (c.carga_id != null && c.status === "Carregado") return false;
       if (filters.status !== "todos" && c.status !== filters.status) return false;
       if (filters.vendedor.length > 0 && !filters.vendedor.includes(c.vendedor_id ?? "")) return false;
       if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
