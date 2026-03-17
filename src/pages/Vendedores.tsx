@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useVendedores, useCreateVendedor, useUpdateVendedor, useDeleteVendedor } from "@/hooks/useVendedores";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,12 +27,19 @@ export default function Vendedores() {
   const [page, setPage] = useState(1);
   const [form, setForm] = useState({ codigo_vendedor: "", nome_vendedor: "", ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { sort, toggleSort, sortData } = useSortableTable();
 
   useEffect(() => { setPage(1); }, [search]);
 
-  const filtered = vendedores.filter((v) => {
+  const filteredRaw = vendedores.filter((v) => {
     const s = search.toLowerCase();
     return !s || v.nome_vendedor.toLowerCase().includes(s) || v.codigo_vendedor.toLowerCase().includes(s);
+  });
+
+  const filtered = sortData(filteredRaw, {
+    codigo_vendedor: (v) => v.codigo_vendedor,
+    nome_vendedor: (v) => v.nome_vendedor,
+    ativo: (v) => v.ativo,
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -81,7 +90,10 @@ export default function Vendedores() {
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
-              <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
+              <SortableTableHead sort={sort} sortKey="codigo_vendedor" onSort={toggleSort}>Código</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="nome_vendedor" onSort={toggleSort}>Nome</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="ativo" onSort={toggleSort}>Status</SortableTableHead>
+              <TableHead className="w-[80px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (

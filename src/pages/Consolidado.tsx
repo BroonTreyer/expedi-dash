@@ -2,6 +2,8 @@ import React, { useState, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { ConsolidadoPrintDialog, type ConsolidadoPrintData } from "@/components/dashboard/ConsolidadoPrintDialog";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,6 +103,7 @@ export default function Consolidado() {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
+  const { sort, toggleSort, sortData } = useSortableTable();
 
   const queryClient = useQueryClient();
   const { data: rawData, isLoading } = useConsolidado(date);
@@ -137,7 +140,20 @@ export default function Consolidado() {
     });
   }, [rawData, filterUf, filterStatus]);
 
-  const groups = useMemo(() => groupByCarga(filtered), [filtered]);
+  const rawGroups = useMemo(() => groupByCarga(filtered), [filtered]);
+
+  const consolidadoAccessors: Record<string, (g: CargaGroup) => any> = useMemo(() => ({
+    status: (g) => g.status,
+    tipoCaminhao: (g) => g.tipoCaminhao ?? "",
+    placa: (g) => g.placa ?? "",
+    motorista: (g) => g.motorista ?? "",
+    pesoTotal: (g) => g.pesoTotal,
+    qtdPedidos: (g) => g.qtdPedidos,
+    clientes: (g) => g.clientes.size,
+    ufs: (g) => [...g.ufs].sort().join(", "),
+  }), []);
+
+  const groups = useMemo(() => sortData(rawGroups, consolidadoAccessors), [rawGroups, sortData, consolidadoAccessors]);
 
   // KPIs — count unique pedidos globally
   const totalVeiculos = groups.length;
@@ -286,14 +302,14 @@ export default function Consolidado() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-8" />
-                  <TableHead>Status</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Placa</TableHead>
-                  <TableHead>Motorista</TableHead>
-                  <TableHead className="text-right">Peso (kg)</TableHead>
-                  <TableHead className="text-center">Pedidos</TableHead>
-                  <TableHead className="text-center">Clientes</TableHead>
-                  <TableHead>UFs</TableHead>
+                  <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort}>Status</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="tipoCaminhao" onSort={toggleSort}>Tipo</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="placa" onSort={toggleSort}>Placa</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="pesoTotal" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="qtdPedidos" onSort={toggleSort} className="text-center">Pedidos</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="clientes" onSort={toggleSort} className="text-center">Clientes</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="ufs" onSort={toggleSort}>UFs</SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

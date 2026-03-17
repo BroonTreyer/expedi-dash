@@ -1,5 +1,7 @@
 import { useState, useMemo, Fragment, useRef, useEffect, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { StatusSelect } from "./StatusSelect";
 import { EtapaBadge } from "./EtapaBadge";
 import { StatusBadge } from "./StatusBadge";
@@ -279,8 +281,25 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
   const [showProxy, setShowProxy] = useState(false);
   const isSyncing = useRef(false);
 
-  const groups = useMemo(() => buildGroups(data), [data]);
+  const { sort, toggleSort, sortData } = useSortableTable();
 
+  const sortAccessors: Record<string, (c: Carregamento) => any> = useMemo(() => ({
+    etapa: (c) => c.etapa,
+    status: (c) => c.status,
+    vendedor: (c) => c.vendedores?.nome_vendedor ?? "",
+    codigo_produto: (c) => c.codigo_produto ?? "",
+    nome_produto: (c) => c.nome_produto ?? "",
+    peso: (c) => c.peso ?? 0,
+    tipo_caminhao: (c) => c.tipo_caminhao ?? "",
+    motorista: (c) => c.motorista ?? "",
+    cliente: (c) => c.cliente ?? "",
+    cidade: (c) => c.cidade ?? "",
+    uf: (c) => c.uf ?? "",
+    tipo_frete: (c) => c.tipo_frete ?? "",
+  }), []);
+
+  const sortedData = useMemo(() => sortData(data, sortAccessors), [data, sortData, sortAccessors]);
+  const groups = useMemo(() => buildGroups(sortedData), [sortedData]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allIds = useMemo(() => data.map(c => c.id), [data]);
   const allSelected = selectable && allIds.length > 0 && allIds.every(id => selectedSet.has(id));
@@ -366,19 +385,19 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                 </TableHead>
               )}
               <TableHead className="w-[32px]"></TableHead>
-              {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
-              <TableHead className="w-[160px]">Status</TableHead>
-              <TableHead>Vendedor</TableHead>
-              <TableHead>Cód. Produto</TableHead>
-              <TableHead>Produto</TableHead>
-              {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
-              <TableHead>Caminhão</TableHead>
-              <TableHead>Motorista</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Cidade</TableHead>
-              <TableHead>UF</TableHead>
+              {!hideColumns.includes("etapa") && <SortableTableHead sort={sort} sortKey="etapa" onSort={toggleSort} className="w-[120px]">Etapa</SortableTableHead>}
+              <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="w-[160px]">Status</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="vendedor" onSort={toggleSort}>Vendedor</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Cód. Produto</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Produto</SortableTableHead>
+              {!hideColumns.includes("peso") && <SortableTableHead sort={sort} sortKey="peso" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>}
+              <SortableTableHead sort={sort} sortKey="tipo_caminhao" onSort={toggleSort}>Caminhão</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="cliente" onSort={toggleSort}>Cliente</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
-              <TableHead>Frete</TableHead>
+              <SortableTableHead sort={sort} sortKey="tipo_frete" onSort={toggleSort}>Frete</SortableTableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useTiposCaminhao, useCreateTipoCaminhao, useDeleteTipoCaminhao } from "@/hooks/useTiposCaminhao";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +12,9 @@ import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog"
 import { Plus, Trash2, Truck } from "lucide-react";
 
 export default function TiposCaminhao() {
-  const { data: tipos = [], isLoading } = useTiposCaminhao();
+  const { data: tiposRaw = [], isLoading } = useTiposCaminhao();
+  const { sort, toggleSort, sortData } = useSortableTable();
+  const tipos = sortData(tiposRaw, { nome_tipo: (t) => t.nome_tipo });
   const createMut = useCreateTipoCaminhao();
   const deleteMut = useDeleteTipoCaminhao();
   const [open, setOpen] = useState(false);
@@ -34,7 +38,7 @@ export default function TiposCaminhao() {
         <div className="rounded-lg border border-border bg-card overflow-x-auto max-w-full sm:max-w-lg">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
-              <TableHead>Nome</TableHead><TableHead className="w-[60px]"></TableHead>
+              <SortableTableHead sort={sort} sortKey="nome_tipo" onSort={toggleSort}>Nome</SortableTableHead><TableHead className="w-[60px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (

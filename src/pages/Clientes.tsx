@@ -4,6 +4,8 @@ import { useClientes, useCreateCliente, useUpdateCliente, useDeleteCliente } fro
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,11 +33,12 @@ export default function Clientes() {
   const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const { sort, toggleSort, sortData } = useSortableTable();
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setPage(1); }, [search]);
 
-  const filtered = clientes.filter((c: any) => {
+  const filteredRaw = clientes.filter((c: any) => {
     const s = search.trim().toLowerCase();
     if (!s) return true;
     const codigo = String(c.codigo_cliente || "").toLowerCase();
@@ -43,6 +46,14 @@ export default function Clientes() {
     const cidade = String(c.cidade || "").toLowerCase();
     const uf = String(c.uf || "").toLowerCase();
     return codigo.includes(s) || nome.includes(s) || cidade.includes(s) || uf.includes(s);
+  });
+
+  const filtered = sortData(filteredRaw, {
+    codigo_cliente: (c: any) => c.codigo_cliente,
+    nome_cliente: (c: any) => c.nome_cliente,
+    cidade: (c: any) => c.cidade ?? "",
+    uf: (c: any) => c.uf ?? "",
+    ativo: (c: any) => c.ativo,
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -136,7 +147,12 @@ export default function Clientes() {
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
-              <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead>Cidade</TableHead><TableHead>UF</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
+              <SortableTableHead sort={sort} sortKey="codigo_cliente" onSort={toggleSort}>Código</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="nome_cliente" onSort={toggleSort}>Nome</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="ativo" onSort={toggleSort}>Status</SortableTableHead>
+              <TableHead className="w-[80px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useProdutos, useCreateProduto, useUpdateProduto, useDeleteProduto } from "@/hooks/useProdutos";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,10 +23,16 @@ export default function Produtos() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ codigo_produto: "", nome_produto: "", peso_padrao: 0, ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { sort, toggleSort, sortData } = useSortableTable();
 
-  const filtered = produtos.filter((p) => {
+  const filtered = sortData(produtos.filter((p) => {
     const s = search.toLowerCase();
     return !s || p.nome_produto.toLowerCase().includes(s) || p.codigo_produto.toLowerCase().includes(s);
+  }), {
+    codigo_produto: (p) => p.codigo_produto,
+    nome_produto: (p) => p.nome_produto,
+    peso_padrao: (p) => p.peso_padrao ?? 0,
+    ativo: (p) => p.ativo,
   });
 
   const openNew = () => { setEditing(null); setForm({ codigo_produto: "", nome_produto: "", peso_padrao: 0, ativo: true }); setOpen(true); };
@@ -53,7 +61,11 @@ export default function Produtos() {
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
-              <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead className="text-right">Peso Padrão (kg)</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
+              <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Código</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Nome</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="peso_padrao" onSort={toggleSort} className="text-right">Peso Padrão (kg)</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="ativo" onSort={toggleSort}>Status</SortableTableHead>
+              <TableHead className="w-[80px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (
