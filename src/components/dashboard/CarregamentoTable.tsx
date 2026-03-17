@@ -430,8 +430,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
                     <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
                     <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
-                    <TableCell className="text-sm">{formatTime(c.horario_inicio)}</TableCell>
-                    <TableCell className="text-sm">{formatTime(c.horario_fim)}</TableCell>
+                    <TableCell className="text-sm">{c.tipo_frete ?? "—"}</TableCell>
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
