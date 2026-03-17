@@ -145,7 +145,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
           );
         }
         const c = group.items[0];
-        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} />;
+        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} />;
       })}
     </div>
   );
