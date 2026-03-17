@@ -103,6 +103,7 @@ export default function Consolidado() {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
+  const { sort, toggleSort, sortData } = useSortableTable();
 
   const queryClient = useQueryClient();
   const { data: rawData, isLoading } = useConsolidado(date);
