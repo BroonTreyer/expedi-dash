@@ -263,6 +263,8 @@ export default function Rupturas() {
           onConfirm={handleDeleteConfirm}
           description="Tem certeza que deseja excluir este carregamento? Esta ação não pode ser desfeita."
         />
+
+        <RupturasPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
       </div>
     </Layout>
   );
