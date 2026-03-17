@@ -6,7 +6,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -93,7 +93,13 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   const groups = useMemo(() => buildGroups(data), [data]);
 
   if (data.length === 0) {
-    return <div className="text-center py-8 text-muted-foreground">Nenhum carregamento encontrado</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+        <PackageSearch className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-sm">Nenhum carregamento encontrado</p>
+        <p className="text-xs text-muted-foreground/60">Tente ajustar os filtros ou selecionar outra data</p>
+      </div>
+    );
   }
 
   const toggle = (key: string) => {
@@ -355,8 +361,12 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
           <TableBody>
             {data.length === 0 && (
               <TableRow>
-                <TableCell colSpan={colCount + 1} className="text-center py-8 text-muted-foreground">
-                  Nenhum carregamento encontrado
+                <TableCell colSpan={colCount + 1} className="text-center py-12 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <PackageSearch className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="text-sm">Nenhum carregamento encontrado</p>
+                    <p className="text-xs text-muted-foreground/60">Tente ajustar os filtros ou selecionar outra data</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

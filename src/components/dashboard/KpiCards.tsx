@@ -1,6 +1,7 @@
 import React from "react";
-import { Package, Weight, Truck, Clock, CheckCircle, ClipboardList, AlertTriangle } from "lucide-react";
+import { Package, Weight, Truck, CheckCircle, ClipboardList, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 interface Props {
@@ -19,27 +20,36 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
   const rupturas = source.filter(c => c.ruptura).length;
 
   const cards = [
-    { label: selectedData ? "Clientes (sel.)" : "Clientes", value: totalClientes, icon: Package, color: "text-primary" },
-    { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500" },
-    { label: "Rupturas", value: rupturas, icon: AlertTriangle, color: "text-amber-600" },
-    { label: selectedData ? "Peso Sel." : "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
-    { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado" },
-    { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
+    { label: selectedData ? "Clientes (sel.)" : "Clientes", value: totalClientes, icon: Package, color: "text-primary", tooltip: "Quantidade de clientes distintos nos pedidos" },
+    { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500", tooltip: "Pedidos na etapa de vendas aguardando logística" },
+    { label: "Rupturas", value: rupturas, icon: AlertTriangle, color: "text-amber-600", tooltip: "Pedidos marcados com ruptura de estoque" },
+    { label: selectedData ? "Peso Sel." : "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground", tooltip: "Soma do peso de todos os pedidos exibidos" },
+    { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado", tooltip: "Peso dos pedidos com status 'Carregado'" },
+    { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary", tooltip: "Quantidade de veículos (placas) distintos" },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
-      {cards.map((c) => (
-        <Card key={c.label} className={selectedData ? "border-primary/40" : "border-border/60"}>
-          <CardContent className="p-3 sm:p-4 flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide leading-tight">{c.label}</span>
-              <c.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${c.color}`} />
-            </div>
-            <span className="text-base sm:text-xl font-bold tracking-tight truncate">{c.value}</span>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
+        {cards.map((c) => (
+          <Tooltip key={c.label}>
+            <TooltipTrigger asChild>
+              <Card className={selectedData ? "border-primary/40 cursor-help" : "border-border/60 cursor-help"}>
+                <CardContent className="p-3 sm:p-4 flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide leading-tight">{c.label}</span>
+                    <c.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${c.color}`} />
+                  </div>
+                  <span className="text-base sm:text-xl font-bold tracking-tight truncate">{c.value}</span>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="text-xs">{c.tooltip}</p>
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 });
