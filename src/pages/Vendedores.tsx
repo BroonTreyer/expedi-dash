@@ -31,9 +31,15 @@ export default function Vendedores() {
 
   useEffect(() => { setPage(1); }, [search]);
 
-  const filtered = vendedores.filter((v) => {
+  const filteredRaw = vendedores.filter((v) => {
     const s = search.toLowerCase();
     return !s || v.nome_vendedor.toLowerCase().includes(s) || v.codigo_vendedor.toLowerCase().includes(s);
+  });
+
+  const filtered = sortData(filteredRaw, {
+    codigo_vendedor: (v) => v.codigo_vendedor,
+    nome_vendedor: (v) => v.nome_vendedor,
+    ativo: (v) => v.ativo,
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
