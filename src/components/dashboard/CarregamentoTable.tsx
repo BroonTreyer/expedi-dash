@@ -93,7 +93,13 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   const groups = useMemo(() => buildGroups(data), [data]);
 
   if (data.length === 0) {
-    return <div className="text-center py-8 text-muted-foreground">Nenhum carregamento encontrado</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+        <PackageSearch className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-sm">Nenhum carregamento encontrado</p>
+        <p className="text-xs text-muted-foreground/60">Tente ajustar os filtros ou selecionar outra data</p>
+      </div>
+    );
   }
 
   const toggle = (key: string) => {
