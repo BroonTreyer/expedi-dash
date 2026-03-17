@@ -281,8 +281,25 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
   const [showProxy, setShowProxy] = useState(false);
   const isSyncing = useRef(false);
 
-  const groups = useMemo(() => buildGroups(data), [data]);
+  const { sort, toggleSort, sortData } = useSortableTable();
 
+  const sortAccessors: Record<string, (c: Carregamento) => any> = useMemo(() => ({
+    etapa: (c) => c.etapa,
+    status: (c) => c.status,
+    vendedor: (c) => c.vendedores?.nome_vendedor ?? "",
+    codigo_produto: (c) => c.codigo_produto ?? "",
+    nome_produto: (c) => c.nome_produto ?? "",
+    peso: (c) => c.peso ?? 0,
+    tipo_caminhao: (c) => c.tipo_caminhao ?? "",
+    motorista: (c) => c.motorista ?? "",
+    cliente: (c) => c.cliente ?? "",
+    cidade: (c) => c.cidade ?? "",
+    uf: (c) => c.uf ?? "",
+    tipo_frete: (c) => c.tipo_frete ?? "",
+  }), []);
+
+  const sortedData = useMemo(() => sortData(data, sortAccessors), [data, sortData, sortAccessors]);
+  const groups = useMemo(() => buildGroups(sortedData), [sortedData]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allIds = useMemo(() => data.map(c => c.id), [data]);
   const allSelected = selectable && allIds.length > 0 && allIds.every(id => selectedSet.has(id));
