@@ -67,7 +67,7 @@ export default function TiposCaminhao() {
             </DialogHeader>
             <div className="space-y-4">
               <div><Label className="text-xs">Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Truck, Carreta, Bitrem" /></div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>Criar</Button></div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Criar"}</Button></div>
             </div>
           </DialogContent>
         </Dialog>
