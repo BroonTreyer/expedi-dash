@@ -29,7 +29,7 @@ export default function Rupturas() {
   const isFaturamento = role === "faturamento";
   const canEdit = isAdmin || isFaturamento;
 
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(getToday);
   const [vendedorFilter, setVendedorFilter] = useState("todos");
   const [busca, setBusca] = useState("");
 
