@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import fricoLogo from "@/assets/frico-logo.png";
+import fricoLogo from "@/assets/frico-logo.webp";
 import { toast } from "sonner";
 
 export default function Auth() {
