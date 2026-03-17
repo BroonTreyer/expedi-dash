@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, ChevronLeft, ChevronRight, CalendarDays, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -35,24 +37,94 @@ interface Props {
   carregamentos?: CarregamentoData[];
 }
 
+const DEFAULT_FILTERS = {
+  status: "todos",
+  vendedor: [] as string[],
+  tipoCaminhao: "todos",
+  busca: "",
+  etapa: "todos",
+  ruptura: "todos",
+  cliente: [] as string[],
+  uf: "todos",
+};
+
+function adjustDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+function isToday(dateStr: string): boolean {
+  return dateStr === new Date().toISOString().split("T")[0];
+}
+
 export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes = [], userRole, carregamentos = [] }: Props) {
   const set = (key: string, value: any) => onChange({ ...filters, [key]: value });
   const isLogistica = userRole === "logistica";
 
-  // ── Cascading filter logic ──
-  // Each subsequent filter derives its options from data already filtered by previous filters.
-  // Order: Vendedor → Cliente → UF → Tipo Caminhão
+  // Count active filters (excluding data which is always set)
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.status !== "todos") count++;
+    if (filters.vendedor.length > 0) count++;
+    if (filters.tipoCaminhao !== "todos") count++;
+    if (filters.busca !== "") count++;
+    if (filters.etapa !== "todos") count++;
+    if (filters.ruptura !== "todos") count++;
+    if (filters.cliente.length > 0) count++;
+    if (filters.uf !== "todos") count++;
+    return count;
+  }, [filters]);
 
+  const clearFilters = () => {
+    onChange({ ...filters, ...DEFAULT_FILTERS });
+  };
+
+  // ── Date navigation ──
+  const DateNav = (
+    <div className="flex items-center gap-1">
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => set("data", adjustDate(filters.data, -1))} title="Dia anterior">
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <Input
+        type="date"
+        value={filters.data}
+        onChange={(e) => set("data", e.target.value)}
+        className="h-9 text-sm w-[140px]"
+      />
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => set("data", adjustDate(filters.data, 1))} title="Próximo dia">
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+      {!isToday(filters.data) && (
+        <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => set("data", new Date().toISOString().split("T")[0])}>
+          <CalendarDays className="h-3.5 w-3.5" /> Hoje
+        </Button>
+      )}
+    </div>
+  );
+
+  // ── Clear filters button ──
+  const ClearButton = activeFilterCount > 0 && (
+    <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground" onClick={clearFilters}>
+      <X className="h-3.5 w-3.5" />
+      Limpar filtros
+      <Badge variant="secondary" className="h-4 min-w-4 px-1 text-[10px] leading-none">
+        {activeFilterCount}
+      </Badge>
+    </Button>
+  );
+
+  // ── Cascading filter logic ──
   const afterVendedor = useMemo(() => {
     if (filters.vendedor.length === 0) return carregamentos;
-    const set = new Set(filters.vendedor);
-    return carregamentos.filter(c => set.has(c.vendedor_id ?? ""));
+    const s = new Set(filters.vendedor);
+    return carregamentos.filter(c => s.has(c.vendedor_id ?? ""));
   }, [carregamentos, filters.vendedor]);
 
   const afterCliente = useMemo(() => {
     if (filters.cliente.length === 0) return afterVendedor;
-    const set = new Set(filters.cliente);
-    return afterVendedor.filter(c => set.has(c.codigo_cliente ?? ""));
+    const s = new Set(filters.cliente);
+    return afterVendedor.filter(c => s.has(c.codigo_cliente ?? ""));
   }, [afterVendedor, filters.cliente]);
 
   const afterUf = useMemo(() => {
@@ -60,7 +132,6 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
     return afterCliente.filter(c => c.uf === filters.uf);
   }, [afterCliente, filters.uf]);
 
-  // Options derived from cascaded data
   const vendedorOptions = useMemo(() => {
     const ids = new Set(carregamentos.map(c => c.vendedor_id).filter(Boolean));
     return vendedores.filter(v => ids.has(v.id));
@@ -84,12 +155,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
   if (isLogistica) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="date"
-          value={filters.data}
-          onChange={(e) => set("data", e.target.value)}
-          className="h-9 text-sm w-[140px]"
-        />
+        {DateNav}
         <MultiSelectFilter
           options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
           selected={filters.vendedor}
@@ -113,18 +179,14 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
             {ufOptions.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
           </SelectContent>
         </Select>
+        {ClearButton}
       </div>
     );
   }
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap lg:flex-nowrap items-center gap-2">
-      <Input
-        type="date"
-        value={filters.data}
-        onChange={(e) => set("data", e.target.value)}
-        className="h-9 text-sm col-span-2 sm:col-span-1 md:w-[140px]"
-      />
+      {DateNav}
       <MultiSelectFilter
         options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
         selected={filters.vendedor}
@@ -176,6 +238,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           className="h-9 pl-8 text-sm w-full"
         />
       </div>
+      {ClearButton}
     </div>
   );
 }
