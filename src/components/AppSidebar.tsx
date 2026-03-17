@@ -33,7 +33,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
   const location = useLocation();
   const { role, signOut, user } = useAuth();
 
-  const navItems = allNavItems.filter((item) => !role || item.roles.includes(role));
+  const navItems = allNavItems.filter((item) => role && item.roles.includes(role));
 
   return (
     <TooltipProvider delayDuration={0}>

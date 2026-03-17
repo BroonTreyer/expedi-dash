@@ -113,6 +113,20 @@ export type Database = {
             referencedRelation: "vendedores"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_carregamentos_codigo_cliente"
+            columns: ["codigo_cliente"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["codigo_cliente"]
+          },
+          {
+            foreignKeyName: "fk_carregamentos_codigo_produto"
+            columns: ["codigo_produto"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["codigo_produto"]
+          },
         ]
       }
       clientes: {
