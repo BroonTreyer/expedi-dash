@@ -149,6 +149,7 @@ export default function Rupturas() {
                 <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
               </Button>
             )}
+          </div>
         </div>
 
         {/* KPIs */}
