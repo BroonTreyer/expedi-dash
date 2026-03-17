@@ -10,6 +10,7 @@ import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/Carr
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialog";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
+import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
@@ -17,7 +18,7 @@ import { useProdutos } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Plus, TableIcon, Columns3, Truck, PackageCheck } from "lucide-react";
+import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +56,7 @@ export default function Index() {
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
   const [printData, setPrintData] = useState<CargaPrintData | null>(null);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [adicionarCargaOpen, setAdicionarCargaOpen] = useState(false);
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
   const { data: vendedores = [] } = useVendedores();
@@ -68,6 +70,29 @@ export default function Index() {
   // Count finalized (hidden) items
   const finalizadosCount = useMemo(() => {
     return carregamentos.filter(c => c.carga_id != null).length;
+  }, [carregamentos]);
+
+  // Closed loads for "Adicionar à Carga"
+  const cargasFechadas: CargaResumo[] = useMemo(() => {
+    const map = new Map<string, CargaResumo>();
+    for (const c of carregamentos) {
+      if (!c.carga_id) continue;
+      if (!map.has(c.carga_id)) {
+        map.set(c.carga_id, {
+          cargaId: c.carga_id,
+          placa: c.placa,
+          motorista: c.motorista,
+          tipoCaminhao: c.tipo_caminhao,
+          horarioPrevisto: c.horario_previsto,
+          pesoTotal: 0,
+          qtdPedidos: 0,
+        });
+      }
+      const entry = map.get(c.carga_id)!;
+      entry.pesoTotal += c.peso ?? 0;
+      entry.qtdPedidos += 1;
+    }
+    return Array.from(map.values());
   }, [carregamentos]);
 
   const filtered = useMemo(() => {
@@ -181,6 +206,14 @@ export default function Index() {
       updateMut.mutate(u);
     }
     setSelectedIds([]);
+  }, [updateMut]);
+
+  const handleAdicionarCargaSubmit = useCallback((updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => {
+    for (const u of updates) {
+      updateMut.mutate(u);
+    }
+    setSelectedIds([]);
+    toast.success(`${updates.length} pedido(s) adicionado(s) à carga`);
   }, [updateMut]);
 
   const handlePrintCarga = useCallback((cargaId: string) => {
@@ -299,9 +332,16 @@ export default function Index() {
             <span className="text-muted-foreground">·</span>
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             {(isAdmin || isLogistica) && (
-              <Button size="sm" className="ml-2 h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
-                <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
-              </Button>
+              <>
+                <Button size="sm" className="ml-2 h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
+                  <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
+                </Button>
+                {cargasFechadas.length > 0 && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAdicionarCargaOpen(true)}>
+                    <PackagePlus className="h-3.5 w-3.5 mr-1" /> Adicionar à Carga
+                  </Button>
+                )}
+              </>
             )}
             <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds([])}>
               Limpar seleção
@@ -357,6 +397,14 @@ export default function Index() {
           open={printDialogOpen}
           onOpenChange={setPrintDialogOpen}
           data={printData}
+        />
+
+        <AdicionarCargaDialog
+          open={adicionarCargaOpen}
+          onOpenChange={setAdicionarCargaOpen}
+          cargas={cargasFechadas}
+          items={selectedItems}
+          onSubmit={handleAdicionarCargaSubmit}
         />
 
         <DeleteConfirmDialog
