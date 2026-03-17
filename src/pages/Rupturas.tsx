@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Weight, Package, Plus } from "lucide-react";
+import { AlertTriangle, Weight, Package, Plus, Printer } from "lucide-react";
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
