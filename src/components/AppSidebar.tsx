@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { forwardRef } from "react";
 import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList } from "lucide-react";
-import fricoLogo from "@/assets/frico-logo.webp";
+import fricoLogo from "@/assets/frico-logo.png";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";

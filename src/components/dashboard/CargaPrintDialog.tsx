@@ -2,7 +2,7 @@ import { useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
-import fricoLogo from "@/assets/frico-logo.webp";
+import fricoLogo from "@/assets/frico-logo.png";
 
 interface ClienteGroup {
   codigoCliente: string | null;
