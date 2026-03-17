@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useProdutos, useCreateProduto, useUpdateProduto, useDeleteProduto } from "@/hooks/useProdutos";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,7 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Plus, Edit, Trash2, Search, Package } from "lucide-react";
+
+const PAGE_SIZE = 50;
 
 export default function Produtos() {
   const { data: produtos = [], isLoading } = useProdutos();
@@ -21,9 +24,12 @@ export default function Produtos() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState({ codigo_produto: "", nome_produto: "", peso_padrao: 0, ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable();
+
+  useEffect(() => { setPage(1); }, [search]);
 
   const filtered = sortData(produtos.filter((p) => {
     const s = search.toLowerCase();
@@ -35,16 +41,42 @@ export default function Produtos() {
     ativo: (p) => p.ativo,
   });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const startItem = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const endItem = Math.min(page * PAGE_SIZE, filtered.length);
+
   const openNew = () => { setEditing(null); setForm({ codigo_produto: "", nome_produto: "", peso_padrao: 0, ativo: true }); setOpen(true); };
   const openEdit = (p: any) => { setEditing(p); setForm({ codigo_produto: p.codigo_produto, nome_produto: p.nome_produto, peso_padrao: p.peso_padrao ?? 0, ativo: p.ativo }); setOpen(true); };
 
+  const isSubmitting = createMut.isPending || updateMut.isPending;
   const handleSubmit = () => {
     if (editing) {
-      updateMut.mutate({ id: editing.id, ...form });
+      updateMut.mutate({ id: editing.id, ...form }, { onSuccess: () => setOpen(false) });
     } else {
-      createMut.mutate(form);
+      createMut.mutate(form, { onSuccess: () => setOpen(false) });
     }
-    setOpen(false);
+  };
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisible = 5;
+    let start = Math.max(1, page - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+
+    if (start > 1) {
+      items.push(<PaginationItem key={1}><PaginationLink onClick={() => setPage(1)} isActive={page === 1}>1</PaginationLink></PaginationItem>);
+      if (start > 2) items.push(<PaginationItem key="e1"><PaginationEllipsis /></PaginationItem>);
+    }
+    for (let i = start; i <= end; i++) {
+      items.push(<PaginationItem key={i}><PaginationLink onClick={() => setPage(i)} isActive={page === i}>{i}</PaginationLink></PaginationItem>);
+    }
+    if (end < totalPages) {
+      if (end < totalPages - 1) items.push(<PaginationItem key="e2"><PaginationEllipsis /></PaginationItem>);
+      items.push(<PaginationItem key={totalPages}><PaginationLink onClick={() => setPage(totalPages)} isActive={page === totalPages}>{totalPages}</PaginationLink></PaginationItem>);
+    }
+    return items;
   };
 
   return (
@@ -70,14 +102,14 @@ export default function Produtos() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
+              ) : paginated.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   <div className="flex flex-col items-center gap-2">
                     <Package className="h-8 w-8 text-muted-foreground/40" />
                     <span>Nenhum produto encontrado</span>
                   </div>
                 </TableCell></TableRow>
-              ) : filtered.map((p) => (
+              ) : paginated.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-sm">{p.codigo_produto}</TableCell>
                   <TableCell className="text-sm">{p.nome_produto}</TableCell>
@@ -94,6 +126,28 @@ export default function Produtos() {
             </TableBody>
           </Table>
         </div>
+
+        {filtered.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {startItem}–{endItem} de {filtered.length} produtos
+            </p>
+            {totalPages > 1 && (
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious onClick={() => setPage(p => Math.max(1, p - 1))} className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                  </PaginationItem>
+                  {renderPaginationItems()}
+                  <PaginationItem>
+                    <PaginationNext onClick={() => setPage(p => Math.min(totalPages, p + 1))} className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </div>
+        )}
+
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="w-[calc(100vw-2rem)] sm:w-full">
             <DialogHeader>
@@ -105,7 +159,7 @@ export default function Produtos() {
               <div><Label className="text-xs">Nome</Label><Input value={form.nome_produto} onChange={(e) => setForm(f => ({ ...f, nome_produto: e.target.value }))} /></div>
               <div><Label className="text-xs">Peso Padrão (kg)</Label><Input type="number" value={form.peso_padrao} onChange={(e) => setForm(f => ({ ...f, peso_padrao: Number(e.target.value) }))} /></div>
               <div className="flex items-center gap-2"><Switch checked={form.ativo} onCheckedChange={(v) => setForm(f => ({ ...f, ativo: v }))} /><Label className="text-xs">Ativo</Label></div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>{editing ? "Salvar" : "Criar"}</Button></div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Salvando..." : editing ? "Salvar" : "Criar"}</Button></div>
             </div>
           </DialogContent>
         </Dialog>

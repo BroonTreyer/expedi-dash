@@ -64,9 +64,9 @@ export default function Clientes() {
   const openNew = () => { setEditing(null); setForm({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", ativo: true }); setOpen(true); };
   const openEdit = (c: any) => { setEditing(c); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, cidade: c.cidade || "", uf: c.uf || "", ativo: c.ativo }); setOpen(true); };
 
+  const isSubmitting = createMut.isPending || updateMut.isPending;
   const handleSubmit = () => {
-    if (editing) { updateMut.mutate({ id: editing.id, ...form }); } else { createMut.mutate(form); }
-    setOpen(false);
+    if (editing) { updateMut.mutate({ id: editing.id, ...form }, { onSuccess: () => setOpen(false) }); } else { createMut.mutate(form, { onSuccess: () => setOpen(false) }); }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,7 +219,7 @@ export default function Clientes() {
                 <div><Label className="text-xs">UF</Label><Input value={form.uf} onChange={(e) => setForm(f => ({ ...f, uf: e.target.value.toUpperCase() }))} maxLength={2} placeholder="Ex: SP" /></div>
               </div>
               <div className="flex items-center gap-2"><Switch checked={form.ativo} onCheckedChange={(v) => setForm(f => ({ ...f, ativo: v }))} /><Label className="text-xs">Ativo</Label></div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>{editing ? "Salvar" : "Criar"}</Button></div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Salvando..." : editing ? "Salvar" : "Criar"}</Button></div>
             </div>
           </DialogContent>
         </Dialog>

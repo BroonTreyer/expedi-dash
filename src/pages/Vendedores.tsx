@@ -50,9 +50,9 @@ export default function Vendedores() {
   const openNew = () => { setEditing(null); setForm({ codigo_vendedor: "", nome_vendedor: "", ativo: true }); setOpen(true); };
   const openEdit = (v: any) => { setEditing(v); setForm({ codigo_vendedor: v.codigo_vendedor, nome_vendedor: v.nome_vendedor, ativo: v.ativo }); setOpen(true); };
 
+  const isSubmitting = createMut.isPending || updateMut.isPending;
   const handleSubmit = () => {
-    if (editing) { updateMut.mutate({ id: editing.id, ...form }); } else { createMut.mutate(form); }
-    setOpen(false);
+    if (editing) { updateMut.mutate({ id: editing.id, ...form }, { onSuccess: () => setOpen(false) }); } else { createMut.mutate(form, { onSuccess: () => setOpen(false) }); }
   };
 
   const renderPaginationItems = () => {
@@ -153,7 +153,7 @@ export default function Vendedores() {
               <div><Label className="text-xs">Código</Label><Input value={form.codigo_vendedor} onChange={(e) => setForm(f => ({ ...f, codigo_vendedor: e.target.value }))} /></div>
               <div><Label className="text-xs">Nome</Label><Input value={form.nome_vendedor} onChange={(e) => setForm(f => ({ ...f, nome_vendedor: e.target.value }))} /></div>
               <div className="flex items-center gap-2"><Switch checked={form.ativo} onCheckedChange={(v) => setForm(f => ({ ...f, ativo: v }))} /><Label className="text-xs">Ativo</Label></div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>{editing ? "Salvar" : "Criar"}</Button></div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Salvando..." : editing ? "Salvar" : "Criar"}</Button></div>
             </div>
           </DialogContent>
         </Dialog>
