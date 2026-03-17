@@ -353,8 +353,7 @@ export function CarregamentoTable({ data, onStatusChange, onEdit, onDelete, onCo
               <TableHead>Cidade</TableHead>
               <TableHead>UF</TableHead>
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
-              <TableHead>Início</TableHead>
-              <TableHead>Fim</TableHead>
+              <TableHead>Frete</TableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>
