@@ -95,8 +95,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     // Generate a unique carga_id for this load
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
-    const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 4);
-    const cargaId = `CG-${dateStr}-${timeStr}`;
+    const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
+    const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
+    const cargaId = `CG-${dateStr}-${timeStr}-${rand}`;
 
     const updates = groups.flatMap(group =>
       group.items.map(item => ({

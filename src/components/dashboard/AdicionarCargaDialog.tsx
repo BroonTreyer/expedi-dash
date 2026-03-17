@@ -66,7 +66,7 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
           <DialogTitle>Adicionar à Carga Existente</DialogTitle>
           <DialogDescription>

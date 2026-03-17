@@ -58,14 +58,21 @@ export function useCarregamentos(date: string) {
         { event: "UPDATE", schema: "public", table: "carregamentos_dia" },
         (payload) => {
           const updated = payload.new as any;
-          // Patch cache directly instead of refetching
+          // Patch cache directly — preserve join fields (vendedores) that realtime doesn't include
           queryClient.setQueriesData<Carregamento[]>(
             { queryKey: ["carregamentos"] },
             (old) => {
               if (!old) return old;
-              return old.map((item) =>
-                item.id === updated.id ? { ...item, ...updated } : item
-              );
+              return old.map((item) => {
+                if (item.id !== updated.id) return item;
+                // Merge updated fields but preserve existing join data
+                const merged = { ...item, ...updated };
+                // Restore join fields that realtime payload doesn't include
+                if (updated.vendedores === undefined && item.vendedores) {
+                  merged.vendedores = item.vendedores;
+                }
+                return merged;
+              });
             }
           );
         }

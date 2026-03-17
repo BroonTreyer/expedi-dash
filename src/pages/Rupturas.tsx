@@ -205,10 +205,10 @@ export default function Rupturas() {
         )}
 
         {/* Filtros */}
-        <div className="flex flex-wrap gap-3">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           <Select value={vendedorFilter} onValueChange={setVendedorFilter}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Vendedor" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Vendedor" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos vendedores</SelectItem>
               {filteredVendedores.map((v) => (
@@ -216,7 +216,7 @@ export default function Rupturas() {
               ))}
             </SelectContent>
           </Select>
-          <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-48" />
+          <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} />
         </div>
 
         {isLoading ? (

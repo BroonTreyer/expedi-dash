@@ -348,9 +348,9 @@ export default function Consolidado() {
                             Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.cliente ?? item.codigo_cliente ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground">{(item.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-center text-xs text-muted-foreground">{item.quantidade ?? "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
                           <TableCell />
                         </TableRow>

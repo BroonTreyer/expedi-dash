@@ -316,7 +316,7 @@ export default function Index() {
           </div>
         </div>
 
-        <KpiCards data={filtered} selectedData={selectedInView.length > 0 ? filtered.filter(c => new Set(selectedInView).has(c.id)) : undefined} />
+        <KpiCards data={filtered} selectedData={selectedInView.length > 0 ? selectedItems : undefined} />
 
         <Filters
           filters={filters}

@@ -29,7 +29,7 @@ export function KanbanView({ data, onStatusChange }: Props) {
       {STATUSES.map((status) => {
         const items = dashboardData.filter((c) => c.status === status);
         return (
-          <div key={status} className={cn("rounded-lg border border-border bg-muted/30 border-t-4", COLUMN_BORDER[status])}>
+          <div key={status} className={cn("rounded-lg border border-border bg-muted/30 border-t-4 min-w-[260px] lg:min-w-0 snap-start shrink-0 lg:shrink", COLUMN_BORDER[status])}>
             <div className="p-3 border-b border-border flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wide">{status}</span>
               <span className="text-xs text-muted-foreground font-mono">{items.length}</span>

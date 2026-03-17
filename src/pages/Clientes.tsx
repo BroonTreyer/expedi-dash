@@ -85,6 +85,7 @@ export default function Clientes() {
           codigo_cliente: String(r[0]).trim(),
           nome_cliente: String(r[1] || "").trim(),
           cidade: String(r[2] || "").trim() || null,
+          uf: String(r[3] || "").trim() || null,
           ativo: true,
         }));
 
