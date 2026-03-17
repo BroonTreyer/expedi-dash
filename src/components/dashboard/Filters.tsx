@@ -84,6 +84,12 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
   if (isLogistica) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="date"
+          value={filters.data}
+          onChange={(e) => set("data", e.target.value)}
+          className="h-9 text-sm w-[140px]"
+        />
         <MultiSelectFilter
           options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
           selected={filters.vendedor}
