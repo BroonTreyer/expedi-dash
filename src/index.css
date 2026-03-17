@@ -111,6 +111,7 @@
   body.printing-carga {
     background: white !important;
     color: black !important;
+    font-size: 11pt;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
