@@ -90,7 +90,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
 }
 
 export default function Consolidado() {
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(getInitialDate);
   const [filterUf, setFilterUf] = useState("todos");
   const [filterVendedor, setFilterVendedor] = useState<string[]>([]);
   const [filterTipo, setFilterTipo] = useState("todos");
