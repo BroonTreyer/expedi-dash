@@ -1,23 +1,22 @@
-import React, { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import React, { useState, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer } from "lucide-react";
 import { ConsolidadoPrintDialog, type ConsolidadoPrintData } from "@/components/dashboard/ConsolidadoPrintDialog";
 import { Layout } from "@/components/Layout";
-import { useVendedores } from "@/hooks/useVendedores";
-import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { STATUSES, STATUS_COLORS } from "@/lib/constants";
+import { StatusSelect } from "@/components/dashboard/StatusSelect";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 const today = new Date().toISOString().split("T")[0];
@@ -53,6 +52,7 @@ interface CargaGroup {
   qtdPedidos: number;
   clientes: Set<string>;
   ufs: Set<string>;
+  status: string;
   items: Carregamento[];
 }
 
@@ -72,6 +72,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         qtdPedidos: 0,
         clientes: new Set(),
         ufs: new Set(),
+        status: item.status,
         items: [],
       };
       map.set(item.carga_id, g);
@@ -92,31 +93,60 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
 export default function Consolidado() {
   const [date, setDate] = useState(getInitialDate);
   const [filterUf, setFilterUf] = useState("todos");
-  const [filterVendedor, setFilterVendedor] = useState<string[]>([]);
-  const [filterTipo, setFilterTipo] = useState("todos");
+  const [filterStatus, setFilterStatus] = useState("todos");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
 
+  const queryClient = useQueryClient();
   const { data: rawData, isLoading } = useConsolidado(date);
-  const { data: vendedores } = useVendedores();
-  const { data: tiposCaminhao } = useTiposCaminhao();
+
+  const updateStatusMut = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      const { error } = await supabase
+        .from("carregamentos_dia")
+        .update({ status })
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["consolidado", date] });
+      toast.success("Status atualizado");
+    },
+    onError: () => toast.error("Erro ao atualizar status"),
+  });
+
+  const handleStatusChange = useCallback(
+    (group: CargaGroup, newStatus: string) => {
+      const ids = group.items.map((i) => i.id);
+      updateStatusMut.mutate({ ids, status: newStatus });
+    },
+    [updateStatusMut]
+  );
 
   const filtered = useMemo(() => {
     if (!rawData) return [];
     return rawData.filter((c) => {
       if (filterUf !== "todos" && c.uf !== filterUf) return false;
-      if (filterVendedor.length > 0 && !filterVendedor.includes(c.vendedor_id ?? "")) return false;
-      if (filterTipo !== "todos" && c.tipo_caminhao !== filterTipo) return false;
+      if (filterStatus !== "todos" && c.status !== filterStatus) return false;
       return true;
     });
-  }, [rawData, filterUf, filterVendedor, filterTipo]);
+  }, [rawData, filterUf, filterStatus]);
 
   const groups = useMemo(() => groupByCarga(filtered), [filtered]);
 
-  // KPIs
+  // KPIs — count unique pedidos globally
   const totalVeiculos = groups.length;
   const pesoTotal = groups.reduce((s, g) => s + g.pesoTotal, 0);
-  const totalPedidos = groups.reduce((s, g) => s + g.qtdPedidos, 0);
+  const totalPedidos = useMemo(() => {
+    const unique = new Set<number>();
+    for (const g of groups) {
+      for (const item of g.items) {
+        if (item.numero_pedido != null) unique.add(item.numero_pedido);
+      }
+    }
+    return unique.size;
+  }, [groups]);
+
   const tipoBreakdown = useMemo(() => {
     const map = new Map<string, number>();
     for (const g of groups) {
@@ -145,16 +175,12 @@ export default function Consolidado() {
       totalPedidos,
     };
   }, [groups, date, totalVeiculos, pesoTotal, totalPedidos]);
-  // Unique UFs for filter
+
   const ufOptions = useMemo(() => {
     if (!rawData) return [];
     const ufs = [...new Set(rawData.map((c) => c.uf).filter(Boolean))] as string[];
     return ufs.sort();
   }, [rawData]);
-
-  const vendedorOptions = useMemo(() => {
-    return (vendedores ?? []).filter((v) => v.ativo).map((v) => ({ value: v.id, label: v.nome_vendedor }));
-  }, [vendedores]);
 
   const toggleExpand = (cargaId: string) => {
     setExpanded((prev) => {
@@ -217,22 +243,14 @@ export default function Consolidado() {
             </SelectContent>
           </Select>
 
-          <MultiSelectFilter
-            options={vendedorOptions}
-            selected={filterVendedor}
-            onChange={setFilterVendedor}
-            placeholder="Vendedor"
-            className="w-[180px]"
-          />
-
-          <Select value={filterTipo} onValueChange={setFilterTipo}>
-            <SelectTrigger className="h-9 w-[170px] text-sm">
-              <SelectValue placeholder="Tipo Caminhão" />
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="h-9 w-[180px] text-sm">
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os tipos</SelectItem>
-              {(tiposCaminhao ?? []).map((t) => (
-                <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>
+              <SelectItem value="todos">Todos os status</SelectItem>
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -269,7 +287,6 @@ export default function Consolidado() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-8" />
-                  <TableHead>Carga</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Placa</TableHead>
                   <TableHead>Motorista</TableHead>
@@ -277,6 +294,7 @@ export default function Consolidado() {
                   <TableHead className="text-center">Pedidos</TableHead>
                   <TableHead className="text-center">Clientes</TableHead>
                   <TableHead>UFs</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -291,7 +309,6 @@ export default function Consolidado() {
                         <TableCell className="px-2">
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </TableCell>
-                        <TableCell className="font-medium text-xs">{g.cargaId}</TableCell>
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
                         <TableCell className="text-xs">{g.motorista ?? "—"}</TableCell>
@@ -299,6 +316,12 @@ export default function Consolidado() {
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
                         <TableCell className="text-center text-xs">{g.clientes.size}</TableCell>
                         <TableCell className="text-xs">{[...g.ufs].sort().join(", ") || "—"}</TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <StatusSelect
+                            value={g.status}
+                            onChange={(v) => handleStatusChange(g, v)}
+                          />
+                        </TableCell>
                       </TableRow>
                       {isOpen && g.items.map((item) => (
                         <TableRow key={item.id} className="bg-muted/20">
@@ -307,11 +330,11 @@ export default function Consolidado() {
                             Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.cliente ?? item.codigo_cliente ?? "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{item.cidade ?? "—"}</TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground">{(item.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-center text-xs text-muted-foreground">{item.quantidade ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
+                          <TableCell />
                         </TableRow>
                       ))}
                     </React.Fragment>
