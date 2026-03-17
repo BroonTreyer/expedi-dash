@@ -43,7 +43,7 @@ export default function Index() {
     vendedor: [] as string[],
     tipoCaminhao: "todos",
     busca: "",
-    data: today,
+    data: getToday(),
     etapa: "todos",
     ruptura: "todos",
     cliente: [] as string[],
