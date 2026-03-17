@@ -18,7 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
 
-const today = new Date().toISOString().split("T")[0];
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
 
 export default function Rupturas() {
   const { role } = useAuth();
