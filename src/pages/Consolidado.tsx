@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight } from "lucide-react";
@@ -51,6 +51,7 @@ interface CargaGroup {
 
 function groupByCarga(data: Carregamento[]): CargaGroup[] {
   const map = new Map<string, CargaGroup>();
+  const pedidosMap = new Map<string, Set<number>>();
   for (const item of data) {
     if (!item.carga_id) continue;
     let g = map.get(item.carga_id);
@@ -67,12 +68,16 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         items: [],
       };
       map.set(item.carga_id, g);
+      pedidosMap.set(item.carga_id, new Set());
     }
     g.pesoTotal += item.peso ?? 0;
-    g.qtdPedidos += 1;
+    if (item.numero_pedido != null) pedidosMap.get(item.carga_id)!.add(item.numero_pedido);
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
     g.items.push(item);
+  }
+  for (const [cargaId, pedidos] of pedidosMap) {
+    map.get(cargaId)!.qtdPedidos = pedidos.size;
   }
   return Array.from(map.values());
 }
@@ -244,7 +249,7 @@ export default function Consolidado() {
                 {groups.map((g) => {
                   const isOpen = expanded.has(g.cargaId);
                   return (
-                    <TooltipProvider key={g.cargaId} delayDuration={0}>
+                    <React.Fragment key={g.cargaId}>
                       <TableRow
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => toggleExpand(g.cargaId)}
@@ -275,7 +280,7 @@ export default function Consolidado() {
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
                         </TableRow>
                       ))}
-                    </TooltipProvider>
+                    </React.Fragment>
                   );
                 })}
               </TableBody>
