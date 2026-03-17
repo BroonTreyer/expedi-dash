@@ -91,26 +91,6 @@ export default function Consolidado() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
 
-  const printData = useMemo<ConsolidadoPrintData | null>(() => {
-    if (groups.length === 0) return null;
-    return {
-      data: date,
-      groups: groups.map((g) => ({
-        cargaId: g.cargaId,
-        tipoCaminhao: g.tipoCaminhao,
-        placa: g.placa,
-        motorista: g.motorista,
-        pesoTotal: g.pesoTotal,
-        qtdPedidos: g.qtdPedidos,
-        qtdClientes: g.clientes.size,
-        ufs: [...g.ufs].sort().join(", ") || "—",
-      })),
-      totalVeiculos,
-      totalPeso: pesoTotal,
-      totalPedidos,
-    };
-  }, [groups, date, totalVeiculos, pesoTotal, totalPedidos]);
-
   const { data: rawData, isLoading } = useConsolidado(date);
   const { data: vendedores } = useVendedores();
   const { data: tiposCaminhao } = useTiposCaminhao();
@@ -140,6 +120,25 @@ export default function Consolidado() {
     return Array.from(map.entries()).map(([name, count]) => `${count} ${name}`).join(", ") || "—";
   }, [groups]);
 
+  const printData = useMemo<ConsolidadoPrintData | null>(() => {
+    if (groups.length === 0) return null;
+    return {
+      data: date,
+      groups: groups.map((g) => ({
+        cargaId: g.cargaId,
+        tipoCaminhao: g.tipoCaminhao,
+        placa: g.placa,
+        motorista: g.motorista,
+        pesoTotal: g.pesoTotal,
+        qtdPedidos: g.qtdPedidos,
+        qtdClientes: g.clientes.size,
+        ufs: [...g.ufs].sort().join(", ") || "—",
+      })),
+      totalVeiculos,
+      totalPeso: pesoTotal,
+      totalPedidos,
+    };
+  }, [groups, date, totalVeiculos, pesoTotal, totalPedidos]);
   // Unique UFs for filter
   const ufOptions = useMemo(() => {
     if (!rawData) return [];
