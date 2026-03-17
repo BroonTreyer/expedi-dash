@@ -23,9 +23,7 @@ export default function TiposCaminhao() {
 
   const handleSubmit = () => {
     if (!nome.trim()) return;
-    createMut.mutate({ nome_tipo: nome.trim() });
-    setNome("");
-    setOpen(false);
+    createMut.mutate({ nome_tipo: nome.trim() }, { onSuccess: () => { setNome(""); setOpen(false); } });
   };
 
   return (
