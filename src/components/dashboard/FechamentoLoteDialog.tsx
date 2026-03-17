@@ -14,7 +14,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   items: Carregamento[];
   tiposCaminhao: { nome_tipo: string }[];
-  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; carga_id: string; horario_previsto?: string }[]) => void;
+  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; horario_previsto?: string }[]) => void;
   onPrintReady?: (data: CargaPrintData) => void;
   selectedDate?: string;
 }
@@ -31,6 +31,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
+  const [transportadora, setTransportadora] = useState("");
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [groups, setGroups] = useState<ClienteGroup[]>([]);
 
@@ -57,6 +58,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setTipoCaminhao("");
       setPlaca("");
       setMotorista("");
+      setTransportadora("");
       setHorarioPrevisto("");
     }
   }, [open, items]);
@@ -100,6 +102,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         tipo_caminhao: tipoCaminhao,
         placa,
         motorista,
+        transportadora,
         ordem_entrega: group.ordem,
         etapa: "logistica",
         carga_id: cargaId,
@@ -117,6 +120,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         tipoCaminhao,
         placa,
         motorista,
+        transportadora: transportadora || undefined,
         horarioPrevisto: horarioPrevisto || undefined,
         groups: groups.map(g => ({ ...g })),
         totalPeso,
@@ -158,6 +162,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           <div className="space-y-1.5">
             <Label className="text-xs">Motorista *</Label>
             <Input value={motorista} onChange={(e) => setMotorista(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Transportadora</Label>
+            <Input value={transportadora} onChange={(e) => setTransportadora(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Horário Previsto</Label>

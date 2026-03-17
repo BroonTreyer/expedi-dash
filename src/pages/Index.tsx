@@ -201,7 +201,7 @@ export default function Index() {
     setUndoCargaId(null);
   }, [undoCargaId, queryClient]);
 
-  const handleLoteSubmit = useCallback((updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; ordem_entrega: number; etapa: string; horario_previsto?: string }[]) => {
+  const handleLoteSubmit = useCallback((updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; horario_previsto?: string }[]) => {
     for (const u of updates) {
       updateMut.mutate(u);
     }
