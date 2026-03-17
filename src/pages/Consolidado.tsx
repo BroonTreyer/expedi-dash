@@ -302,14 +302,14 @@ export default function Consolidado() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-8" />
-                  <TableHead>Status</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Placa</TableHead>
-                  <TableHead>Motorista</TableHead>
-                  <TableHead className="text-right">Peso (kg)</TableHead>
-                  <TableHead className="text-center">Pedidos</TableHead>
-                  <TableHead className="text-center">Clientes</TableHead>
-                  <TableHead>UFs</TableHead>
+                  <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort}>Status</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="tipoCaminhao" onSort={toggleSort}>Tipo</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="placa" onSort={toggleSort}>Placa</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="pesoTotal" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="qtdPedidos" onSort={toggleSort} className="text-center">Pedidos</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="clientes" onSort={toggleSort} className="text-center">Clientes</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="ufs" onSort={toggleSort}>UFs</SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

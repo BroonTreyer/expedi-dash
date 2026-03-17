@@ -385,19 +385,19 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                 </TableHead>
               )}
               <TableHead className="w-[32px]"></TableHead>
-              {!hideColumns.includes("etapa") && <TableHead className="w-[120px]">Etapa</TableHead>}
-              <TableHead className="w-[160px]">Status</TableHead>
-              <TableHead>Vendedor</TableHead>
-              <TableHead>Cód. Produto</TableHead>
-              <TableHead>Produto</TableHead>
-              {!hideColumns.includes("peso") && <TableHead className="text-right">Peso (kg)</TableHead>}
-              <TableHead>Caminhão</TableHead>
-              <TableHead>Motorista</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Cidade</TableHead>
-              <TableHead>UF</TableHead>
+              {!hideColumns.includes("etapa") && <SortableTableHead sort={sort} sortKey="etapa" onSort={toggleSort} className="w-[120px]">Etapa</SortableTableHead>}
+              <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="w-[160px]">Status</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="vendedor" onSort={toggleSort}>Vendedor</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Cód. Produto</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Produto</SortableTableHead>
+              {!hideColumns.includes("peso") && <SortableTableHead sort={sort} sortKey="peso" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>}
+              <SortableTableHead sort={sort} sortKey="tipo_caminhao" onSort={toggleSort}>Caminhão</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="cliente" onSort={toggleSort}>Cliente</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
-              <TableHead>Frete</TableHead>
+              <SortableTableHead sort={sort} sortKey="tipo_frete" onSort={toggleSort}>Frete</SortableTableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>

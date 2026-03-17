@@ -147,7 +147,12 @@ export default function Clientes() {
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
-              <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead>Cidade</TableHead><TableHead>UF</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
+              <SortableTableHead sort={sort} sortKey="codigo_cliente" onSort={toggleSort}>Código</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="nome_cliente" onSort={toggleSort}>Nome</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="ativo" onSort={toggleSort}>Status</SortableTableHead>
+              <TableHead className="w-[80px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (

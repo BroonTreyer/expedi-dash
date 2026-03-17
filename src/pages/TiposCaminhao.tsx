@@ -38,7 +38,7 @@ export default function TiposCaminhao() {
         <div className="rounded-lg border border-border bg-card overflow-x-auto max-w-full sm:max-w-lg">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
-              <TableHead>Nome</TableHead><TableHead className="w-[60px]"></TableHead>
+              <SortableTableHead sort={sort} sortKey="nome_tipo" onSort={toggleSort}>Nome</SortableTableHead><TableHead className="w-[60px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (

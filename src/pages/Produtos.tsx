@@ -61,7 +61,11 @@ export default function Produtos() {
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/40">
-              <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead className="text-right">Peso Padrão (kg)</TableHead><TableHead>Status</TableHead><TableHead className="w-[80px]"></TableHead>
+              <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Código</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Nome</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="peso_padrao" onSort={toggleSort} className="text-right">Peso Padrão (kg)</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="ativo" onSort={toggleSort}>Status</SortableTableHead>
+              <TableHead className="w-[80px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (
