@@ -108,6 +108,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         ordem_entrega: group.ordem,
         etapa: "logistica",
         carga_id: cargaId,
+        data: dataCarregamento,
         ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
       }))
     );
