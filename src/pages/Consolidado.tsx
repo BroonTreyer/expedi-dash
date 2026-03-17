@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer } from "lucide-react";
@@ -20,6 +21,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 const today = new Date().toISOString().split("T")[0];
+
+function getInitialDate() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("data") || today;
+}
 
 function useConsolidado(date: string) {
   return useQuery({
@@ -84,7 +90,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
 }
 
 export default function Consolidado() {
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(getInitialDate);
   const [filterUf, setFilterUf] = useState("todos");
   const [filterVendedor, setFilterVendedor] = useState<string[]>([]);
   const [filterTipo, setFilterTipo] = useState("todos");

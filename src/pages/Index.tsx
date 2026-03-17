@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { KpiCards } from "@/components/dashboard/KpiCards";
@@ -16,7 +17,8 @@ import { useProdutos } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Plus, TableIcon, Columns3, Truck } from "lucide-react";
+import { Plus, TableIcon, Columns3, Truck, PackageCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -25,6 +27,7 @@ const today = new Date().toISOString().split("T")[0];
 
 export default function Index() {
   const { role } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
@@ -62,8 +65,15 @@ export default function Index() {
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
 
+  // Count finalized (hidden) items
+  const finalizadosCount = useMemo(() => {
+    return carregamentos.filter(c => c.status === "Carregado").length;
+  }, [carregamentos]);
+
   const filtered = useMemo(() => {
     return carregamentos.filter((c) => {
+      // Hide finalized items — they appear only in Consolidado
+      if (c.status === "Carregado") return false;
       if (filters.status !== "todos" && c.status !== filters.status) return false;
       if (filters.vendedor.length > 0 && !filters.vendedor.includes(c.vendedor_id ?? "")) return false;
       if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
@@ -251,6 +261,20 @@ export default function Index() {
             {canEdit && (
               <Button onClick={handleNewPedido}>
                 <Plus className="h-4 w-4 mr-1" /> Novo Pedido
+              </Button>
+            )}
+            {finalizadosCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/consolidado?data=${filters.data}`)}
+                className="gap-1.5"
+              >
+                <PackageCheck className="h-4 w-4" />
+                Ver Finalizados
+                <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">
+                  {finalizadosCount}
+                </Badge>
               </Button>
             )}
           </div>
