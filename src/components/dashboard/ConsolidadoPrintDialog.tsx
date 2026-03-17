@@ -119,10 +119,12 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
             <tbody>
               {data.groups.map((g) => (
                 <tr key={g.cargaId} className="border-b border-foreground/5">
+                  <td className="py-1 pr-2">{g.status}</td>
                   <td className="py-1 pr-2 font-medium">{g.cargaId}</td>
                   <td className="py-1 pr-2">{g.tipoCaminhao ?? "—"}</td>
                   <td className="py-1 pr-2 font-mono">{g.placa ?? "—"}</td>
                   <td className="py-1 pr-2">{g.motorista ?? "—"}</td>
+                  <td className="py-1 pr-2">{g.transportadora ?? "—"}</td>
                   <td className="py-1 pr-2 text-right font-mono">{g.pesoTotal.toLocaleString("pt-BR")}</td>
                   <td className="py-1 pr-2 text-center">{g.qtdPedidos}</td>
                   <td className="py-1 pr-2 text-center">{g.qtdClientes}</td>
