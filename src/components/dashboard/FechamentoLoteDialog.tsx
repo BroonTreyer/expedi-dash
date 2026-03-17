@@ -148,6 +148,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
+            <Label className="text-xs">Data do Carregamento *</Label>
+            <Input type="date" value={dataCarregamento} onChange={(e) => setDataCarregamento(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
             <Label className="text-xs">Tipo Caminhão *</Label>
             <Select value={tipoCaminhao} onValueChange={setTipoCaminhao}>
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
