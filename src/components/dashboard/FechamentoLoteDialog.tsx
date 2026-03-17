@@ -89,7 +89,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     setGroups(prev => prev.map((g, i) => i === idx ? { ...g, ordem: value } : g));
   };
 
-  const canSubmit = tipoCaminhao && placa && motorista;
+  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento;
 
   const handleSubmit = () => {
     // Generate a unique carga_id for this load
