@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowDownToLine, ArrowUpFromLine, Eye, History } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
@@ -13,7 +14,8 @@ interface Props {
   search: string;
   categoriaFilter: string;
   tipoFilter: string;
-  onViewDetails: (mov: MovimentacaoPortaria) => void;
+  onViewDetails: (m: MovimentacaoPortaria) => void;
+  isLoading?: boolean;
 }
 
 const categoriaBadgeColor: Record<string, string> = {
@@ -24,11 +26,11 @@ const categoriaBadgeColor: Record<string, string> = {
   outros: "bg-muted text-muted-foreground",
 };
 
-export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails }: Props) {
+export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails, isLoading }: Props) {
   const filtered = useMemo(() => {
     return movimentacoes.filter((m) => {
-      if (categoriaFilter && m.categoria !== categoriaFilter) return false;
       if (tipoFilter && m.tipo_movimento !== tipoFilter) return false;
+      if (categoriaFilter && m.categoria !== categoriaFilter) return false;
       if (!search) return true;
       const s = search.toLowerCase();
       return (
@@ -40,6 +42,16 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
   }, [movimentacoes, search, categoriaFilter, tipoFilter]);
 
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
+
+  if (isLoading) {
+    return (
+      <div className="p-4 space-y-3">
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto">
@@ -53,15 +65,18 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
             <TableHead>Motorista</TableHead>
             <TableHead>Empresa</TableHead>
             <TableHead>Setor</TableHead>
-            <TableHead>Carga</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filtered.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                Nenhum movimento encontrado.
+              <TableCell colSpan={8} className="text-center py-12">
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <History className="h-10 w-10 opacity-30" />
+                  <p className="font-medium">Nenhum movimento registrado</p>
+                  <p className="text-xs">Os movimentos do dia aparecerão aqui</p>
+                </div>
               </TableCell>
             </TableRow>
           ) : (
@@ -71,7 +86,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                   {format(new Date(m.data_hora), "HH:mm", { locale: ptBR })}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={m.tipo_movimento === "entrada" ? "default" : "secondary"} className="gap-1">
+                  <Badge variant={m.tipo_movimento === "entrada" ? "default" : "secondary"} className="gap-1 text-xs">
                     {m.tipo_movimento === "entrada" ? (
                       <><ArrowDownToLine className="h-3 w-3" /> Entrada</>
                     ) : (
@@ -88,13 +103,10 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                 <TableCell>{m.motorista || "—"}</TableCell>
                 <TableCell className="text-sm">{m.empresa || "—"}</TableCell>
                 <TableCell className="text-sm">{m.destino_setor || "—"}</TableCell>
-                <TableCell className="text-xs">{m.carga_id || "—"}</TableCell>
                 <TableCell className="text-right">
-                  {(m.foto_placa_url || m.foto_documento_url || m.observacoes) && (
-                    <Button size="sm" variant="outline" className="gap-1" onClick={() => onViewDetails(m)}>
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(m)}>
+                    <Eye className="h-3 w-3" /> Detalhes
+                  </Button>
                 </TableCell>
               </TableRow>
             ))

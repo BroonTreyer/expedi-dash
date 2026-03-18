@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
 
 export interface MovimentacaoPortaria {
   id: string;
-  tipo_movimento: "entrada" | "saida";
+  tipo_movimento: string;
   categoria: string;
   placa: string | null;
   motorista: string | null;
@@ -28,9 +29,9 @@ export const CATEGORIAS = [
   { value: "carga_propria", label: "Carga Própria" },
   { value: "fornecedor", label: "Fornecedor" },
   { value: "visitante", label: "Visitante" },
-  { value: "prestador", label: "Prestador de Serviço" },
+  { value: "prestador", label: "Prestador" },
   { value: "outros", label: "Outros" },
-] as const;
+];
 
 export const SETORES = [
   { value: "expedicao", label: "Expedição" },
@@ -38,76 +39,111 @@ export const SETORES = [
   { value: "administrativo", label: "Administrativo" },
   { value: "manutencao", label: "Manutenção" },
   { value: "outros", label: "Outros" },
-] as const;
+];
 
-export function useMovimentacoes(dataStr: string) {
-  return useQuery({
-    queryKey: ["movimentacoes_portaria", dataStr],
+export function useMovimentacoes(dateStr: string) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["movimentacoes_portaria", dateStr],
     queryFn: async () => {
-      const startOfDay = `${dataStr}T00:00:00.000Z`;
-      const nextDay = new Date(dataStr);
-      nextDay.setDate(nextDay.getDate() + 1);
-      const endOfDay = `${nextDay.toISOString().split("T")[0]}T00:00:00.000Z`;
-
       const { data, error } = await supabase
-        .from("movimentacoes_portaria" as any)
+        .from("movimentacoes_portaria")
         .select("*")
-        .gte("data_hora", startOfDay)
-        .lt("data_hora", endOfDay)
+        .gte("data_hora", `${dateStr}T00:00:00`)
+        .lt("data_hora", `${dateStr}T23:59:59.999`)
         .order("data_hora", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as MovimentacaoPortaria[];
+      return data as MovimentacaoPortaria[];
     },
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`movimentacoes-${dateStr}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "movimentacoes_portaria" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria", dateStr] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dateStr, queryClient]);
+
+  return query;
 }
 
 export function useCreateMovimentacao() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (mov: Partial<MovimentacaoPortaria>) => {
+    mutationFn: async (mov: Omit<MovimentacaoPortaria, "id" | "created_at" | "data_hora">) => {
       const { data, error } = await supabase
-        .from("movimentacoes_portaria" as any)
+        .from("movimentacoes_portaria")
         .insert(mov as any)
         .select()
         .single();
       if (error) throw error;
-      return data as unknown as MovimentacaoPortaria;
+      return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
       toast.success("Movimento registrado com sucesso!");
     },
-    onError: (err: any) => {
-      toast.error("Erro ao registrar movimento: " + err.message);
+    onError: (e: any) => {
+      toast.error("Erro ao registrar: " + e.message);
     },
   });
 }
 
-export function useDeleteMovimentacao() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("movimentacoes_portaria" as any)
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
-      toast.success("Movimento removido.");
-    },
-    onError: (err: any) => {
-      toast.error("Erro ao remover: " + err.message);
-    },
-  });
-}
-
-export async function uploadFotoMovimentacao(file: File, prefix: string): Promise<string> {
+export async function uploadFotoMovimentacao(file: File, tipo: "placa" | "doc") {
   const ext = file.name.split(".").pop() || "jpg";
-  const path = `movimentacoes/${prefix}_${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from("portaria").upload(path, file, { upsert: true });
+  const path = `movimentacoes/${tipo}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
+  const { error } = await supabase.storage.from("portaria").upload(path, file);
   if (error) throw error;
   const { data: urlData } = supabase.storage.from("portaria").getPublicUrl(path);
   return urlData.publicUrl;
+}
+
+export function usePlacaAutocomplete(placa: string) {
+  const [debouncedPlaca, setDebouncedPlaca] = useState("");
+
+  useEffect(() => {
+    if (placa.length < 3) {
+      setDebouncedPlaca("");
+      return;
+    }
+    const t = setTimeout(() => setDebouncedPlaca(placa.trim().toUpperCase()), 400);
+    return () => clearTimeout(t);
+  }, [placa]);
+
+  return useQuery({
+    queryKey: ["placa_autocomplete", debouncedPlaca],
+    queryFn: async () => {
+      if (!debouncedPlaca) return null;
+      const { data, error } = await supabase
+        .from("movimentacoes_portaria")
+        .select("motorista, empresa, categoria, placa, destino_setor")
+        .eq("placa", debouncedPlaca)
+        .order("data_hora", { ascending: false })
+        .limit(1);
+      if (error) throw error;
+
+      const { count } = await supabase
+        .from("movimentacoes_portaria")
+        .select("id", { count: "exact", head: true })
+        .eq("placa", debouncedPlaca);
+
+      if (data && data.length > 0) {
+        return { ...data[0], totalRegistros: count || 0 };
+      }
+      return null;
+    },
+    enabled: debouncedPlaca.length >= 3,
+    staleTime: 30_000,
+  });
 }
