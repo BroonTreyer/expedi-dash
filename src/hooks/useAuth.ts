@@ -71,7 +71,11 @@ export function useAuthState(): AuthState {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchRole(session.user.id);
+        try {
+          await fetchRole(session.user.id);
+        } catch {
+          setRole("logistica");
+        }
       }
       setLoading(false);
     });
