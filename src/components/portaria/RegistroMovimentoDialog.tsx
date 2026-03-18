@@ -72,6 +72,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
     setOcrLoading(false);
     setTextoPlacaLido(null);
     setConfiancaPlaca(null);
+    setOcrPainelLoading(false);
+    setTextoPainelLido(null);
+    setConfiancaPainel(null);
   }, [open, prefill]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria), [categoria]);
