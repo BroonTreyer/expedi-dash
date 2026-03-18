@@ -104,7 +104,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               )}
               {(s || m.tipo_movimento === "saida") && (
                 <Badge variant="secondary" className="gap-1">
-                  <ArrowUpFromLine className="h-3 w-3" /> Saída
+                  <ArrowUpFromLine className="h-3 w-3" /> Retorno
                 </Badge>
               )}
               <Badge variant="outline">{getCategoriaLabel(m.categoria)}</Badge>
