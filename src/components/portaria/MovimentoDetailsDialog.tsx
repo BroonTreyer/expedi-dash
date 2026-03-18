@@ -184,7 +184,6 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
             <div className="grid grid-cols-2 gap-3 text-sm">
               <DetailRow label="Placa" value={m.placa ? m.placa : "—"} />
               <DetailRow label="Motorista" value={m.motorista} />
-              <DetailRow label="Conferente" value={m.conferente || s?.conferente} />
               <DetailRow label="Empresa" value={m.empresa} />
               <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
               <DetailRow label="Nº Lacre/Etiqueta" value={m.numero_lacre || s?.numero_lacre} />
