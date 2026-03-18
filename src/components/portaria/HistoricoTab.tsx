@@ -18,7 +18,7 @@ interface Props {
   search: string;
   categoriaFilter: string;
   tipoFilter: string;
-  onViewDetails: (m: MovimentacaoPortaria) => void;
+  onViewDetails: (entrada: MovimentacaoPortaria | undefined, saida: MovimentacaoPortaria | undefined) => void;
   isLoading?: boolean;
 }
 
@@ -144,7 +144,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
         {grupos.map((g) => {
           const r = ref(g);
           return (
-            <Card key={r.id} className="cursor-pointer active:bg-muted/50" onClick={() => onViewDetails(g.principal)}>
+            <Card key={r.id} className="cursor-pointer active:bg-muted/50" onClick={() => onViewDetails(g.entrada, g.saida)}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{r.placa || "—"}</span>
@@ -240,7 +240,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                 <TableCell className="text-sm">{r.destino_setor || "—"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.principal)}>
+                    <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.entrada, g.saida)}>
                       <Eye className="h-3 w-3" /> Detalhes
                     </Button>
                     {isAdmin && (

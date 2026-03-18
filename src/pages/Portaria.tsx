@@ -32,6 +32,7 @@ export default function Portaria() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
+  const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const counts = useMemo(() => {
@@ -49,8 +50,9 @@ export default function Portaria() {
     setDialogOpen(true);
   };
 
-  const openDetails = (mov: MovimentacaoPortaria) => {
-    setDetailsMov(mov);
+  const openDetails = (entrada?: MovimentacaoPortaria, saida?: MovimentacaoPortaria) => {
+    setDetailsMov(entrada || saida || null);
+    setDetailsSaida(saida || null);
     setDetailsOpen(true);
   };
 
@@ -177,7 +179,7 @@ export default function Portaria() {
       </div>
 
       <RegistroMovimentoDialog open={dialogOpen} onOpenChange={setDialogOpen} prefill={prefill} />
-      <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} />
+      <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
     </Layout>
   );
 }
