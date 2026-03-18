@@ -66,7 +66,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         motorista: prefill.motorista || "",
         empresa: prefill.empresa || "",
         destinoSetor: prefill.destino_setor || "",
-        motivo: prefill.motivo || "",
         cargaId: prefill.carga_id || "",
         observacoes: "",
         placaConfirmada: prefill.placa || "",
