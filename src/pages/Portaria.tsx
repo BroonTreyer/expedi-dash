@@ -90,8 +90,6 @@ export default function Portaria() {
           </div>
         </div>
 
-        {/* Entrada Express */}
-        {showExpress && <EntradaExpressForm onClose={() => setShowExpress(false)} />}
 
         {/* KPIs */}
         <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} />
