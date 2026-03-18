@@ -122,7 +122,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         motorista: state.motorista.trim() || null,
         empresa: state.empresa.trim() || null,
         destino_setor: state.destinoSetor || null,
-        motivo: state.motivo.trim() || null,
+        motivo: null,
         carga_id: state.cargaId.trim() || null,
         foto_placa_url: state.fotoPlacaPreview || null,
         texto_placa_lido: state.textoPlacaLido || null,
