@@ -409,7 +409,7 @@ export default function Consolidado() {
                             </PopoverContent>
                           </Popover>
                         </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                           <StatusSelect value={g.status} onChange={(v) => handleStatusChange(g, v)} />
                         </TableCell>
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>

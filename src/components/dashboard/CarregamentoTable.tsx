@@ -538,7 +538,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         </div>
                       </TableCell>
                     )}
-                    <TableCell>
+                    <TableCell className="text-center">
                       {canChangeStatus ? (
                         <StatusSelect value={first.status} onChange={(s) => group.items.forEach(i => onStatusChange(i.id, s))} statuses={statuses} statusColors={statusColors} />
                       ) : (
