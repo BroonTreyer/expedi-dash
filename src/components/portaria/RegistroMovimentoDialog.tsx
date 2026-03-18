@@ -77,8 +77,8 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
     setConfiancaPainel(null);
   }, [open, prefill]);
 
-  const blocks = useMemo(() => getVisibleBlocks(categoria), [categoria]);
-  const canSave = useMemo(() => validateForm(categoria, values), [categoria, values]);
+  const blocks = useMemo(() => getVisibleBlocks(categoria, tipo), [categoria, tipo]);
+  const canSave = useMemo(() => validateForm(categoria, values, tipo), [categoria, values, tipo]);
 
   const handleSelectCategoria = (cat: Categoria) => {
     setCategoria(cat);
