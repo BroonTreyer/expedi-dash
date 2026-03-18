@@ -245,7 +245,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <DetailRow label="Responsável" value={m.responsavel_interno} />
                   <DetailRow label="Conferente (Entrada)" value={m.conferente} />
-                  {s?.conferente && <DetailRow label="Conferente (Saída)" value={s.conferente} />}
+                  {s?.conferente && <DetailRow label="Conferente (Retorno)" value={s.conferente} />}
                   {m.ocorrencia && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Ocorrência:</span>
