@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowDownToLine, ArrowUpFromLine, ParkingCircle } from "lucide-react";
-import { differenceInMinutes } from "date-fns";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
 interface Props {
