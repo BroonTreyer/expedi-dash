@@ -10,14 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Zap } from "lucide-react";
+import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History } from "lucide-react";
 import { useMovimentacoes, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
 import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimentoDialog";
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
-import { EntradaExpressForm } from "@/components/portaria/EntradaExpressForm";
+
 
 export default function Portaria() {
   const [date, setDate] = useState<Date>(new Date());
@@ -25,7 +25,7 @@ export default function Portaria() {
   const [search, setSearch] = useState("");
   const [categoriaFilter, setCategoriaFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("");
-  const [showExpress, setShowExpress] = useState(false);
+  
 
   const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateStr);
 
@@ -84,17 +84,12 @@ export default function Portaria() {
                 <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} locale={ptBR} />
               </PopoverContent>
             </Popover>
-            <Button variant="secondary" size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => setShowExpress(!showExpress)}>
-              <Zap className="h-3.5 w-3.5" /> Rápida
-            </Button>
             <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
               <Plus className="h-3.5 w-3.5" /> Registrar
             </Button>
           </div>
         </div>
 
-        {/* Entrada Express */}
-        {showExpress && <EntradaExpressForm onClose={() => setShowExpress(false)} />}
 
         {/* KPIs */}
         <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} />
