@@ -184,7 +184,6 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
             <div className="grid grid-cols-2 gap-3 text-sm">
               <DetailRow label="Placa" value={m.placa ? m.placa : "—"} />
               <DetailRow label="Motorista" value={m.motorista} />
-              <DetailRow label="Conferente" value={m.conferente || s?.conferente} />
               <DetailRow label="Empresa" value={m.empresa} />
               <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
               <DetailRow label="Nº Lacre/Etiqueta" value={m.numero_lacre || s?.numero_lacre} />
@@ -246,7 +245,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <DetailRow label="Responsável" value={m.responsavel_interno} />
                   <DetailRow label="Conferente (Entrada)" value={m.conferente} />
-                  {s?.conferente && <DetailRow label="Conferente (Saída)" value={s.conferente} />}
+                  {s?.conferente && <DetailRow label="Conferente (Retorno)" value={s.conferente} />}
                   {m.ocorrencia && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Ocorrência:</span>
@@ -255,7 +254,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                   )}
                   {s?.ocorrencia && (
                     <div className="col-span-2">
-                      <span className="text-muted-foreground">Ocorrência (Saída):</span>
+                      <span className="text-muted-foreground">Ocorrência (Retorno):</span>
                       <p className="mt-0.5">{s.ocorrencia}</p>
                     </div>
                   )}
@@ -274,7 +273,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 )}
                 {s?.observacoes && (
                   <div>
-                    <span className="text-muted-foreground">Observações (Saída):</span>
+                    <span className="text-muted-foreground">Observações (Retorno):</span>
                     <p className="mt-1">{s.observacoes}</p>
                   </div>
                 )}
