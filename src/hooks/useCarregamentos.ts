@@ -37,7 +37,8 @@ export type Carregamento = {
 
 export type RealtimeStatus = "connecting" | "connected" | "disconnected";
 
-export function useCarregamentos(date: string) {
+export function useCarregamentos(dateFrom: string, dateTo?: string) {
+  const dateEnd = dateTo || dateFrom;
   const queryClient = useQueryClient();
   const realtimeStatusRef = useRef<RealtimeStatus>("connecting");
   const statusCallbackRef = useRef<((s: RealtimeStatus) => void) | null>(null);
@@ -49,7 +50,6 @@ export function useCarregamentos(date: string) {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "carregamentos_dia" },
         (payload) => {
-          // For inserts, invalidate to get full data with joins
           queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
         }
       )
@@ -58,16 +58,13 @@ export function useCarregamentos(date: string) {
         { event: "UPDATE", schema: "public", table: "carregamentos_dia" },
         (payload) => {
           const updated = payload.new as any;
-          // Patch cache directly — preserve join fields (vendedores) that realtime doesn't include
           queryClient.setQueriesData<Carregamento[]>(
             { queryKey: ["carregamentos"] },
             (old) => {
               if (!old) return old;
               return old.map((item) => {
                 if (item.id !== updated.id) return item;
-                // Merge updated fields but preserve existing join data
                 const merged = { ...item, ...updated };
-                // Restore join fields that realtime payload doesn't include
                 if (updated.vendedores === undefined && item.vendedores) {
                   merged.vendedores = item.vendedores;
                 }
@@ -112,18 +109,22 @@ export function useCarregamentos(date: string) {
   }, []);
 
   const query = useQuery({
-    queryKey: ["carregamentos", date],
+    queryKey: ["carregamentos", dateFrom, dateEnd],
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
       let q = supabase
         .from("carregamentos_dia")
         .select("*, vendedores(nome_vendedor)");
 
-      if (date === todayStr) {
+      const isSingleDay = dateFrom === dateEnd;
+
+      if (isSingleDay && dateFrom === todayStr) {
         // Today: also bring pending items from previous days
-        q = q.or(`data.eq.${date},and(data.lt.${date},status.neq.Carregado)`);
+        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},status.neq.Carregado)`);
+      } else if (isSingleDay) {
+        q = q.eq("data", dateFrom);
       } else {
-        q = q.eq("data", date);
+        q = q.gte("data", dateFrom).lte("data", dateEnd);
       }
 
       const { data, error } = await q.order("created_at", { ascending: true });
