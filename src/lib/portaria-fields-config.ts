@@ -53,11 +53,13 @@ export const FIELDS: FieldConfig[] = [
   { key: "descricao", label: "Descrição / Justificativa", placeholder: "Descreva o motivo do registro", type: "textarea", block: "identificacao" },
 
   // Bloco Veículo
+  { key: "foto_placa_url", label: "📷 Foto da Placa", type: "photo", block: "veiculo" },
   { key: "placa", label: "Placa", placeholder: "ABC1D23", type: "text", block: "veiculo" },
   { key: "motorista", label: "Motorista", placeholder: "Nome do motorista", type: "text", block: "veiculo" },
   { key: "apelido", label: "Apelido do Veículo", placeholder: "Ex: Truck Azul", type: "text", block: "veiculo" },
 
   // Bloco Operação
+  { key: "foto_painel_url", label: "📷 Foto do Painel (KM)", type: "photo", block: "operacao" },
   { key: "rota", label: "Rota", placeholder: "Nome ou código da rota", type: "text", block: "operacao" },
   { key: "peso", label: "Peso (kg)", placeholder: "0", type: "number", block: "operacao" },
   { key: "qtd_entregas", label: "Qtd. de Entregas", placeholder: "0", type: "number", block: "operacao" },
@@ -77,9 +79,7 @@ export const FIELDS: FieldConfig[] = [
   { key: "observacoes", label: "Observações", placeholder: "Observações adicionais...", type: "textarea", block: "controle" },
 
   // Bloco Evidências
-  { key: "foto_placa_url", label: "📷 Foto da Placa", type: "photo", block: "evidencias" },
   { key: "foto_documento_url", label: "📷 Foto de Documento", type: "photo", block: "evidencias" },
-  { key: "foto_painel_url", label: "📷 Foto do Painel (KM)", type: "photo", block: "evidencias" },
   { key: "foto_nota_url", label: "📷 Foto da Nota Fiscal", type: "photo", block: "evidencias" },
 ];
 
