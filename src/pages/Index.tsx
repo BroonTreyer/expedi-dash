@@ -364,7 +364,7 @@ export default function Index() {
         ) : view === "table" ? (
           <CarregamentoTable
             data={filtered}
-            currentDate={filters.data}
+            currentDate={dateFromStr}
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
