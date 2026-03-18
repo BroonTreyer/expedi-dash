@@ -25,7 +25,7 @@ export default function Portaria() {
   const [search, setSearch] = useState("");
   const [categoriaFilter, setCategoriaFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("");
-  const [showExpress, setShowExpress] = useState(false);
+  
 
   const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateStr);
 
