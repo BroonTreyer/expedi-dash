@@ -185,7 +185,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap lg:flex-nowrap items-center gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap lg:flex-nowrap items-center gap-2 [&>*]:min-w-0">
       {DateNav}
       <MultiSelectFilter
         options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}

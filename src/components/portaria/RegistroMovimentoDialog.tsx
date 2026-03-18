@@ -150,7 +150,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(v); }}>
-      <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto">
+      <DialogContent className="max-w-lg w-[calc(100vw-2rem)] sm:w-full max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Movimento</DialogTitle>
           <DialogDescription>
