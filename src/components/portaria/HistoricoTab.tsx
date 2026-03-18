@@ -157,9 +157,9 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                       {format(new Date(g.entrada.data_hora), "HH:mm", { locale: ptBR })}
                     </Badge>
                   )}
-                  {g.saida && (
+                   {g.saida && (
                     <Badge variant="secondary" className="gap-1 text-[11px]">
-                      <ArrowUpFromLine className="h-3 w-3" />
+                      <ArrowUpFromLine className="h-3 w-3" /> Retorno
                       {format(new Date(g.saida.data_hora), "HH:mm", { locale: ptBR })}
                     </Badge>
                   )}
