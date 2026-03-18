@@ -8,7 +8,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, CalendarClock } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -45,7 +45,6 @@ function PreviousDayBadge({ itemDate, currentDate }: { itemDate: string; current
       <Tooltip>
         <TooltipTrigger asChild>
           <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30">
-            <CalendarClock className="h-3 w-3" />
             D-{diff}
           </Badge>
         </TooltipTrigger>
