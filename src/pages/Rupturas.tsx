@@ -1,4 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/Layout";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -11,13 +13,17 @@ import { useProdutos } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Weight, Package, Plus, Printer } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { AlertTriangle, Weight, Package, Plus, Printer, CalendarIcon } from "lucide-react";
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -30,11 +36,14 @@ export default function Rupturas() {
   const isFaturamento = role === "faturamento";
   const canEdit = isAdmin || isFaturamento;
 
-  const [date, setDate] = useState(getToday);
+  const today = new Date();
+  const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
+  const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
+  const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [vendedorFilter, setVendedorFilter] = useState("todos");
   const [busca, setBusca] = useState("");
 
-  const { data: carregamentos = [], isLoading } = useCarregamentos(date);
+  const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
