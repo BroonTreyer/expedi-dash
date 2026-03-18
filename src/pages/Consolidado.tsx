@@ -85,6 +85,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         clientes: new Set(),
         ufs: new Set(),
         status: item.status,
+        data: item.data,
         items: [],
       };
       map.set(item.carga_id, g);
