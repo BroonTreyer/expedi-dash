@@ -109,7 +109,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
     }
   };
 
-  const canSave = state.placa.trim().length >= 3 && !state.ocrLoading;
+  const canSave = state.placa.trim().length >= 3 && !state.ocrLoading && !!state.fotoPlacaPreview && !!state.fotoDocPreview;
 
   const handleSave = async () => {
     if (!canSave) return;
