@@ -308,11 +308,11 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                               {/* OCR result for painel KM photo */}
                               {field.key === "foto_painel_url" && (ocrPainelLoading || textoPainelLido !== null) && (
                                 <OcrResultado
-                                  label="Leitura do KM"
+                                  label={tipo === "saida" ? "Leitura do KM Final" : "Leitura do KM"}
                                   textoLido={textoPainelLido}
                                   confianca={confiancaPainel}
-                                  valorConfirmado={values.km_inicial || ""}
-                                  onChange={(v) => set("km_inicial", v)}
+                                  valorConfirmado={tipo === "saida" ? (values.km_final || "") : (values.km_inicial || "")}
+                                  onChange={(v) => set(tipo === "saida" ? "km_final" : "km_inicial", v)}
                                   loading={ocrPainelLoading}
                                   disabled={saving}
                                 />

@@ -170,31 +170,37 @@ export const BLOCKS = [
   { key: "evidencias", label: "Evidências", icon: "📸" },
 ] as const;
 
-export function getVisibleFields(categoria: Categoria) {
+export function getVisibleFields(categoria: Categoria, tipoMovimento: "entrada" | "saida" = "entrada") {
+  const matrix = tipoMovimento === "saida" ? VISIBILITY_SAIDA : VISIBILITY;
   return FIELDS.filter((f) => {
-    const vis = VISIBILITY[f.key]?.[categoria];
+    const vis = matrix[f.key]?.[categoria];
     return vis && vis !== "oculto";
   }).map((f) => ({
     ...f,
-    required: VISIBILITY[f.key][categoria] === "obrigatorio",
+    required: matrix[f.key][categoria] === "obrigatorio",
   }));
 }
 
-export function getVisibleBlocks(categoria: Categoria) {
-  const visibleFields = getVisibleFields(categoria);
+export function getVisibleBlocks(categoria: Categoria, tipoMovimento: "entrada" | "saida" = "entrada") {
+  const visibleFields = getVisibleFields(categoria, tipoMovimento);
   return BLOCKS.filter((block) => visibleFields.some((f) => f.block === block.key));
 }
 
-export function getBlockFields(categoria: Categoria, blockKey: string) {
-  return getVisibleFields(categoria).filter((f) => f.block === blockKey);
+export function getBlockFields(categoria: Categoria, blockKey: string, tipoMovimento: "entrada" | "saida" = "entrada") {
+  return getVisibleFields(categoria, tipoMovimento).filter((f) => f.block === blockKey);
 }
 
-export function validateForm(categoria: Categoria, values: Record<string, any>): boolean {
-  const requiredFields = getVisibleFields(categoria).filter((f) => f.required);
+export function validateForm(categoria: Categoria, values: Record<string, any>, tipoMovimento: "entrada" | "saida" = "entrada"): boolean {
+  const requiredFields = getVisibleFields(categoria, tipoMovimento).filter((f) => f.required);
   return requiredFields.every((f) => {
     const val = values[f.key];
     if (f.type === "number") return val !== null && val !== undefined && val !== "";
     if (f.type === "photo") return !!val;
     return typeof val === "string" && val.trim().length > 0;
   });
+}
+
+/** Check if a category needs the full exit dialog (with fields) or just quick exit */
+export function needsExitDialog(categoria: Categoria): boolean {
+  return getVisibleFields(categoria, "saida").length > 0;
 }
