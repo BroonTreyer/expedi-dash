@@ -53,7 +53,7 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
   if (!movimento) return null;
 
   const handleSave = async () => {
-    const updates: Record<string, any> = { id: movimento.id };
+    const updates: Record<string, any> = {};
     EDITABLE_FIELDS.forEach((f) => {
       const val = values[f.key];
       if (f.type === "number") {
@@ -68,7 +68,7 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
       updates.km_rodado = Number(updates.km_final) - Number(updates.km_inicial);
     }
 
-    await updateMov.mutateAsync(updates);
+    await updateMov.mutateAsync({ id: movimento.id, ...updates });
     onOpenChange(false);
   };
 

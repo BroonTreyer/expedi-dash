@@ -4,12 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowDownToLine, ArrowUpFromLine, Eye, History } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowDownToLine, ArrowUpFromLine, Eye, History, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { CATEGORIAS } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
