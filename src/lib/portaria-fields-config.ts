@@ -60,11 +60,11 @@ export const FIELDS: FieldConfig[] = [
 
   // Bloco Operação
   { key: "foto_painel_url", label: "📷 Foto do Painel (KM)", type: "photo", block: "operacao" },
+  { key: "km_inicial", label: "KM Inicial", placeholder: "0", type: "number", block: "operacao" },
   { key: "rota", label: "Rota", placeholder: "Nome ou código da rota", type: "text", block: "operacao" },
   { key: "peso", label: "Peso (kg)", placeholder: "0", type: "number", block: "operacao" },
   { key: "qtd_entregas", label: "Qtd. de Entregas", placeholder: "0", type: "number", block: "operacao" },
   { key: "km_rota", label: "KM Rota", placeholder: "0", type: "number", block: "operacao" },
-  { key: "km_inicial", label: "KM Inicial", placeholder: "0", type: "number", block: "operacao" },
   { key: "km_final", label: "KM Final", placeholder: "0", type: "number", block: "operacao" },
   { key: "tipo_carga", label: "Tipo de Carga", placeholder: "Ex: Frio, Seco...", type: "text", block: "operacao" },
   { key: "nota_fiscal", label: "Nota Fiscal / Documento", placeholder: "Nº da NF", type: "text", block: "operacao" },
@@ -105,7 +105,7 @@ export const VISIBILITY: VisibilityMatrix = {
   peso:               { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   qtd_entregas:       { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   km_rota:            { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
-  km_inicial:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  km_inicial:         { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   km_final:           { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   tipo_carga:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   nota_fiscal:        { carga_propria: "oculto",      terceirizado: "opcional",    fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
