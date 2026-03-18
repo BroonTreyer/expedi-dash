@@ -1,21 +1,23 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History } from "lucide-react";
+import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Zap } from "lucide-react";
 import { useMovimentacoes, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
 import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimentoDialog";
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
+import { EntradaExpressForm } from "@/components/portaria/EntradaExpressForm";
 
 export default function Portaria() {
   const [date, setDate] = useState<Date>(new Date());
@@ -23,16 +25,25 @@ export default function Portaria() {
   const [search, setSearch] = useState("");
   const [categoriaFilter, setCategoriaFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("");
+  const [showExpress, setShowExpress] = useState(false);
 
   const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateStr);
 
-  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
-
-  // Details dialog
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Tab counts
+  const counts = useMemo(() => {
+    const saidasVinculadas = new Set(
+      movimentacoes
+        .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
+        .map((m) => m.movimento_vinculado_id!)
+    );
+    const patio = movimentacoes.filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id)).length;
+    return { patio, historico: movimentacoes.length };
+  }, [movimentacoes]);
 
   const openRegistro = (prefillData?: MovimentacaoPortaria) => {
     setPrefill(prefillData || null);
@@ -70,14 +81,20 @@ export default function Portaria() {
                 <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} locale={ptBR} />
               </PopoverContent>
             </Popover>
+            <Button variant="secondary" className="gap-2" onClick={() => setShowExpress(!showExpress)}>
+              <Zap className="h-4 w-4" /> Rápida
+            </Button>
             <Button className="gap-2" onClick={() => openRegistro()}>
               <Plus className="h-4 w-4" /> Registrar
             </Button>
           </div>
         </div>
 
+        {/* Entrada Express */}
+        {showExpress && <EntradaExpressForm onClose={() => setShowExpress(false)} />}
+
         {/* KPIs */}
-        <PortariaKpiCards movimentacoes={movimentacoes} />
+        <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} />
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
@@ -101,9 +118,15 @@ export default function Portaria() {
           <TabsList>
             <TabsTrigger value="patio" className="gap-1.5">
               <ParkingCircle className="h-4 w-4" /> Pátio Atual
+              {counts.patio > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">{counts.patio}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="historico" className="gap-1.5">
-              <History className="h-4 w-4" /> Histórico do Dia
+              <History className="h-4 w-4" /> Histórico
+              {counts.historico > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">{counts.historico}</Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -118,6 +141,7 @@ export default function Portaria() {
                   search={search}
                   categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
                   onRegistrarSaida={(entrada) => openRegistro(entrada)}
+                  isLoading={isLoading}
                 />
               </CardContent>
             </Card>
@@ -143,6 +167,7 @@ export default function Portaria() {
                   categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
                   tipoFilter={tipoFilter === "all" ? "" : tipoFilter}
                   onViewDetails={openDetails}
+                  isLoading={isLoading}
                 />
               </CardContent>
             </Card>
@@ -150,7 +175,6 @@ export default function Portaria() {
         </Tabs>
       </div>
 
-      {/* Dialogs */}
       <RegistroMovimentoDialog open={dialogOpen} onOpenChange={setDialogOpen} prefill={prefill} />
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} />
     </Layout>
