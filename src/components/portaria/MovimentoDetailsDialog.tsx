@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
@@ -74,10 +74,10 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📥 Documento (Entrada)" });
   if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel", label: "📥 Painel KM (Entrada)" });
   if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📥 Nota Fiscal (Entrada)" });
-  if (s?.foto_placa_url) allPhotos.push({ url: s.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Saída)", ocrText: s.texto_placa_lido, ocrConf: s.confianca_placa });
-  if (s?.foto_documento_url) allPhotos.push({ url: s.foto_documento_url, alt: "Documento", label: "📤 Documento (Saída)" });
-  if (s?.foto_painel_url) allPhotos.push({ url: s.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Saída)" });
-  if (s?.foto_nota_url) allPhotos.push({ url: s.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Saída)" });
+  if (s?.foto_placa_url) allPhotos.push({ url: s.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Retorno)", ocrText: s.texto_placa_lido, ocrConf: s.confianca_placa });
+  if (s?.foto_documento_url) allPhotos.push({ url: s.foto_documento_url, alt: "Documento", label: "📤 Documento (Retorno)" });
+  if (s?.foto_painel_url) allPhotos.push({ url: s.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Retorno)" });
+  if (s?.foto_nota_url) allPhotos.push({ url: s.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Retorno)" });
   
   const hasFotos = allPhotos.length > 0;
 
@@ -104,7 +104,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               )}
               {(s || m.tipo_movimento === "saida") && (
                 <Badge variant="secondary" className="gap-1">
-                  <ArrowUpFromLine className="h-3 w-3" /> Saída
+                  <ArrowUpFromLine className="h-3 w-3" /> Retorno
                 </Badge>
               )}
               <Badge variant="outline">{getCategoriaLabel(m.categoria)}</Badge>
@@ -121,16 +121,29 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 </div>
               )}
               {s && (
-                <div className="flex items-center gap-2">
-                  <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">Saída:</span>
-                  <strong>{format(new Date(s.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
-                </div>
+                <>
+                  <div className="flex items-center gap-2">
+                    <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Retorno:</span>
+                    <strong>{format(new Date(s.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
+                  </div>
+                  {m.tipo_movimento === "entrada" && (() => {
+                    const mins = differenceInMinutes(new Date(s.data_hora), new Date(m.data_hora));
+                    const h = Math.floor(mins / 60);
+                    const min = mins % 60;
+                    return (
+                      <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                        <span className="text-muted-foreground">⏱ Permanência:</span>
+                        <strong>{h > 0 ? `${h}h ${min}min` : `${min}min`}</strong>
+                      </div>
+                    );
+                  })()}
+                </>
               )}
               {!s && m.tipo_movimento === "saida" && (
                 <div className="flex items-center gap-2">
                   <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">Saída:</span>
+                  <span className="text-muted-foreground">Retorno:</span>
                   <strong>{format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
                 </div>
               )}
@@ -171,8 +184,10 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
             <div className="grid grid-cols-2 gap-3 text-sm">
               <DetailRow label="Placa" value={m.placa ? m.placa : "—"} />
               <DetailRow label="Motorista" value={m.motorista} />
+              <DetailRow label="Conferente" value={m.conferente || s?.conferente} />
               <DetailRow label="Empresa" value={m.empresa} />
               <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
+              <DetailRow label="Nº Lacre/Etiqueta" value={m.numero_lacre || s?.numero_lacre} />
               <DetailRow label="Carga" value={m.carga_id} />
             </div>
 
