@@ -198,12 +198,12 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
         <TableHeader>
           <TableRow>
             <TableHead>Hora</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Categoria</TableHead>
-            <TableHead>Placa</TableHead>
-            <TableHead>Motorista</TableHead>
-            <TableHead>Empresa</TableHead>
-            <TableHead>Setor</TableHead>
+            <TableHead className="text-center">Tipo</TableHead>
+            <TableHead className="text-center">Categoria</TableHead>
+            <TableHead className="text-center">Placa</TableHead>
+            <TableHead className="text-center">Motorista</TableHead>
+            <TableHead className="text-center">Empresa</TableHead>
+            <TableHead className="text-center">Setor</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
