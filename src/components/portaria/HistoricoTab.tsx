@@ -144,7 +144,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
         {grupos.map((g) => {
           const r = ref(g);
           return (
-            <Card key={r.id} className="cursor-pointer active:bg-muted/50" onClick={() => onViewDetails(g.principal)}>
+            <Card key={r.id} className="cursor-pointer active:bg-muted/50" onClick={() => onViewDetails(g.entrada, g.saida)}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{r.placa || "—"}</span>
