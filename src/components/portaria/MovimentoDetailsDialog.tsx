@@ -74,10 +74,10 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📥 Documento (Entrada)" });
   if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel", label: "📥 Painel KM (Entrada)" });
   if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📥 Nota Fiscal (Entrada)" });
-  if (s?.foto_placa_url) allPhotos.push({ url: s.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Saída)", ocrText: s.texto_placa_lido, ocrConf: s.confianca_placa });
-  if (s?.foto_documento_url) allPhotos.push({ url: s.foto_documento_url, alt: "Documento", label: "📤 Documento (Saída)" });
-  if (s?.foto_painel_url) allPhotos.push({ url: s.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Saída)" });
-  if (s?.foto_nota_url) allPhotos.push({ url: s.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Saída)" });
+  if (s?.foto_placa_url) allPhotos.push({ url: s.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Retorno)", ocrText: s.texto_placa_lido, ocrConf: s.confianca_placa });
+  if (s?.foto_documento_url) allPhotos.push({ url: s.foto_documento_url, alt: "Documento", label: "📤 Documento (Retorno)" });
+  if (s?.foto_painel_url) allPhotos.push({ url: s.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Retorno)" });
+  if (s?.foto_nota_url) allPhotos.push({ url: s.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Retorno)" });
   
   const hasFotos = allPhotos.length > 0;
 
