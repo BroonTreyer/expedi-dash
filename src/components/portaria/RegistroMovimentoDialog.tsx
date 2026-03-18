@@ -34,7 +34,6 @@ const INITIAL_STATE = {
   motorista: "",
   empresa: "",
   destinoSetor: "",
-  motivo: "",
   cargaId: "",
   observacoes: "",
   fotoPlacaPreview: null as string | null,
@@ -67,7 +66,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         motorista: prefill.motorista || "",
         empresa: prefill.empresa || "",
         destinoSetor: prefill.destino_setor || "",
-        motivo: prefill.motivo || "",
         cargaId: prefill.carga_id || "",
         observacoes: "",
         placaConfirmada: prefill.placa || "",
@@ -111,7 +109,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
     }
   };
 
-  const canSave = state.placa.trim().length >= 3 && !state.ocrLoading;
+  const canSave = state.placa.trim().length >= 3 && !state.ocrLoading && !!state.fotoPlacaPreview && !!state.fotoDocPreview;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -124,7 +122,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         motorista: state.motorista.trim() || null,
         empresa: state.empresa.trim() || null,
         destino_setor: state.destinoSetor || null,
-        motivo: state.motivo.trim() || null,
+        motivo: null,
         carga_id: state.cargaId.trim() || null,
         foto_placa_url: state.fotoPlacaPreview || null,
         texto_placa_lido: state.textoPlacaLido || null,
@@ -212,7 +210,30 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
             disabled={saving || !!prefill}
           />
 
-          {/* Step 2: Detalhes opcionais (colapsível) */}
+          {/* Fotos obrigatórias */}
+          <CapturaFoto label="📷 Foto da Placa" onCapture={handleFotoPlaca} previewUrl={state.fotoPlacaPreview} disabled={saving} />
+          {!state.fotoPlacaPreview && <p className="text-xs text-destructive">* Foto da placa é obrigatória</p>}
+          {(state.ocrLoading || state.textoPlacaLido !== null) && (
+            <OcrResultado
+              label="Leitura da Placa"
+              textoLido={state.textoPlacaLido}
+              confianca={state.confiancaPlaca}
+              valorConfirmado={state.placaConfirmada}
+              onChange={(v) => setState((s) => ({ ...s, placaConfirmada: v, placa: v }))}
+              loading={state.ocrLoading}
+              disabled={saving}
+            />
+          )}
+
+          <CapturaFoto label="📷 Foto de Documento/NF" onCapture={handleFotoDoc} previewUrl={state.fotoDocPreview} disabled={saving} />
+          {!state.fotoDocPreview && <p className="text-xs text-destructive">* Foto do documento é obrigatória</p>}
+
+          <div className="space-y-1.5">
+            <Label>Ordem de Carga</Label>
+            <Input value={state.cargaId} onChange={(e) => set("cargaId", e.target.value)} placeholder="Nº da ordem de carga" disabled={saving} />
+          </div>
+
+          {/* Detalhes opcionais (colapsível) */}
           <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="w-full justify-between text-sm text-muted-foreground hover:text-foreground gap-2 h-8 px-2">
@@ -242,33 +263,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-1.5">
-                <Label>Motivo</Label>
-                <Input value={state.motivo} onChange={(e) => set("motivo", e.target.value)} placeholder="Motivo da entrada/saída" disabled={saving} />
-              </div>
-
-              {state.categoria === "carga_propria" && (
-                <div className="space-y-1.5">
-                  <Label>Carga Vinculada (opcional)</Label>
-                  <Input value={state.cargaId} onChange={(e) => set("cargaId", e.target.value)} placeholder="ID da carga" disabled={saving} />
-                </div>
-              )}
-
-              <CapturaFoto label="📷 Foto da Placa (opcional)" onCapture={handleFotoPlaca} previewUrl={state.fotoPlacaPreview} disabled={saving} />
-              {(state.ocrLoading || state.textoPlacaLido !== null) && (
-                <OcrResultado
-                  label="Leitura da Placa"
-                  textoLido={state.textoPlacaLido}
-                  confianca={state.confiancaPlaca}
-                  valorConfirmado={state.placaConfirmada}
-                  onChange={(v) => setState((s) => ({ ...s, placaConfirmada: v, placa: v }))}
-                  loading={state.ocrLoading}
-                  disabled={saving}
-                />
-              )}
-
-              <CapturaFoto label="📷 Foto de Documento/NF (opcional)" onCapture={handleFotoDoc} previewUrl={state.fotoDocPreview} disabled={saving} />
 
               <div className="space-y-1.5">
                 <Label>Observações</Label>
