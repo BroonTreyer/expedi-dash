@@ -17,17 +17,20 @@ import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
 import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimentoDialog";
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
+import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 
 export default function Portaria() {
-  const [date, setDate] = useState<Date>(new Date());
-  const dateStr = format(date, "yyyy-MM-dd");
+  const today = new Date();
+  const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
+  const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : format(today, "yyyy-MM-dd");
+  const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [search, setSearch] = useState("");
   const [categoriaFilter, setCategoriaFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("");
-  
 
-  const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateStr);
+  const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
