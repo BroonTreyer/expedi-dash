@@ -210,7 +210,30 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
             disabled={saving || !!prefill}
           />
 
-          {/* Step 2: Detalhes opcionais (colapsível) */}
+          {/* Fotos obrigatórias */}
+          <CapturaFoto label="📷 Foto da Placa" onCapture={handleFotoPlaca} previewUrl={state.fotoPlacaPreview} disabled={saving} />
+          {!state.fotoPlacaPreview && <p className="text-xs text-destructive">* Foto da placa é obrigatória</p>}
+          {(state.ocrLoading || state.textoPlacaLido !== null) && (
+            <OcrResultado
+              label="Leitura da Placa"
+              textoLido={state.textoPlacaLido}
+              confianca={state.confiancaPlaca}
+              valorConfirmado={state.placaConfirmada}
+              onChange={(v) => setState((s) => ({ ...s, placaConfirmada: v, placa: v }))}
+              loading={state.ocrLoading}
+              disabled={saving}
+            />
+          )}
+
+          <CapturaFoto label="📷 Foto de Documento/NF" onCapture={handleFotoDoc} previewUrl={state.fotoDocPreview} disabled={saving} />
+          {!state.fotoDocPreview && <p className="text-xs text-destructive">* Foto do documento é obrigatória</p>}
+
+          <div className="space-y-1.5">
+            <Label>Ordem de Carga</Label>
+            <Input value={state.cargaId} onChange={(e) => set("cargaId", e.target.value)} placeholder="Nº da ordem de carga" disabled={saving} />
+          </div>
+
+          {/* Detalhes opcionais (colapsível) */}
           <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="w-full justify-between text-sm text-muted-foreground hover:text-foreground gap-2 h-8 px-2">
@@ -240,33 +263,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-1.5">
-                <Label>Motivo</Label>
-                <Input value={state.motivo} onChange={(e) => set("motivo", e.target.value)} placeholder="Motivo da entrada/saída" disabled={saving} />
-              </div>
-
-              {state.categoria === "carga_propria" && (
-                <div className="space-y-1.5">
-                  <Label>Carga Vinculada (opcional)</Label>
-                  <Input value={state.cargaId} onChange={(e) => set("cargaId", e.target.value)} placeholder="ID da carga" disabled={saving} />
-                </div>
-              )}
-
-              <CapturaFoto label="📷 Foto da Placa (opcional)" onCapture={handleFotoPlaca} previewUrl={state.fotoPlacaPreview} disabled={saving} />
-              {(state.ocrLoading || state.textoPlacaLido !== null) && (
-                <OcrResultado
-                  label="Leitura da Placa"
-                  textoLido={state.textoPlacaLido}
-                  confianca={state.confiancaPlaca}
-                  valorConfirmado={state.placaConfirmada}
-                  onChange={(v) => setState((s) => ({ ...s, placaConfirmada: v, placa: v }))}
-                  loading={state.ocrLoading}
-                  disabled={saving}
-                />
-              )}
-
-              <CapturaFoto label="📷 Foto de Documento/NF (opcional)" onCapture={handleFotoDoc} previewUrl={state.fotoDocPreview} disabled={saving} />
 
               <div className="space-y-1.5">
                 <Label>Observações</Label>
