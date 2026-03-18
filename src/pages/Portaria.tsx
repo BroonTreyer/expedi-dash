@@ -17,7 +17,7 @@ import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
 import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimentoDialog";
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
-import { EntradaExpressForm } from "@/components/portaria/EntradaExpressForm";
+
 
 export default function Portaria() {
   const [date, setDate] = useState<Date>(new Date());
