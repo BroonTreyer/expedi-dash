@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import { Layout } from "@/components/Layout";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { Filters } from "@/components/dashboard/Filters";
@@ -38,12 +40,13 @@ export default function Index() {
   const canEdit = isAdmin || isFaturamento;
 
   const [view, setView] = useState<"table" | "kanban">("table");
+  const today = new Date();
   const [filters, setFilters] = useState({
     status: "todos",
     vendedor: [] as string[],
     tipoCaminhao: "todos",
     busca: "",
-    data: getToday(),
+    dateRange: { from: today, to: today } as DateRange,
     etapa: "todos",
     ruptura: "todos",
     cliente: [] as string[],
@@ -60,7 +63,9 @@ export default function Index() {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [adicionarCargaOpen, setAdicionarCargaOpen] = useState(false);
 
-  const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
+  const dateFromStr = filters.dateRange.from ? format(filters.dateRange.from, "yyyy-MM-dd") : getToday();
+  const dateToStr = filters.dateRange.to ? format(filters.dateRange.to, "yyyy-MM-dd") : dateFromStr;
+  const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
@@ -305,7 +310,7 @@ export default function Index() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(`/consolidado?data=${filters.data}`)}
+                onClick={() => navigate(`/consolidado`)}
                 className="gap-1 text-xs sm:text-sm"
               >
                 <PackageCheck className="h-4 w-4" />
@@ -359,7 +364,7 @@ export default function Index() {
         ) : view === "table" ? (
           <CarregamentoTable
             data={filtered}
-            currentDate={filters.data}
+            currentDate={dateFromStr}
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
@@ -385,7 +390,7 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
           clientes={clientes}
-          selectedDate={filters.data}
+          selectedDate={dateFromStr}
         />
 
         <FechamentoLoteDialog
@@ -395,7 +400,7 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           onSubmit={handleLoteSubmit}
           onPrintReady={handlePrintReady}
-          selectedDate={filters.data}
+          selectedDate={dateFromStr}
         />
 
         <CargaPrintDialog

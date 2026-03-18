@@ -1,4 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/Layout";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -11,13 +13,17 @@ import { useProdutos } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Weight, Package, Plus, Printer } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { AlertTriangle, Weight, Package, Plus, Printer, CalendarIcon } from "lucide-react";
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -30,11 +36,14 @@ export default function Rupturas() {
   const isFaturamento = role === "faturamento";
   const canEdit = isAdmin || isFaturamento;
 
-  const [date, setDate] = useState(getToday);
+  const today = new Date();
+  const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
+  const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
+  const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [vendedorFilter, setVendedorFilter] = useState("todos");
   const [busca, setBusca] = useState("");
 
-  const { data: carregamentos = [], isLoading } = useCarregamentos(date);
+  const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
@@ -86,7 +95,7 @@ export default function Rupturas() {
   const printData = useMemo<RupturasPrintData | null>(() => {
     if (rupturas.length === 0) return null;
     return {
-      data: date,
+      data: dateFromStr === dateToStr ? dateFromStr : `${dateFromStr} a ${dateToStr}`,
       totalRupturas: rupturas.length,
       totalPeso: totalPeso,
       productSummary,
@@ -100,7 +109,7 @@ export default function Rupturas() {
         peso: c.peso,
       })),
     };
-  }, [rupturas, date, totalPeso, productSummary]);
+  }, [rupturas, dateFromStr, dateToStr, totalPeso, productSummary]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica) return;
@@ -227,7 +236,28 @@ export default function Rupturas() {
 
         {/* Filtros */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("h-9 text-sm justify-start gap-2", !dateRange.from && "text-muted-foreground")}>
+                <CalendarIcon className="h-4 w-4" />
+                {dateRange.from ? (
+                  dateRange.to && dateRange.from.getTime() !== dateRange.to.getTime() ? (
+                    <>{format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} – {format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}</>
+                  ) : (
+                    format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                  )
+                ) : (
+                  "Selecionar datas"
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="range" selected={dateRange} onSelect={(range) => { if (range) setDateRange(range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
+              <div className="p-2 border-t flex justify-end">
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDateRange({ from: today, to: today })}>Hoje</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Select value={vendedorFilter} onValueChange={setVendedorFilter}>
             <SelectTrigger><SelectValue placeholder="Vendedor" /></SelectTrigger>
             <SelectContent>
@@ -274,7 +304,7 @@ export default function Rupturas() {
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
           clientes={clientes}
-          selectedDate={date}
+          selectedDate={dateFromStr}
           defaultRuptura
         />
 

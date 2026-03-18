@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { ConsolidadoPrintDialog, type ConsolidadoPrintData } from "@/components/dashboard/ConsolidadoPrintDialog";
@@ -32,9 +33,10 @@ function getInitialDate() {
   return params.get("data") || getToday();
 }
 
-function useConsolidado(date: string) {
+function useConsolidado(dateFrom: string, dateTo?: string) {
+  const dateEnd = dateTo || dateFrom;
   return useQuery({
-    queryKey: ["consolidado", date],
+    queryKey: ["consolidado", dateFrom, dateEnd],
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
       let q = supabase
@@ -42,10 +44,13 @@ function useConsolidado(date: string) {
         .select("*, vendedores(nome_vendedor)")
         .not("carga_id", "is", null);
 
-      if (date === todayStr) {
-        q = q.or(`data.eq.${date},and(data.lt.${date},status.neq.Carregado)`);
+      const isSingleDay = dateFrom === dateEnd;
+      if (isSingleDay && dateFrom === todayStr) {
+        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},status.neq.Carregado)`);
+      } else if (isSingleDay) {
+        q = q.eq("data", dateFrom);
       } else {
-        q = q.eq("data", date);
+        q = q.gte("data", dateFrom).lte("data", dateEnd);
       }
 
       const { data, error } = await q.order("carga_id", { ascending: true });
@@ -103,7 +108,10 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
 }
 
 export default function Consolidado() {
-  const [date, setDate] = useState(getInitialDate);
+  const today = new Date();
+  const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
+  const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
+  const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [filterUf, setFilterUf] = useState("todos");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -112,7 +120,7 @@ export default function Consolidado() {
   const isMobile = useIsMobile();
 
   const queryClient = useQueryClient();
-  const { data: rawData, isLoading } = useConsolidado(date);
+  const { data: rawData, isLoading } = useConsolidado(dateFromStr, dateToStr);
 
   const updateStatusMut = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
@@ -123,7 +131,7 @@ export default function Consolidado() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["consolidado", date] });
+      queryClient.invalidateQueries({ queryKey: ["consolidado", dateFromStr, dateToStr] });
       queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
       toast.success("Status atualizado");
     },
@@ -205,7 +213,7 @@ export default function Consolidado() {
   const printData = useMemo<ConsolidadoPrintData | null>(() => {
     if (groups.length === 0) return null;
     return {
-      data: date,
+      data: dateFromStr === dateToStr ? dateFromStr : `${dateFromStr} a ${dateToStr}`,
       groups: groups.map((g) => ({
         cargaId: g.cargaId,
         tipoCaminhao: g.tipoCaminhao,
@@ -222,7 +230,7 @@ export default function Consolidado() {
       totalPeso: pesoTotal,
       totalPedidos,
     };
-  }, [groups, date, totalVeiculos, pesoTotal, totalPedidos]);
+  }, [groups, dateFromStr, dateToStr, totalVeiculos, pesoTotal, totalPedidos]);
 
   const ufOptions = useMemo(() => {
     if (!rawData) return [];
@@ -238,8 +246,6 @@ export default function Consolidado() {
       return next;
     });
   };
-
-  const dateObj = new Date(date + "T12:00:00");
 
   const kpis = [
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
@@ -263,13 +269,24 @@ export default function Consolidado() {
         <div className="flex flex-wrap items-end gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-9 text-xs sm:text-sm justify-start gap-2 min-w-[140px]">
+              <Button variant="outline" className={cn("h-9 text-xs sm:text-sm justify-start gap-2 min-w-[140px]", !dateRange.from && "text-muted-foreground")}>
                 <CalendarIcon className="h-4 w-4" />
-                {format(dateObj, "dd/MM/yyyy")}
+                {dateRange.from ? (
+                  dateRange.to && dateRange.from.getTime() !== dateRange.to.getTime() ? (
+                    <>{format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} – {format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}</>
+                  ) : (
+                    format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                  )
+                ) : (
+                  "Selecionar datas"
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={dateObj} onSelect={(d) => d && setDate(format(d, "yyyy-MM-dd"))} locale={ptBR} className={cn("p-3 pointer-events-auto")} />
+              <Calendar mode="range" selected={dateRange} onSelect={(range) => { if (range) setDateRange(range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
+              <div className="p-2 border-t flex justify-end">
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDateRange({ from: today, to: today })}>Hoje</Button>
+              </div>
             </PopoverContent>
           </Popover>
 
