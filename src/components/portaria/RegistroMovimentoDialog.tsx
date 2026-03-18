@@ -42,6 +42,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
   const [ocrLoading, setOcrLoading] = useState(false);
   const [textoPlacaLido, setTextoPlacaLido] = useState<string | null>(null);
   const [confiancaPlaca, setConfiancaPlaca] = useState<number | null>(null);
+  const [ocrPainelLoading, setOcrPainelLoading] = useState(false);
+  const [textoPainelLido, setTextoPainelLido] = useState<string | null>(null);
+  const [confiancaPainel, setConfiancaPainel] = useState<number | null>(null);
 
   const set = useCallback((key: string, val: any) => {
     setValues((prev) => ({ ...prev, [key]: val }));
