@@ -393,6 +393,7 @@ export default function Consolidado() {
                       {isOpen && g.items.map((item) => (
                         <TableRow key={item.id} className="bg-muted/20">
                           <TableCell />
+                          <TableCell />
                           <TableCell className="text-xs text-muted-foreground" colSpan={2}>
                             Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
                           </TableCell>
