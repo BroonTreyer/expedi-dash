@@ -22,23 +22,21 @@ const ROLE_TIMEOUT_MS = 5000;
 const SESSION_TIMEOUT_MS = 6000;
 
 async function fetchRoleWithTimeout(userId: string): Promise<AppRole> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ROLE_TIMEOUT_MS);
-
   try {
-    const { data } = await supabase
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), ROLE_TIMEOUT_MS)
+    );
+    const query = supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .maybeSingle()
-      .abortSignal(controller.signal);
+      .maybeSingle();
 
+    const { data } = await Promise.race([query, timeout]);
     return (data?.role as AppRole) ?? "logistica";
   } catch {
     console.warn("[Auth] Role fetch failed/timed out, using fallback");
     return "logistica";
-  } finally {
-    clearTimeout(timer);
   }
 }
 
