@@ -10,7 +10,7 @@ import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { AppRole } from "@/hooks/useAuth";
@@ -34,26 +34,6 @@ interface Props {
   selectable?: boolean;
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
-}
-
-function PreviousDayBadge({ itemDate, currentDate }: { itemDate: string; currentDate?: string }) {
-  if (!currentDate || itemDate === currentDate) return null;
-  const diff = Math.round((new Date(currentDate).getTime() - new Date(itemDate).getTime()) / 86400000);
-  if (diff <= 0) return null;
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30">
-            D-{diff}
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent>
-          <span>Pedido de {new Date(itemDate + "T12:00:00").toLocaleDateString("pt-BR")}</span>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
 }
 
 interface Group {
@@ -429,7 +409,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <EtapaBadge etapa={c.etapa} />
-                          <PreviousDayBadge itemDate={c.data} currentDate={currentDate} />
+                          
                           {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                         </div>
                       </TableCell>
