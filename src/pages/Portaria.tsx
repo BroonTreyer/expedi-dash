@@ -50,8 +50,9 @@ export default function Portaria() {
     setDialogOpen(true);
   };
 
-  const openDetails = (mov: MovimentacaoPortaria) => {
-    setDetailsMov(mov);
+  const openDetails = (entrada?: MovimentacaoPortaria, saida?: MovimentacaoPortaria) => {
+    setDetailsMov(entrada || saida || null);
+    setDetailsSaida(saida || null);
     setDetailsOpen(true);
   };
 
