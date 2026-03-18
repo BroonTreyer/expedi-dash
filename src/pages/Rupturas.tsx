@@ -304,7 +304,7 @@ export default function Rupturas() {
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
           clientes={clientes}
-          selectedDate={date}
+          selectedDate={dateFromStr}
           defaultRuptura
         />
 
