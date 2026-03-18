@@ -174,6 +174,7 @@ export default function Consolidado() {
   const rawGroups = useMemo(() => groupByCarga(filtered), [filtered]);
 
   const consolidadoAccessors: Record<string, (g: CargaGroup) => any> = useMemo(() => ({
+    data: (g) => g.data,
     status: (g) => g.status,
     tipoCaminhao: (g) => g.tipoCaminhao ?? "",
     placa: (g) => g.placa ?? "",
