@@ -179,31 +179,49 @@ export default function Rupturas() {
         {/* Product breakdown */}
         {productSummary.length > 0 && (
           <div className="rounded-lg border border-amber-200 dark:border-amber-800 overflow-hidden">
-            <div className="bg-amber-50/50 dark:bg-amber-950/30 px-4 py-2">
-              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Resumo por Produto</p>
+            <div className="bg-amber-50/50 dark:bg-amber-950/30 px-3 sm:px-4 py-2">
+              <p className="text-xs sm:text-sm font-semibold text-amber-700 dark:text-amber-400">Resumo por Produto</p>
             </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="text-xs">Código</TableHead>
-                    <TableHead className="text-xs">Produto</TableHead>
-                    <TableHead className="text-xs text-right">Qtd Rupturas</TableHead>
-                    <TableHead className="text-xs text-right">Peso Total (kg)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {productSummary.map((p) => (
-                    <TableRow key={p.codigo}>
-                      <TableCell className="text-xs font-mono">{p.codigo}</TableCell>
-                      <TableCell className="text-xs">{p.nome}</TableCell>
-                      <TableCell className="text-xs text-right font-medium">{p.count}</TableCell>
-                      <TableCell className="text-xs text-right font-medium">{p.peso.toLocaleString("pt-BR")}</TableCell>
+            {isMobile ? (
+              <div className="divide-y divide-border/50">
+                {productSummary.map((p) => (
+                  <div key={p.codigo} className="px-3 py-2 flex items-center justify-between text-xs">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-mono text-muted-foreground">{p.codigo}</span>
+                      <span className="mx-1">—</span>
+                      <span className="truncate">{p.nome}</span>
+                    </div>
+                    <div className="flex gap-3 shrink-0 ml-2 font-medium">
+                      <span>{p.count}x</span>
+                      <span>{p.peso.toLocaleString("pt-BR")} kg</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-xs">Código</TableHead>
+                      <TableHead className="text-xs">Produto</TableHead>
+                      <TableHead className="text-xs text-right">Qtd Rupturas</TableHead>
+                      <TableHead className="text-xs text-right">Peso Total (kg)</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {productSummary.map((p) => (
+                      <TableRow key={p.codigo}>
+                        <TableCell className="text-xs font-mono">{p.codigo}</TableCell>
+                        <TableCell className="text-xs">{p.nome}</TableCell>
+                        <TableCell className="text-xs text-right font-medium">{p.count}</TableCell>
+                        <TableCell className="text-xs text-right font-medium">{p.peso.toLocaleString("pt-BR")}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
         )}
 
