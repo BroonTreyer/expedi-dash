@@ -54,19 +54,10 @@ const DEFAULT_FILTERS = {
   uf: "todos",
 };
 
-function adjustDate(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T12:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
-}
-
-function isToday(dateStr: string): boolean {
-  return dateStr === new Date().toISOString().split("T")[0];
-}
-
 export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes = [], userRole, carregamentos = [] }: Props) {
   const set = (key: string, value: any) => onChange({ ...filters, [key]: value });
   const isLogistica = userRole === "logistica";
+  const today = new Date();
 
   // Count active filters (excluding data which is always set)
   const activeFilterCount = useMemo(() => {
