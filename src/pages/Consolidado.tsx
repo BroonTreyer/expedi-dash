@@ -131,7 +131,7 @@ export default function Consolidado() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["consolidado", date] });
+      queryClient.invalidateQueries({ queryKey: ["consolidado", dateFromStr, dateToStr] });
       queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
       toast.success("Status atualizado");
     },
