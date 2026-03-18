@@ -95,7 +95,7 @@ export default function Rupturas() {
   const printData = useMemo<RupturasPrintData | null>(() => {
     if (rupturas.length === 0) return null;
     return {
-      data: date,
+      data: dateFromStr === dateToStr ? dateFromStr : `${dateFromStr} a ${dateToStr}`,
       totalRupturas: rupturas.length,
       totalPeso: totalPeso,
       productSummary,
