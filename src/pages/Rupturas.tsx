@@ -109,7 +109,7 @@ export default function Rupturas() {
         peso: c.peso,
       })),
     };
-  }, [rupturas, date, totalPeso, productSummary]);
+  }, [rupturas, dateFromStr, dateToStr, totalPeso, productSummary]);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     if (!isAdmin && !isLogistica) return;
