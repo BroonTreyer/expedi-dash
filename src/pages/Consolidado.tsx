@@ -213,7 +213,7 @@ export default function Consolidado() {
   const printData = useMemo<ConsolidadoPrintData | null>(() => {
     if (groups.length === 0) return null;
     return {
-      data: date,
+      data: dateFromStr === dateToStr ? dateFromStr : `${dateFromStr} a ${dateToStr}`,
       groups: groups.map((g) => ({
         cargaId: g.cargaId,
         tipoCaminhao: g.tipoCaminhao,
