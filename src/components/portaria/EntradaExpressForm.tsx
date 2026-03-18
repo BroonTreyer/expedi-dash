@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlacaInput } from "./PlacaInput";
-import { useCreateMovimentacao, CATEGORIAS } from "@/hooks/useMovimentacoesPortaria";
+import { useCreateMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS_PORTARIA } from "@/lib/portaria-fields-config";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Zap, X } from "lucide-react";
 

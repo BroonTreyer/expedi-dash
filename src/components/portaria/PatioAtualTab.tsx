@@ -22,6 +22,7 @@ interface Props {
 
 const categoriaBadgeColor: Record<string, string> = {
   carga_propria: "bg-primary/10 text-primary border-primary/20",
+  terceirizado: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
   fornecedor: "bg-accent/10 text-accent border-accent/20",
   visitante: "bg-secondary text-secondary-foreground",
   prestador: "bg-muted text-muted-foreground",

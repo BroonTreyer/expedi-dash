@@ -23,10 +23,39 @@ export interface MovimentacaoPortaria {
   data_hora: string;
   movimento_vinculado_id: string | null;
   created_at: string;
+  // New fields
+  tipo_operacao: string | null;
+  documento: string | null;
+  nome_completo: string | null;
+  rota: string | null;
+  peso: number | null;
+  qtd_entregas: number | null;
+  km_rota: number | null;
+  km_inicial: number | null;
+  km_final: number | null;
+  km_rodado: number | null;
+  horario_previsto_saida: string | null;
+  horario_real_saida: string | null;
+  horario_real_retorno: string | null;
+  apelido: string | null;
+  conferente: string | null;
+  ocorrencia: string | null;
+  nota_fiscal: string | null;
+  servico_executar: string | null;
+  responsavel_interno: string | null;
+  pessoa_visitada: string | null;
+  motivo_visita: string | null;
+  telefone: string | null;
+  descricao: string | null;
+  tipo_carga: string | null;
+  doca_setor: string | null;
+  foto_painel_url: string | null;
+  foto_nota_url: string | null;
 }
 
 export const CATEGORIAS = [
   { value: "carga_propria", label: "Carga Própria" },
+  { value: "terceirizado", label: "Terceirizado" },
   { value: "fornecedor", label: "Fornecedor" },
   { value: "visitante", label: "Visitante" },
   { value: "prestador", label: "Prestador" },
@@ -81,7 +110,7 @@ export function useMovimentacoes(dateStr: string) {
 export function useCreateMovimentacao() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (mov: Omit<MovimentacaoPortaria, "id" | "created_at" | "data_hora">) => {
+    mutationFn: async (mov: Record<string, any>) => {
       const { data, error } = await supabase
         .from("movimentacoes_portaria")
         .insert(mov as any)
