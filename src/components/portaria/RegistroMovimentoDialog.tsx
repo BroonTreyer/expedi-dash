@@ -156,6 +156,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         telefone: values.telefone?.trim() || null,
         descricao: values.descricao?.trim() || null,
         tipo_carga: values.tipo_carga?.trim() || null,
+        numero_lacre: values.numero_lacre?.trim() || null,
         doca_setor: values.doca_setor?.trim() || null,
         foto_painel_url: values.foto_painel_url || null,
         foto_nota_url: values.foto_nota_url || null,
