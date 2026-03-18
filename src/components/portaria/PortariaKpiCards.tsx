@@ -6,7 +6,7 @@ interface Props {
   movimentacoes: MovimentacaoPortaria[];
 }
 
-export function PortariaKpiCards({ movimentacoes }: Props) {
+export function PortariaKpiCards({ movimentacoes = [] }: Props) {
   const entradas = movimentacoes.filter((m) => m.tipo_movimento === "entrada").length;
   const saidas = movimentacoes.filter((m) => m.tipo_movimento === "saida").length;
 
