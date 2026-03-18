@@ -172,7 +172,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <div className="flex justify-end pt-1">
                   {m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
+                       <ArrowUpFromLine className="h-3 w-3" /> Retorno c/ KM
                     </Button>
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
