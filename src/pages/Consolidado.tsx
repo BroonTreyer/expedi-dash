@@ -230,7 +230,7 @@ export default function Consolidado() {
       totalPeso: pesoTotal,
       totalPedidos,
     };
-  }, [groups, date, totalVeiculos, pesoTotal, totalPedidos]);
+  }, [groups, dateFromStr, dateToStr, totalVeiculos, pesoTotal, totalPedidos]);
 
   const ufOptions = useMemo(() => {
     if (!rawData) return [];
