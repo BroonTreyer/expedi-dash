@@ -53,6 +53,7 @@ export const FIELDS: FieldConfig[] = [
   { key: "descricao", label: "Descrição / Justificativa", placeholder: "Descreva o motivo do registro", type: "textarea", block: "identificacao" },
 
   // Bloco Veículo
+  { key: "foto_placa_url", label: "📷 Foto da Placa", type: "photo", block: "veiculo" },
   { key: "placa", label: "Placa", placeholder: "ABC1D23", type: "text", block: "veiculo" },
   { key: "motorista", label: "Motorista", placeholder: "Nome do motorista", type: "text", block: "veiculo" },
   { key: "apelido", label: "Apelido do Veículo", placeholder: "Ex: Truck Azul", type: "text", block: "veiculo" },
