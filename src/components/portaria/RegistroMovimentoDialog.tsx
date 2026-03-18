@@ -34,7 +34,6 @@ const INITIAL_STATE = {
   motorista: "",
   empresa: "",
   destinoSetor: "",
-  motivo: "",
   cargaId: "",
   observacoes: "",
   fotoPlacaPreview: null as string | null,
