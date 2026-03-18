@@ -107,14 +107,15 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         }
       }
 
-      // OCR for painel KM photo
+      // OCR for painel KM photo — populate km_inicial on entry, km_final on exit
       if (fieldKey === "foto_painel_url") {
         setOcrPainelLoading(true);
         try {
           const result = await processarOCR(publicUrl, "km");
           setTextoPainelLido(result.texto);
           setConfiancaPainel(result.confianca);
-          set("km_inicial", result.texto);
+          const kmField = tipo === "saida" ? "km_final" : "km_inicial";
+          set(kmField, result.texto);
         } catch (e: any) {
           toast.error("Erro no OCR do painel: " + e.message);
         } finally {
