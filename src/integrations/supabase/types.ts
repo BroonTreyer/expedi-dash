@@ -159,6 +159,80 @@ export type Database = {
         }
         Relationships: []
       }
+      movimentacoes_portaria: {
+        Row: {
+          carga_id: string | null
+          categoria: string
+          confianca_placa: number | null
+          created_at: string
+          data_hora: string
+          destino_setor: string | null
+          empresa: string | null
+          foto_documento_url: string | null
+          foto_placa_url: string | null
+          id: string
+          motivo: string | null
+          motorista: string | null
+          movimento_vinculado_id: string | null
+          observacoes: string | null
+          placa: string | null
+          placa_confirmada: string | null
+          texto_placa_lido: string | null
+          tipo_movimento: string
+          usuario_id: string | null
+        }
+        Insert: {
+          carga_id?: string | null
+          categoria?: string
+          confianca_placa?: number | null
+          created_at?: string
+          data_hora?: string
+          destino_setor?: string | null
+          empresa?: string | null
+          foto_documento_url?: string | null
+          foto_placa_url?: string | null
+          id?: string
+          motivo?: string | null
+          motorista?: string | null
+          movimento_vinculado_id?: string | null
+          observacoes?: string | null
+          placa?: string | null
+          placa_confirmada?: string | null
+          texto_placa_lido?: string | null
+          tipo_movimento: string
+          usuario_id?: string | null
+        }
+        Update: {
+          carga_id?: string | null
+          categoria?: string
+          confianca_placa?: number | null
+          created_at?: string
+          data_hora?: string
+          destino_setor?: string | null
+          empresa?: string | null
+          foto_documento_url?: string | null
+          foto_placa_url?: string | null
+          id?: string
+          motivo?: string | null
+          motorista?: string | null
+          movimento_vinculado_id?: string | null
+          observacoes?: string | null
+          placa?: string | null
+          placa_confirmada?: string | null
+          texto_placa_lido?: string | null
+          tipo_movimento?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_portaria_movimento_vinculado_id_fkey"
+            columns: ["movimento_vinculado_id"]
+            isOneToOne: false
+            referencedRelation: "movimentacoes_portaria"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       produtos: {
         Row: {
           ativo: boolean
