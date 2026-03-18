@@ -79,9 +79,7 @@ export const FIELDS: FieldConfig[] = [
   { key: "observacoes", label: "Observações", placeholder: "Observações adicionais...", type: "textarea", block: "controle" },
 
   // Bloco Evidências
-  { key: "foto_placa_url", label: "📷 Foto da Placa", type: "photo", block: "evidencias" },
   { key: "foto_documento_url", label: "📷 Foto de Documento", type: "photo", block: "evidencias" },
-  { key: "foto_painel_url", label: "📷 Foto do Painel (KM)", type: "photo", block: "evidencias" },
   { key: "foto_nota_url", label: "📷 Foto da Nota Fiscal", type: "photo", block: "evidencias" },
 ];
 
