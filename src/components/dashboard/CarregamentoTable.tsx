@@ -365,7 +365,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               )}
               <TableHead className="w-[32px]"></TableHead>
               {!hideColumns.includes("etapa") && <SortableTableHead sort={sort} sortKey="etapa" onSort={toggleSort} className="w-[120px]">Etapa</SortableTableHead>}
-              <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="w-[160px]">Status</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="w-[160px] text-center">Status</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="vendedor" onSort={toggleSort}>Vendedor</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Cód. Produto</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Produto</SortableTableHead>
@@ -414,7 +414,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         </div>
                       </TableCell>
                     )}
-                    <TableCell>
+                    <TableCell className="text-center">
                       {canChangeStatus ? (
                         <StatusSelect value={c.status} onChange={(s) => onStatusChange(c.id, s)} statuses={statuses} statusColors={statusColors} />
                       ) : (
@@ -538,7 +538,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         </div>
                       </TableCell>
                     )}
-                    <TableCell>
+                    <TableCell className="text-center">
                       {canChangeStatus ? (
                         <StatusSelect value={first.status} onChange={(s) => group.items.forEach(i => onStatusChange(i.id, s))} statuses={statuses} statusColors={statusColors} />
                       ) : (
