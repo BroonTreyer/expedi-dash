@@ -247,8 +247,6 @@ export default function Consolidado() {
     });
   };
 
-  const dateObj = new Date(date + "T12:00:00");
-
   const kpis = [
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
     { label: "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
@@ -271,13 +269,24 @@ export default function Consolidado() {
         <div className="flex flex-wrap items-end gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-9 text-xs sm:text-sm justify-start gap-2 min-w-[140px]">
+              <Button variant="outline" className={cn("h-9 text-xs sm:text-sm justify-start gap-2 min-w-[140px]", !dateRange.from && "text-muted-foreground")}>
                 <CalendarIcon className="h-4 w-4" />
-                {format(dateObj, "dd/MM/yyyy")}
+                {dateRange.from ? (
+                  dateRange.to && dateRange.from.getTime() !== dateRange.to.getTime() ? (
+                    <>{format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} – {format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}</>
+                  ) : (
+                    format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                  )
+                ) : (
+                  "Selecionar datas"
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={dateObj} onSelect={(d) => d && setDate(format(d, "yyyy-MM-dd"))} locale={ptBR} className={cn("p-3 pointer-events-auto")} />
+              <Calendar mode="range" selected={dateRange} onSelect={(range) => { if (range) setDateRange(range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
+              <div className="p-2 border-t flex justify-end">
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDateRange({ from: today, to: today })}>Hoje</Button>
+              </div>
             </PopoverContent>
           </Popover>
 
