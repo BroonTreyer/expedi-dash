@@ -267,36 +267,38 @@ export default function Index() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Painel de Expedição</h1>
-            <div className="flex items-center gap-2">
-              <p className="text-sm text-muted-foreground">Acompanhamento diário de carregamentos</p>
-              <RealtimeIndicator />
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Painel de Expedição</h1>
+              <div className="flex items-center gap-2">
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Acompanhamento diário de carregamentos</p>
+                <RealtimeIndicator />
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex border border-border rounded-md">
               <Button
                 variant={view === "table" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setView("table")}
-                className="rounded-r-none"
+                className="rounded-r-none text-xs sm:text-sm"
               >
-                <TableIcon className="h-4 w-4 mr-1" /> Tabela
+                <TableIcon className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Tabela</span>
               </Button>
               <Button
                 variant={view === "kanban" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setView("kanban")}
-                className="rounded-l-none"
+                className="rounded-l-none text-xs sm:text-sm"
               >
-                <Columns3 className="h-4 w-4 mr-1" /> Kanban
+                <Columns3 className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Kanban</span>
               </Button>
             </div>
             {canEdit && (
-              <Button onClick={handleNewPedido}>
-                <Plus className="h-4 w-4 mr-1" /> Novo Pedido
+              <Button size="sm" onClick={handleNewPedido} className="text-xs sm:text-sm">
+                <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Novo Pedido</span><span className="sm:hidden">Novo</span>
               </Button>
             )}
             {finalizadosCount > 0 && (
@@ -304,11 +306,11 @@ export default function Index() {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate(`/consolidado?data=${filters.data}`)}
-                className="gap-1.5"
+                className="gap-1 text-xs sm:text-sm"
               >
                 <PackageCheck className="h-4 w-4" />
-                Ver Finalizados
-                <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">
+                <span className="hidden sm:inline">Ver Finalizados</span>
+                <Badge variant="secondary" className="h-5 min-w-[20px] px-1.5 text-[10px]">
                   {finalizadosCount}
                 </Badge>
               </Button>
