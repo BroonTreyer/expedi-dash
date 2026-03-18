@@ -28,8 +28,6 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading }: Props) {
     { label: "Entradas Hoje", value: stats.entradas, icon: ArrowDownToLine, color: "text-accent" },
     { label: "Saídas Hoje", value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
     { label: "Veículos no Pátio", value: stats.noPatio, icon: ParkingCircle, color: "text-destructive" },
-    { label: "Tempo Médio", value: formatTempoMedio(stats.tempoMedio), icon: Timer, color: "text-muted-foreground", isText: true },
-    { label: "Total Movimentos", value: stats.total, icon: Activity, color: "text-muted-foreground" },
   ];
 
   if (isLoading) {
