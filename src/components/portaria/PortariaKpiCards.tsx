@@ -9,13 +9,6 @@ interface Props {
   isLoading?: boolean;
 }
 
-function formatTempoMedio(minutos: number): string {
-  if (minutos === 0) return "—";
-  if (minutos < 60) return `${Math.round(minutos)}min`;
-  const h = Math.floor(minutos / 60);
-  const m = Math.round(minutos % 60);
-  return `${h}h ${m.toString().padStart(2, "0")}`;
-}
 
 export function PortariaKpiCards({ movimentacoes = [], isLoading }: Props) {
   const stats = useMemo(() => {
