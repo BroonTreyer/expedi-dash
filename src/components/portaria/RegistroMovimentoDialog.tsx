@@ -248,7 +248,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
 
             <div className="space-y-5">
               {blocks.map((block) => {
-                const fields = getBlockFields(categoria, block.key);
+                const fields = getBlockFields(categoria, block.key, tipo);
                 if (fields.length === 0) return null;
 
                 return (
