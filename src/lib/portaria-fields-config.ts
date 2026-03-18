@@ -120,10 +120,10 @@ export const VISIBILITY: VisibilityMatrix = {
   observacoes:        { carga_propria: "opcional",    terceirizado: "opcional",    fornecedor: "opcional",    visitante: "opcional",    prestador: "opcional",    outros: "obrigatorio" },
 
   // Evidências
-  foto_placa_url:     { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "opcional",    visitante: "oculto",      prestador: "opcional",    outros: "opcional" },
-  foto_documento_url: { carga_propria: "oculto",      terceirizado: "opcional",    fornecedor: "opcional",    visitante: "opcional",    prestador: "opcional",    outros: "opcional" },
-  foto_painel_url:    { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
-  foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "opcional",    visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  foto_placa_url:     { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto",      prestador: "obrigatorio", outros: "obrigatorio" },
+  foto_documento_url: { carga_propria: "oculto",      terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "obrigatorio", prestador: "obrigatorio", outros: "obrigatorio" },
+  foto_painel_url:    { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
 };
 
 export const BLOCKS = [
