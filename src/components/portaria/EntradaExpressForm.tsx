@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlacaInput } from "./PlacaInput";
-import { useCreateMovimentacao, CATEGORIAS } from "@/hooks/useMovimentacoesPortaria";
+import { useCreateMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS_PORTARIA } from "@/lib/portaria-fields-config";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Zap, X } from "lucide-react";
 
@@ -80,7 +81,7 @@ export function EntradaExpressForm({ onClose }: Props) {
           <Select value={categoria} onValueChange={setCategoria}>
             <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {CATEGORIAS.map((c) => (
+              {CATEGORIAS_PORTARIA.map((c) => (
                 <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
               ))}
             </SelectContent>

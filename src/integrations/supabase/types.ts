@@ -161,66 +161,147 @@ export type Database = {
       }
       movimentacoes_portaria: {
         Row: {
+          apelido: string | null
           carga_id: string | null
           categoria: string
+          conferente: string | null
           confianca_placa: number | null
           created_at: string
           data_hora: string
+          descricao: string | null
           destino_setor: string | null
+          doca_setor: string | null
+          documento: string | null
           empresa: string | null
           foto_documento_url: string | null
+          foto_nota_url: string | null
+          foto_painel_url: string | null
           foto_placa_url: string | null
+          horario_previsto_saida: string | null
+          horario_real_retorno: string | null
+          horario_real_saida: string | null
           id: string
+          km_final: number | null
+          km_inicial: number | null
+          km_rodado: number | null
+          km_rota: number | null
           motivo: string | null
+          motivo_visita: string | null
           motorista: string | null
           movimento_vinculado_id: string | null
+          nome_completo: string | null
+          nota_fiscal: string | null
           observacoes: string | null
+          ocorrencia: string | null
+          peso: number | null
+          pessoa_visitada: string | null
           placa: string | null
           placa_confirmada: string | null
+          qtd_entregas: number | null
+          responsavel_interno: string | null
+          rota: string | null
+          servico_executar: string | null
+          telefone: string | null
           texto_placa_lido: string | null
+          tipo_carga: string | null
           tipo_movimento: string
+          tipo_operacao: string | null
           usuario_id: string | null
         }
         Insert: {
+          apelido?: string | null
           carga_id?: string | null
           categoria?: string
+          conferente?: string | null
           confianca_placa?: number | null
           created_at?: string
           data_hora?: string
+          descricao?: string | null
           destino_setor?: string | null
+          doca_setor?: string | null
+          documento?: string | null
           empresa?: string | null
           foto_documento_url?: string | null
+          foto_nota_url?: string | null
+          foto_painel_url?: string | null
           foto_placa_url?: string | null
+          horario_previsto_saida?: string | null
+          horario_real_retorno?: string | null
+          horario_real_saida?: string | null
           id?: string
+          km_final?: number | null
+          km_inicial?: number | null
+          km_rodado?: number | null
+          km_rota?: number | null
           motivo?: string | null
+          motivo_visita?: string | null
           motorista?: string | null
           movimento_vinculado_id?: string | null
+          nome_completo?: string | null
+          nota_fiscal?: string | null
           observacoes?: string | null
+          ocorrencia?: string | null
+          peso?: number | null
+          pessoa_visitada?: string | null
           placa?: string | null
           placa_confirmada?: string | null
+          qtd_entregas?: number | null
+          responsavel_interno?: string | null
+          rota?: string | null
+          servico_executar?: string | null
+          telefone?: string | null
           texto_placa_lido?: string | null
+          tipo_carga?: string | null
           tipo_movimento: string
+          tipo_operacao?: string | null
           usuario_id?: string | null
         }
         Update: {
+          apelido?: string | null
           carga_id?: string | null
           categoria?: string
+          conferente?: string | null
           confianca_placa?: number | null
           created_at?: string
           data_hora?: string
+          descricao?: string | null
           destino_setor?: string | null
+          doca_setor?: string | null
+          documento?: string | null
           empresa?: string | null
           foto_documento_url?: string | null
+          foto_nota_url?: string | null
+          foto_painel_url?: string | null
           foto_placa_url?: string | null
+          horario_previsto_saida?: string | null
+          horario_real_retorno?: string | null
+          horario_real_saida?: string | null
           id?: string
+          km_final?: number | null
+          km_inicial?: number | null
+          km_rodado?: number | null
+          km_rota?: number | null
           motivo?: string | null
+          motivo_visita?: string | null
           motorista?: string | null
           movimento_vinculado_id?: string | null
+          nome_completo?: string | null
+          nota_fiscal?: string | null
           observacoes?: string | null
+          ocorrencia?: string | null
+          peso?: number | null
+          pessoa_visitada?: string | null
           placa?: string | null
           placa_confirmada?: string | null
+          qtd_entregas?: number | null
+          responsavel_interno?: string | null
+          rota?: string | null
+          servico_executar?: string | null
+          telefone?: string | null
           texto_placa_lido?: string | null
+          tipo_carga?: string | null
           tipo_movimento?: string
+          tipo_operacao?: string | null
           usuario_id?: string | null
         }
         Relationships: [
