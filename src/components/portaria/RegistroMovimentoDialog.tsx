@@ -190,7 +190,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                   <ArrowDownToLine className="h-4 w-4" /> Entrada
                 </Button>
                 <Button type="button" variant={tipo === "saida" ? "default" : "outline"} className="gap-2" onClick={() => setTipo("saida")}>
-                  <ArrowUpFromLine className="h-4 w-4" /> Saída
+                  <ArrowUpFromLine className="h-4 w-4" /> Retorno
                 </Button>
               </div>
             </div>
