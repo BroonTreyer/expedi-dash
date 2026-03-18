@@ -39,13 +39,13 @@ export default function Index() {
   const isFaturamento = role === "faturamento";
   const canEdit = isAdmin || isFaturamento;
 
-  const [view, setView] = useState<"table" | "kanban">("table");
+  const today = new Date();
   const [filters, setFilters] = useState({
     status: "todos",
     vendedor: [] as string[],
     tipoCaminhao: "todos",
     busca: "",
-    data: getToday(),
+    dateRange: { from: today, to: today } as DateRange,
     etapa: "todos",
     ruptura: "todos",
     cliente: [] as string[],
@@ -62,7 +62,9 @@ export default function Index() {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [adicionarCargaOpen, setAdicionarCargaOpen] = useState(false);
 
-  const { data: carregamentos = [], isLoading } = useCarregamentos(filters.data);
+  const dateFromStr = filters.dateRange.from ? format(filters.dateRange.from, "yyyy-MM-dd") : getToday();
+  const dateToStr = filters.dateRange.to ? format(filters.dateRange.to, "yyyy-MM-dd") : dateFromStr;
+  const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
