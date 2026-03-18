@@ -4,12 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowDownToLine, ArrowUpFromLine, Eye, History } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowDownToLine, ArrowUpFromLine, Eye, History, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { CATEGORIAS } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
@@ -38,7 +40,9 @@ const categoriaBadgeColor: Record<string, string> = {
 
 export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails, isLoading }: Props) {
   const isMobile = useIsMobile();
-
+  const { role } = useAuth();
+  const deleteMov = useDeleteMovimentacao();
+  const isAdmin = role === "admin";
   const grupos = useMemo(() => {
     // Build groups by linking entrada/saida via movimento_vinculado_id
     const groupMap = new Map<string, GrupoMovimento>();
@@ -235,9 +239,34 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                 <TableCell className="text-sm">{r.empresa || "—"}</TableCell>
                 <TableCell className="text-sm">{r.destino_setor || "—"}</TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.principal)}>
-                    <Eye className="h-3 w-3" /> Detalhes
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.principal)}>
+                      <Eye className="h-3 w-3" /> Detalhes
+                    </Button>
+                    {isAdmin && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteMov.mutateAsync(r.id)}>
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );

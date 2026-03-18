@@ -108,6 +108,49 @@ export function useMovimentacoes(dateStr: string) {
   return query;
 }
 
+export function useDeleteMovimentacao() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("movimentacoes_portaria")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      toast.success("Registro excluído com sucesso!");
+    },
+    onError: (e: any) => {
+      toast.error("Erro ao excluir: " + e.message);
+    },
+  });
+}
+
+export function useUpdateMovimentacao() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Record<string, any> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("movimentacoes_portaria")
+        .update(updates as any)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      toast.success("Registro atualizado com sucesso!");
+    },
+    onError: (e: any) => {
+      toast.error("Erro ao atualizar: " + e.message);
+    },
+  });
+}
+
 export function useCreateMovimentacao() {
   const queryClient = useQueryClient();
   return useMutation({
