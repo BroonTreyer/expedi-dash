@@ -332,24 +332,24 @@ export default function Index() {
 
         {/* Selection summary */}
         {selectedInView.length > 0 && (
-          <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm font-medium">
+          <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-xs sm:text-sm font-medium">
             <span>{selectedInView.length} selecionado{selectedInView.length > 1 ? "s" : ""}</span>
             <span className="text-muted-foreground">·</span>
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             {(isAdmin || isLogistica) && (
               <>
-                <Button size="sm" className="ml-2 h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
+                <Button size="sm" className="h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
                   <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
                 </Button>
                 {cargasFechadas.length > 0 && (
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAdicionarCargaOpen(true)}>
-                    <PackagePlus className="h-3.5 w-3.5 mr-1" /> Adicionar à Carga
+                    <PackagePlus className="h-3.5 w-3.5 mr-1" /> Add Carga
                   </Button>
                 )}
               </>
             )}
             <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds([])}>
-              Limpar seleção
+              Limpar
             </Button>
           </div>
         )}
