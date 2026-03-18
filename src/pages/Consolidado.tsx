@@ -108,7 +108,10 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
 }
 
 export default function Consolidado() {
-  const [date, setDate] = useState(getInitialDate);
+  const today = new Date();
+  const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
+  const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
+  const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [filterUf, setFilterUf] = useState("todos");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -117,7 +120,7 @@ export default function Consolidado() {
   const isMobile = useIsMobile();
 
   const queryClient = useQueryClient();
-  const { data: rawData, isLoading } = useConsolidado(date);
+  const { data: rawData, isLoading } = useConsolidado(dateFromStr, dateToStr);
 
   const updateStatusMut = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
