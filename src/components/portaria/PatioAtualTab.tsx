@@ -63,6 +63,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     );
     return movimentacoes
       .filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id))
+      // Terceirizado doesn't need exit — exclude from patio
+      .filter((m) => m.categoria !== "terceirizado")
       .filter((m) => {
         if (categoriaFilter && m.categoria !== categoriaFilter) return false;
         if (!search) return true;
@@ -168,7 +170,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   )}
                 </div>
                 <div className="flex justify-end pt-1">
-                  {isSaidaRapida ? (
+                  {m.categoria === "carga_propria" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
+                      <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
+                    </Button>
+                  ) : isSaidaRapida ? (
                     <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaidaRapidaId(null)} disabled={isSaving}>
                         Cancelar
@@ -237,7 +243,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <TableCell className="text-sm">{m.empresa || "—"}</TableCell>
                 <TableCell className="text-sm">{m.destino_setor || "—"}</TableCell>
                 <TableCell className="text-right">
-                  {isSaidaRapida ? (
+                  {m.categoria === "carga_propria" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
+                      <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
+                    </Button>
+                  ) : isSaidaRapida ? (
                     <div className="flex items-center gap-1.5 justify-end animate-in fade-in duration-200">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaidaRapidaId(null)} disabled={isSaving}>
                         Cancelar

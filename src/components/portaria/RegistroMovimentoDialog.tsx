@@ -77,8 +77,8 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
     setConfiancaPainel(null);
   }, [open, prefill]);
 
-  const blocks = useMemo(() => getVisibleBlocks(categoria), [categoria]);
-  const canSave = useMemo(() => validateForm(categoria, values), [categoria, values]);
+  const blocks = useMemo(() => getVisibleBlocks(categoria, tipo), [categoria, tipo]);
+  const canSave = useMemo(() => validateForm(categoria, values, tipo), [categoria, values, tipo]);
 
   const handleSelectCategoria = (cat: Categoria) => {
     setCategoria(cat);
@@ -107,14 +107,15 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         }
       }
 
-      // OCR for painel KM photo
+      // OCR for painel KM photo — populate km_inicial on entry, km_final on exit
       if (fieldKey === "foto_painel_url") {
         setOcrPainelLoading(true);
         try {
           const result = await processarOCR(publicUrl, "km");
           setTextoPainelLido(result.texto);
           setConfiancaPainel(result.confianca);
-          set("km_inicial", result.texto);
+          const kmField = tipo === "saida" ? "km_final" : "km_inicial";
+          set(kmField, result.texto);
         } catch (e: any) {
           toast.error("Erro no OCR do painel: " + e.message);
         } finally {
@@ -247,7 +248,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
 
             <div className="space-y-5">
               {blocks.map((block) => {
-                const fields = getBlockFields(categoria, block.key);
+                const fields = getBlockFields(categoria, block.key, tipo);
                 if (fields.length === 0) return null;
 
                 return (
@@ -307,11 +308,11 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                               {/* OCR result for painel KM photo */}
                               {field.key === "foto_painel_url" && (ocrPainelLoading || textoPainelLido !== null) && (
                                 <OcrResultado
-                                  label="Leitura do KM"
+                                  label={tipo === "saida" ? "Leitura do KM Final" : "Leitura do KM"}
                                   textoLido={textoPainelLido}
                                   confianca={confiancaPainel}
-                                  valorConfirmado={values.km_inicial || ""}
-                                  onChange={(v) => set("km_inicial", v)}
+                                  valorConfirmado={tipo === "saida" ? (values.km_final || "") : (values.km_inicial || "")}
+                                  onChange={(v) => set(tipo === "saida" ? "km_final" : "km_inicial", v)}
                                   loading={ocrPainelLoading}
                                   disabled={saving}
                                 />
