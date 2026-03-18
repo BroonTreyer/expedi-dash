@@ -20,6 +20,13 @@ interface Props {
   isLoading?: boolean;
 }
 
+interface GrupoMovimento {
+  entrada?: MovimentacaoPortaria;
+  saida?: MovimentacaoPortaria;
+  principal: MovimentacaoPortaria;
+  dataRecente: string;
+}
+
 const categoriaBadgeColor: Record<string, string> = {
   carga_propria: "bg-primary/10 text-primary border-primary/20",
   fornecedor: "bg-accent/10 text-accent-foreground border-accent/20",
@@ -31,18 +38,67 @@ const categoriaBadgeColor: Record<string, string> = {
 export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails, isLoading }: Props) {
   const isMobile = useIsMobile();
 
-  const filtered = useMemo(() => {
-    return movimentacoes.filter((m) => {
-      if (tipoFilter && m.tipo_movimento !== tipoFilter) return false;
-      if (categoriaFilter && m.categoria !== categoriaFilter) return false;
-      if (!search) return true;
-      const s = search.toLowerCase();
-      return (
-        m.placa?.toLowerCase().includes(s) ||
-        m.motorista?.toLowerCase().includes(s) ||
-        m.empresa?.toLowerCase().includes(s)
-      );
+  const grupos = useMemo(() => {
+    // Build groups by linking entrada/saida via movimento_vinculado_id
+    const groupMap = new Map<string, GrupoMovimento>();
+    const usedIds = new Set<string>();
+
+    // First pass: find saídas that link to entradas
+    for (const m of movimentacoes) {
+      if (m.tipo_movimento === "saida" && m.movimento_vinculado_id) {
+        const entrada = movimentacoes.find((e) => e.id === m.movimento_vinculado_id);
+        if (entrada) {
+          const key = entrada.id;
+          groupMap.set(key, {
+            entrada,
+            saida: m,
+            principal: entrada,
+            dataRecente: m.data_hora > entrada.data_hora ? m.data_hora : entrada.data_hora,
+          });
+          usedIds.add(entrada.id);
+          usedIds.add(m.id);
+        }
+      }
+    }
+
+    // Second pass: standalone movements (not yet grouped)
+    for (const m of movimentacoes) {
+      if (usedIds.has(m.id)) continue;
+      groupMap.set(m.id, {
+        entrada: m.tipo_movimento === "entrada" ? m : undefined,
+        saida: m.tipo_movimento === "saida" ? m : undefined,
+        principal: m,
+        dataRecente: m.data_hora,
+      });
+    }
+
+    // Convert to array, filter, and sort
+    let result = Array.from(groupMap.values());
+
+    // Apply filters
+    result = result.filter((g) => {
+      const ref = g.entrada || g.saida!;
+      // Tipo filter
+      if (tipoFilter === "entrada" && !g.entrada) return false;
+      if (tipoFilter === "saida" && !g.saida) return false;
+      // Categoria filter
+      if (categoriaFilter && ref.categoria !== categoriaFilter) return false;
+      // Search
+      if (search) {
+        const s = search.toLowerCase();
+        return (
+          ref.placa?.toLowerCase().includes(s) ||
+          ref.motorista?.toLowerCase().includes(s) ||
+          ref.empresa?.toLowerCase().includes(s)
+        );
+      }
+      return true;
     });
+
+    // Sort by most recent
+    result.sort((a, b) => new Date(b.dataRecente).getTime() - new Date(a.dataRecente).getTime());
+
+    return result;
   }, [movimentacoes, search, categoriaFilter, tipoFilter]);
 
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
@@ -57,7 +113,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
     );
   }
 
-  if (filtered.length === 0) {
+  if (grupos.length === 0) {
     return (
       <div className="py-12 flex flex-col items-center gap-2 text-muted-foreground">
         <History className="h-10 w-10 opacity-30" />
@@ -67,53 +123,66 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
     );
   }
 
+  const formatHora = (g: GrupoMovimento) => {
+    if (g.entrada && g.saida) {
+      return `${format(new Date(g.entrada.data_hora), "HH:mm", { locale: ptBR })} → ${format(new Date(g.saida.data_hora), "HH:mm", { locale: ptBR })}`;
+    }
+    const m = g.entrada || g.saida!;
+    return format(new Date(m.data_hora), "HH:mm", { locale: ptBR });
+  };
+
+  const ref = (g: GrupoMovimento) => g.entrada || g.saida!;
+
   if (isMobile) {
     return (
       <div className="p-3 space-y-3">
-        {filtered.map((m) => (
-          <Card key={m.id} className="cursor-pointer active:bg-muted/50" onClick={() => onViewDetails(m)}>
-            <CardContent className="p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant={m.tipo_movimento === "entrada" ? "default" : "secondary"} className="gap-1 text-[11px]">
-                    {m.tipo_movimento === "entrada" ? (
-                      <><ArrowDownToLine className="h-3 w-3" /> Entrada</>
-                    ) : (
-                      <><ArrowUpFromLine className="h-3 w-3" /> Saída</>
-                    )}
-                  </Badge>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {format(new Date(m.data_hora), "HH:mm", { locale: ptBR })}
-                  </span>
+        {grupos.map((g) => {
+          const r = ref(g);
+          return (
+            <Card key={r.id} className="cursor-pointer active:bg-muted/50" onClick={() => onViewDetails(g.principal)}>
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-sm">{r.placa || "—"}</span>
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
-                <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[m.categoria] || ""}`}>
-                  {getCategoriaLabel(m.categoria)}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-                {m.motorista && (
-                  <div className="col-span-2 truncate">
-                    <span className="text-muted-foreground">Motorista: </span>{m.motorista}
-                  </div>
-                )}
-                {m.empresa && (
-                  <div className="col-span-2 truncate">
-                    <span className="text-muted-foreground">Empresa: </span>{m.empresa}
-                  </div>
-                )}
-                {m.destino_setor && (
-                  <div className="truncate">
-                    <span className="text-muted-foreground">Setor: </span>{m.destino_setor}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {g.entrada && (
+                    <Badge variant="default" className="gap-1 text-[11px]">
+                      <ArrowDownToLine className="h-3 w-3" />
+                      {format(new Date(g.entrada.data_hora), "HH:mm", { locale: ptBR })}
+                    </Badge>
+                  )}
+                  {g.saida && (
+                    <Badge variant="secondary" className="gap-1 text-[11px]">
+                      <ArrowUpFromLine className="h-3 w-3" />
+                      {format(new Date(g.saida.data_hora), "HH:mm", { locale: ptBR })}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[r.categoria] || ""}`}>
+                    {getCategoriaLabel(r.categoria)}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                  {r.motorista && (
+                    <div className="col-span-2 truncate">
+                      <span className="text-muted-foreground">Motorista: </span>{r.motorista}
+                    </div>
+                  )}
+                  {r.empresa && (
+                    <div className="col-span-2 truncate">
+                      <span className="text-muted-foreground">Empresa: </span>{r.empresa}
+                    </div>
+                  )}
+                  {r.destino_setor && (
+                    <div className="truncate">
+                      <span className="text-muted-foreground">Setor: </span>{r.destino_setor}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     );
   }
@@ -134,36 +203,44 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filtered.map((m) => (
-            <TableRow key={m.id}>
-              <TableCell className="text-sm font-medium">
-                {format(new Date(m.data_hora), "HH:mm", { locale: ptBR })}
-              </TableCell>
-              <TableCell>
-                <Badge variant={m.tipo_movimento === "entrada" ? "default" : "secondary"} className="gap-1 text-xs">
-                  {m.tipo_movimento === "entrada" ? (
-                    <><ArrowDownToLine className="h-3 w-3" /> Entrada</>
-                  ) : (
-                    <><ArrowUpFromLine className="h-3 w-3" /> Saída</>
-                  )}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
-                  {getCategoriaLabel(m.categoria)}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-mono font-medium">{m.placa || "—"}</TableCell>
-              <TableCell>{m.motorista || "—"}</TableCell>
-              <TableCell className="text-sm">{m.empresa || "—"}</TableCell>
-              <TableCell className="text-sm">{m.destino_setor || "—"}</TableCell>
-              <TableCell className="text-right">
-                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(m)}>
-                  <Eye className="h-3 w-3" /> Detalhes
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+          {grupos.map((g) => {
+            const r = ref(g);
+            return (
+              <TableRow key={r.id}>
+                <TableCell className="text-sm font-medium whitespace-nowrap">
+                  {formatHora(g)}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    {g.entrada && (
+                      <Badge variant="default" className="gap-1 text-xs">
+                        <ArrowDownToLine className="h-3 w-3" /> Entrada
+                      </Badge>
+                    )}
+                    {g.saida && (
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <ArrowUpFromLine className="h-3 w-3" /> Saída
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={categoriaBadgeColor[r.categoria] || ""}>
+                    {getCategoriaLabel(r.categoria)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="font-mono font-medium">{r.placa || "—"}</TableCell>
+                <TableCell>{r.motorista || "—"}</TableCell>
+                <TableCell className="text-sm">{r.empresa || "—"}</TableCell>
+                <TableCell className="text-sm">{r.destino_setor || "—"}</TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.principal)}>
+                    <Eye className="h-3 w-3" /> Detalhes
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>
