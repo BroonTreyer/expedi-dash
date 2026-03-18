@@ -20,20 +20,8 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading }: Props) {
     );
     const noPatio = entradas.filter((e) => !saidasVinculadas.has(e.id)).length;
 
-    let tempoMedio = 0;
-    const saidasMap = new Map<string, MovimentacaoPortaria>();
-    saidas.forEach((s) => { if (s.movimento_vinculado_id) saidasMap.set(s.movimento_vinculado_id, s); });
 
-    const tempos: number[] = [];
-    entradas.forEach((e) => {
-      const saida = saidasMap.get(e.id);
-      if (saida) {
-        tempos.push(differenceInMinutes(new Date(saida.data_hora), new Date(e.data_hora)));
-      }
-    });
-    if (tempos.length > 0) tempoMedio = tempos.reduce((a, b) => a + b, 0) / tempos.length;
-
-    return { entradas: entradas.length, saidas: saidas.length, noPatio, total: movimentacoes.length, tempoMedio };
+    return { entradas: entradas.length, saidas: saidas.length, noPatio };
   }, [movimentacoes]);
 
   const cards = [
