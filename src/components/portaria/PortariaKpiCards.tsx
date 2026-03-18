@@ -26,7 +26,7 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading }: Props) {
 
   const cards = [
     { label: "Entradas Hoje", value: stats.entradas, icon: ArrowDownToLine, color: "text-accent" },
-    { label: "Saídas Hoje", value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
+    { label: "Retornos Hoje", value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
     { label: "Veículos no Pátio", value: stats.noPatio, icon: ParkingCircle, color: "text-destructive" },
   ];
 

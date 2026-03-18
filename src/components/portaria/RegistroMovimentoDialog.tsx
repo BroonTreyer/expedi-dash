@@ -190,7 +190,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                   <ArrowDownToLine className="h-4 w-4" /> Entrada
                 </Button>
                 <Button type="button" variant={tipo === "saida" ? "default" : "outline"} className="gap-2" onClick={() => setTipo("saida")}>
-                  <ArrowUpFromLine className="h-4 w-4" /> Saída
+                  <ArrowUpFromLine className="h-4 w-4" /> Retorno
                 </Button>
               </div>
             </div>
@@ -222,7 +222,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                 Cadastro de {categoriaLabel}
               </DialogTitle>
               <DialogDescription>
-                {prefill ? `Registrar saída do veículo ${prefill.placa}` : `Preencha os dados de ${tipo === "entrada" ? "entrada" : "saída"}`}
+                {prefill ? `Registrar retorno do veículo ${prefill.placa}` : `Preencha os dados de ${tipo === "entrada" ? "entrada" : "retorno"}`}
               </DialogDescription>
             </DialogHeader>
 
@@ -359,7 +359,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
               <Button variant="outline" onClick={handleClose} disabled={saving}>Cancelar</Button>
               <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Registrar {tipo === "entrada" ? "Entrada" : "Saída"}
+                Registrar {tipo === "entrada" ? "Entrada" : "Retorno"}
               </Button>
 
             </DialogFooter>
