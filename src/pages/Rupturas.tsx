@@ -236,7 +236,28 @@ export default function Rupturas() {
 
         {/* Filtros */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("h-9 text-sm justify-start gap-2", !dateRange.from && "text-muted-foreground")}>
+                <CalendarIcon className="h-4 w-4" />
+                {dateRange.from ? (
+                  dateRange.to && dateRange.from.getTime() !== dateRange.to.getTime() ? (
+                    <>{format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} – {format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}</>
+                  ) : (
+                    format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                  )
+                ) : (
+                  "Selecionar datas"
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="range" selected={dateRange} onSelect={(range) => { if (range) setDateRange(range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
+              <div className="p-2 border-t flex justify-end">
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDateRange({ from: today, to: today })}>Hoje</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Select value={vendedorFilter} onValueChange={setVendedorFilter}>
             <SelectTrigger><SelectValue placeholder="Vendedor" /></SelectTrigger>
             <SelectContent>
