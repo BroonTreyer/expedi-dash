@@ -215,8 +215,8 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                 <TableCell className="text-sm font-medium whitespace-nowrap">
                   {formatHora(g)}
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
+                <TableCell className="text-center">
+                  <div className="flex items-center justify-center gap-1">
                     {g.entrada && (
                       <Badge variant="default" className="gap-1 text-xs">
                         <ArrowDownToLine className="h-3 w-3" /> Entrada
@@ -224,20 +224,20 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                     )}
                     {g.saida && (
                       <Badge variant="secondary" className="gap-1 text-xs">
-                        <ArrowUpFromLine className="h-3 w-3" /> Saída
+                        <ArrowUpFromLine className="h-3 w-3" /> Retorno
                       </Badge>
                     )}
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-center">
                   <Badge variant="outline" className={categoriaBadgeColor[r.categoria] || ""}>
                     {getCategoriaLabel(r.categoria)}
                   </Badge>
                 </TableCell>
-                <TableCell className="font-mono font-medium">{r.placa || "—"}</TableCell>
-                <TableCell>{r.motorista || "—"}</TableCell>
-                <TableCell className="text-sm">{r.empresa || "—"}</TableCell>
-                <TableCell className="text-sm">{r.destino_setor || "—"}</TableCell>
+                <TableCell className="text-center font-mono font-medium">{r.placa || "—"}</TableCell>
+                <TableCell className="text-center">{r.motorista || "—"}</TableCell>
+                <TableCell className="text-center text-sm">{r.empresa || "—"}</TableCell>
+                <TableCell className="text-center text-sm">{r.destino_setor || "—"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.entrada, g.saida)}>
