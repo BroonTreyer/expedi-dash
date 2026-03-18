@@ -32,6 +32,7 @@ export default function Portaria() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
+  const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const counts = useMemo(() => {
