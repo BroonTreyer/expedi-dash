@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2 } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo.png";
 import { toast } from "sonner";
 
@@ -13,13 +13,13 @@ export default function Auth() {
   const { user, loading, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Carregando...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Verificando sessão...</p>
       </div>
     );
   }
@@ -30,7 +30,7 @@ export default function Auth() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { error } = await signIn(email, password, rememberMe);
+      const { error } = await signIn(email, password);
       if (error) toast.error(error);
     } finally {
       setSubmitting(false);
@@ -56,10 +56,6 @@ export default function Auth() {
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="remember" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(checked === true)} />
-              <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">Lembrar acesso</Label>
             </div>
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? "Aguarde..." : "Entrar"}
