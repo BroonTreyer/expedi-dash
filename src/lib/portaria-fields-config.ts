@@ -126,6 +126,42 @@ export const VISIBILITY: VisibilityMatrix = {
   foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
 };
 
+// Exit visibility — only carga_propria has fields; others use quick exit
+export const VISIBILITY_SAIDA: VisibilityMatrix = {
+  // Only show foto_painel + km_final + observacoes for carga_propria exit
+  tipo_operacao:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  nome_completo:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  empresa:            { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  documento:          { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  pessoa_visitada:    { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  motivo_visita:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  telefone:           { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  servico_executar:   { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  descricao:          { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  placa:              { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  motorista:          { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  apelido:            { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  rota:               { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  peso:               { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  qtd_entregas:       { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  km_rota:            { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  km_inicial:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  km_final:           { carga_propria: "obrigatorio", terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  tipo_carga:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  nota_fiscal:        { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  doca_setor:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  carga_id:           { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  numero_lacre:       { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  responsavel_interno:{ carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  conferente:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  ocorrencia:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  observacoes:        { carga_propria: "opcional",    terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_placa_url:     { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_documento_url: { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_painel_url:    { carga_propria: "obrigatorio", terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+};
+
 export const BLOCKS = [
   { key: "identificacao", label: "Identificação", icon: "🏷️" },
   { key: "veiculo", label: "Veículo", icon: "🚗" },
