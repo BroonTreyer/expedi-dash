@@ -40,7 +40,9 @@ const categoriaBadgeColor: Record<string, string> = {
 
 export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails, isLoading }: Props) {
   const isMobile = useIsMobile();
-
+  const { role } = useAuth();
+  const deleteMov = useDeleteMovimentacao();
+  const isAdmin = role === "admin";
   const grupos = useMemo(() => {
     // Build groups by linking entrada/saida via movimento_vinculado_id
     const groupMap = new Map<string, GrupoMovimento>();
