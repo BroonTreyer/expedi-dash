@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Plus, Edit, Trash2, Search, Package } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const PAGE_SIZE = 50;
 
@@ -21,6 +23,7 @@ export default function Produtos() {
   const createMut = useCreateProduto();
   const updateMut = useUpdateProduto();
   const deleteMut = useDeleteProduto();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
@@ -51,11 +54,8 @@ export default function Produtos() {
 
   const isSubmitting = createMut.isPending || updateMut.isPending;
   const handleSubmit = () => {
-    if (editing) {
-      updateMut.mutate({ id: editing.id, ...form }, { onSuccess: () => setOpen(false) });
-    } else {
-      createMut.mutate(form, { onSuccess: () => setOpen(false) });
-    }
+    if (editing) { updateMut.mutate({ id: editing.id, ...form }, { onSuccess: () => setOpen(false) }); }
+    else { createMut.mutate(form, { onSuccess: () => setOpen(false) }); }
   };
 
   const renderPaginationItems = () => {
@@ -64,7 +64,6 @@ export default function Produtos() {
     let start = Math.max(1, page - Math.floor(maxVisible / 2));
     let end = Math.min(totalPages, start + maxVisible - 1);
     if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
-
     if (start > 1) {
       items.push(<PaginationItem key={1}><PaginationLink onClick={() => setPage(1)} isActive={page === 1}>1</PaginationLink></PaginationItem>);
       if (start > 2) items.push(<PaginationItem key="e1"><PaginationEllipsis /></PaginationItem>);
@@ -83,65 +82,87 @@ export default function Produtos() {
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
-          <Button onClick={openNew} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-1" /> Novo Produto</Button>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Produtos</h1>
+          <Button size="sm" onClick={openNew} className="w-full sm:w-auto text-xs sm:text-sm"><Plus className="h-4 w-4 mr-1" /> Novo Produto</Button>
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
         </div>
-        <div className="rounded-lg border border-border bg-card overflow-x-auto">
-          <Table>
-            <TableHeader><TableRow className="bg-muted/40">
-              <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Código</SortableTableHead>
-              <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Nome</SortableTableHead>
-              <SortableTableHead sort={sort} sortKey="peso_padrao" onSort={toggleSort} className="text-right">Peso Padrão (kg)</SortableTableHead>
-              <SortableTableHead sort={sort} sortKey="ativo" onSort={toggleSort}>Status</SortableTableHead>
-              <TableHead className="w-[80px]"></TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : paginated.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  <div className="flex flex-col items-center gap-2">
-                    <Package className="h-8 w-8 text-muted-foreground/40" />
-                    <span>Nenhum produto encontrado</span>
+
+        {isMobile ? (
+          <div className="space-y-3">
+            {isLoading ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
+            ) : paginated.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                <Package className="h-8 w-8 opacity-40" />
+                <span className="text-sm">Nenhum produto encontrado</span>
+              </div>
+            ) : paginated.map((p) => (
+              <Card key={p.id}>
+                <CardContent className="p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs text-muted-foreground">{p.codigo_produto}</span>
+                    <Badge variant={p.ativo ? "default" : "secondary"} className="text-[10px]">{p.ativo ? "Ativo" : "Inativo"}</Badge>
                   </div>
-                </TableCell></TableRow>
-              ) : paginated.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-mono text-sm">{p.codigo_produto}</TableCell>
-                  <TableCell className="text-sm">{p.nome_produto}</TableCell>
-                  <TableCell className="text-sm text-right">{(p.peso_padrao ?? 0).toLocaleString("pt-BR")}</TableCell>
-                  <TableCell><Badge variant={p.ativo ? "default" : "secondary"}>{p.ativo ? "Ativo" : "Inativo"}</Badge></TableCell>
-                  <TableCell>
+                  <p className="font-medium text-sm truncate">{p.nome_produto}</p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Peso: {(p.peso_padrao ?? 0).toLocaleString("pt-BR")} kg</span>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}><Edit className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(p.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border bg-card overflow-x-auto">
+            <Table>
+              <TableHeader><TableRow className="bg-muted/40">
+                <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Código</SortableTableHead>
+                <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Nome</SortableTableHead>
+                <SortableTableHead sort={sort} sortKey="peso_padrao" onSort={toggleSort} className="text-right">Peso Padrão (kg)</SortableTableHead>
+                <SortableTableHead sort={sort} sortKey="ativo" onSort={toggleSort}>Status</SortableTableHead>
+                <TableHead className="w-[80px]"></TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                ) : paginated.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2"><Package className="h-8 w-8 text-muted-foreground/40" /><span>Nenhum produto encontrado</span></div>
+                  </TableCell></TableRow>
+                ) : paginated.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-mono text-sm">{p.codigo_produto}</TableCell>
+                    <TableCell className="text-sm">{p.nome_produto}</TableCell>
+                    <TableCell className="text-sm text-right">{(p.peso_padrao ?? 0).toLocaleString("pt-BR")}</TableCell>
+                    <TableCell><Badge variant={p.ativo ? "default" : "secondary"}>{p.ativo ? "Ativo" : "Inativo"}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}><Edit className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(p.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
 
         {filtered.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Mostrando {startItem}–{endItem} de {filtered.length} produtos
-            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Mostrando {startItem}–{endItem} de {filtered.length}</p>
             {totalPages > 1 && (
               <Pagination>
                 <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious onClick={() => setPage(p => Math.max(1, p - 1))} className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
-                  </PaginationItem>
+                  <PaginationItem><PaginationPrevious onClick={() => setPage(p => Math.max(1, p - 1))} className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} /></PaginationItem>
                   {renderPaginationItems()}
-                  <PaginationItem>
-                    <PaginationNext onClick={() => setPage(p => Math.min(totalPages, p + 1))} className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
-                  </PaginationItem>
+                  <PaginationItem><PaginationNext onClick={() => setPage(p => Math.min(totalPages, p + 1))} className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} /></PaginationItem>
                 </PaginationContent>
               </Pagination>
             )}
@@ -163,12 +184,7 @@ export default function Produtos() {
             </div>
           </DialogContent>
         </Dialog>
-        <DeleteConfirmDialog
-          open={!!deleteId}
-          onOpenChange={(o) => !o && setDeleteId(null)}
-          onConfirm={() => { if (deleteId) deleteMut.mutate(deleteId); setDeleteId(null); }}
-          description="Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita."
-        />
+        <DeleteConfirmDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)} onConfirm={() => { if (deleteId) deleteMut.mutate(deleteId); setDeleteId(null); }} description="Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita." />
       </div>
     </Layout>
   );

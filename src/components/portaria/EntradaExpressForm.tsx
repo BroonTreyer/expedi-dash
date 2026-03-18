@@ -55,7 +55,7 @@ export function EntradaExpressForm({ onClose }: Props) {
   };
 
   return (
-    <div className="border border-primary/20 bg-primary/5 rounded-lg p-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
+    <div className="border border-primary/20 bg-primary/5 rounded-lg p-3 sm:p-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-semibold text-primary">
           <Zap className="h-4 w-4" /> Entrada Rápida
@@ -86,7 +86,7 @@ export function EntradaExpressForm({ onClose }: Props) {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={handleSave} disabled={!canSave || saving} className="gap-1.5 h-9">
+        <Button onClick={handleSave} disabled={!canSave || saving} className="gap-1.5 h-9 w-full sm:w-auto">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
           Registrar
         </Button>
