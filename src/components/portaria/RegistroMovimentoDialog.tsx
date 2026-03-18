@@ -388,7 +388,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
 
             <DialogFooter>
               <Button variant="outline" onClick={handleClose} disabled={saving}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading}>
+              <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading || ocrPainelLoading}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                 Registrar {tipo === "entrada" ? "Entrada" : "Saída"}
               </Button>
