@@ -354,8 +354,27 @@ export default function Consolidado() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => toggleExpand(g.cargaId)}
                       >
-                        <TableCell className="px-2">
+                         <TableCell className="px-2">
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()} className="text-xs">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 font-mono">
+                                <CalendarIcon className="h-3 w-3" />
+                                {format(new Date(g.data + "T12:00:00"), "dd/MM/yyyy")}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={new Date(g.data + "T12:00:00")}
+                                onSelect={(d) => d && handleDateChange(g, d)}
+                                locale={ptBR}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <StatusSelect
