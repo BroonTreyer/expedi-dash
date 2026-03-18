@@ -17,17 +17,20 @@ import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
 import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimentoDialog";
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
+import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 
 export default function Portaria() {
-  const [date, setDate] = useState<Date>(new Date());
-  const dateStr = format(date, "yyyy-MM-dd");
+  const today = new Date();
+  const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
+  const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : format(today, "yyyy-MM-dd");
+  const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [search, setSearch] = useState("");
   const [categoriaFilter, setCategoriaFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("");
-  
 
-  const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateStr);
+  const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
@@ -75,13 +78,35 @@ export default function Portaria() {
           <div className="flex flex-wrap items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
+                <Button variant="outline" size="sm" className={cn("gap-1.5 text-xs sm:text-sm justify-start text-left font-normal", !dateRange.from && "text-muted-foreground")}>
                   <CalendarIcon className="h-3.5 w-3.5" />
-                  {format(date, "dd/MM/yyyy", { locale: ptBR })}
+                  {dateRange.from ? (
+                    dateRange.to && dateRange.from.getTime() !== dateRange.to.getTime() ? (
+                      <>{format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} – {format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}</>
+                    ) : (
+                      format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                    )
+                  ) : (
+                    "Selecionar datas"
+                  )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} locale={ptBR} />
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={(range) => {
+                    if (range) setDateRange(range);
+                  }}
+                  locale={ptBR}
+                  numberOfMonths={2}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+                <div className="p-2 border-t flex justify-end">
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDateRange({ from: today, to: today })}>
+                    Hoje
+                  </Button>
+                </div>
               </PopoverContent>
             </Popover>
             <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>

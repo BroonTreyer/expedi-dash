@@ -71,17 +71,18 @@ export const SETORES = [
   { value: "outros", label: "Outros" },
 ];
 
-export function useMovimentacoes(dateStr: string) {
+export function useMovimentacoes(dateFrom: string, dateTo?: string) {
+  const dateEnd = dateTo || dateFrom;
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["movimentacoes_portaria", dateStr],
+    queryKey: ["movimentacoes_portaria", dateFrom, dateEnd],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("movimentacoes_portaria")
         .select("*")
-        .gte("data_hora", `${dateStr}T00:00:00`)
-        .lt("data_hora", `${dateStr}T23:59:59.999`)
+        .gte("data_hora", `${dateFrom}T00:00:00`)
+        .lt("data_hora", `${dateEnd}T23:59:59.999`)
         .order("data_hora", { ascending: false });
       if (error) throw error;
       return data as MovimentacaoPortaria[];
@@ -90,12 +91,12 @@ export function useMovimentacoes(dateStr: string) {
 
   useEffect(() => {
     const channel = supabase
-      .channel(`movimentacoes-${dateStr}`)
+      .channel(`movimentacoes-${dateFrom}-${dateEnd}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "movimentacoes_portaria" },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria", dateStr] });
+          queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria", dateFrom, dateEnd] });
         }
       )
       .subscribe();
@@ -103,7 +104,7 @@ export function useMovimentacoes(dateStr: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [dateStr, queryClient]);
+  }, [dateFrom, dateEnd, queryClient]);
 
   return query;
 }
