@@ -133,7 +133,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                     const min = mins % 60;
                     return (
                       <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-                        <span className="text-muted-foreground">⏱ Permanência:</span>
+                        <span className="text-muted-foreground">⏱ Tempo Gasto:</span>
                         <strong>{h > 0 ? `${h}h ${min}min` : `${min}min`}</strong>
                       </div>
                     );
