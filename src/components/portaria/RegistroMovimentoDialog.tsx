@@ -42,6 +42,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
   const [ocrLoading, setOcrLoading] = useState(false);
   const [textoPlacaLido, setTextoPlacaLido] = useState<string | null>(null);
   const [confiancaPlaca, setConfiancaPlaca] = useState<number | null>(null);
+  const [ocrPainelLoading, setOcrPainelLoading] = useState(false);
+  const [textoPainelLido, setTextoPainelLido] = useState<string | null>(null);
+  const [confiancaPainel, setConfiancaPainel] = useState<number | null>(null);
 
   const set = useCallback((key: string, val: any) => {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -69,6 +72,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
     setOcrLoading(false);
     setTextoPlacaLido(null);
     setConfiancaPlaca(null);
+    setOcrPainelLoading(false);
+    setTextoPainelLido(null);
+    setConfiancaPainel(null);
   }, [open, prefill]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria), [categoria]);
@@ -98,6 +104,21 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
           toast.error("Erro no OCR: " + e.message);
         } finally {
           setOcrLoading(false);
+        }
+      }
+
+      // OCR for painel KM photo
+      if (fieldKey === "foto_painel_url") {
+        setOcrPainelLoading(true);
+        try {
+          const result = await processarOCR(publicUrl, "km");
+          setTextoPainelLido(result.texto);
+          setConfiancaPainel(result.confianca);
+          set("km_inicial", result.texto);
+        } catch (e: any) {
+          toast.error("Erro no OCR do painel: " + e.message);
+        } finally {
+          setOcrPainelLoading(false);
         }
       }
     } catch (e: any) {
@@ -283,6 +304,18 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                                   disabled={saving}
                                 />
                               )}
+                              {/* OCR result for painel KM photo */}
+                              {field.key === "foto_painel_url" && (ocrPainelLoading || textoPainelLido !== null) && (
+                                <OcrResultado
+                                  label="Leitura do KM"
+                                  textoLido={textoPainelLido}
+                                  confianca={confiancaPainel}
+                                  valorConfirmado={values.km_inicial || ""}
+                                  onChange={(v) => set("km_inicial", v)}
+                                  loading={ocrPainelLoading}
+                                  disabled={saving}
+                                />
+                              )}
                             </div>
                           );
                         }
@@ -355,7 +388,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
 
             <DialogFooter>
               <Button variant="outline" onClick={handleClose} disabled={saving}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading}>
+              <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading || ocrPainelLoading}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                 Registrar {tipo === "entrada" ? "Entrada" : "Saída"}
               </Button>
