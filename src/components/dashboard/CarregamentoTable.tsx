@@ -45,7 +45,6 @@ function PreviousDayBadge({ itemDate, currentDate }: { itemDate: string; current
       <Tooltip>
         <TooltipTrigger asChild>
           <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30">
-            <CalendarClock className="h-3 w-3" />
             D-{diff}
           </Badge>
         </TooltipTrigger>
