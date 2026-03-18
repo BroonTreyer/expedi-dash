@@ -191,6 +191,7 @@ export type Database = {
           movimento_vinculado_id: string | null
           nome_completo: string | null
           nota_fiscal: string | null
+          numero_lacre: string | null
           observacoes: string | null
           ocorrencia: string | null
           peso: number | null
@@ -239,6 +240,7 @@ export type Database = {
           movimento_vinculado_id?: string | null
           nome_completo?: string | null
           nota_fiscal?: string | null
+          numero_lacre?: string | null
           observacoes?: string | null
           ocorrencia?: string | null
           peso?: number | null
@@ -287,6 +289,7 @@ export type Database = {
           movimento_vinculado_id?: string | null
           nome_completo?: string | null
           nota_fiscal?: string | null
+          numero_lacre?: string | null
           observacoes?: string | null
           ocorrencia?: string | null
           peso?: number | null
