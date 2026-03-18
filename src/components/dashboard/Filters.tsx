@@ -96,8 +96,10 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar mode="range" selected={filters.dateRange} onSelect={(range) => { if (range) set("dateRange", range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
-        <div className="p-2 border-t flex justify-end">
+        <div className="p-2 border-t flex justify-end gap-1">
           <Button variant="ghost" size="sm" className="text-xs" onClick={() => set("dateRange", { from: today, to: today })}>Hoje</Button>
+          <Button variant="ghost" size="sm" className="text-xs" onClick={() => { const d = new Date(); d.setDate(d.getDate() - 6); set("dateRange", { from: d, to: today }); }}>Últimos 7 dias</Button>
+          <Button variant="ghost" size="sm" className="text-xs" onClick={() => { const d = new Date(); set("dateRange", { from: new Date(d.getFullYear(), d.getMonth(), 1), to: d }); }}>Este mês</Button>
         </div>
       </PopoverContent>
     </Popover>
