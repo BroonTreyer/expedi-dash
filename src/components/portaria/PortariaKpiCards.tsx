@@ -41,7 +41,7 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
+    <div className="grid grid-cols-3 gap-2 sm:gap-3">
       {cards.map((c) => (
         <Card key={c.label}>
           <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
