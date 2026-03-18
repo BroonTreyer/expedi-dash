@@ -65,6 +65,7 @@ interface CargaGroup {
   clientes: Set<string>;
   ufs: Set<string>;
   status: string;
+  data: string;
   items: Carregamento[];
 }
 
@@ -84,6 +85,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         clientes: new Set(),
         ufs: new Set(),
         status: item.status,
+        data: item.data,
         items: [],
       };
       map.set(item.carga_id, g);
@@ -126,12 +128,38 @@ export default function Consolidado() {
     onError: () => toast.error("Erro ao atualizar status"),
   });
 
+  const updateDateMut = useMutation({
+    mutationFn: async ({ cargaId, newDate }: { cargaId: string; newDate: string }) => {
+      const { error } = await supabase
+        .from("carregamentos_dia")
+        .update({ data: newDate })
+        .eq("carga_id", cargaId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["consolidado"] });
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success("Data da carga atualizada");
+    },
+    onError: () => toast.error("Erro ao atualizar data"),
+  });
+
   const handleStatusChange = useCallback(
     (group: CargaGroup, newStatus: string) => {
       const ids = group.items.map((i) => i.id);
       updateStatusMut.mutate({ ids, status: newStatus });
     },
     [updateStatusMut]
+  );
+
+  const handleDateChange = useCallback(
+    (group: CargaGroup, newDate: Date) => {
+      const formatted = format(newDate, "yyyy-MM-dd");
+      if (formatted !== group.data) {
+        updateDateMut.mutate({ cargaId: group.cargaId, newDate: formatted });
+      }
+    },
+    [updateDateMut]
   );
 
   const filtered = useMemo(() => {
@@ -146,6 +174,7 @@ export default function Consolidado() {
   const rawGroups = useMemo(() => groupByCarga(filtered), [filtered]);
 
   const consolidadoAccessors: Record<string, (g: CargaGroup) => any> = useMemo(() => ({
+    data: (g) => g.data,
     status: (g) => g.status,
     tipoCaminhao: (g) => g.tipoCaminhao ?? "",
     placa: (g) => g.placa ?? "",
@@ -305,6 +334,7 @@ export default function Consolidado() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-8" />
+                  <SortableTableHead sort={sort} sortKey="data" onSort={toggleSort}>Data</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort}>Status</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="tipoCaminhao" onSort={toggleSort}>Tipo</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="placa" onSort={toggleSort}>Placa</SortableTableHead>
@@ -324,8 +354,27 @@ export default function Consolidado() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => toggleExpand(g.cargaId)}
                       >
-                        <TableCell className="px-2">
+                         <TableCell className="px-2">
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()} className="text-xs">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 font-mono">
+                                <CalendarIcon className="h-3 w-3" />
+                                {format(new Date(g.data + "T12:00:00"), "dd/MM/yyyy")}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={new Date(g.data + "T12:00:00")}
+                                onSelect={(d) => d && handleDateChange(g, d)}
+                                locale={ptBR}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <StatusSelect
@@ -343,6 +392,7 @@ export default function Consolidado() {
                       </TableRow>
                       {isOpen && g.items.map((item) => (
                         <TableRow key={item.id} className="bg-muted/20">
+                          <TableCell />
                           <TableCell />
                           <TableCell className="text-xs text-muted-foreground" colSpan={2}>
                             Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
