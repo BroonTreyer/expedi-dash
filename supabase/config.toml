@@ -1,1 +1,4 @@
 project_id = "zwawfxpcsefcltxtdgnd"
+
+[functions.ocr-portaria]
+verify_jwt = false

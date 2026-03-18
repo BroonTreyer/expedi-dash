@@ -28,10 +28,20 @@ export function useRegistrosPortaria(data?: string) {
   return useQuery({
     queryKey: ["registros_portaria", data],
     queryFn: async () => {
-      const { data: rows, error } = await supabase
+      let query = supabase
         .from("registros_portaria" as any)
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (data) {
+        const startOfDay = `${data}T00:00:00.000Z`;
+        const nextDay = new Date(data);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const endOfDay = `${nextDay.toISOString().split("T")[0]}T00:00:00.000Z`;
+        query = query.gte("created_at", startOfDay).lt("created_at", endOfDay);
+      }
+
+      const { data: rows, error } = await query;
       if (error) throw error;
       return (rows ?? []) as unknown as RegistroPortaria[];
     },
