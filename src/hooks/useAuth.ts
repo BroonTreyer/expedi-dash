@@ -36,12 +36,17 @@ export function useAuthState(): AuthState {
   }, []);
 
   const fetchRole = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .single();
-    setRole((data?.role as AppRole) ?? "logistica");
+    try {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+      setRole((data?.role as AppRole) ?? "logistica");
+    } catch {
+      console.error("Failed to fetch role, using fallback");
+      setRole("logistica");
+    }
   }, []);
 
   useEffect(() => {
