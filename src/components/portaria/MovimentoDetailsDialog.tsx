@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -11,38 +11,122 @@ interface Props {
   movimento: MovimentacaoPortaria | null;
 }
 
+function DetailRow({ label, value }: { label: string; value: string | number | null | undefined }) {
+  if (!value && value !== 0) return null;
+  return (
+    <div>
+      <span className="text-muted-foreground">{label}:</span>{" "}
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
 export function MovimentoDetailsDialog({ open, onOpenChange, movimento }: Props) {
   if (!movimento) return null;
   const m = movimento;
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
   const getSetorLabel = (val: string) => SETORES.find((s) => s.value === val)?.label || val;
 
+  const hasIdentificacao = m.nome_completo || m.documento || m.telefone || m.pessoa_visitada || m.motivo_visita || m.servico_executar || m.descricao || m.tipo_operacao;
+  const hasOperacao = m.rota || m.peso || m.qtd_entregas || m.km_rota || m.km_inicial || m.km_final || m.km_rodado || m.tipo_carga || m.nota_fiscal || m.doca_setor || m.apelido;
+  const hasControle = m.responsavel_interno || m.conferente || m.ocorrencia;
+  const hasFotos = m.foto_placa_url || m.foto_documento_url || m.foto_painel_url || m.foto_nota_url;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalhes do Movimento</DialogTitle>
+          <DialogDescription className="sr-only">Informações detalhadas do registro de portaria</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Header badges */}
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={m.tipo_movimento === "entrada" ? "default" : "secondary"}>
               {m.tipo_movimento === "entrada" ? "Entrada" : "Saída"}
             </Badge>
             <Badge variant="outline">{getCategoriaLabel(m.categoria)}</Badge>
+            {m.tipo_operacao && <Badge variant="outline" className="text-[11px]">{m.tipo_operacao}</Badge>}
             <span className="text-xs text-muted-foreground ml-auto">
               {format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}
             </span>
           </div>
 
+          {/* Basic info */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Placa:</span> <strong className="font-mono">{m.placa || "—"}</strong></div>
-            <div><span className="text-muted-foreground">Motorista:</span> <strong>{m.motorista || "—"}</strong></div>
-            <div><span className="text-muted-foreground">Empresa:</span> <strong>{m.empresa || "—"}</strong></div>
-            <div><span className="text-muted-foreground">Setor:</span> <strong>{m.destino_setor ? getSetorLabel(m.destino_setor) : "—"}</strong></div>
-            {m.carga_id && <div><span className="text-muted-foreground">Carga:</span> <strong>{m.carga_id}</strong></div>}
-            {m.motivo && <div className="col-span-2"><span className="text-muted-foreground">Motivo:</span> <strong>{m.motivo}</strong></div>}
+            <DetailRow label="Placa" value={m.placa ? m.placa : "—"} />
+            <DetailRow label="Motorista" value={m.motorista} />
+            <DetailRow label="Empresa" value={m.empresa} />
+            <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
+            <DetailRow label="Carga" value={m.carga_id} />
           </div>
 
+          {/* Identificação (new fields) */}
+          {hasIdentificacao && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">🏷️ Identificação</h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <DetailRow label="Nome" value={m.nome_completo} />
+                <DetailRow label="Documento" value={m.documento} />
+                <DetailRow label="Telefone" value={m.telefone} />
+                <DetailRow label="Pessoa Visitada" value={m.pessoa_visitada} />
+                <DetailRow label="Motivo da Visita" value={m.motivo_visita} />
+                <DetailRow label="Serviço" value={m.servico_executar} />
+                {m.descricao && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Descrição:</span>
+                    <p className="mt-0.5">{m.descricao}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Operação */}
+          {hasOperacao && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">📊 Operação</h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <DetailRow label="Apelido" value={m.apelido} />
+                <DetailRow label="Rota" value={m.rota} />
+                <DetailRow label="Peso" value={m.peso ? `${m.peso} kg` : undefined} />
+                <DetailRow label="Entregas" value={m.qtd_entregas} />
+                <DetailRow label="KM Rota" value={m.km_rota} />
+                <DetailRow label="KM Inicial" value={m.km_inicial} />
+                <DetailRow label="KM Final" value={m.km_final} />
+                <DetailRow label="KM Rodado" value={m.km_rodado} />
+                <DetailRow label="Tipo de Carga" value={m.tipo_carga} />
+                <DetailRow label="Nota Fiscal" value={m.nota_fiscal} />
+                <DetailRow label="Doca/Setor" value={m.doca_setor} />
+              </div>
+              {m.km_rodado !== null && m.km_rota !== null && m.km_rodado !== undefined && m.km_rota !== undefined && (
+                <div className="rounded-md bg-muted/50 p-2 text-sm">
+                  <span className="text-muted-foreground">Diferença KM: </span>
+                  <span className="font-semibold">{Math.abs(m.km_rodado - m.km_rota).toFixed(0)} km</span>
+                  {m.km_rodado > m.km_rota && <span className="text-yellow-600 dark:text-yellow-400 ml-1">(acima da rota)</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Controle */}
+          {hasControle && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">🔐 Controle</h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <DetailRow label="Responsável" value={m.responsavel_interno} />
+                <DetailRow label="Conferente" value={m.conferente} />
+                {m.ocorrencia && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Ocorrência:</span>
+                    <p className="mt-0.5">{m.ocorrencia}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Observações */}
           {m.observacoes && (
             <div className="text-sm">
               <span className="text-muted-foreground">Observações:</span>
@@ -50,23 +134,41 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento }: Props)
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {m.foto_placa_url && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Foto da Placa</p>
-                <img src={m.foto_placa_url} alt="Placa" className="rounded-md w-full h-32 object-cover" />
-                {m.texto_placa_lido && (
-                  <p className="text-xs mt-1">OCR: <strong>{m.texto_placa_lido}</strong> ({m.confianca_placa}%)</p>
+          {/* Fotos */}
+          {hasFotos && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">📸 Evidências</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {m.foto_placa_url && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Foto da Placa</p>
+                    <img src={m.foto_placa_url} alt="Placa" className="rounded-md w-full h-32 object-cover" />
+                    {m.texto_placa_lido && (
+                      <p className="text-xs mt-1">OCR: <strong>{m.texto_placa_lido}</strong> ({m.confianca_placa}%)</p>
+                    )}
+                  </div>
+                )}
+                {m.foto_documento_url && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Documento</p>
+                    <img src={m.foto_documento_url} alt="Documento" className="rounded-md w-full h-32 object-cover" />
+                  </div>
+                )}
+                {m.foto_painel_url && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Painel (KM)</p>
+                    <img src={m.foto_painel_url} alt="Painel" className="rounded-md w-full h-32 object-cover" />
+                  </div>
+                )}
+                {m.foto_nota_url && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Nota Fiscal</p>
+                    <img src={m.foto_nota_url} alt="Nota Fiscal" className="rounded-md w-full h-32 object-cover" />
+                  </div>
                 )}
               </div>
-            )}
-            {m.foto_documento_url && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Documento/NF</p>
-                <img src={m.foto_documento_url} alt="Documento" className="rounded-md w-full h-32 object-cover" />
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
