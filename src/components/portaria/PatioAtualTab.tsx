@@ -260,7 +260,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   ) : (
                     <div className="flex items-center gap-1 justify-end">
                       <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => setSaidaRapidaId(m.id)}>
-                        <ArrowUpFromLine className="h-3 w-3" /> Saída
+                        <ArrowUpFromLine className="h-3 w-3" /> Retorno
                       </Button>
                     </div>
                   )}
