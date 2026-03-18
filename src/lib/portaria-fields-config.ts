@@ -105,7 +105,7 @@ export const VISIBILITY: VisibilityMatrix = {
   peso:               { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   qtd_entregas:       { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   km_rota:            { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
-  km_inicial:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  km_inicial:         { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   km_final:           { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   tipo_carga:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   nota_fiscal:        { carga_propria: "oculto",      terceirizado: "opcional",    fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
