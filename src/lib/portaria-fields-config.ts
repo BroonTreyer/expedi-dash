@@ -59,6 +59,7 @@ export const FIELDS: FieldConfig[] = [
   { key: "apelido", label: "Apelido do Veículo", placeholder: "Ex: Truck Azul", type: "text", block: "veiculo" },
 
   // Bloco Operação
+  { key: "foto_painel_url", label: "📷 Foto do Painel (KM)", type: "photo", block: "operacao" },
   { key: "rota", label: "Rota", placeholder: "Nome ou código da rota", type: "text", block: "operacao" },
   { key: "peso", label: "Peso (kg)", placeholder: "0", type: "number", block: "operacao" },
   { key: "qtd_entregas", label: "Qtd. de Entregas", placeholder: "0", type: "number", block: "operacao" },
