@@ -33,9 +33,10 @@ function getInitialDate() {
   return params.get("data") || getToday();
 }
 
-function useConsolidado(date: string) {
+function useConsolidado(dateFrom: string, dateTo?: string) {
+  const dateEnd = dateTo || dateFrom;
   return useQuery({
-    queryKey: ["consolidado", date],
+    queryKey: ["consolidado", dateFrom, dateEnd],
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
       let q = supabase
@@ -43,10 +44,13 @@ function useConsolidado(date: string) {
         .select("*, vendedores(nome_vendedor)")
         .not("carga_id", "is", null);
 
-      if (date === todayStr) {
-        q = q.or(`data.eq.${date},and(data.lt.${date},status.neq.Carregado)`);
+      const isSingleDay = dateFrom === dateEnd;
+      if (isSingleDay && dateFrom === todayStr) {
+        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},status.neq.Carregado)`);
+      } else if (isSingleDay) {
+        q = q.eq("data", dateFrom);
       } else {
-        q = q.eq("data", date);
+        q = q.gte("data", dateFrom).lte("data", dateEnd);
       }
 
       const { data, error } = await q.order("carga_id", { ascending: true });
