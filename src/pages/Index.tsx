@@ -39,6 +39,7 @@ export default function Index() {
   const isFaturamento = role === "faturamento";
   const canEdit = isAdmin || isFaturamento;
 
+  const [view, setView] = useState<"table" | "kanban">("table");
   const today = new Date();
   const [filters, setFilters] = useState({
     status: "todos",
