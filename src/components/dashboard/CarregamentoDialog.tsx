@@ -350,6 +350,14 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dados de Transporte</span>
                 </div>
               )}
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs">Nome da Carga</Label>
+                <Input
+                  value={form.carga_id ?? ""}
+                  onChange={(e) => set("carga_id", e.target.value)}
+                  placeholder="Ex: CG-20260318-001"
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Tipo Caminhão *</Label>
                 <Select value={form.tipo_caminhao ?? ""} onValueChange={(v) => set("tipo_caminhao", v)}>
