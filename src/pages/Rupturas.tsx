@@ -127,48 +127,50 @@ export default function Rupturas() {
     setDeleteId(null);
   }, [deleteId, deleteMut]);
 
+  const isMobile = useIsMobile();
+
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-6 w-6 text-amber-500" />
-              <h1 className="text-2xl font-bold tracking-tight">Rupturas</h1>
+              <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500" />
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Rupturas</h1>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {rupturas.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
-                <Printer className="h-4 w-4 mr-1" /> Imprimir
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setPrintOpen(true)}>
+                <Printer className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Imprimir</span>
               </Button>
             )}
             {canEdit && (
-              <Button size="sm" onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
-                <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
+              <Button size="sm" className="text-xs sm:text-sm" onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+                <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Novo Pedido (Ruptura)</span><span className="sm:hidden">Nova Ruptura</span>
               </Button>
             )}
           </div>
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Package className="h-5 w-5 text-amber-600" />
-              <div>
-                <p className="text-xs text-muted-foreground">Total Rupturas</p>
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{rupturas.length}</p>
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Rupturas</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{rupturas.length}</p>
               </div>
             </CardContent>
           </Card>
           <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Weight className="h-5 w-5 text-amber-600" />
-              <div>
-                <p className="text-xs text-muted-foreground">Peso Total</p>
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{(totalPeso / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON</p>
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <Weight className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Peso Total</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400 truncate">{(totalPeso / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON</p>
               </div>
             </CardContent>
           </Card>
