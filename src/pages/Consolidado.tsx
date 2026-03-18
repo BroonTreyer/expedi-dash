@@ -128,12 +128,38 @@ export default function Consolidado() {
     onError: () => toast.error("Erro ao atualizar status"),
   });
 
+  const updateDateMut = useMutation({
+    mutationFn: async ({ cargaId, newDate }: { cargaId: string; newDate: string }) => {
+      const { error } = await supabase
+        .from("carregamentos_dia")
+        .update({ data: newDate })
+        .eq("carga_id", cargaId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["consolidado"] });
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success("Data da carga atualizada");
+    },
+    onError: () => toast.error("Erro ao atualizar data"),
+  });
+
   const handleStatusChange = useCallback(
     (group: CargaGroup, newStatus: string) => {
       const ids = group.items.map((i) => i.id);
       updateStatusMut.mutate({ ids, status: newStatus });
     },
     [updateStatusMut]
+  );
+
+  const handleDateChange = useCallback(
+    (group: CargaGroup, newDate: Date) => {
+      const formatted = format(newDate, "yyyy-MM-dd");
+      if (formatted !== group.data) {
+        updateDateMut.mutate({ cargaId: group.cargaId, newDate: formatted });
+      }
+    },
+    [updateDateMut]
   );
 
   const filtered = useMemo(() => {
