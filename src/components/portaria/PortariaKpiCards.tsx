@@ -1,31 +1,33 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, AlertTriangle, PenLine, FileImage } from "lucide-react";
-import type { RegistroPortaria } from "@/hooks/useRegistrosPortaria";
+import { ArrowDownToLine, ArrowUpFromLine, ParkingCircle, Activity } from "lucide-react";
+import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
 interface Props {
-  registros: RegistroPortaria[];
+  movimentacoes: MovimentacaoPortaria[];
 }
 
-export function PortariaKpiCards({ registros }: Props) {
-  const completos = registros.filter(
-    (r) => r.foto_placa_url && r.foto_km_url && r.status_validacao === "confirmada"
-  ).length;
+export function PortariaKpiCards({ movimentacoes }: Props) {
+  const entradas = movimentacoes.filter((m) => m.tipo_movimento === "entrada").length;
+  const saidas = movimentacoes.filter((m) => m.tipo_movimento === "saida").length;
 
-  const divergentes = registros.filter(
-    (r) => r.divergencia_placa || r.divergencia_km || r.status_validacao === "divergente"
-  ).length;
+  // Veículos no pátio: entradas sem saída vinculada
+  const entradasIds = new Set(
+    movimentacoes.filter((m) => m.tipo_movimento === "entrada").map((m) => m.id)
+  );
+  const saidasVinculadas = new Set(
+    movimentacoes
+      .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
+      .map((m) => m.movimento_vinculado_id!)
+  );
+  const noPatio = [...entradasIds].filter((id) => !saidasVinculadas.has(id)).length;
 
-  const correcoes = registros.filter(
-    (r) => r.status_validacao === "corrigida" || r.leitura_modo === "manual"
-  ).length;
-
-  const totalRegistros = registros.length;
+  const total = movimentacoes.length;
 
   const cards = [
-    { label: "Evidências Completas", value: completos, icon: CheckCircle, color: "text-accent" },
-    { label: "Leituras Divergentes", value: divergentes, icon: AlertTriangle, color: "text-destructive" },
-    { label: "Correções Manuais", value: correcoes, icon: PenLine, color: "text-primary" },
-    { label: "Total de Registros", value: totalRegistros, icon: FileImage, color: "text-muted-foreground" },
+    { label: "Entradas Hoje", value: entradas, icon: ArrowDownToLine, color: "text-accent" },
+    { label: "Saídas Hoje", value: saidas, icon: ArrowUpFromLine, color: "text-primary" },
+    { label: "Veículos no Pátio", value: noPatio, icon: ParkingCircle, color: "text-destructive" },
+    { label: "Total de Movimentos", value: total, icon: Activity, color: "text-muted-foreground" },
   ];
 
   return (
