@@ -240,7 +240,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                 <TableCell className="text-sm">{r.destino_setor || "—"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.principal)}>
+                    <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.entrada, g.saida)}>
                       <Eye className="h-3 w-3" /> Detalhes
                     </Button>
                     {isAdmin && (

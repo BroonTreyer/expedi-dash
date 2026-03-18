@@ -179,7 +179,7 @@ export default function Portaria() {
       </div>
 
       <RegistroMovimentoDialog open={dialogOpen} onOpenChange={setDialogOpen} prefill={prefill} />
-      <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} />
+      <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
     </Layout>
   );
 }
