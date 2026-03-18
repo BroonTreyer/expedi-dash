@@ -1,11 +1,17 @@
 import { useMemo } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Search, ChevronLeft, ChevronRight, CalendarDays, X } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, CalendarIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelectFilter } from "./MultiSelectFilter";
+import { cn } from "@/lib/utils";
 import type { AppRole } from "@/hooks/useAuth";
+import type { DateRange } from "react-day-picker";
 
 interface CarregamentoData {
   vendedor_id?: string | null;
