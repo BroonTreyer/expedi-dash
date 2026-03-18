@@ -12,12 +12,14 @@ import { cn } from "@/lib/utils";
 import { STATUSES, STATUS_COLORS } from "@/lib/constants";
 import { StatusSelect } from "@/components/dashboard/StatusSelect";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
@@ -41,7 +43,6 @@ function useConsolidado(date: string) {
         .not("carga_id", "is", null);
 
       if (date === todayStr) {
-        // Today: also bring non-loaded items from previous days
         q = q.or(`data.eq.${date},and(data.lt.${date},status.neq.Carregado)`);
       } else {
         q = q.eq("data", date);
@@ -108,6 +109,7 @@ export default function Consolidado() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
   const { sort, toggleSort, sortData } = useSortableTable();
+  const isMobile = useIsMobile();
 
   const queryClient = useQueryClient();
   const { data: rawData, isLoading } = useConsolidado(date);
@@ -187,7 +189,6 @@ export default function Consolidado() {
 
   const groups = useMemo(() => sortData(rawGroups, consolidadoAccessors), [rawGroups, sortData, consolidadoAccessors]);
 
-  // KPIs — count unique pedidos globally
   const totalVeiculos = groups.length;
   const pesoTotal = groups.reduce((s, g) => s + g.pesoTotal, 0);
   const totalPedidos = groups.reduce((s, g) => s + g.qtdPedidos, 0);
@@ -253,7 +254,7 @@ export default function Consolidado() {
           <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
           {groups.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
-              <Printer className="h-4 w-4 mr-1" /> Imprimir
+              <Printer className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Imprimir</span>
             </Button>
           )}
         </div>
@@ -262,24 +263,18 @@ export default function Consolidado() {
         <div className="flex flex-wrap items-end gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-9 text-sm justify-start gap-2 min-w-[160px]">
+              <Button variant="outline" className="h-9 text-xs sm:text-sm justify-start gap-2 min-w-[140px]">
                 <CalendarIcon className="h-4 w-4" />
                 {format(dateObj, "dd/MM/yyyy")}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={dateObj}
-                onSelect={(d) => d && setDate(format(d, "yyyy-MM-dd"))}
-                locale={ptBR}
-                className={cn("p-3 pointer-events-auto")}
-              />
+              <Calendar mode="single" selected={dateObj} onSelect={(d) => d && setDate(format(d, "yyyy-MM-dd"))} locale={ptBR} className={cn("p-3 pointer-events-auto")} />
             </PopoverContent>
           </Popover>
 
           <Select value={filterUf} onValueChange={setFilterUf}>
-            <SelectTrigger className="h-9 w-[130px] text-sm">
+            <SelectTrigger className="h-9 w-[100px] sm:w-[130px] text-xs sm:text-sm">
               <SelectValue placeholder="UF" />
             </SelectTrigger>
             <SelectContent>
@@ -291,11 +286,11 @@ export default function Consolidado() {
           </Select>
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-9 w-[180px] text-sm">
+            <SelectTrigger className="h-9 w-[130px] sm:w-[180px] text-xs sm:text-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
+              <SelectItem value="todos">Todos status</SelectItem>
               {STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
@@ -305,7 +300,7 @@ export default function Consolidado() {
 
         {/* KPI Cards */}
         <TooltipProvider delayDuration={300}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {kpis.map((k) => (
               <Card key={k.label} className="border-border/60">
                 <CardContent className="p-3 sm:p-4 flex flex-col gap-1">
@@ -313,7 +308,7 @@ export default function Consolidado() {
                     <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{k.label}</span>
                     <k.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${k.color}`} />
                   </div>
-                  <span className="text-base sm:text-xl font-bold tracking-tight truncate">{k.value}</span>
+                  <span className="text-sm sm:text-xl font-bold tracking-tight truncate">{k.value}</span>
                 </CardContent>
               </Card>
             ))}
@@ -323,12 +318,59 @@ export default function Consolidado() {
           )}
         </TooltipProvider>
 
-        {/* Table */}
+        {/* Content */}
         {isLoading ? (
           <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
         ) : groups.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma carga consolidada para este dia.</p>
+        ) : isMobile ? (
+          /* Mobile Card View */
+          <div className="space-y-3">
+            {groups.map((g) => {
+              const isOpen = expanded.has(g.cargaId);
+              const statusColor = STATUS_COLORS[g.status] || "";
+              return (
+                <Card key={g.cargaId} className="overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="p-3 space-y-2 cursor-pointer active:bg-muted/50" onClick={() => toggleExpand(g.cargaId)}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                          <span className="font-mono font-bold text-sm">{g.placa ?? "—"}</span>
+                        </div>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <StatusSelect value={g.status} onChange={(v) => handleStatusChange(g, v)} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        <div><span className="text-muted-foreground">Tipo: </span>{g.tipoCaminhao ?? "—"}</div>
+                        <div><span className="text-muted-foreground">Data: </span>{format(new Date(g.data + "T12:00:00"), "dd/MM")}</div>
+                        <div><span className="text-muted-foreground">Motorista: </span><span className="truncate">{g.motorista ?? "—"}</span></div>
+                        <div><span className="text-muted-foreground">Peso: </span><span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span></div>
+                        <div><span className="text-muted-foreground">Pedidos: </span>{g.qtdPedidos}</div>
+                        <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
+                      </div>
+                    </div>
+                    {isOpen && (
+                      <div className="border-t border-border bg-muted/20 divide-y divide-border/50">
+                        {g.items.map((item) => (
+                          <div key={item.id} className="px-3 py-2 text-xs space-y-0.5">
+                            <div className="font-medium">Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}</div>
+                            <div className="flex justify-between text-muted-foreground">
+                              <span>{item.cliente ?? item.codigo_cliente ?? "—"}</span>
+                              <span>{(item.peso ?? 0).toLocaleString("pt-BR")} kg</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         ) : (
+          /* Desktop Table */
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
@@ -350,11 +392,8 @@ export default function Consolidado() {
                   const isOpen = expanded.has(g.cargaId);
                   return (
                     <React.Fragment key={g.cargaId}>
-                      <TableRow
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => toggleExpand(g.cargaId)}
-                      >
-                         <TableCell className="px-2">
+                      <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(g.cargaId)}>
+                        <TableCell className="px-2">
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()} className="text-xs">
@@ -366,21 +405,12 @@ export default function Consolidado() {
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={new Date(g.data + "T12:00:00")}
-                                onSelect={(d) => d && handleDateChange(g, d)}
-                                locale={ptBR}
-                                className={cn("p-3 pointer-events-auto")}
-                              />
+                              <Calendar mode="single" selected={new Date(g.data + "T12:00:00")} onSelect={(d) => d && handleDateChange(g, d)} locale={ptBR} className={cn("p-3 pointer-events-auto")} />
                             </PopoverContent>
                           </Popover>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                          <StatusSelect
-                            value={g.status}
-                            onChange={(v) => handleStatusChange(g, v)}
-                          />
+                          <StatusSelect value={g.status} onChange={(v) => handleStatusChange(g, v)} />
                         </TableCell>
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>

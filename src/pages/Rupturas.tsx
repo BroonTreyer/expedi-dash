@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
@@ -126,48 +127,50 @@ export default function Rupturas() {
     setDeleteId(null);
   }, [deleteId, deleteMut]);
 
+  const isMobile = useIsMobile();
+
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-6 w-6 text-amber-500" />
-              <h1 className="text-2xl font-bold tracking-tight">Rupturas</h1>
+              <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500" />
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Rupturas</h1>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {rupturas.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
-                <Printer className="h-4 w-4 mr-1" /> Imprimir
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setPrintOpen(true)}>
+                <Printer className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Imprimir</span>
               </Button>
             )}
             {canEdit && (
-              <Button size="sm" onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
-                <Plus className="h-4 w-4 mr-1" /> Novo Pedido (Ruptura)
+              <Button size="sm" className="text-xs sm:text-sm" onClick={() => { setEditing(null); setDialogMode("vendas"); setDialogOpen(true); }}>
+                <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Novo Pedido (Ruptura)</span><span className="sm:hidden">Nova Ruptura</span>
               </Button>
             )}
           </div>
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Package className="h-5 w-5 text-amber-600" />
-              <div>
-                <p className="text-xs text-muted-foreground">Total Rupturas</p>
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{rupturas.length}</p>
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Rupturas</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{rupturas.length}</p>
               </div>
             </CardContent>
           </Card>
           <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Weight className="h-5 w-5 text-amber-600" />
-              <div>
-                <p className="text-xs text-muted-foreground">Peso Total</p>
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{(totalPeso / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON</p>
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <Weight className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Peso Total</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400 truncate">{(totalPeso / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON</p>
               </div>
             </CardContent>
           </Card>
@@ -176,31 +179,49 @@ export default function Rupturas() {
         {/* Product breakdown */}
         {productSummary.length > 0 && (
           <div className="rounded-lg border border-amber-200 dark:border-amber-800 overflow-hidden">
-            <div className="bg-amber-50/50 dark:bg-amber-950/30 px-4 py-2">
-              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Resumo por Produto</p>
+            <div className="bg-amber-50/50 dark:bg-amber-950/30 px-3 sm:px-4 py-2">
+              <p className="text-xs sm:text-sm font-semibold text-amber-700 dark:text-amber-400">Resumo por Produto</p>
             </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="text-xs">Código</TableHead>
-                    <TableHead className="text-xs">Produto</TableHead>
-                    <TableHead className="text-xs text-right">Qtd Rupturas</TableHead>
-                    <TableHead className="text-xs text-right">Peso Total (kg)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {productSummary.map((p) => (
-                    <TableRow key={p.codigo}>
-                      <TableCell className="text-xs font-mono">{p.codigo}</TableCell>
-                      <TableCell className="text-xs">{p.nome}</TableCell>
-                      <TableCell className="text-xs text-right font-medium">{p.count}</TableCell>
-                      <TableCell className="text-xs text-right font-medium">{p.peso.toLocaleString("pt-BR")}</TableCell>
+            {isMobile ? (
+              <div className="divide-y divide-border/50">
+                {productSummary.map((p) => (
+                  <div key={p.codigo} className="px-3 py-2 flex items-center justify-between text-xs">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-mono text-muted-foreground">{p.codigo}</span>
+                      <span className="mx-1">—</span>
+                      <span className="truncate">{p.nome}</span>
+                    </div>
+                    <div className="flex gap-3 shrink-0 ml-2 font-medium">
+                      <span>{p.count}x</span>
+                      <span>{p.peso.toLocaleString("pt-BR")} kg</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-xs">Código</TableHead>
+                      <TableHead className="text-xs">Produto</TableHead>
+                      <TableHead className="text-xs text-right">Qtd Rupturas</TableHead>
+                      <TableHead className="text-xs text-right">Peso Total (kg)</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {productSummary.map((p) => (
+                      <TableRow key={p.codigo}>
+                        <TableCell className="text-xs font-mono">{p.codigo}</TableCell>
+                        <TableCell className="text-xs">{p.nome}</TableCell>
+                        <TableCell className="text-xs text-right font-medium">{p.count}</TableCell>
+                        <TableCell className="text-xs text-right font-medium">{p.peso.toLocaleString("pt-BR")}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
         )}
 

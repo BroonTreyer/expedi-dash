@@ -34,7 +34,6 @@ export default function Portaria() {
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  // Tab counts
   const counts = useMemo(() => {
     const saidasVinculadas = new Set(
       movimentacoes
@@ -59,33 +58,35 @@ export default function Portaria() {
     <Layout>
       <div className="space-y-4 p-4 md:p-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
-              <Truck className="h-6 w-6 text-primary" />
-              Controle de Portaria
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Registro universal de entrada e saída de veículos
-            </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
+                <Truck className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+                <span className="truncate">Controle de Portaria</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+                Registro universal de entrada e saída de veículos
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <CalendarIcon className="h-4 w-4" />
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
+                  <CalendarIcon className="h-3.5 w-3.5" />
                   {format(date, "dd/MM/yyyy", { locale: ptBR })}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
+              <PopoverContent className="w-auto p-0" align="start">
                 <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} locale={ptBR} />
               </PopoverContent>
             </Popover>
-            <Button variant="secondary" className="gap-2" onClick={() => setShowExpress(!showExpress)}>
-              <Zap className="h-4 w-4" /> Rápida
+            <Button variant="secondary" size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => setShowExpress(!showExpress)}>
+              <Zap className="h-3.5 w-3.5" /> Rápida
             </Button>
-            <Button className="gap-2" onClick={() => openRegistro()}>
-              <Plus className="h-4 w-4" /> Registrar
+            <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
+              <Plus className="h-3.5 w-3.5" /> Registrar
             </Button>
           </div>
         </div>
@@ -98,12 +99,12 @@ export default function Portaria() {
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1 sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar placa, motorista, empresa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
               {CATEGORIAS.map((c) => (
@@ -115,15 +116,15 @@ export default function Portaria() {
 
         {/* Tabs */}
         <Tabs defaultValue="patio">
-          <TabsList>
-            <TabsTrigger value="patio" className="gap-1.5">
-              <ParkingCircle className="h-4 w-4" /> Pátio Atual
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="patio" className="gap-1 flex-1 sm:flex-initial text-xs sm:text-sm">
+              <ParkingCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Pátio
               {counts.patio > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">{counts.patio}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="historico" className="gap-1.5">
-              <History className="h-4 w-4" /> Histórico
+            <TabsTrigger value="historico" className="gap-1 flex-1 sm:flex-initial text-xs sm:text-sm">
+              <History className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Histórico
               {counts.historico > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">{counts.historico}</Badge>
               )}
@@ -132,7 +133,7 @@ export default function Portaria() {
 
           <TabsContent value="patio">
             <Card>
-              <CardHeader className="py-3 px-4">
+              <CardHeader className="py-3 px-4 hidden sm:block">
                 <CardTitle className="text-base">Veículos no Pátio</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -150,9 +151,9 @@ export default function Portaria() {
           <TabsContent value="historico">
             <Card>
               <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Todos os Movimentos</CardTitle>
+                <CardTitle className="text-sm sm:text-base">Todos os Movimentos</CardTitle>
                 <Select value={tipoFilter} onValueChange={setTipoFilter}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectTrigger className="w-[120px] sm:w-[140px] h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="entrada">Entradas</SelectItem>
