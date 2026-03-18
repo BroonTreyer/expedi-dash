@@ -65,6 +65,7 @@ interface CargaGroup {
   clientes: Set<string>;
   ufs: Set<string>;
   status: string;
+  data: string;
   items: Carregamento[];
 }
 
