@@ -28,7 +28,7 @@ interface Props {
     vendedor: string[];
     tipoCaminhao: string;
     busca: string;
-    data: string;
+    dateRange: DateRange;
     etapa: string;
     ruptura: string;
     cliente: string[];
