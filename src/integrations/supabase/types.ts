@@ -207,6 +207,72 @@ export type Database = {
         }
         Relationships: []
       }
+      registros_portaria: {
+        Row: {
+          carga_id: string
+          confianca_km: number | null
+          confianca_placa: number | null
+          created_at: string
+          divergencia_km: boolean | null
+          divergencia_placa: boolean | null
+          foto_km_url: string | null
+          foto_placa_url: string | null
+          id: string
+          km_confirmado: number | null
+          km_lido: number | null
+          km_rodado_real: number | null
+          leitura_modo: string | null
+          placa_confirmada: string | null
+          placa_prevista: string | null
+          status_validacao: string
+          texto_placa_lido: string | null
+          tipo_registro: string
+          usuario_id: string | null
+        }
+        Insert: {
+          carga_id: string
+          confianca_km?: number | null
+          confianca_placa?: number | null
+          created_at?: string
+          divergencia_km?: boolean | null
+          divergencia_placa?: boolean | null
+          foto_km_url?: string | null
+          foto_placa_url?: string | null
+          id?: string
+          km_confirmado?: number | null
+          km_lido?: number | null
+          km_rodado_real?: number | null
+          leitura_modo?: string | null
+          placa_confirmada?: string | null
+          placa_prevista?: string | null
+          status_validacao?: string
+          texto_placa_lido?: string | null
+          tipo_registro: string
+          usuario_id?: string | null
+        }
+        Update: {
+          carga_id?: string
+          confianca_km?: number | null
+          confianca_placa?: number | null
+          created_at?: string
+          divergencia_km?: boolean | null
+          divergencia_placa?: boolean | null
+          foto_km_url?: string | null
+          foto_placa_url?: string | null
+          id?: string
+          km_confirmado?: number | null
+          km_lido?: number | null
+          km_rodado_real?: number | null
+          leitura_modo?: string | null
+          placa_confirmada?: string | null
+          placa_prevista?: string | null
+          status_validacao?: string
+          texto_placa_lido?: string | null
+          tipo_registro?: string
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       tipos_caminhao: {
         Row: {
           created_at: string

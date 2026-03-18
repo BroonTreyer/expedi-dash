@@ -13,6 +13,7 @@ import Usuarios from "./pages/Usuarios";
 import Rupturas from "./pages/Rupturas";
 import Clientes from "./pages/Clientes";
 import Consolidado from "./pages/Consolidado";
+import Portaria from "./pages/Portaria";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="/clientes" element={<ProtectedRoute allowedRoles={["admin", "faturamento"]}><Clientes /></ProtectedRoute>} />
         <Route path="/rupturas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Rupturas /></ProtectedRoute>} />
         <Route path="/consolidado" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Consolidado /></ProtectedRoute>} />
+        <Route path="/portaria" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><Portaria /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>
