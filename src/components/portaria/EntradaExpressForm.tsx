@@ -81,7 +81,7 @@ export function EntradaExpressForm({ onClose }: Props) {
           <Select value={categoria} onValueChange={setCategoria}>
             <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {CATEGORIAS.map((c) => (
+              {CATEGORIAS_PORTARIA.map((c) => (
                 <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
               ))}
             </SelectContent>
