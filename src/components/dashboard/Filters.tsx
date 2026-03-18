@@ -59,7 +59,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
   const isLogistica = userRole === "logistica";
   const today = new Date();
 
-  // Count active filters (excluding data which is always set)
+  // Count active filters (excluding dateRange which is always set)
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.status !== "todos") count++;
@@ -77,27 +77,30 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
     onChange({ ...filters, ...DEFAULT_FILTERS });
   };
 
-  // ── Date navigation ──
+  // ── Date range picker ──
   const DateNav = (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => set("data", adjustDate(filters.data, -1))} title="Dia anterior">
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <Input
-        type="date"
-        value={filters.data}
-        onChange={(e) => set("data", e.target.value)}
-        className="h-9 text-sm w-[140px]"
-      />
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => set("data", adjustDate(filters.data, 1))} title="Próximo dia">
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-      {!isToday(filters.data) && (
-        <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => set("data", new Date().toISOString().split("T")[0])}>
-          <CalendarDays className="h-3.5 w-3.5" /> Hoje
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className={cn("h-9 gap-1.5 text-xs sm:text-sm justify-start text-left font-normal min-w-[140px]", !filters.dateRange.from && "text-muted-foreground")}>
+          <CalendarIcon className="h-3.5 w-3.5" />
+          {filters.dateRange.from ? (
+            filters.dateRange.to && filters.dateRange.from.getTime() !== filters.dateRange.to.getTime() ? (
+              <>{format(filters.dateRange.from, "dd/MM/yyyy", { locale: ptBR })} – {format(filters.dateRange.to, "dd/MM/yyyy", { locale: ptBR })}</>
+            ) : (
+              format(filters.dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+            )
+          ) : (
+            "Selecionar datas"
+          )}
         </Button>
-      )}
-    </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar mode="range" selected={filters.dateRange} onSelect={(range) => { if (range) set("dateRange", range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
+        <div className="p-2 border-t flex justify-end">
+          <Button variant="ghost" size="sm" className="text-xs" onClick={() => set("dateRange", { from: today, to: today })}>Hoje</Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 
   // ── Clear filters button ──
