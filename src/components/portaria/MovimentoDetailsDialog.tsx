@@ -254,7 +254,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                   )}
                   {s?.ocorrencia && (
                     <div className="col-span-2">
-                      <span className="text-muted-foreground">Ocorrência (Saída):</span>
+                      <span className="text-muted-foreground">Ocorrência (Retorno):</span>
                       <p className="mt-0.5">{s.ocorrencia}</p>
                     </div>
                   )}
