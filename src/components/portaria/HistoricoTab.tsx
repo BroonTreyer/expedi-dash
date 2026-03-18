@@ -18,7 +18,7 @@ interface Props {
   search: string;
   categoriaFilter: string;
   tipoFilter: string;
-  onViewDetails: (m: MovimentacaoPortaria) => void;
+  onViewDetails: (entrada: MovimentacaoPortaria | undefined, saida: MovimentacaoPortaria | undefined) => void;
   isLoading?: boolean;
 }
 
