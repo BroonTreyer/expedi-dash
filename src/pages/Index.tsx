@@ -310,7 +310,7 @@ export default function Index() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(`/consolidado?data=${filters.data}`)}
+                onClick={() => navigate(`/consolidado`)}
                 className="gap-1 text-xs sm:text-sm"
               >
                 <PackageCheck className="h-4 w-4" />
