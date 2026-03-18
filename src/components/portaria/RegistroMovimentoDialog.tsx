@@ -106,6 +106,21 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
           setOcrLoading(false);
         }
       }
+
+      // OCR for painel KM photo
+      if (fieldKey === "foto_painel_url") {
+        setOcrPainelLoading(true);
+        try {
+          const result = await processarOCR(publicUrl, "km");
+          setTextoPainelLido(result.texto);
+          setConfiancaPainel(result.confianca);
+          set("km_inicial", result.texto);
+        } catch (e: any) {
+          toast.error("Erro no OCR do painel: " + e.message);
+        } finally {
+          setOcrPainelLoading(false);
+        }
+      }
     } catch (e: any) {
       toast.error("Erro ao enviar foto: " + e.message);
     }
