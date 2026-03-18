@@ -390,7 +390,7 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
           clientes={clientes}
-          selectedDate={filters.data}
+          selectedDate={dateFromStr}
         />
 
         <FechamentoLoteDialog
