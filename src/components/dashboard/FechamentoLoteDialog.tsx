@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowUp, ArrowDown, Truck } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Carregamento } from "@/hooks/useCarregamentos";
-
 import type { CargaPrintData } from "./CargaPrintDialog";
 
 interface Props {
@@ -35,6 +36,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [groups, setGroups] = useState<ClienteGroup[]>([]);
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (open && items.length > 0) {
@@ -56,6 +58,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       });
       const arr = Array.from(map.values()).map((g, idx) => ({ ...g, ordem: idx + 1 }));
       setGroups(arr);
+      setExcludedIds(new Set());
       setTipoCaminhao("");
       setPlaca("");
       setMotorista("");
@@ -65,7 +68,38 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     }
   }, [open, items, selectedDate]);
 
-  const totalPeso = useMemo(() => groups.reduce((s, g) => s + g.pesoTotal, 0), [groups]);
+  const toggleItem = useCallback((id: string) => {
+    setExcludedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleGroup = useCallback((group: ClienteGroup) => {
+    const groupIds = group.items.map(i => i.id);
+    setExcludedIds(prev => {
+      const allExcluded = groupIds.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allExcluded) {
+        groupIds.forEach(id => next.delete(id));
+      } else {
+        groupIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  }, []);
+
+  const activeGroups = useMemo(() => {
+    return groups.map(g => ({
+      ...g,
+      items: g.items.filter(i => !excludedIds.has(i.id)),
+      pesoTotal: g.items.filter(i => !excludedIds.has(i.id)).reduce((s, i) => s + i.peso, 0),
+    })).filter(g => g.items.length > 0);
+  }, [groups, excludedIds]);
+
+  const totalPeso = useMemo(() => activeGroups.reduce((s, g) => s + g.pesoTotal, 0), [activeGroups]);
+  const totalPedidos = useMemo(() => activeGroups.reduce((s, g) => s + g.items.length, 0), [activeGroups]);
 
   const moveUp = (idx: number) => {
     if (idx === 0) return;
@@ -89,10 +123,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     setGroups(prev => prev.map((g, i) => i === idx ? { ...g, ordem: value } : g));
   };
 
-  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento;
+  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0;
 
   const handleSubmit = () => {
-    // Generate a unique carga_id for this load
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
     const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
@@ -100,23 +133,24 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     const cargaId = `CG-${dateStr}-${timeStr}-${rand}`;
 
     const updates = groups.flatMap(group =>
-      group.items.map(item => ({
-        id: item.id,
-        tipo_caminhao: tipoCaminhao,
-        placa,
-        motorista,
-        transportadora,
-        ordem_entrega: group.ordem,
-        etapa: "logistica",
-        carga_id: cargaId,
-        data: dataCarregamento,
-        ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
-      }))
+      group.items
+        .filter(item => !excludedIds.has(item.id))
+        .map(item => ({
+          id: item.id,
+          tipo_caminhao: tipoCaminhao,
+          placa,
+          motorista,
+          transportadora,
+          ordem_entrega: group.ordem,
+          etapa: "logistica",
+          carga_id: cargaId,
+          data: dataCarregamento,
+          ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
+        }))
     );
     onSubmit(updates);
     onOpenChange(false);
 
-    // Trigger print preview
     if (onPrintReady) {
       onPrintReady({
         cargaId,
@@ -126,14 +160,12 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         motorista,
         transportadora: transportadora || undefined,
         horarioPrevisto: horarioPrevisto || undefined,
-        groups: groups.map(g => ({ ...g })),
+        groups: activeGroups.map(g => ({ ...g })),
         totalPeso,
         totalPedidos,
       });
     }
   };
-
-  const totalPedidos = groups.reduce((s, g) => s + g.items.length, 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -143,7 +175,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             <Truck className="h-5 w-5" /> Fechar Carga
           </DialogTitle>
           <DialogDescription>
-            Preencha os dados de transporte e defina a ordem de entrega dos {groups.length} clientes ({totalPedidos} pedidos).
+            Preencha os dados de transporte e selecione os pedidos que entram na carga ({totalPedidos} de {items.length} pedidos selecionados).
           </DialogDescription>
         </DialogHeader>
 
@@ -183,49 +215,73 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
         <div className="border-t border-border pt-3 mt-1 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ordem de Entrega por Cliente</span>
-            <span className="text-xs text-muted-foreground">{totalPeso.toLocaleString("pt-BR")} kg total</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pré-visualização da Carga</span>
+            <span className="text-xs text-muted-foreground">{totalPeso.toLocaleString("pt-BR")} kg · {totalPedidos} pedidos</span>
           </div>
           <div className="space-y-1.5">
-            {groups.map((group, idx) => (
-              <div
-                key={group.codigoCliente ?? idx}
-                className="rounded-md border border-border bg-muted/30 px-3 py-2"
-              >
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={1}
-                    value={group.ordem}
-                    onChange={(e) => setOrdem(idx, Number(e.target.value))}
-                    className="h-8 w-14 text-center text-sm font-bold"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">
-                      {group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}
+            {groups.map((group, idx) => {
+              const groupIds = group.items.map(i => i.id);
+              const allExcluded = groupIds.every(id => excludedIds.has(id));
+              const someExcluded = groupIds.some(id => excludedIds.has(id));
+              const activeWeight = group.items.filter(i => !excludedIds.has(i.id)).reduce((s, i) => s + i.peso, 0);
+              const activeCount = group.items.filter(i => !excludedIds.has(i.id)).length;
+
+              return (
+                <div
+                  key={group.codigoCliente ?? idx}
+                  className={cn("rounded-md border border-border px-3 py-2", allExcluded ? "bg-muted/10 opacity-50" : "bg-muted/30")}
+                >
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={!allExcluded}
+                      onCheckedChange={() => toggleGroup(group)}
+                      className={cn(someExcluded && !allExcluded && "data-[state=checked]:bg-primary/60")}
+                    />
+                    <Input
+                      type="number"
+                      min={1}
+                      value={group.ordem}
+                      onChange={(e) => setOrdem(idx, Number(e.target.value))}
+                      className="h-8 w-14 text-center text-sm font-bold"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">
+                        {group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {activeWeight.toLocaleString("pt-BR")} kg · {activeCount} {activeCount === 1 ? "pedido" : "pedidos"}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {group.pesoTotal.toLocaleString("pt-BR")} kg · {group.items.length} {group.items.length === 1 ? "pedido" : "pedidos"}
+                    <div className="flex flex-col gap-0.5">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveUp(idx)} disabled={idx === 0}>
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveDown(idx)} disabled={idx === groups.length - 1}>
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-0.5">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveUp(idx)} disabled={idx === 0}>
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveDown(idx)} disabled={idx === groups.length - 1}>
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </Button>
+                  <div className="ml-16 mt-1 space-y-0.5">
+                    {group.items.map((item) => {
+                      const excluded = excludedIds.has(item.id);
+                      return (
+                        <div
+                          key={item.id}
+                          className={cn("flex items-center gap-2 text-xs text-muted-foreground", excluded && "line-through opacity-40")}
+                        >
+                          <Checkbox
+                            checked={!excluded}
+                            onCheckedChange={() => toggleItem(item.id)}
+                            className="h-3.5 w-3.5"
+                          />
+                          <span className="truncate">{item.nomeProduto ?? "Sem produto"} · {item.peso.toLocaleString("pt-BR")} kg</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <div className="ml-16 mt-1 space-y-0.5">
-                  {group.items.map((item) => (
-                    <div key={item.id} className="text-xs text-muted-foreground truncate">
-                      {item.nomeProduto ?? "Sem produto"} · {item.peso.toLocaleString("pt-BR")} kg
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
