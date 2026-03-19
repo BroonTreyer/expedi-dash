@@ -111,7 +111,8 @@ export default function Index() {
   const filtered = useMemo(() => {
     return carregamentos.filter((c) => {
       // Hide logistica-ok items unless toggle is active
-      if (c.etapa === "logistica" && !showLogistica) return false;
+      if (showLogistica && c.etapa !== "logistica") return false;
+      if (!showLogistica && c.etapa === "logistica") return false;
       // Hide finalized items — they appear only in Consolidado
       if (c.carga_id != null && c.status === "Carregado") return false;
       if (filters.status !== "todos" && c.status !== filters.status) return false;
