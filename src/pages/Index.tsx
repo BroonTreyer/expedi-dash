@@ -224,6 +224,11 @@ export default function Index() {
     setSelectedIds([]);
   }, [updateMut]);
 
+  // When user unchecks groups inside FechamentoLoteDialog and closes it, remove those IDs from selection
+  const handleLoteExcluded = useCallback((excludedItemIds: string[]) => {
+    setSelectedIds((prev) => prev.filter((id) => !excludedItemIds.includes(id)));
+  }, []);
+
   const handleAdicionarCargaSubmit = useCallback((updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => {
     for (const u of updates) {
       updateMut.mutate(u);
@@ -423,6 +428,7 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           onSubmit={handleLoteSubmit}
           onPrintReady={handlePrintReady}
+          onExcludedChange={handleLoteExcluded}
           selectedDate={dateFromStr}
         />
 
