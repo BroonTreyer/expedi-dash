@@ -80,6 +80,11 @@ export default function Index() {
     return carregamentos.filter(c => c.carga_id != null).length;
   }, [carregamentos]);
 
+  // Count logistica-ok items (hidden by default)
+  const logisticaOkCount = useMemo(() => {
+    return carregamentos.filter(c => c.etapa === "logistica").length;
+  }, [carregamentos]);
+
   // Closed loads for "Adicionar à Carga"
   const cargasFechadas: CargaResumo[] = useMemo(() => {
     const map = new Map<string, CargaResumo>();
