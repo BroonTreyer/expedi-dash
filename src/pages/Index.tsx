@@ -428,6 +428,7 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           onSubmit={handleLoteSubmit}
           onPrintReady={handlePrintReady}
+          onExcludedChange={handleLoteExcluded}
           selectedDate={dateFromStr}
         />
 
