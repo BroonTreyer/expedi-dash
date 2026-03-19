@@ -314,6 +314,20 @@ export default function Index() {
                 <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Novo Pedido</span><span className="sm:hidden">Novo</span>
               </Button>
             )}
+            {logisticaOkCount > 0 && (
+              <Button
+                variant={showLogistica ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowLogistica(prev => !prev)}
+                className="gap-1 text-xs sm:text-sm"
+              >
+                <Truck className="h-4 w-4" />
+                <span className="hidden sm:inline">{showLogistica ? "Ocultar" : "Ver"} Logística OK</span>
+                <Badge variant="secondary" className="h-5 min-w-[20px] px-1.5 text-[10px]">
+                  {logisticaOkCount}
+                </Badge>
+              </Button>
+            )}
             {finalizadosCount > 0 && (
               <Button
                 variant="outline"
