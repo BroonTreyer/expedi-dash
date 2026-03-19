@@ -62,6 +62,7 @@ export default function Index() {
   const [printData, setPrintData] = useState<CargaPrintData | null>(null);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [adicionarCargaOpen, setAdicionarCargaOpen] = useState(false);
+  const [showLogistica, setShowLogistica] = useState(false);
 
   const dateFromStr = filters.dateRange.from ? format(filters.dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = filters.dateRange.to ? format(filters.dateRange.to, "yyyy-MM-dd") : dateFromStr;
@@ -77,6 +78,11 @@ export default function Index() {
   // Count finalized (hidden) items
   const finalizadosCount = useMemo(() => {
     return carregamentos.filter(c => c.carga_id != null).length;
+  }, [carregamentos]);
+
+  // Count logistica-ok items (hidden by default)
+  const logisticaOkCount = useMemo(() => {
+    return carregamentos.filter(c => c.etapa === "logistica").length;
   }, [carregamentos]);
 
   // Closed loads for "Adicionar à Carga"
@@ -104,8 +110,8 @@ export default function Index() {
 
   const filtered = useMemo(() => {
     return carregamentos.filter((c) => {
-      // Hide logistica-ok items — they appear only in Consolidado
-      if (c.etapa === "logistica") return false;
+      // Hide logistica-ok items unless toggle is active
+      if (c.etapa === "logistica" && !showLogistica) return false;
       // Hide finalized items — they appear only in Consolidado
       if (c.carga_id != null && c.status === "Carregado") return false;
       if (filters.status !== "todos" && c.status !== filters.status) return false;
@@ -122,7 +128,7 @@ export default function Index() {
       }
       return true;
     });
-  }, [carregamentos, filters]);
+  }, [carregamentos, filters, showLogistica]);
 
   // Prune selection when filtered data changes
   const filteredIds = useMemo(() => new Set(filtered.map(c => c.id)), [filtered]);
@@ -306,6 +312,20 @@ export default function Index() {
             {canEdit && (
               <Button size="sm" onClick={handleNewPedido} className="text-xs sm:text-sm">
                 <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Novo Pedido</span><span className="sm:hidden">Novo</span>
+              </Button>
+            )}
+            {logisticaOkCount > 0 && (
+              <Button
+                variant={showLogistica ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowLogistica(prev => !prev)}
+                className="gap-1 text-xs sm:text-sm"
+              >
+                <Truck className="h-4 w-4" />
+                <span className="hidden sm:inline">{showLogistica ? "Ocultar" : "Ver"} Logística OK</span>
+                <Badge variant="secondary" className="h-5 min-w-[20px] px-1.5 text-[10px]">
+                  {logisticaOkCount}
+                </Badge>
               </Button>
             )}
             {finalizadosCount > 0 && (
