@@ -139,6 +139,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
   const handleSubmit = async () => {
     const basePayload: Record<string, any> = { ...form };
+    delete basePayload.id;
     delete basePayload.vendedores;
     delete basePayload.codigo_produto;
     delete basePayload.nome_produto;
