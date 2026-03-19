@@ -21,7 +21,7 @@ const COLUMN_BORDER: Record<CarregamentoStatus, string> = {
 
 export function KanbanView({ data, onStatusChange }: Props) {
   // Filter out items that have ruptura-specific statuses (they belong in the Rupturas page)
-  const dashboardData = data.filter((c) => !RUPTURA_STATUSES.includes(c.status as any));
+  const dashboardData = data.filter((c) => !RUPTURA_STATUSES.includes(c.status as any) && c.etapa !== "logistica");
 
   return (
     <div className="flex lg:grid lg:grid-cols-6 gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
