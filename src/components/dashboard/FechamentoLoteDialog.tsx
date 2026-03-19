@@ -1,4 +1,21 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUp, ArrowDown, Truck, MapPin, Package } from "lucide-react";
+import { ArrowUp, ArrowDown, Truck, MapPin, Package, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
@@ -20,6 +37,7 @@ interface Props {
   tiposCaminhao: { nome_tipo: string }[];
   onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string }[]) => void;
   onPrintReady?: (data: CargaPrintData) => void;
+  onExcludedChange?: (excludedItemIds: string[]) => void;
   selectedDate?: string;
 }
 
@@ -33,7 +51,129 @@ interface ClienteGroup {
   ordem: number;
 }
 
-export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate }: Props) {
+/* ─── Sortable card component ─── */
+function SortableDestinationCard({
+  group,
+  idx,
+  totalCount,
+  excluded,
+  onToggle,
+  onMoveUp,
+  onMoveDown,
+  onOrderChange,
+}: {
+  group: ClienteGroup;
+  idx: number;
+  totalCount: number;
+  excluded: boolean;
+  onToggle: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onOrderChange: (newOrder: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: group.codigoCliente ?? "__sem__",
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const [localOrder, setLocalOrder] = useState(String(group.ordem));
+
+  useEffect(() => {
+    setLocalOrder(String(group.ordem));
+  }, [group.ordem]);
+
+  const handleOrderBlur = () => {
+    const num = parseInt(localOrder, 10);
+    if (!isNaN(num) && num >= 1 && num <= totalCount && num !== group.ordem) {
+      onOrderChange(num);
+    } else {
+      setLocalOrder(String(group.ordem));
+    }
+  };
+
+  const handleOrderKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  const pedidoNums = group.items
+    .map((i) => i.numeroPedido)
+    .filter(Boolean)
+    .map((n) => `#${n}`);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "rounded-md border border-border px-3 py-2.5 transition-opacity",
+        excluded ? "bg-muted/10 opacity-40" : "bg-muted/30",
+        isDragging && "z-50 shadow-lg ring-2 ring-primary/30 opacity-90"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none p-0.5 text-muted-foreground hover:text-foreground"
+          tabIndex={-1}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+
+        <Checkbox checked={!excluded} onCheckedChange={onToggle} />
+
+        {/* Editable order number */}
+        <Input
+          type="number"
+          min={1}
+          max={totalCount}
+          value={localOrder}
+          onChange={(e) => setLocalOrder(e.target.value)}
+          onBlur={handleOrderBlur}
+          onKeyDown={handleOrderKeyDown}
+          className="h-7 w-10 text-center text-xs font-bold p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium truncate">
+            {group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+            <MapPin className="h-3 w-3 shrink-0" />
+            <span className="truncate">
+              {group.cidade ?? "Sem cidade"}{group.uf ? ` – ${group.uf}` : ""}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {group.items.length} {group.items.length === 1 ? "pedido" : "pedidos"} · {group.pesoTotal.toLocaleString("pt-BR")} kg
+            {pedidoNums.length > 0 && (
+              <span className="ml-1.5 text-foreground/60">{pedidoNums.join(", ")}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-0.5">
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onMoveUp} disabled={idx === 0}>
+            <ArrowUp className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onMoveDown} disabled={idx === totalCount - 1}>
+            <ArrowDown className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main dialog ─── */
+export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, onExcludedChange, selectedDate }: Props) {
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
@@ -87,6 +227,25 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     });
   }, []);
 
+  // Propagate exclusions back when dialog closes
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen && onExcludedChange) {
+      // Collect all item IDs from excluded groups
+      const excludedIds: string[] = [];
+      for (const g of groups) {
+        if (excludedGroupKeys.has(groupKey(g))) {
+          for (const item of g.items) {
+            excludedIds.push(item.id);
+          }
+        }
+      }
+      if (excludedIds.length > 0) {
+        onExcludedChange(excludedIds);
+      }
+    }
+    onOpenChange(nextOpen);
+  }, [onOpenChange, onExcludedChange, groups, excludedGroupKeys]);
+
   const activeGroups = useMemo(
     () => groups.filter((g) => !excludedGroupKeys.has(groupKey(g))),
     [groups, excludedGroupKeys]
@@ -105,12 +264,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     return Array.from(set).sort();
   }, [activeGroups]);
 
+  // ── Reorder helpers ──
+  const renumber = (arr: ClienteGroup[]) => arr.map((g, i) => ({ ...g, ordem: i + 1 }));
+
   const moveUp = (idx: number) => {
     if (idx === 0) return;
     setGroups((prev) => {
       const next = [...prev];
       [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-      return next.map((g, i) => ({ ...g, ordem: i + 1 }));
+      return renumber(next);
     });
   };
 
@@ -119,9 +281,36 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     setGroups((prev) => {
       const next = [...prev];
       [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
-      return next.map((g, i) => ({ ...g, ordem: i + 1 }));
+      return renumber(next);
     });
   };
+
+  const moveToPosition = (fromIdx: number, toPosition: number) => {
+    setGroups((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIdx, 1);
+      next.splice(toPosition - 1, 0, item);
+      return renumber(next);
+    });
+  };
+
+  // ── DnD ──
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const sortableIds = useMemo(() => groups.map((g) => groupKey(g)), [groups]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setGroups((prev) => {
+      const oldIdx = prev.findIndex((g) => groupKey(g) === active.id);
+      const newIdx = prev.findIndex((g) => groupKey(g) === over.id);
+      return renumber(arrayMove(prev, oldIdx, newIdx));
+    });
+  }, []);
 
   const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0;
 
@@ -182,14 +371,14 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" /> Fechar Carga
           </DialogTitle>
           <DialogDescription>
-            Preencha os dados de transporte e confirme os destinos da carga.
+            Preencha os dados de transporte e confirme os destinos. Arraste, use as setas ou edite o número da ordem.
           </DialogDescription>
         </DialogHeader>
 
@@ -247,59 +436,31 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             </div>
           </div>
 
-          {/* Destination cards */}
-          <div className="space-y-1.5">
-            {groups.map((group, idx) => {
-              const key = groupKey(group);
-              const excluded = excludedGroupKeys.has(key);
-              const pedidoNums = group.items
-                .map((i) => i.numeroPedido)
-                .filter(Boolean)
-                .map((n) => `#${n}`);
+          {/* Destination cards with DnD */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1.5">
+                {groups.map((group, idx) => {
+                  const key = groupKey(group);
+                  const excluded = excludedGroupKeys.has(key);
 
-              return (
-                <div
-                  key={key + idx}
-                  className={cn(
-                    "rounded-md border border-border px-3 py-2.5 transition-opacity",
-                    excluded ? "bg-muted/10 opacity-40" : "bg-muted/30"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Checkbox checked={!excluded} onCheckedChange={() => toggleGroup(group)} />
-                    <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
-                      {group.ordem}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        {group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">
-                          {group.cidade ?? "Sem cidade"}{group.uf ? ` – ${group.uf}` : ""}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {group.items.length} {group.items.length === 1 ? "pedido" : "pedidos"} · {group.pesoTotal.toLocaleString("pt-BR")} kg
-                        {pedidoNums.length > 0 && (
-                          <span className="ml-1.5 text-foreground/60">{pedidoNums.join(", ")}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveUp(idx)} disabled={idx === 0}>
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveDown(idx)} disabled={idx === groups.length - 1}>
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  return (
+                    <SortableDestinationCard
+                      key={key}
+                      group={group}
+                      idx={idx}
+                      totalCount={groups.length}
+                      excluded={excluded}
+                      onToggle={() => toggleGroup(group)}
+                      onMoveUp={() => moveUp(idx)}
+                      onMoveDown={() => moveDown(idx)}
+                      onOrderChange={(newPos) => moveToPosition(idx, newPos)}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
 
         {/* Route map */}
@@ -311,7 +472,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
             Fechar Carga ({totalPedidos} pedidos)
           </Button>
