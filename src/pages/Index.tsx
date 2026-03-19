@@ -128,7 +128,7 @@ export default function Index() {
       }
       return true;
     });
-  }, [carregamentos, filters]);
+  }, [carregamentos, filters, showLogistica]);
 
   // Prune selection when filtered data changes
   const filteredIds = useMemo(() => new Set(filtered.map(c => c.id)), [filtered]);
