@@ -62,6 +62,7 @@ export default function Index() {
   const [printData, setPrintData] = useState<CargaPrintData | null>(null);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [adicionarCargaOpen, setAdicionarCargaOpen] = useState(false);
+  const [showLogistica, setShowLogistica] = useState(false);
 
   const dateFromStr = filters.dateRange.from ? format(filters.dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = filters.dateRange.to ? format(filters.dateRange.to, "yyyy-MM-dd") : dateFromStr;
