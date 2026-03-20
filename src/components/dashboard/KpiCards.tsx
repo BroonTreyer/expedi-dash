@@ -16,7 +16,7 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
   const pesoCarregado = source.filter(c => c.status === "Carregado").reduce((s, c) => s + (c.peso ?? 0), 0);
   const pesoCarregando = source.filter(c => c.status === "Carregando").reduce((s, c) => s + (c.peso ?? 0), 0);
   const totalVeiculos = new Set(source.filter(c => c.placa).map(c => c.placa)).size;
-  const pendentesLogistica = source.filter(c => c.etapa === "vendas").length;
+  const pendentesLogistica = new Set(source.filter(c => c.etapa === "vendas" && c.numero_pedido).map(c => c.numero_pedido)).size;
   const rupturas = source.filter(c => c.ruptura).length;
 
   const cards = [
