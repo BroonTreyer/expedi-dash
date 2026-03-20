@@ -2,3 +2,6 @@ project_id = "zwawfxpcsefcltxtdgnd"
 
 [functions.ocr-portaria]
 verify_jwt = false
+
+[functions.roteirizar]
+verify_jwt = false
