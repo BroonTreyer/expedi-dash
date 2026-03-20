@@ -1,0 +1,1 @@
+ALTER TABLE public.carregamentos_dia ADD COLUMN IF NOT EXISTS nome_carga text;

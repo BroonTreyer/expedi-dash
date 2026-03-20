@@ -29,6 +29,7 @@ export type Database = {
           horario_previsto: string | null
           id: string
           motorista: string | null
+          nome_carga: string | null
           nome_produto: string | null
           numero_pedido: number | null
           observacoes: string | null
@@ -59,6 +60,7 @@ export type Database = {
           horario_previsto?: string | null
           id?: string
           motorista?: string | null
+          nome_carga?: string | null
           nome_produto?: string | null
           numero_pedido?: number | null
           observacoes?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           horario_previsto?: string | null
           id?: string
           motorista?: string | null
+          nome_carga?: string | null
           nome_produto?: string | null
           numero_pedido?: number | null
           observacoes?: string | null
