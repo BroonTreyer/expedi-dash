@@ -10,8 +10,19 @@ interface DestinoRota {
   uf: string;
 }
 
+interface TrechoInfo {
+  de: string;
+  para: string;
+  km: number;
+  duracao: number;
+}
+
 interface Props {
   destinos: DestinoRota[];
+  routeGeometry?: [number, number][];
+  distanciaTotal?: number;
+  trechos?: TrechoInfo[];
+  loading?: boolean;
 }
 
 interface Coords {
@@ -43,25 +54,32 @@ async function geocode(cidade: string, uf: string): Promise<Coords | null> {
   return null;
 }
 
-function createNumberedIcon(num: number) {
+function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
+  const colors = {
+    start: { bg: "hsl(142, 71%, 45%)", border: "white" },
+    middle: { bg: "hsl(var(--primary))", border: "white" },
+    end: { bg: "hsl(0, 72%, 51%)", border: "white" },
+  };
+  const { bg, border } = colors[type];
+
   return L.divIcon({
     className: "custom-marker",
     html: `<div style="
-      background: hsl(var(--primary));
-      color: hsl(var(--primary-foreground));
-      width: 28px;
-      height: 28px;
+      background: ${bg};
+      color: white;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
       font-size: 13px;
-      border: 2px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border: 2.5px solid ${border};
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
     ">${num}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
   });
 }
 
@@ -79,10 +97,12 @@ function FitBounds({ points }: { points: Coords[] }) {
   return null;
 }
 
-export function RotaMap({ destinos }: Props) {
+export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, loading: externalLoading }: Props) {
   const [points, setPoints] = useState<(Coords & { ordem: number; cliente: string; cidade: string; uf: string })[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
   const abortRef = useRef(0);
+
+  const isLoading = externalLoading || localLoading;
 
   useEffect(() => {
     const run = ++abortRef.current;
@@ -91,69 +111,133 @@ export function RotaMap({ destinos }: Props) {
       return;
     }
 
-    setLoading(true);
+    setLocalLoading(true);
 
-    // Deduplicate by cidade+uf, keeping first occurrence info
-    const unique = new Map<string, DestinoRota>();
-    destinos.forEach((d) => {
-      const k = `${d.cidade},${d.uf}`;
-      if (!unique.has(k)) unique.set(k, d);
-    });
+    // Apply offset for same-city destinations
+    const cityCount = new Map<string, number>();
 
     Promise.all(
-      Array.from(unique.values()).map(async (d) => {
+      destinos.map(async (d) => {
         const coords = await geocode(d.cidade, d.uf);
         if (!coords) return null;
-        return { ...coords, ordem: d.ordem, cliente: d.cliente, cidade: d.cidade, uf: d.uf };
+
+        const key = `${d.cidade},${d.uf}`;
+        const count = cityCount.get(key) ?? 0;
+        cityCount.set(key, count + 1);
+
+        return {
+          lat: coords.lat + count * 0.003,
+          lng: coords.lng + count * 0.003,
+          ordem: d.ordem,
+          cliente: d.cliente,
+          cidade: d.cidade,
+          uf: d.uf,
+        };
       })
     ).then((results) => {
       if (run !== abortRef.current) return;
       setPoints(results.filter(Boolean) as any);
-      setLoading(false);
+      setLocalLoading(false);
     });
   }, [destinos]);
 
-  const polylinePositions = points
-    .sort((a, b) => a.ordem - b.ordem)
-    .map((p) => [p.lat, p.lng] as [number, number]);
+  const sortedPoints = [...points].sort((a, b) => a.ordem - b.ordem);
+
+  // Use real geometry if available, otherwise fall back to straight lines
+  const polylinePositions: [number, number][] = routeGeometry && routeGeometry.length > 0
+    ? routeGeometry
+    : sortedPoints.map((p) => [p.lat, p.lng] as [number, number]);
 
   if (destinos.length === 0) {
     return (
-      <div className="h-[280px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground">
+      <div className="h-[320px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground">
         Selecione pedidos para visualizar a rota
       </div>
     );
   }
 
   return (
-    <div className="relative rounded-lg overflow-hidden border border-border">
-      {loading && (
-        <div className="absolute inset-0 z-[1000] bg-background/60 flex items-center justify-center">
-          <span className="text-sm text-muted-foreground animate-pulse">Carregando mapa...</span>
+    <div className="space-y-2">
+      {/* Distance info bar */}
+      {distanciaTotal != null && distanciaTotal > 0 && (
+        <div className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm">
+          <span className="font-semibold">{distanciaTotal} km total</span>
+          {trechos && trechos.length > 0 && (
+            <span className="text-muted-foreground text-xs">
+              {trechos.map((t, i) => (
+                <span key={i}>
+                  {i > 0 && " → "}
+                  {t.km} km
+                </span>
+              ))}
+            </span>
+          )}
         </div>
       )}
-      <MapContainer
-        center={[-15.78, -47.93]}
-        zoom={4}
-        className="h-[280px] w-full z-0"
-        scrollWheelZoom={false}
-        attributionControl={false}
-      >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <FitBounds points={points} />
-        {points.map((p) => (
-          <Marker key={`${p.cidade}-${p.uf}`} position={[p.lat, p.lng]} icon={createNumberedIcon(p.ordem)}>
-            <Popup>
-              <strong>{p.cliente}</strong>
-              <br />
-              {p.cidade} – {p.uf}
-            </Popup>
-          </Marker>
-        ))}
-        {polylinePositions.length > 1 && (
-          <Polyline positions={polylinePositions} pathOptions={{ color: "hsl(var(--primary))", weight: 3, dashArray: "8 4" }} />
+
+      {/* Map */}
+      <div className="relative rounded-lg overflow-hidden border border-border">
+        {isLoading && (
+          <div className="absolute inset-0 z-[1000] bg-background/60 flex items-center justify-center">
+            <span className="text-sm text-muted-foreground animate-pulse">Carregando mapa...</span>
+          </div>
         )}
-      </MapContainer>
+        <MapContainer
+          center={[-15.78, -47.93]}
+          zoom={4}
+          className="h-[320px] w-full z-0"
+          scrollWheelZoom={false}
+          attributionControl={false}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <FitBounds points={sortedPoints} />
+          {sortedPoints.map((p, idx) => {
+            const type = idx === 0 ? "start" : idx === sortedPoints.length - 1 ? "end" : "middle";
+            const trecho = trechos?.[idx - 1];
+            return (
+              <Marker key={`${p.cidade}-${p.uf}-${p.ordem}`} position={[p.lat, p.lng]} icon={createMarkerIcon(p.ordem, type)}>
+                <Popup>
+                  <div className="text-xs">
+                    <strong>{p.ordem}. {p.cliente}</strong>
+                    <br />
+                    {p.cidade} – {p.uf}
+                    {trecho && (
+                      <>
+                        <br />
+                        <span className="text-muted-foreground">{trecho.km} km · ~{trecho.duracao} min</span>
+                      </>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+          {polylinePositions.length > 1 && (
+            <Polyline
+              positions={polylinePositions}
+              pathOptions={{
+                color: routeGeometry ? "hsl(217, 91%, 60%)" : "hsl(var(--primary))",
+                weight: routeGeometry ? 4 : 3,
+                dashArray: routeGeometry ? undefined : "8 4",
+                opacity: 0.8,
+              }}
+            />
+          )}
+        </MapContainer>
+      </div>
+
+      {/* Trecho details */}
+      {trechos && trechos.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-muted-foreground">
+          {trechos.map((t, i) => (
+            <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/20">
+              <span className="font-medium text-foreground">{i + 1}→{i + 2}</span>
+              <span className="truncate">{t.de} → {t.para}</span>
+              <span className="ml-auto font-mono whitespace-nowrap">{t.km} km</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
