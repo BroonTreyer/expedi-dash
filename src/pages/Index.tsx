@@ -21,7 +21,7 @@ import { useProdutos } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus } from "lucide-react";
+import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus, Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 import { supabase } from "@/integrations/supabase/client";
