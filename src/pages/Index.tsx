@@ -427,6 +427,17 @@ export default function Index() {
           selectedDate={dateFromStr}
         />
 
+        <RoteirizacaoDialog
+          open={roteirizacaoOpen}
+          onOpenChange={setRoteirizacaoOpen}
+          items={selectedItems}
+          onAdvance={(result) => {
+            setRoteirizacaoResult(result);
+            setLoteDialogOpen(true);
+          }}
+          onExcludedChange={handleLoteExcluded}
+        />
+
         <FechamentoLoteDialog
           open={loteDialogOpen}
           onOpenChange={setLoteDialogOpen}
@@ -434,8 +445,8 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           onSubmit={handleLoteSubmit}
           onPrintReady={handlePrintReady}
-          onExcludedChange={handleLoteExcluded}
           selectedDate={dateFromStr}
+          roteirizacao={roteirizacaoResult}
         />
 
         <CargaPrintDialog
