@@ -11,6 +11,7 @@ import { KanbanView } from "@/components/dashboard/KanbanView";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialog";
+import { RoteirizacaoDialog, type RoteirizacaoResult } from "@/components/dashboard/RoteirizacaoDialog";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
@@ -20,7 +21,7 @@ import { useProdutos } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus } from "lucide-react";
+import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus, Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +64,8 @@ export default function Index() {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [adicionarCargaOpen, setAdicionarCargaOpen] = useState(false);
   const [showLogistica, setShowLogistica] = useState(false);
+  const [roteirizacaoOpen, setRoteirizacaoOpen] = useState(false);
+  const [roteirizacaoResult, setRoteirizacaoResult] = useState<RoteirizacaoResult | null>(null);
 
   const dateFromStr = filters.dateRange.from ? format(filters.dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = filters.dateRange.to ? format(filters.dateRange.to, "yyyy-MM-dd") : dateFromStr;
@@ -371,6 +374,9 @@ export default function Index() {
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             {(isAdmin || isLogistica) && (
               <>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setRoteirizacaoOpen(true)}>
+                  <Route className="h-3.5 w-3.5" /> Roteirizar
+                </Button>
                 <Button size="sm" className="h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
                   <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
                 </Button>
@@ -421,6 +427,17 @@ export default function Index() {
           selectedDate={dateFromStr}
         />
 
+        <RoteirizacaoDialog
+          open={roteirizacaoOpen}
+          onOpenChange={setRoteirizacaoOpen}
+          items={selectedItems}
+          onAdvance={(result) => {
+            setRoteirizacaoResult(result);
+            setLoteDialogOpen(true);
+          }}
+          onExcludedChange={handleLoteExcluded}
+        />
+
         <FechamentoLoteDialog
           open={loteDialogOpen}
           onOpenChange={setLoteDialogOpen}
@@ -428,8 +445,8 @@ export default function Index() {
           tiposCaminhao={tiposCaminhao}
           onSubmit={handleLoteSubmit}
           onPrintReady={handlePrintReady}
-          onExcludedChange={handleLoteExcluded}
           selectedDate={dateFromStr}
+          roteirizacao={roteirizacaoResult}
         />
 
         <CargaPrintDialog
