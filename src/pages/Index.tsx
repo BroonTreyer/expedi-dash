@@ -374,6 +374,9 @@ export default function Index() {
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             {(isAdmin || isLogistica) && (
               <>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setRoteirizacaoOpen(true)}>
+                  <Route className="h-3.5 w-3.5" /> Roteirizar
+                </Button>
                 <Button size="sm" className="h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
                   <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
                 </Button>
