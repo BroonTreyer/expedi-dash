@@ -146,7 +146,7 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
   // Use real geometry if available, otherwise fall back to straight lines
   const polylinePositions: [number, number][] = routeGeometry && routeGeometry.length > 0
     ? routeGeometry
-    : sortedPoints.map((p) => [p.lat, p.lng] as [number, number]);
+    : [];
 
   if (destinos.length === 0) {
     return (
