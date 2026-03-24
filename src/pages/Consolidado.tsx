@@ -188,6 +188,7 @@ export default function Consolidado() {
   const consolidadoAccessors: Record<string, (g: CargaGroup) => any> = useMemo(() => ({
     data: (g) => g.data,
     status: (g) => g.status,
+    nomeCarga: (g) => g.nomeCarga ?? "",
     tipoCaminhao: (g) => g.tipoCaminhao ?? "",
     placa: (g) => g.placa ?? "",
     motorista: (g) => g.motorista ?? "",

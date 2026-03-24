@@ -253,6 +253,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     }
   }, [activeGroups]);
 
+  // Auto-route on open
+  useEffect(() => {
+    if (shouldAutoRoute && groups.length >= 2) {
+      setShouldAutoRoute(false);
+      handleRoteirizar();
+    }
+  }, [shouldAutoRoute, groups, handleRoteirizar]);
+
   const handleAdvance = () => {
     onAdvance({
       groups: activeGroups,
