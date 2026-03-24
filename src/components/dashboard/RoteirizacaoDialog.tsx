@@ -226,7 +226,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     setIsRouting(true);
     try {
       const { data, error } = await supabase.functions.invoke("roteirizar", {
-        body: { destinos: destinosParaRoteirizar },
+        body: { destinos: destinosParaRoteirizar, origemCidade: "Goiânia", origemUf: "GO" },
       });
       if (error) throw error;
 
