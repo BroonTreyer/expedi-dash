@@ -163,14 +163,6 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     }
   }, [open, items]);
 
-  // Auto-route on open
-  useEffect(() => {
-    if (shouldAutoRoute && groups.length >= 2) {
-      setShouldAutoRoute(false);
-      handleRoteirizar();
-    }
-  }, [shouldAutoRoute, groups, handleRoteirizar]);
-
   const groupKey = (g: RotaGroup) => g.codigoCliente ?? "__sem__";
 
   const toggleGroup = useCallback((group: RotaGroup) => {
