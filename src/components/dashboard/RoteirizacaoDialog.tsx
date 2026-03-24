@@ -139,6 +139,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [trechos, setTrechos] = useState<TrechoInfo[] | undefined>();
   const [isRouting, setIsRouting] = useState(false);
 
+  const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
+
   useEffect(() => {
     if (open && items.length > 0) {
       const map = new Map<string, RotaGroup>();
@@ -157,6 +159,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       setRouteGeometry(undefined);
       setDistanciaTotal(undefined);
       setTrechos(undefined);
+      setShouldAutoRoute(true);
     }
   }, [open, items]);
 
