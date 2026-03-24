@@ -84,6 +84,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
     if (!g) {
       g = {
         cargaId: item.carga_id,
+        nomeCarga: item.nome_carga ?? null,
         placa: item.placa,
         motorista: item.motorista,
         tipoCaminhao: item.tipo_caminhao,
