@@ -368,6 +368,7 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Tipo: </span>{g.tipoCaminhao ?? "—"}</div>
                         <div><span className="text-muted-foreground">Data: </span>{format(new Date(g.data + "T12:00:00"), "dd/MM")}</div>
                         <div><span className="text-muted-foreground">Motorista: </span><span className="truncate">{g.motorista ?? "—"}</span></div>
+                        <div><span className="text-muted-foreground">Carga: </span><span className="truncate">{g.nomeCarga ?? "—"}</span></div>
                         <div><span className="text-muted-foreground">Peso: </span><span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span></div>
                         <div><span className="text-muted-foreground">Pedidos: </span>{g.qtdPedidos}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
