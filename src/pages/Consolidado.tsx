@@ -63,6 +63,7 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
 
 interface CargaGroup {
   cargaId: string;
+  nomeCarga: string | null;
   placa: string | null;
   motorista: string | null;
   tipoCaminhao: string | null;
