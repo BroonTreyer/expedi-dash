@@ -63,6 +63,7 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
 
 interface CargaGroup {
   cargaId: string;
+  nomeCarga: string | null;
   placa: string | null;
   motorista: string | null;
   tipoCaminhao: string | null;
@@ -83,6 +84,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
     if (!g) {
       g = {
         cargaId: item.carga_id,
+        nomeCarga: item.nome_carga ?? null,
         placa: item.placa,
         motorista: item.motorista,
         tipoCaminhao: item.tipo_caminhao,
@@ -186,6 +188,7 @@ export default function Consolidado() {
   const consolidadoAccessors: Record<string, (g: CargaGroup) => any> = useMemo(() => ({
     data: (g) => g.data,
     status: (g) => g.status,
+    nomeCarga: (g) => g.nomeCarga ?? "",
     tipoCaminhao: (g) => g.tipoCaminhao ?? "",
     placa: (g) => g.placa ?? "",
     motorista: (g) => g.motorista ?? "",
@@ -365,6 +368,7 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Tipo: </span>{g.tipoCaminhao ?? "—"}</div>
                         <div><span className="text-muted-foreground">Data: </span>{format(new Date(g.data + "T12:00:00"), "dd/MM")}</div>
                         <div><span className="text-muted-foreground">Motorista: </span><span className="truncate">{g.motorista ?? "—"}</span></div>
+                        <div><span className="text-muted-foreground">Carga: </span><span className="truncate">{g.nomeCarga ?? "—"}</span></div>
                         <div><span className="text-muted-foreground">Peso: </span><span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span></div>
                         <div><span className="text-muted-foreground">Pedidos: </span>{g.qtdPedidos}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
@@ -400,6 +404,7 @@ export default function Consolidado() {
                   <SortableTableHead sort={sort} sortKey="tipoCaminhao" onSort={toggleSort}>Tipo</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="placa" onSort={toggleSort}>Placa</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="nomeCarga" onSort={toggleSort}>Carga</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="pesoTotal" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="qtdPedidos" onSort={toggleSort} className="text-center">Pedidos</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="clientes" onSort={toggleSort} className="text-center">Clientes</SortableTableHead>
@@ -434,6 +439,7 @@ export default function Consolidado() {
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
                         <TableCell className="text-xs">{g.motorista ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{g.nomeCarga ?? "—"}</TableCell>
                         <TableCell className="text-right text-xs font-semibold">{g.pesoTotal.toLocaleString("pt-BR")}</TableCell>
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
                         <TableCell className="text-center text-xs">{g.clientes.size}</TableCell>

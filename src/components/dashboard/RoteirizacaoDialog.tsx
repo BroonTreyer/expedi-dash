@@ -139,6 +139,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [trechos, setTrechos] = useState<TrechoInfo[] | undefined>();
   const [isRouting, setIsRouting] = useState(false);
 
+  const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
+
   useEffect(() => {
     if (open && items.length > 0) {
       const map = new Map<string, RotaGroup>();
@@ -157,6 +159,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       setRouteGeometry(undefined);
       setDistanciaTotal(undefined);
       setTrechos(undefined);
+      setShouldAutoRoute(true);
     }
   }, [open, items]);
 
@@ -223,7 +226,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     setIsRouting(true);
     try {
       const { data, error } = await supabase.functions.invoke("roteirizar", {
-        body: { destinos: destinosParaRoteirizar },
+        body: { destinos: destinosParaRoteirizar, origemCidade: "Goiânia", origemUf: "GO" },
       });
       if (error) throw error;
 
@@ -249,6 +252,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       setIsRouting(false);
     }
   }, [activeGroups]);
+
+  // Auto-route on open
+  useEffect(() => {
+    if (shouldAutoRoute && groups.length >= 2) {
+      setShouldAutoRoute(false);
+      handleRoteirizar();
+    }
+  }, [shouldAutoRoute, groups, handleRoteirizar]);
 
   const handleAdvance = () => {
     onAdvance({
