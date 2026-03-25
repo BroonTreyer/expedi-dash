@@ -377,6 +377,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               <SortableTableHead sort={sort} sortKey="cliente" onSort={toggleSort}>Cliente</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
+              {!hideColumns.includes("nome_carga") && <SortableTableHead sort={sort} sortKey="nome_carga" onSort={toggleSort}>Carga</SortableTableHead>}
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
               <SortableTableHead sort={sort} sortKey="tipo_frete" onSort={toggleSort}>Frete</SortableTableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
