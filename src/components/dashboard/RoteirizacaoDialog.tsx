@@ -267,15 +267,13 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
 
         setGroups((prev) => {
           const newOrder: RotaGroup[] = [];
+          // FIX CRÍTICO: Use originalIndex (returned by edge fn) to map back to the correct group.
+          // Previously used cidade+uf which silently dropped the 2nd client in the same city.
           for (const opt of data.ordemOtimizada) {
-            const found = prev.find(
-              (g) =>
-                g.cidade?.toLowerCase() === opt.cidade?.toLowerCase() &&
-                g.uf?.toLowerCase() === opt.uf?.toLowerCase()
-            );
+            const found = prev[opt.originalIndex];
             if (found && !newOrder.includes(found)) newOrder.push(found);
           }
-          // Append any groups not matched (e.g. missing city/uf)
+          // Append any groups not matched (e.g. failed geocoding)
           for (const g of prev) { if (!newOrder.includes(g)) newOrder.push(g); }
           return renumber(newOrder);
         });
