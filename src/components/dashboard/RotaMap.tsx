@@ -95,7 +95,7 @@ function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
 // In react-leaflet v4, function component children do NOT need forwardRef.
 // The warning originates because MapContainer is wrapping children in a context — it's a known
 // harmless warning in react-leaflet 4 + React 18. We add forwardRef to silence it.
-const FitBounds = React.forwardRef<HTMLDivElement, { points: Coords[] }>(function FitBounds({ points }, _ref) {
+const FitBounds = forwardRef<HTMLDivElement, { points: Coords[] }>(function FitBounds({ points }, _ref) {
   const map = useMap();
   useEffect(() => {
     if (points.length === 0) return;
