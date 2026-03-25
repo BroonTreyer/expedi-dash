@@ -283,6 +283,17 @@ export default function Rupturas() {
               ))}
             </SelectContent>
           </Select>
+          {rupturaCargas.length > 0 && (
+            <Select value={cargaFilter} onValueChange={setCargaFilter}>
+              <SelectTrigger><SelectValue placeholder="Carga" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as cargas</SelectItem>
+                {rupturaCargas.map((nc) => (
+                  <SelectItem key={nc} value={nc}>{nc}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} />
         </div>
 
