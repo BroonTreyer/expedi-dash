@@ -79,17 +79,20 @@ export default function Rupturas() {
 
   const totalPeso = useMemo(() => rupturas.reduce((s, c) => s + (c.peso ?? 0), 0), [rupturas]);
 
-  // Group by product
+  // Group by product — include cargas set
   const productSummary = useMemo(() => {
-    const map = new Map<string, { codigo: string; nome: string; count: number; peso: number }>();
+    const map = new Map<string, { codigo: string; nome: string; count: number; peso: number; cargas: Set<string> }>();
     for (const c of rupturas) {
       const key = c.codigo_produto || "SEM_COD";
       const existing = map.get(key);
       if (existing) {
         existing.count += 1;
         existing.peso += c.peso ?? 0;
+        if (c.nome_carga) existing.cargas.add(c.nome_carga);
       } else {
-        map.set(key, { codigo: c.codigo_produto || "—", nome: c.nome_produto || "—", count: 1, peso: c.peso ?? 0 });
+        const cargas = new Set<string>();
+        if (c.nome_carga) cargas.add(c.nome_carga);
+        map.set(key, { codigo: c.codigo_produto || "—", nome: c.nome_produto || "—", count: 1, peso: c.peso ?? 0, cargas });
       }
     }
     return [...map.values()].sort((a, b) => b.peso - a.peso);
