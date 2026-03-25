@@ -291,51 +291,40 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       }
 
       if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
-        // Build a lookup: cidade+uf (lowercase) → trecho index from ordemOtimizada
-        // ordemOtimizada[i].ordem tells us the 1-based position, index 'i' is 0-based insertion order
-        const trechosByKey = new Map<string, TrechoInfo>();
-        if (data.trechos && data.trechos.length > 0) {
-          // trechos[0] = Goiânia → dest1, trechos[1] = dest1 → dest2, etc.
-          // We assign each trecho to the DESTINATION it leads FROM (de → para)
-          // So dest at ordem=1 gets trechos[0] (trecho FROM dest1 to dest2), etc.
-          data.ordemOtimizada.forEach((opt: { cidade: string; uf: string; ordem: number }, i: number) => {
-            const key = `${opt.cidade?.toLowerCase()},${opt.uf?.toLowerCase()}`;
-            // trechos index i corresponds to leg FROM this destination to the next
-            // (trechos[0] = origin→dest1, trechos[1] = dest1→dest2, ...)
-            // Card for dest at position i should show trecho[i] (leg leaving that dest)
-            const legIdx = i + 1; // skip origin leg (trechos[0] = origin→dest1)
-            if (data.trechos[legIdx]) {
-              trechosByKey.set(key, data.trechos[legIdx]);
-            }
-          });
-        }
+        // Normalize city name: remove accents, uppercase, trim — matches coordsCache key format
+        const normCity = (s: string) =>
+          s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 
         setGroups((prev) => {
-          // BUG 4 FIX: Map ordemOtimizada back to groups via codigoCliente (stable identity).
-          // originalIndex refers to the index in destinosParaRoteirizar (subset when groups excluded),
-          // NOT to prev[] directly — so mapping by codigoCliente is more robust.
-          // Build lookup: codigoCliente → group (or cidade+uf as fallback for null-code clients)
-          const byClienteKey = new Map<string, RotaGroup>();
-          prev.forEach((g) => {
-            const k = g.codigoCliente ?? `__sem__${g.cidade ?? ""}__${g.uf ?? ""}`;
-            byClienteKey.set(k, g);
-          });
+          // SINGLE SOURCE OF TRUTH: reorder groups by cidade+uf from backend response.
+          // This is the only key shared between front-end groups and ordemOtimizada.
+          // Using originalIndex was fragile (subset indexing, city-grouping expansion).
+          const byCidadeUf = new Map<string, RotaGroup[]>();
+          for (const g of prev) {
+            if (!g.cidade || !g.uf) continue;
+            const k = `${normCity(g.cidade)},${g.uf.toUpperCase().trim()}`;
+            if (!byCidadeUf.has(k)) byCidadeUf.set(k, []);
+            byCidadeUf.get(k)!.push(g);
+          }
+          // Track how many groups we've consumed per city key (handles multiple clients per city)
+          const usedCount = new Map<string, number>();
 
           const newOrder: RotaGroup[] = [];
           const seen = new Set<RotaGroup>();
+
           for (const opt of data.ordemOtimizada) {
-            const normCidade = (opt.cidade as string)
-              .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
-            // Try codigoCliente first, then fall back by cidade+uf match against activeGroups
-            const byIdx = activeGroups[opt.originalIndex];
-            const found = byIdx
-              ?? (byClienteKey.get(normCidade) ?? null); // last-resort fallback
+            if (!opt.cidade || !opt.uf) continue;
+            const k = `${normCity(opt.cidade as string)},${(opt.uf as string).toUpperCase().trim()}`;
+            const candidates = byCidadeUf.get(k) ?? [];
+            const used = usedCount.get(k) ?? 0;
+            const found = candidates[used];
             if (found && !seen.has(found)) {
               newOrder.push(found);
               seen.add(found);
+              usedCount.set(k, used + 1);
             }
           }
-          // Append any groups not matched (e.g. failed geocoding)
+          // Append groups without coords or not matched (they never leave the list)
           for (const g of prev) { if (!seen.has(g)) newOrder.push(g); }
           return renumber(newOrder);
         });
