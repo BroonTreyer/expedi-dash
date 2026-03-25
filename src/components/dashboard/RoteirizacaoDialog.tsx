@@ -34,6 +34,8 @@ export interface RoteirizacaoResult {
   routeGeometry?: [number, number][];
   distanciaTotal?: number;
   trechos?: TrechoInfo[];
+  /** BUG 7 FIX: Pre-geocoded coords from edge function to avoid duplicate Nominatim calls */
+  coordsCache?: Map<string, { lat: number; lng: number }>;
 }
 
 export interface RotaGroup {
@@ -118,7 +120,8 @@ function SortableDestinationCard({
           </div>
           {trecho && (
             <div className="text-xs text-muted-foreground mt-0.5 font-mono">
-              ↳ {trecho.km} km · ~{trecho.duracao} min até próximo
+              {/* BUG 6 FIX: Convert minutes to hours when >= 60 */}
+              ↳ {trecho.km.toLocaleString("pt-BR")} km · {trecho.duracao >= 60 ? `~${Math.floor(trecho.duracao / 60)}h${trecho.duracao % 60 > 0 ? ` ${trecho.duracao % 60}min` : ""}` : `~${trecho.duracao} min`} até próximo
             </div>
           )}
         </div>
@@ -273,7 +276,11 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         const newCoordsCache = new Map<string, { lat: number; lng: number }>();
         for (const opt of data.ordemOtimizada) {
           if (opt.lat != null && opt.lng != null && opt.cidade && opt.uf) {
-            newCoordsCache.set(`${opt.cidade},${opt.uf}`, { lat: opt.lat, lng: opt.lng });
+            // BUG 1 FIX: Normalize city key to UPPERCASE+no-accents to match RotaMap lookup
+            const normCidade = (opt.cidade as string)
+              .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+            const normUf = (opt.uf as string).toUpperCase().trim();
+            newCoordsCache.set(`${normCidade},${normUf}`, { lat: opt.lat, lng: opt.lng });
           }
         }
         // Incluir origem também se retornada pela edge function
@@ -304,19 +311,37 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         }
 
         setGroups((prev) => {
+          // BUG 4 FIX: Map ordemOtimizada back to groups via codigoCliente (stable identity).
+          // originalIndex refers to the index in destinosParaRoteirizar (subset when groups excluded),
+          // NOT to prev[] directly — so mapping by codigoCliente is more robust.
+          // Build lookup: codigoCliente → group (or cidade+uf as fallback for null-code clients)
+          const byClienteKey = new Map<string, RotaGroup>();
+          prev.forEach((g) => {
+            const k = g.codigoCliente ?? `__sem__${g.cidade ?? ""}__${g.uf ?? ""}`;
+            byClienteKey.set(k, g);
+          });
+
           const newOrder: RotaGroup[] = [];
-          // FIX CRÍTICO: Use originalIndex (returned by edge fn) to map back to the correct group.
-          // Previously used cidade+uf which silently dropped the 2nd client in the same city.
+          const seen = new Set<RotaGroup>();
           for (const opt of data.ordemOtimizada) {
-            const found = prev[opt.originalIndex];
-            if (found && !newOrder.includes(found)) newOrder.push(found);
+            const normCidade = (opt.cidade as string)
+              .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+            // Try codigoCliente first, then fall back by cidade+uf match against activeGroups
+            const byIdx = activeGroups[opt.originalIndex];
+            const found = byIdx
+              ?? (byClienteKey.get(normCidade) ?? null); // last-resort fallback
+            if (found && !seen.has(found)) {
+              newOrder.push(found);
+              seen.add(found);
+            }
           }
           // Append any groups not matched (e.g. failed geocoding)
-          for (const g of prev) { if (!newOrder.includes(g)) newOrder.push(g); }
+          for (const g of prev) { if (!seen.has(g)) newOrder.push(g); }
           return renumber(newOrder);
         });
       }
-      toast.success(`Rota otimizada: ${data.distanciaTotal} km`);
+      // BUG 11 FIX: Format distance with locale separator
+      toast.success(`Rota otimizada: ${Number(data.distanciaTotal).toLocaleString("pt-BR")} km`);
     } catch (err: any) {
       toast.error("Erro ao roteirizar: " + (err.message ?? "Tente novamente"));
     } finally {
@@ -338,6 +363,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       routeGeometry,
       distanciaTotal,
       trechos,
+      // BUG 7 FIX: Include coordsCache so FechamentoLoteDialog can pass it to RotaMap
+      coordsCache,
     });
     onOpenChange(false);
   };
@@ -407,8 +434,9 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         </div>
 
         {/* Map */}
+        {/* BUG 18 FIX: Suspense fallback height matches RotaMap's h-[320px] (was h-[350px]) */}
         <div>
-          <Suspense fallback={<div className="h-[350px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
+          <Suspense fallback={<div className="h-[320px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
           <RotaMap
               destinos={rotaDestinos}
               origem={origemEstavel}

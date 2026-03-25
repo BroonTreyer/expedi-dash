@@ -139,7 +139,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           </div>
           <span className="text-muted-foreground">{totalPeso.toLocaleString("pt-BR")} kg</span>
           {roteirizacao?.distanciaTotal != null && roteirizacao.distanciaTotal > 0 && (
-            <span className="font-medium">{roteirizacao.distanciaTotal} km</span>
+            // BUG 20 FIX: Format with locale number separator
+            <span className="font-medium">{roteirizacao.distanciaTotal.toLocaleString("pt-BR")} km</span>
           )}
           <div className="flex gap-1 flex-wrap">
             {ufsUnicas.map((uf) => <Badge key={uf} variant="secondary" className="text-xs font-bold">{uf}</Badge>)}
@@ -161,15 +162,19 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           })}
         </div>
 
-        {/* BUG 8: Show map whenever there are destinations with city/uf, even without route geometry */}
+        {/* BUG 7 FIX: Pass coordsCache from roteirizacao to avoid redundant geocoding */}
+        {/* BUG 18 FIX: Suspense fallback height matches RotaMap h-[320px] */}
+        {/* BUG 19 FIX: Pass loading={false} so overlay feedback works correctly */}
         {rotaDestinos.length > 0 && (
-          <Suspense fallback={<div className="h-[200px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
-          <RotaMap
+          <Suspense fallback={<div className="h-[320px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
+            <RotaMap
               destinos={rotaDestinos}
               origem={origemEstavel}
               routeGeometry={roteirizacao?.routeGeometry}
               distanciaTotal={roteirizacao?.distanciaTotal}
               trechos={roteirizacao?.trechos}
+              loading={false}
+              coordsCache={roteirizacao?.coordsCache}
             />
           </Suspense>
         )}

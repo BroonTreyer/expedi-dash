@@ -260,25 +260,31 @@ function twoOptImprove<T extends { lat: number; lng: number }>(
   let route = [...destinations];
   let improved = true;
   let iterations = 0;
-  const maxIterations = 500; // guard for very large routes
+  // BUG 14 FIX: Increase max iterations for larger routes (21 cities needs ~200+)
+  const maxIterations = Math.max(500, destinations.length * destinations.length);
 
   while (improved && iterations < maxIterations) {
     improved = false;
     iterations++;
-    const currentDist = routeDistance(origin, route);
+    // BUG 16 FIX: Recalculate currentDist at the start of each outer iteration
+    // so inner loop comparisons always use the latest best distance
+    let currentDist = routeDistance(origin, route);
     for (let i = 0; i < route.length - 1; i++) {
       for (let k = i + 1; k < route.length; k++) {
         const newRoute = twoOptSwap(route, i, k);
-        if (routeDistance(origin, newRoute) < currentDist - 0.1) {
+        const newDist = routeDistance(origin, newRoute);
+        if (newDist < currentDist - 0.1) {
           route = newRoute;
+          // BUG 16 FIX: Update currentDist immediately after each improvement
+          currentDist = newDist;
           improved = true;
-          break; // restart with new best
+          break; // restart inner loop with new best
         }
       }
       if (improved) break;
     }
   }
-  console.log(`[2-opt] Completed in ${iterations} iterations`);
+  console.log(`[2-opt] Completed in ${iterations} iterations (max=${maxIterations})`);
   return route;
 }
 
@@ -453,7 +459,7 @@ Deno.serve(async (req) => {
           `[roteirizar] OSRM trip dist: ${osrmDistKm}km, 2-opt dist: ${twoOptDist.toFixed(0)}km, ratio: ${validationRatio.toFixed(2)}`
         );
 
-        if (validationRatio <= 2.5) {
+        if (validationRatio <= 1.8) {
           // Accept OSRM result — reconstruct group order from osrmOrder
           const newOrderedGroups: CityGroup[] = [];
           for (let visitPos = 0; visitPos < osrmOrder.length; visitPos++) {
@@ -481,9 +487,10 @@ Deno.serve(async (req) => {
                 const toInputIdx = osrmOrder[toVisitPos];
                 const fromGroupIdx = hasOrigin ? fromInputIdx - 1 : fromInputIdx;
                 const toGroupIdx = hasOrigin ? toInputIdx - 1 : toInputIdx;
+                // BUG 9/11 FIX: Use original city name (with accents) for "de" label on first trecho
                 const fromLabel =
                   fromGroupIdx < 0
-                    ? oCidade
+                    ? oCidade  // origin label with original accents (e.g. "Goiânia")
                     : optimizedGroups[fromGroupIdx]?.members[0]?.cidade ?? oCidade;
                 const toLabel =
                   toGroupIdx != null &&
@@ -511,7 +518,7 @@ Deno.serve(async (req) => {
           }
         } else {
           console.warn(
-            `[roteirizar] OSRM trip rejected (ratio ${validationRatio.toFixed(2)} > 2.5), using 2-opt result`
+            `[roteirizar] OSRM trip rejected (ratio ${validationRatio.toFixed(2)} > 1.8), using 2-opt result`
           );
         }
       }
@@ -540,11 +547,10 @@ Deno.serve(async (req) => {
           for (let i = 0; i < legs.length; i++) {
             const fromIdx = i - (hasOrigin ? 1 : 0);
             const toIdx = fromIdx + 1;
-            trechos.push({
-              de:
-                fromIdx < 0
-                  ? oCidade
-                  : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade,
+          // BUG 9/11 FIX: Use original city name for "de" label on first trecho
+          const fallbackRouteLabels = { de: fromIdx < 0 ? oCidade : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade };
+          trechos.push({
+            de: fallbackRouteLabels.de,
               para:
                 toIdx >= 0 && toIdx < orderedGroups.length
                   ? orderedGroups[toIdx]?.members[0]?.cidade ?? ""
