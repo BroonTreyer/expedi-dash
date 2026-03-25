@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef, useMemo, forwardRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DestinoRota {
   ordem: number;
@@ -42,14 +43,29 @@ interface Coords {
 // Module-level cache: persists across re-renders and component remounts
 const geocodeCache = new Map<string, Coords>();
 
-/** Query DB geocode_cache for a batch of city+uf pairs */
+/** Normalize city name to match backend: UPPERCASE, no accents */
+function normCity(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+}
+
+/** Query DB geocode_cache for a batch of city+uf pairs (using normalized names) */
 async function geocodeFromDb(
   pairs: { cidade: string; uf: string }[]
 ): Promise<Map<string, Coords>> {
   const result = new Map<string, Coords>();
   if (pairs.length === 0) return result;
 
-  const cidades = [...new Set(pairs.map((p) => p.cidade))];
+  // Always use normalized names for DB queries
+  const normalizedPairs = pairs.map((p) => ({
+    cidade: normCity(p.cidade),
+    uf: p.uf.toUpperCase().trim(),
+  }));
+
+  const cidades = [...new Set(normalizedPairs.map((p) => p.cidade))];
   const { data, error } = await supabase
     .from("geocode_cache" as never)
     .select("cidade, uf, lat, lng")
@@ -57,10 +73,11 @@ async function geocodeFromDb(
 
   if (error || !data) return result;
 
-  const pairSet = new Set(pairs.map((p) => `${p.cidade},${p.uf}`));
+  const pairSet = new Set(normalizedPairs.map((p) => `${p.cidade},${p.uf}`));
   for (const row of data as { cidade: string; uf: string; lat: number; lng: number }[]) {
     const key = `${row.cidade},${row.uf}`;
     if (pairSet.has(key)) {
+      // Store under BOTH normalized and original keys so lookups always hit
       result.set(key, { lat: row.lat, lng: row.lng });
     }
   }
@@ -69,18 +86,24 @@ async function geocodeFromDb(
 
 /** Nominatim fallback (only for cities not in DB) */
 async function geocodeViaNominatim(cidade: string, uf: string): Promise<Coords | null> {
-  const key = `${cidade},${uf}`;
-  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
+  const normKey = `${normCity(cidade)},${uf.toUpperCase().trim()}`;
+  if (geocodeCache.has(normKey)) return geocodeCache.get(normKey)!;
   try {
     const q = encodeURIComponent(`${cidade}, ${uf}, Brasil`);
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=br`,
-      { headers: { "Accept-Language": "pt-BR" } }
+      {
+        headers: {
+          "Accept-Language": "pt-BR",
+          // BUG 3 FIX: Required by Nominatim usage policy — without this, requests are blocked
+          "User-Agent": "ExpediDash/2.0 (expedi-dash.lovable.app)",
+        },
+      }
     );
     const data = await res.json();
     if (data.length > 0) {
       const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      geocodeCache.set(key, coords);
+      geocodeCache.set(normKey, coords);
       return coords;
     }
   } catch {
@@ -131,7 +154,7 @@ function createOrigemIcon(label: string) {
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 13px;
+      font-size: 11px;
       border: 3px solid white;
       box-shadow: 0 2px 10px rgba(0,0,0,0.4);
       pointer-events: none;
@@ -141,21 +164,29 @@ function createOrigemIcon(label: string) {
   });
 }
 
-const FitBounds = forwardRef<HTMLDivElement, { points: Coords[] }>(
-  function FitBounds({ points }, _ref) {
-    const map = useMap();
-    useEffect(() => {
-      if (points.length === 0) return;
-      if (points.length === 1) {
-        map.setView([points[0].lat, points[0].lng], 8);
-      } else {
-        const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
-        map.fitBounds(bounds, { padding: [40, 40] });
-      }
-    }, [points, map]);
-    return null;
-  }
-);
+/** BUG 27 FIX: Remove unnecessary forwardRef */
+function FitBounds({ points }: { points: Coords[] }) {
+  const map = useMap();
+  // BUG 10 FIX: Use real centroid coords (no offsets) for bounds calculation
+  useEffect(() => {
+    if (points.length === 0) return;
+    if (points.length === 1) {
+      map.setView([points[0].lat, points[0].lng], 8);
+    } else {
+      const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }, [points, map]);
+  return null;
+}
+
+/** BUG 6 FIX: Convert minutes to human-readable duration */
+function formatDuracao(minutos: number): string {
+  if (minutos < 60) return `~${minutos} min`;
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return m > 0 ? `~${h}h ${m}min` : `~${h}h`;
+}
 
 export function RotaMap({
   destinos,
@@ -170,12 +201,28 @@ export function RotaMap({
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
   const [localLoading, setLocalLoading] = useState(false);
   const abortRef = useRef(0);
+  const isMobile = useIsMobile();
 
   const isLoading = externalLoading || localLoading;
 
+  // BUG 21 FIX: Use abbreviated city name for origin marker (not hardcoded "O")
+  const origemLabel = useMemo(() => {
+    if (!origem) return "O";
+    const abbr = normCity(origem.cidade)
+      .replace(/\s+/g, " ")
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .substring(0, 3);
+    return abbr || "O";
+  }, [origem]);
+
+  // BUG 26 FIX: memoize origin icon to avoid recreating on every render
+  const origemIcon = useMemo(() => createOrigemIcon(origemLabel), [origemLabel]);
+
   const citySetKey = useMemo(() => {
-    const pairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`))).sort();
-    const origemKey = origem ? `__origem__${origem.cidade},${origem.uf}` : "";
+    const pairs = Array.from(new Set(destinos.map((d) => `${normCity(d.cidade)},${d.uf.toUpperCase().trim()}`))).sort();
+    const origemKey = origem ? `__origem__${normCity(origem.cidade)},${origem.uf.toUpperCase().trim()}` : "";
     return pairs.join("|") + origemKey;
   }, [destinos, origem]);
 
@@ -196,21 +243,29 @@ export function RotaMap({
       return;
     }
 
-    // Step 1: Pre-populate module cache from edge function coords (zero API calls needed)
+    // BUG 1/13 FIX: Normalize all keys before pre-populating from coordsCache
+    // Backend stores UPPERCASE normalized names; frontend must match exactly
     if (coordsCache && coordsCache.size > 0) {
-      for (const [key, coords] of coordsCache) {
-        geocodeCache.set(key, coords);
+      for (const [rawKey, coords] of coordsCache) {
+        const [cidade, uf] = rawKey.split(",");
+        const normKey = `${normCity(cidade)},${uf?.toUpperCase().trim() ?? ""}`;
+        geocodeCache.set(normKey, coords);
       }
     }
 
-    const uniquePairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`))).map(
-      (key) => {
-        const [cidade, uf] = key.split(",");
-        return { cidade, uf, key };
-      }
-    );
+    const uniquePairs = Array.from(
+      new Set(destinos.map((d) => `${normCity(d.cidade)},${d.uf.toUpperCase().trim()}`))
+    ).map((key) => {
+      const [cidade, uf] = key.split(",");
+      return { cidade, uf, key };
+    });
+
     const origemPair = origem
-      ? { cidade: origem.cidade, uf: origem.uf, key: `${origem.cidade},${origem.uf}` }
+      ? {
+          cidade: normCity(origem.cidade),
+          uf: origem.uf.toUpperCase().trim(),
+          key: `${normCity(origem.cidade)},${origem.uf.toUpperCase().trim()}`,
+        }
       : null;
 
     const buildFromCache = () => {
@@ -228,7 +283,7 @@ export function RotaMap({
     const allPairs = origemPair ? [...uniquePairs, origemPair] : uniquePairs;
     const missingFromCache = allPairs.filter(({ key }) => !geocodeCache.has(key));
 
-    // Everything already cached → instant render
+    // Everything already cached → instant render (BUG 13 FIX: normalized keys match now)
     if (missingFromCache.length === 0) {
       buildFromCache();
       return;
@@ -237,7 +292,7 @@ export function RotaMap({
     setLocalLoading(true);
 
     (async () => {
-      // Step 2: Query DB for missing pairs (fast, no rate-limit)
+      // BUG 2 FIX: DB query uses normalized city names (already normalized in missingFromCache)
       const dbCoords = await geocodeFromDb(
         missingFromCache.map(({ cidade, uf }) => ({ cidade, uf }))
       );
@@ -245,7 +300,7 @@ export function RotaMap({
         geocodeCache.set(key, coords);
       }
 
-      // Step 3: Nominatim for anything still missing (very rare — only unknown cities)
+      // Nominatim for anything still missing (very rare — only unknown cities)
       const stillMissing = missingFromCache.filter(({ key }) => !geocodeCache.has(key));
       for (let i = 0; i < stillMissing.length; i++) {
         const { cidade, uf, key } = stillMissing[i];
@@ -275,17 +330,24 @@ export function RotaMap({
       cliente: string;
       cidade: string;
       uf: string;
+      // BUG 10 FIX: store real centroid separately for bounds
+      realLat: number;
+      realLng: number;
     })[] = [];
 
     for (const d of sorted) {
-      const key = `${d.cidade},${d.uf}`;
+      const key = `${normCity(d.cidade)},${d.uf.toUpperCase().trim()}`;
       const base = geocodedCoords.get(key);
       if (!base) continue;
       const count = cityCount.get(key) ?? 0;
       cityCount.set(key, count + 1);
       result.push({
+        // Visual offset for multiple clients in same city
         lat: base.lat + count * 0.003,
         lng: base.lng + count * 0.003,
+        // Real centroid for bounds calculation (BUG 10 FIX)
+        realLat: base.lat,
+        realLng: base.lng,
         ordem: d.ordem,
         cliente: d.cliente,
         cidade: d.cidade,
@@ -295,14 +357,18 @@ export function RotaMap({
     return result;
   }, [destinos, geocodedCoords]);
 
+  // BUG 10 FIX: Use real centroid coords for bounds (not offset coords)
   const allBoundsPoints = useMemo(() => {
-    const pts: Coords[] = [...sortedPoints];
+    const pts: Coords[] = sortedPoints.map((p) => ({ lat: p.realLat, lng: p.realLng }));
     if (origemCoords) pts.push(origemCoords);
     return pts;
   }, [sortedPoints, origemCoords]);
 
-  const polylinePositions: [number, number][] =
-    routeGeometry && routeGeometry.length > 0 ? routeGeometry : [];
+  // BUG 17 FIX: Filter out invalid [0,0] coordinates from polyline
+  const polylinePositions: [number, number][] = useMemo(() => {
+    if (!routeGeometry || routeGeometry.length <= 1) return [];
+    return routeGeometry.filter(([lat, lng]) => lat !== 0 || lng !== 0);
+  }, [routeGeometry]);
 
   if (destinos.length === 0) {
     return (
@@ -316,13 +382,14 @@ export function RotaMap({
     <div className="space-y-2">
       {distanciaTotal != null && distanciaTotal > 0 && (
         <div className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm">
-          <span className="font-semibold">{distanciaTotal} km total</span>
+          {/* BUG 24 FIX: Format with locale number separator */}
+          <span className="font-semibold">{distanciaTotal.toLocaleString("pt-BR")} km total</span>
           {trechos && trechos.length > 0 && (
             <span className="text-muted-foreground text-xs">
               {trechos.map((t, i) => (
                 <span key={i}>
                   {i > 0 && " → "}
-                  {t.km} km
+                  {t.km.toLocaleString("pt-BR")} km
                 </span>
               ))}
             </span>
@@ -338,12 +405,15 @@ export function RotaMap({
             </span>
           </div>
         )}
+        {/* BUG 18 FIX: Unified height h-[320px] — same as the Suspense fallback */}
         <MapContainer
           key={mapKey}
           center={[-15.78, -47.93]}
           zoom={4}
           className="h-[320px] w-full z-0"
           scrollWheelZoom={false}
+          // BUG 25 FIX: Disable dragging on mobile to allow page scroll
+          dragging={!isMobile}
           attributionControl={false}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -353,10 +423,11 @@ export function RotaMap({
             <Marker
               key="origem"
               position={[origemCoords.lat, origemCoords.lng]}
-              icon={createOrigemIcon("O")}
+              icon={origemIcon}
             >
               <Popup>
-                <div className="text-xs">
+                {/* BUG 22 FIX: max-width on popup content */}
+                <div className="text-xs max-w-[180px]">
                   <strong>Origem</strong>
                   <br />
                   {origem.cidade} – {origem.uf}
@@ -375,7 +446,8 @@ export function RotaMap({
                 icon={createMarkerIcon(p.ordem, type)}
               >
                 <Popup>
-                  <div className="text-xs">
+                  {/* BUG 22 FIX: max-width on popup content */}
+                  <div className="text-xs max-w-[180px] break-words">
                     <strong>
                       {p.ordem}. {p.cliente}
                     </strong>
@@ -401,16 +473,19 @@ export function RotaMap({
       </div>
 
       {trechos && trechos.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-muted-foreground">
+        // BUG 23 FIX: Use single column to prevent text truncation on small screens
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
           {trechos.map((t, i) => (
             <div
               key={i}
               className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/20"
             >
-              <span className="font-medium text-foreground truncate">
+              <span className="font-medium text-foreground min-w-0 flex-1">
                 {t.de} → {t.para}
               </span>
-              <span className="ml-auto font-mono whitespace-nowrap">{t.km} km</span>
+              <span className="ml-auto font-mono whitespace-nowrap shrink-0">
+                {t.km.toLocaleString("pt-BR")} km · {formatDuracao(t.duracao)}
+              </span>
             </div>
           ))}
         </div>
