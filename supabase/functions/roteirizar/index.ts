@@ -136,29 +136,29 @@ Deno.serve(async (req) => {
     // CRITICAL: delay after geocoding origin before first destination to respect Nominatim rate limit (1 req/s)
     await new Promise((r) => setTimeout(r, 500));
 
-    // Geocode all destinations sequentially with 500ms delay to respect Nominatim rate limit
+    // Geocode all destinations sequentially with 600ms delay between ALL requests
+    // (including i=0 which already has the 500ms gap after origin).
+    // FIX: Always delay before each destination — never fire two Nominatim requests without pause.
     const geocoded: GeocodedDestino[] = [];
     for (let i = 0; i < destinos.length; i++) {
       const d = destinos[i];
       let lat = d.lat;
       let lng = d.lng;
       if (lat == null || lng == null || lat === 0 || lng === 0) {
-        if (i > 0) await new Promise((r) => setTimeout(r, 500)); // rate-limit guard
-        const coords = await geocode(d.cidade, d.uf);
+        // Always wait 600ms between geocoding requests (gap after origin already handled above)
+        if (i > 0) await new Promise((r) => setTimeout(r, 600));
+        let coords = await geocode(d.cidade, d.uf);
         if (!coords) {
-          console.log(`[roteirizar] Geocode failed for: ${d.cidade}, ${d.uf} — retrying after 1.5s`);
-          await new Promise((r) => setTimeout(r, 1500));
-          const retry = await geocode(d.cidade, d.uf);
-          if (!retry) {
-            console.log(`[roteirizar] Geocode retry also failed for: ${d.cidade}, ${d.uf}`);
-            continue;
-          }
-          lat = retry.lat;
-          lng = retry.lng;
-        } else {
-          lat = coords.lat;
-          lng = coords.lng;
+          console.log(`[roteirizar] Geocode failed for: ${d.cidade}, ${d.uf} — retrying after 2s`);
+          await new Promise((r) => setTimeout(r, 2000));
+          coords = await geocode(d.cidade, d.uf);
         }
+        if (!coords) {
+          console.log(`[roteirizar] Geocode retry also failed for: ${d.cidade}, ${d.uf}`);
+          continue;
+        }
+        lat = coords.lat;
+        lng = coords.lng;
       }
       geocoded.push({ ...d, lat: lat!, lng: lng!, originalIndex: i });
     }
@@ -335,6 +335,11 @@ Deno.serve(async (req) => {
         geometria: geometry,
         distanciaTotal,
         trechos,
+        // FIX: Retornar coordenadas da origem para o front-end pré-popular o geocodeCache
+        origemLat: origemCoords?.lat ?? null,
+        origemLng: origemCoords?.lng ?? null,
+        origemCidadeNorm: oCidade,
+        origemUfNorm: oUf,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

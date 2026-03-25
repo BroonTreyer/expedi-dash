@@ -29,6 +29,8 @@ interface Props {
   distanciaTotal?: number;
   trechos?: TrechoInfo[];
   loading?: boolean;
+  /** Coordenadas pré-geocodadas pela edge function — evita re-geocoding via Nominatim */
+  coordsCache?: Map<string, { lat: number; lng: number }>;
 }
 
 interface Coords {
@@ -138,7 +140,7 @@ const FitBounds = forwardRef<HTMLDivElement, { points: Coords[] }>(function FitB
   return null;
 });
 
-export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trechos, loading: externalLoading }: Props) {
+export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trechos, loading: externalLoading, coordsCache }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
   const [localLoading, setLocalLoading] = useState(false);
@@ -172,6 +174,15 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
       return;
     }
 
+    // FIX: Pré-popular geocodeCache com coordenadas vindas da edge function.
+    // Isso evita que o RotaMap refaça geocoding via Nominatim (que falha com rate-limit)
+    // para cidades que a edge function já geocodou com sucesso.
+    if (coordsCache && coordsCache.size > 0) {
+      for (const [key, coords] of coordsCache) {
+        if (!geocodeCache.has(key)) geocodeCache.set(key, coords);
+      }
+    }
+
     const uniquePairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`)));
     const origemPair = origem ? `${origem.cidade},${origem.uf}` : null;
 
@@ -203,21 +214,24 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
       const coordMap = new Map<string, Coords>();
       const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-      // Geocode com delay de 350ms entre requests para respeitar o rate-limit do Nominatim.
-      // Se falhar, tenta novamente após 1.5s (Nominatim retorna [] silenciosamente sob carga).
+      // Geocode com delay de 1200ms entre requests + delay inicial de 500ms para o item 0.
+      // Isso garante que nunca disparamos 2 requests Nominatim em sequência sem espera,
+      // mesmo quando a edge function acabou de usar o Nominatim há pouco tempo.
       for (let i = 0; i < uniquePairs.length; i++) {
         const pair = uniquePairs[i];
         if (geocodeCache.has(pair)) {
           coordMap.set(pair, geocodeCache.get(pair)!);
           continue;
         }
-        if (i > 0) await delay(350);
+        // Sempre esperar — 500ms antes do primeiro, 1200ms entre os demais
+        await delay(i === 0 ? 500 : 1200);
         const [cidade, uf] = pair.split(",");
-        let coords = await geocode(cidade, uf);
-        if (!coords) {
-          // Retry uma vez após 1.5s
-          await delay(1500);
+        // Até 3 retries com backoff exponencial: 0ms → 1.5s → 3s
+        let coords: Coords | null = null;
+        for (const wait of [0, 1500, 3000]) {
+          if (wait > 0) await delay(wait);
           coords = await geocode(cidade, uf);
+          if (coords) break;
         }
         if (coords) coordMap.set(pair, coords);
       }
@@ -227,12 +241,12 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
         if (geocodeCache.has(origemPair)) {
           origCoords = geocodeCache.get(origemPair)!;
         } else {
-          await delay(350);
+          await delay(1200);
           const [cidade, uf] = origemPair.split(",");
-          origCoords = await geocode(cidade, uf);
-          if (!origCoords) {
-            await delay(1500);
+          for (const wait of [0, 1500, 3000]) {
+            if (wait > 0) await delay(wait);
             origCoords = await geocode(cidade, uf);
+            if (origCoords) break;
           }
         }
       }
@@ -245,7 +259,7 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
       setLocalLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [citySetKey]);
+  }, [citySetKey, coordsCache]);
 
   const sortedPoints = useMemo(() => {
     const sorted = [...destinos].sort((a, b) => a.ordem - b.ordem);

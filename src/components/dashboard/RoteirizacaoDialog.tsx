@@ -139,6 +139,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [distanciaTotal, setDistanciaTotal] = useState<number | undefined>();
   const [trechos, setTrechos] = useState<TrechoInfo[] | undefined>();
   const [isRouting, setIsRouting] = useState(false);
+  // Coordenadas retornadas pela edge function para pré-popular o geocodeCache do RotaMap
+  const [coordsCache, setCoordsCache] = useState<Map<string, { lat: number; lng: number }> | undefined>();
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
 
@@ -264,6 +266,22 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       if (data.geometria && data.geometria.length > 0) setRouteGeometry(data.geometria);
       if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
       if (data.trechos && data.trechos.length > 0) setTrechos(data.trechos);
+
+      // FIX: Pré-popular geocodeCache do RotaMap com coordenadas já geocodadas pela edge fn.
+      // Isso elimina o segundo geocoding via Nominatim no front-end (que falha com rate-limit).
+      if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
+        const newCoordsCache = new Map<string, { lat: number; lng: number }>();
+        for (const opt of data.ordemOtimizada) {
+          if (opt.lat != null && opt.lng != null && opt.cidade && opt.uf) {
+            newCoordsCache.set(`${opt.cidade},${opt.uf}`, { lat: opt.lat, lng: opt.lng });
+          }
+        }
+        // Incluir origem também se retornada pela edge function
+        if (data.origemLat != null && data.origemLng != null && data.origemCidadeNorm && data.origemUfNorm) {
+          newCoordsCache.set(`${data.origemCidadeNorm},${data.origemUfNorm}`, { lat: data.origemLat, lng: data.origemLng });
+        }
+        if (newCoordsCache.size > 0) setCoordsCache(newCoordsCache);
+      }
 
       if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
         // Build a lookup: cidade+uf (lowercase) → trecho index from ordemOtimizada
@@ -398,6 +416,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               distanciaTotal={distanciaTotal}
               trechos={trechos}
               loading={isRouting}
+              coordsCache={coordsCache}
             />
           </Suspense>
         </div>
