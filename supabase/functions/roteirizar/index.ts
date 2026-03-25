@@ -487,9 +487,10 @@ Deno.serve(async (req) => {
                 const toInputIdx = osrmOrder[toVisitPos];
                 const fromGroupIdx = hasOrigin ? fromInputIdx - 1 : fromInputIdx;
                 const toGroupIdx = hasOrigin ? toInputIdx - 1 : toInputIdx;
+                // BUG 9/11 FIX: Use original city name (with accents) for "de" label on first trecho
                 const fromLabel =
                   fromGroupIdx < 0
-                    ? oCidade
+                    ? oCidade  // origin label with original accents (e.g. "Goiânia")
                     : optimizedGroups[fromGroupIdx]?.members[0]?.cidade ?? oCidade;
                 const toLabel =
                   toGroupIdx != null &&
