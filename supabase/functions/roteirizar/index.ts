@@ -402,19 +402,16 @@ Deno.serve(async (req) => {
       `[roteirizar] 2-opt order (${optimizedGroups.length} cities, ${twoOptDist.toFixed(0)}km): ${optimizedGroups.map((g) => g.cityKey).join(" → ")}`
     );
 
-    // Points for OSRM: origin + one unique coord per city (NO offsets)
+    // Points for ORS: origin + one unique coord per city
     const hasOrigin = !!origemCoords;
     const allPoints = hasOrigin
       ? [origemCoords!, ...optimizedGroups.map((g) => ({ lat: g.lat, lng: g.lng }))]
       : optimizedGroups.map((g) => ({ lat: g.lat, lng: g.lng }));
 
-    const coordsStr = allPoints.map((p) => `${p.lng},${p.lat}`).join(";");
-
     let orderedGroups: CityGroup[] = optimizedGroups; // default to 2-opt result
     let geometry: [number, number][] = [];
     let distanciaTotal = 0;
     let trechos: { de: string; para: string; km: number; duracao: number }[] = [];
-    let usedOsrmTrip = false;
 
     // ── OpenRouteService API (real road routing) ──────────────────────────
     const ORS_API_KEY = Deno.env.get("ORS_API_KEY");
