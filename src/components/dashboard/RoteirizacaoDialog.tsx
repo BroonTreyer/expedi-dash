@@ -363,6 +363,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       routeGeometry,
       distanciaTotal,
       trechos,
+      // BUG 7 FIX: Include coordsCache so FechamentoLoteDialog can pass it to RotaMap
+      coordsCache,
     });
     onOpenChange(false);
   };
