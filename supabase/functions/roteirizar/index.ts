@@ -260,25 +260,31 @@ function twoOptImprove<T extends { lat: number; lng: number }>(
   let route = [...destinations];
   let improved = true;
   let iterations = 0;
-  const maxIterations = 500; // guard for very large routes
+  // BUG 14 FIX: Increase max iterations for larger routes (21 cities needs ~200+)
+  const maxIterations = Math.max(500, destinations.length * destinations.length);
 
   while (improved && iterations < maxIterations) {
     improved = false;
     iterations++;
-    const currentDist = routeDistance(origin, route);
+    // BUG 16 FIX: Recalculate currentDist at the start of each outer iteration
+    // so inner loop comparisons always use the latest best distance
+    let currentDist = routeDistance(origin, route);
     for (let i = 0; i < route.length - 1; i++) {
       for (let k = i + 1; k < route.length; k++) {
         const newRoute = twoOptSwap(route, i, k);
-        if (routeDistance(origin, newRoute) < currentDist - 0.1) {
+        const newDist = routeDistance(origin, newRoute);
+        if (newDist < currentDist - 0.1) {
           route = newRoute;
+          // BUG 16 FIX: Update currentDist immediately after each improvement
+          currentDist = newDist;
           improved = true;
-          break; // restart with new best
+          break; // restart inner loop with new best
         }
       }
       if (improved) break;
     }
   }
-  console.log(`[2-opt] Completed in ${iterations} iterations`);
+  console.log(`[2-opt] Completed in ${iterations} iterations (max=${maxIterations})`);
   return route;
 }
 
