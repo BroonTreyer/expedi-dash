@@ -65,20 +65,20 @@ interface Props {
 
 /* ─── Sortable card ─── */
 function SortableDestinationCard({
-  group, idx, totalCount, excluded, onToggle, onMoveUp, onMoveDown, onOrderChange, trecho,
+  group, idx, totalCount, excluded, onToggle, onMoveUp, onMoveDown, onOrderChange, trecho, displayOrder,
 }: {
   group: RotaGroup; idx: number; totalCount: number; excluded: boolean;
   onToggle: () => void; onMoveUp: () => void; onMoveDown: () => void; onOrderChange: (n: number) => void;
-  trecho?: TrechoInfo;
+  trecho?: TrechoInfo; displayOrder: number;
 }) {
   // FIX: use ordem as fallback to avoid DnD ID collisions when multiple groups have no codigoCliente
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.codigoCliente ?? `__sem__${group.ordem}`,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
-  const [localOrder, setLocalOrder] = useState(String(group.ordem));
+  const [localOrder, setLocalOrder] = useState(String(displayOrder));
 
-  useEffect(() => { setLocalOrder(String(group.ordem)); }, [group.ordem]);
+  useEffect(() => { setLocalOrder(String(displayOrder)); }, [displayOrder]);
 
   const handleOrderBlur = () => {
     const num = parseInt(localOrder, 10);
@@ -361,9 +361,15 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const rotaDestinos = useMemo(
     () => activeGroups
       .filter((g) => g.cidade && g.uf)
-      .map((g) => ({ ordem: g.ordem, cliente: g.nomeCliente ?? "Sem cliente", cidade: g.cidade!, uf: g.uf! })),
+      .map((g, i) => ({ ordem: i + 1, cliente: g.nomeCliente ?? "Sem cliente", cidade: g.cidade!, uf: g.uf! })),
     [activeGroups]
   );
+
+  const activeOrderMap = useMemo(() => {
+    const map = new Map<string, number>();
+    activeGroups.forEach((g, i) => map.set(groupKey(g), i + 1));
+    return map;
+  }, [activeGroups]);
 
   // FIX: estabilizar objeto origem — evitar nova referência a cada render do pai
   // que causa citySetKey diferente e destrói o MapContainer durante o geocoding
@@ -456,6 +462,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
                     onMoveDown={() => moveDown(idx)}
                     onOrderChange={(newPos) => moveToPosition(idx, newPos)}
                     trecho={activeTrechoMap.get(groupKey(group))}
+                    displayOrder={activeOrderMap.get(groupKey(group)) ?? group.ordem}
                   />
                 ))}
               </div>
