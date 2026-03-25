@@ -118,7 +118,8 @@ function SortableDestinationCard({
           </div>
           {trecho && (
             <div className="text-xs text-muted-foreground mt-0.5 font-mono">
-              ↳ {trecho.km} km · ~{trecho.duracao} min até próximo
+              {/* BUG 6 FIX: Convert minutes to hours when >= 60 */}
+              ↳ {trecho.km.toLocaleString("pt-BR")} km · {trecho.duracao >= 60 ? `~${Math.floor(trecho.duracao / 60)}h${trecho.duracao % 60 > 0 ? ` ${trecho.duracao % 60}min` : ""}` : `~${trecho.duracao} min`} até próximo
             </div>
           )}
         </div>
