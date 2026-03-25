@@ -228,8 +228,12 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
             <div>{c.cidade ?? "—"}</div>
             <div className="text-muted-foreground">UF</div>
             <div>{c.uf ?? "—"}</div>
-          </>
-        )}
+            {!hideColumns.includes("nome_carga") && c.nome_carga && (
+              <>
+                <div className="text-muted-foreground">Carga</div>
+                <div><Badge variant="outline" className="text-[10px] font-mono">{c.nome_carga}</Badge></div>
+              </>
+            )}
       </div>
 
       {!isGrouped && canChangeStatus && (
