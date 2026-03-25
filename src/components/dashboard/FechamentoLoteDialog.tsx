@@ -164,9 +164,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         {/* BUG 8: Show map whenever there are destinations with city/uf, even without route geometry */}
         {rotaDestinos.length > 0 && (
           <Suspense fallback={<div className="h-[200px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
-            <RotaMap
+          <RotaMap
               destinos={rotaDestinos}
-              origem={{ cidade: "Goiânia", uf: "GO" }}
+              origem={origemEstavel}
               routeGeometry={roteirizacao?.routeGeometry}
               distanciaTotal={roteirizacao?.distanciaTotal}
               trechos={roteirizacao?.trechos}
