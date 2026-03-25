@@ -34,6 +34,18 @@ export const RUPTURA_STATUS_COLORS: Record<RupturaStatus, string> = {
   'Aguardando Produto': 'bg-status-ruptura-produto text-black',
 };
 
+// Produtos contabilizados por unidade (não por kg)
+export const PRODUTOS_POR_UNIDADE: string[] = [
+  "PAO DE ALHO",
+  "PÃO DE ALHO",
+];
+
+export function isPorUnidade(nomeProduto: string | null, codigoProduto?: string | null): boolean {
+  if (!nomeProduto) return false;
+  const upper = nomeProduto.toUpperCase();
+  return PRODUTOS_POR_UNIDADE.some(p => upper.includes(p.toUpperCase()));
+}
+
 export const UF_LIST = [
   'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA',
   'PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'

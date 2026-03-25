@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { AlertTriangle, Weight, Package, Plus, Printer, CalendarIcon, Truck } from "lucide-react";
-import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
+import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS, isPorUnidade } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -84,18 +84,27 @@ export default function Rupturas() {
 
   // Group by product — include cargas set
   const productSummary = useMemo(() => {
-    const map = new Map<string, { codigo: string; nome: string; count: number; peso: number; cargas: Set<string> }>();
+    const map = new Map<string, { codigo: string; nome: string; count: number; peso: number; qtd: number; porUnidade: boolean; cargas: Set<string> }>();
     for (const c of rupturas) {
       const key = c.codigo_produto || "SEM_COD";
       const existing = map.get(key);
       if (existing) {
         existing.count += 1;
         existing.peso += c.peso ?? 0;
+        existing.qtd += c.quantidade ?? 0;
         if (c.nome_carga) existing.cargas.add(c.nome_carga);
       } else {
         const cargas = new Set<string>();
         if (c.nome_carga) cargas.add(c.nome_carga);
-        map.set(key, { codigo: c.codigo_produto || "—", nome: c.nome_produto || "—", count: 1, peso: c.peso ?? 0, cargas });
+        map.set(key, {
+          codigo: c.codigo_produto || "—",
+          nome: c.nome_produto || "—",
+          count: 1,
+          peso: c.peso ?? 0,
+          qtd: c.quantidade ?? 0,
+          porUnidade: isPorUnidade(c.nome_produto),
+          cargas,
+        });
       }
     }
     return [...map.values()].sort((a, b) => b.peso - a.peso);
@@ -245,7 +254,10 @@ export default function Rupturas() {
                     </div>
                     <div className="flex gap-3 shrink-0 ml-2 font-medium">
                       <span>{p.count}x</span>
-                      <span>{p.peso.toLocaleString("pt-BR")} kg</span>
+                      {p.porUnidade
+                        ? <><span className="text-primary font-semibold">{p.qtd} unid</span><span className="text-muted-foreground">{p.peso.toLocaleString("pt-BR")} kg</span></>
+                        : <span>{p.peso.toLocaleString("pt-BR")} kg</span>
+                      }
                     </div>
                   </div>
                 ))}
@@ -258,7 +270,7 @@ export default function Rupturas() {
                       <TableHead className="text-xs">Código</TableHead>
                       <TableHead className="text-xs">Produto</TableHead>
                       <TableHead className="text-xs text-right">Qtd Rupturas</TableHead>
-                      <TableHead className="text-xs text-right">Peso Total (kg)</TableHead>
+                      <TableHead className="text-xs text-right">Quantidade / Peso</TableHead>
                       <TableHead className="text-xs">Cargas Afetadas</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -268,7 +280,16 @@ export default function Rupturas() {
                         <TableCell className="text-xs font-mono">{p.codigo}</TableCell>
                         <TableCell className="text-xs">{p.nome}</TableCell>
                         <TableCell className="text-xs text-right font-medium">{p.count}</TableCell>
-                        <TableCell className="text-xs text-right font-medium">{p.peso.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-xs text-right font-medium">
+                          {p.porUnidade ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-primary font-semibold">{p.qtd} unid</span>
+                              <span className="text-muted-foreground text-[10px]">{p.peso.toLocaleString("pt-BR")} kg</span>
+                            </div>
+                          ) : (
+                            p.peso.toLocaleString("pt-BR")
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs">
                           {p.cargas.size > 0
                             ? [...p.cargas].map(nc => (
