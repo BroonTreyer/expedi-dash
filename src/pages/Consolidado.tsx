@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useSortableTable } from "@/hooks/useSortableTable";
@@ -69,6 +70,7 @@ interface CargaGroup {
   tipoCaminhao: string | null;
   pesoTotal: number;
   qtdPedidos: number;
+  rupturaCount: number;
   clientes: Set<string>;
   ufs: Set<string>;
   status: string;
@@ -90,6 +92,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         tipoCaminhao: item.tipo_caminhao,
         pesoTotal: 0,
         qtdPedidos: 0,
+        rupturaCount: 0,
         clientes: new Set(),
         ufs: new Set(),
         status: item.status,
@@ -99,6 +102,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
       map.set(item.carga_id, g);
     }
     g.pesoTotal += item.peso ?? 0;
+    if (item.ruptura) g.rupturaCount += 1;
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
     g.items.push(item);
@@ -110,6 +114,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
 }
 
 export default function Consolidado() {
+  const navigate = useNavigate();
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
@@ -194,6 +199,7 @@ export default function Consolidado() {
     motorista: (g) => g.motorista ?? "",
     pesoTotal: (g) => g.pesoTotal,
     qtdPedidos: (g) => g.qtdPedidos,
+    rupturaCount: (g) => g.rupturaCount,
     clientes: (g) => g.clientes.size,
     ufs: (g) => [...g.ufs].sort().join(", "),
   }), []);
@@ -359,6 +365,14 @@ export default function Consolidado() {
                         <div className="flex items-center gap-2">
                           {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
                           <span className="font-mono font-bold text-sm">{g.placa ?? "—"}</span>
+                          {g.rupturaCount > 0 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/rupturas?carga=${encodeURIComponent(g.nomeCarga || g.cargaId)}`); }}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
+                            >
+                              <AlertTriangle className="h-2.5 w-2.5" />{g.rupturaCount}
+                            </button>
+                          )}
                         </div>
                         <div onClick={(e) => e.stopPropagation()}>
                           <StatusSelect value={g.status} onChange={(v) => handleStatusChange(g, v)} />
@@ -378,7 +392,10 @@ export default function Consolidado() {
                       <div className="border-t border-border bg-muted/20 divide-y divide-border/50">
                         {g.items.map((item) => (
                           <div key={item.id} className="px-3 py-2 text-xs space-y-0.5">
-                            <div className="font-medium">Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}</div>
+                            <div className="font-medium flex items-center gap-1.5">
+                              Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
+                              {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                            </div>
                             <div className="flex justify-between text-muted-foreground">
                               <span>{item.cliente ?? item.codigo_cliente ?? "—"}</span>
                               <span>{(item.peso ?? 0).toLocaleString("pt-BR")} kg</span>
@@ -407,6 +424,7 @@ export default function Consolidado() {
                   <SortableTableHead sort={sort} sortKey="nomeCarga" onSort={toggleSort}>Carga</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="pesoTotal" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="qtdPedidos" onSort={toggleSort} className="text-center">Pedidos</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="rupturaCount" onSort={toggleSort} className="text-center">Rupturas</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="clientes" onSort={toggleSort} className="text-center">Clientes</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="ufs" onSort={toggleSort}>UFs</SortableTableHead>
                 </TableRow>
@@ -446,6 +464,19 @@ export default function Consolidado() {
                         </TableCell>
                         <TableCell className="text-right text-xs font-semibold">{g.pesoTotal.toLocaleString("pt-BR")}</TableCell>
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          {g.rupturaCount > 0 ? (
+                            <button
+                              onClick={() => navigate(`/rupturas?carga=${encodeURIComponent(g.nomeCarga || g.cargaId)}`)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
+                              title="Ver rupturas desta carga"
+                            >
+                              <AlertTriangle className="h-3 w-3" />{g.rupturaCount}
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground/40 text-xs">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center text-xs">{g.clientes.size}</TableCell>
                         <TableCell className="text-xs">{[...g.ufs].sort().join(", ") || "—"}</TableCell>
                       </TableRow>
@@ -454,12 +485,16 @@ export default function Consolidado() {
                           <TableCell />
                           <TableCell />
                           <TableCell className="text-xs text-muted-foreground" colSpan={2}>
-                            Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
+                            <span className="flex items-center gap-1.5">
+                              Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
+                              {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                            </span>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.cliente ?? item.codigo_cliente ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground">{(item.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-center text-xs text-muted-foreground">{item.quantidade ?? "—"}</TableCell>
+                          <TableCell />
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
                           <TableCell />
                         </TableRow>
