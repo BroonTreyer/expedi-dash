@@ -164,7 +164,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     }
   }, [open, items]);
 
-  const groupKey = (g: RotaGroup) => g.codigoCliente ?? "__sem__";
+  // FIX: groupKey must match useSortable id — use same fallback
+  const groupKey = (g: RotaGroup) => g.codigoCliente ?? `__sem__${g.ordem}`;
 
   const toggleGroup = useCallback((group: RotaGroup) => {
     const key = groupKey(group);
