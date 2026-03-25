@@ -164,6 +164,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           <Suspense fallback={<div className="h-[200px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
             <RotaMap
               destinos={rotaDestinos}
+              origem={{ cidade: "Goiânia", uf: "GO" }}
               routeGeometry={roteirizacao?.routeGeometry}
               distanciaTotal={roteirizacao?.distanciaTotal}
               trechos={roteirizacao?.trechos}
