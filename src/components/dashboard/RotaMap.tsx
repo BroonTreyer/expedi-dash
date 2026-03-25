@@ -138,66 +138,76 @@ const FitBounds = forwardRef<HTMLDivElement, { points: Coords[] }>(function FitB
   return null;
 });
 
-export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, loading: externalLoading }: Props) {
-  // State holds geocoded points indexed by "cidade,uf" fingerprint → includes ALL destinos in current ordem
+export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trechos, loading: externalLoading }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
+  const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
   const [localLoading, setLocalLoading] = useState(false);
   const abortRef = useRef(0);
 
   const isLoading = externalLoading || localLoading;
 
-  // Build a stable fingerprint of unique cidade+uf pairs (independent of ordem).
-  // Only re-geocode when the SET of cities changes, not when ordem changes.
+  // Include origem in the city set key so geocoding re-runs if origem changes
   const citySetKey = useMemo(() => {
     const pairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`))).sort();
-    return pairs.join("|");
-  }, [destinos]);
+    const origemKey = origem ? `__origem__${origem.cidade},${origem.uf}` : "";
+    return pairs.join("|") + origemKey;
+  }, [destinos, origem]);
 
   useEffect(() => {
     const run = ++abortRef.current;
 
     if (destinos.length === 0) {
       setGeocodedCoords(new Map());
+      setOrigemCoords(null);
       return;
     }
 
-    // Collect unique city/uf pairs that need geocoding
     const uniquePairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`)));
-    const needsFetch = uniquePairs.some((key) => !geocodeCache.has(key));
+    const origemPair = origem ? `${origem.cidade},${origem.uf}` : null;
+
+    const allPairs = origemPair ? [...uniquePairs, origemPair] : uniquePairs;
+    const needsFetch = allPairs.some((key) => !geocodeCache.has(key));
 
     if (!needsFetch) {
-      // All already cached — build map immediately, no loading state
       const coordMap = new Map<string, Coords>();
       for (const key of uniquePairs) {
         const c = geocodeCache.get(key);
         if (c) coordMap.set(key, c);
       }
       setGeocodedCoords(coordMap);
+      if (origemPair) {
+        const c = geocodeCache.get(origemPair);
+        setOrigemCoords(c ?? null);
+      }
       return;
     }
 
     setLocalLoading(true);
 
     (async () => {
-      // Geocode all unique city/uf pairs sequentially
       const coordMap = new Map<string, Coords>();
       for (const pair of uniquePairs) {
-        if (run !== abortRef.current) return; // aborted
+        if (run !== abortRef.current) return;
         const [cidade, uf] = pair.split(",");
         const coords = await geocode(cidade, uf);
         if (coords) coordMap.set(pair, coords);
       }
 
+      let origCoords: Coords | null = null;
+      if (origemPair && run === abortRef.current) {
+        const [cidade, uf] = origemPair.split(",");
+        origCoords = await geocode(cidade, uf);
+      }
+
       if (run !== abortRef.current) return;
 
       setGeocodedCoords(coordMap);
+      setOrigemCoords(origCoords);
       setLocalLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [citySetKey]); // CRITICAL: only re-run when the city SET changes, NOT when ordem changes
+  }, [citySetKey]);
 
-  // Build sorted marker points from destinos (reflects current ordem) + geocodedCoords
-  // Apply sequential offset for same-city markers AFTER sorting by ordem
   const sortedPoints = useMemo(() => {
     const sorted = [...destinos].sort((a, b) => a.ordem - b.ordem);
     const cityCount = new Map<string, number>();
@@ -221,7 +231,13 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
     return result;
   }, [destinos, geocodedCoords]);
 
-  // Stable key for MapContainer: changes only when city set changes → forces re-mount to reset Leaflet state
+  // All points for FitBounds — include origem so map zooms to show it
+  const allBoundsPoints = useMemo(() => {
+    const pts: Coords[] = [...sortedPoints];
+    if (origemCoords) pts.push(origemCoords);
+    return pts;
+  }, [sortedPoints, origemCoords]);
+
   const mapKey = citySetKey;
 
   const polylinePositions: [number, number][] = routeGeometry && routeGeometry.length > 0
@@ -262,7 +278,6 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
             <span className="text-sm text-muted-foreground animate-pulse">Carregando mapa...</span>
           </div>
         )}
-        {/* key={mapKey} forces Leaflet re-mount when city set changes, clearing stale marker/zoom state */}
         <MapContainer
           key={mapKey}
           center={[-15.78, -47.93]}
@@ -272,9 +287,26 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
           attributionControl={false}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <FitBounds points={sortedPoints} />
+          <FitBounds points={allBoundsPoints} />
+
+          {/* Origem marker (orange, special icon) */}
+          {origemCoords && origem && (
+            <Marker
+              key="origem"
+              position={[origemCoords.lat, origemCoords.lng]}
+              icon={createOrigemIcon("O")}
+            >
+              <Popup>
+                <div className="text-xs">
+                  <strong>Origem</strong>
+                  <br />
+                  {origem.cidade} – {origem.uf}
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
           {sortedPoints.map((p, idx) => {
-            // FIX: use map index directly — indexOf is fragile with object references
             const type = idx === 0 ? "start" : idx === sortedPoints.length - 1 ? "end" : "middle";
             return (
               <Marker
