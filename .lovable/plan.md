@@ -1,79 +1,90 @@
 
-## Diagnóstico
+## O que o usuário quer
 
-Os logs confirmam que o OSRM público falha 100% das vezes:
+Um bloco "Cargas Fechadas com Pendência" na página Rupturas, logo abaixo do "Resumo por Produto". Ele quer identificar cargas que foram fechadas (têm `carga_id` e `nome_carga`) mas ainda contêm itens com `ruptura = true` — ou seja, cargas expedidas/fechadas que ainda dependem de produto.
+
+## Como identificar "carga fechada com pendência"
+
+Nos dados já carregados (`carregamentos` do `useCarregamentos`), uma carga está "fechada" quando:
+- O item tem `carga_id` preenchido (foi incluído em algum fechamento de lote)
+- E tem `ruptura = true`
+
+O agrupamento é feito por `nome_carga` (ou `carga_id`). Para cada carga com ao menos 1 ruptura, mostrar:
+- Nome da carga
+- Qtd de rupturas pendentes
+- Peso total em ruptura
+- Produtos pendentes (lista)
+- Status predominante das rupturas (ex: "Aguardando Produto")
+
+**Importante:** sem filtros de vendedor/carga/busca — este bloco usa **todos os carregamentos** do período (não só os filtrados), para não esconder cargas afetadas.
+
+## Estrutura do bloco
+
 ```
-[roteirizar] OSRM trip failed: Signal timed out.
-[roteirizar] OSRM route also failed: Signal timed out.
-[roteirizar] Haversine fallback: 2223.7km, 6 trechos
-[roteirizar] Total time: 13901ms
-```
-
-O servidor `router.project-osrm.org` é público e sobrecarregado — mesmo 3s de timeout não é suficiente.
-
-**Solução:** Trocar para **OpenRouteService (ORS)**, que:
-- É gratuita (2.000 req/dia no plano free)
-- Tem cobertura completa do Brasil com dados do OpenStreetMap
-- Responde consistentemente em <1s
-- Usa API key — sem throttling aleatório
-- Retorna polyline com rota real por estradas, distâncias e durações por trecho
-
-## Plano
-
-### 1. Configurar API key do ORS (secret)
-O usuário precisa criar uma conta gratuita em `openrouteservice.org` e gerar uma API key. A key será armazenada como secret `ORS_API_KEY`.
-
-### 2. `supabase/functions/roteirizar/index.ts`
-Substituir as chamadas OSRM pela API do ORS:
-
-**Endpoint usado:** `POST https://api.openrouteservice.org/v2/directions/driving-car/geojson`
-
-```json
-// Payload ORS:
-{
-  "coordinates": [[-49.26, -16.68], [-41.17, -14.86], ...],
-  "instructions": false,
-  "geometry_simplify": false
-}
+┌─────────────────────────────────────────────────────┐
+│ 🔴 Cargas Fechadas com Pendência (3)                │
+├─────────────────────────────────────────────────────┤
+│ CARGA-001   │ 4 rupturas │ 2.340 kg │ [Aguardando]  │
+│   Produto A (2x), Produto B (2x)                    │
+├─────────────────────────────────────────────────────┤
+│ CARGA-002   │ 1 ruptura  │  560 kg  │ [Rom.Lib.]    │
+│   Produto C (1x)                                    │
+└─────────────────────────────────────────────────────┘
 ```
 
-**O ORS retorna:**
-- `features[0].geometry.coordinates` → array de [lng, lat] da rota real por estradas
-- `features[0].properties.segments[].distance` → km por trecho
-- `features[0].properties.segments[].duration` → duração por trecho
-- `features[0].properties.summary.distance` → distância total
+No mobile: cards empilhados. No desktop: tabela.
 
-**Mudanças no código:**
-1. Remover todo o bloco de chamadas OSRM (`Promise.allSettled` com trip/route)
-2. Fazer uma única chamada `POST` ao ORS com timeout de 8s
-3. Parsear a resposta GeoJSON do ORS para extrair `geometry`, `trechos` e `distanciaTotal`
-4. Manter o fallback haversine caso o ORS também falhe
-5. Manter `estimado: false` quando ORS retorna dados reais, `estimado: true` no fallback
-
-**Estrutura da nova lógica:**
-```
-try {
-  const orsResult = await callORS(allPoints, ORS_API_KEY);
-  // usar geometria real por estradas
-  geometry = orsResult.coordinates.map(([lng, lat]) => [lat, lng]);
-  distanciaTotal = orsResult.totalKm;
-  trechos = orsResult.segments;
-} catch {
-  // haversine fallback (linha reta)
-  estimado = true;
-  // ... código existente
-}
-```
-
-## Arquivos a Editar
+## Arquivos a editar
 
 | Arquivo | Mudança |
 |---|---|
-| `supabase/functions/roteirizar/index.ts` | Substituir chamadas OSRM por chamada única ao ORS API; manter fallback haversine |
+| `src/pages/Rupturas.tsx` | 1) Novo `useMemo` `cargasComPendencia` — agrupa carregamentos com `ruptura=true` E `carga_id` preenchido, por `nome_carga`; 2) Renderizar bloco logo abaixo de "Resumo por Produto" |
 
-## Pré-requisito
+### Lógica do `cargasComPendencia`
 
-O usuário precisa:
-1. Criar conta gratuita em **openrouteservice.org**
-2. Gerar uma API key no dashboard
-3. Informar a key para ser salva como secret `ORS_API_KEY`
+```ts
+const cargasComPendencia = useMemo(() => {
+  // Usar todos carregamentos (sem filtros), para não perder cargas
+  const map = new Map<string, {
+    nome_carga: string;
+    carga_id: string;
+    count: number;
+    peso: number;
+    produtos: Map<string, { nome: string; count: number }>;
+    statuses: Set<string>;
+  }>();
+  
+  for (const c of carregamentos) {
+    if (!c.ruptura || !c.carga_id) continue; // só fechadas com ruptura
+    const key = c.carga_id;
+    if (!map.has(key)) {
+      map.set(key, {
+        nome_carga: c.nome_carga ?? c.carga_id,
+        carga_id: c.carga_id,
+        count: 0, peso: 0,
+        produtos: new Map(),
+        statuses: new Set(),
+      });
+    }
+    const g = map.get(key)!;
+    g.count++;
+    g.peso += c.peso ?? 0;
+    g.statuses.add(c.status);
+    const pk = c.codigo_produto || "SEM_COD";
+    const existing = g.produtos.get(pk);
+    if (existing) existing.count++;
+    else g.produtos.set(pk, { nome: c.nome_produto || c.codigo_produto || "—", count: 1 });
+  }
+  
+  return [...map.values()].sort((a, b) => b.count - a.count);
+}, [carregamentos]);
+```
+
+### Visual do bloco
+
+- Cabeçalho vermelho/laranja (tom diferente do amarelo de rupturas normais) com `Truck` icon e contador
+- Se `cargasComPendencia.length === 0`: bloco não renderizado
+- Desktop: tabela com colunas: Carga | Rupturas | Peso | Status | Produtos pendentes
+- Mobile: cards com as mesmas infos
+- Badge de status de ruptura reaproveitando `RUPTURA_STATUS_COLORS` para colorir os status de cada carga
+- Clicar no nome da carga aplica o `cargaFilter` para filtrar a lista abaixo
