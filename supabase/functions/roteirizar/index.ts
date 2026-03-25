@@ -422,7 +422,7 @@ Deno.serve(async (req) => {
 
     try {
       const osrmData = await fetch(osrmTripUrl, {
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(8000),
       }).then((r) => r.json());
 
       console.log(
