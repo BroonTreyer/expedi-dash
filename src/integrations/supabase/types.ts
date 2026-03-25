@@ -162,6 +162,27 @@ export type Database = {
         }
         Relationships: []
       }
+      geocode_cache: {
+        Row: {
+          cidade: string
+          lat: number
+          lng: number
+          uf: string
+        }
+        Insert: {
+          cidade: string
+          lat: number
+          lng: number
+          uf: string
+        }
+        Update: {
+          cidade?: string
+          lat?: number
+          lng?: number
+          uf?: string
+        }
+        Relationships: []
+      }
       movimentacoes_portaria: {
         Row: {
           apelido: string | null

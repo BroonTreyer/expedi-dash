@@ -20,6 +20,15 @@ interface GeocodedDestino extends Destino {
   originalIndex: number;
 }
 
+// ── Normalize city name: UPPERCASE + no accents ────────────────────────────
+function normalizarCidade(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+}
+
 // ── Supabase client (service role — bypasses RLS) ──────────────────────────
 function getSupabase() {
   return createClient(
@@ -28,7 +37,7 @@ function getSupabase() {
   );
 }
 
-// ── DB-first geocoding: batch lookup then Nominatim fallback ───────────────
+// ── Nominatim fallback ─────────────────────────────────────────────────────
 async function geocodeViaNominatim(
   cidade: string,
   uf: string
@@ -52,7 +61,7 @@ async function geocodeViaNominatim(
 /**
  * Batch geocode all destinations.
  * Priority: 1) already has lat/lng in input  2) DB cache  3) Nominatim (with save)
- * Returns a Map<"cidade,uf" → {lat, lng}>
+ * Returns a Map<"CIDADE_NORM,UF" → {lat, lng}>
  */
 async function batchGeocode(
   destinos: Destino[],
@@ -62,30 +71,37 @@ async function batchGeocode(
   const supabase = getSupabase();
   const result = new Map<string, { lat: number; lng: number }>();
 
-  // Collect unique pairs (include origin)
+  // Collect unique pairs (include origin) — all normalized
   const uniquePairs = new Map<string, { cidade: string; uf: string }>();
-  uniquePairs.set(`${origemCidade},${origemUf}`, {
-    cidade: origemCidade,
-    uf: origemUf,
+  const origemNorm = normalizarCidade(origemCidade);
+  const origemUfUp = origemUf.toUpperCase().trim();
+  uniquePairs.set(`${origemNorm},${origemUfUp}`, {
+    cidade: origemNorm,
+    uf: origemUfUp,
   });
   for (const d of destinos) {
-    uniquePairs.set(`${d.cidade},${d.uf}`, { cidade: d.cidade, uf: d.uf });
+    const cn = normalizarCidade(d.cidade);
+    const un = d.uf.toUpperCase().trim();
+    uniquePairs.set(`${cn},${un}`, { cidade: cn, uf: un });
   }
 
   // Step 1: Use provided lat/lng from input
   for (const d of destinos) {
     if (d.lat != null && d.lng != null && d.lat !== 0 && d.lng !== 0) {
-      result.set(`${d.cidade},${d.uf}`, { lat: d.lat, lng: d.lng });
+      const cn = normalizarCidade(d.cidade);
+      const un = d.uf.toUpperCase().trim();
+      result.set(`${cn},${un}`, { lat: d.lat, lng: d.lng });
     }
   }
 
-  // Step 2: Query DB cache for all remaining unique pairs
+  // Step 2: Query DB cache for all remaining unique pairs — single batch query
   const missingPairs = Array.from(uniquePairs.values()).filter(
     (p) => !result.has(`${p.cidade},${p.uf}`)
   );
 
   if (missingPairs.length > 0) {
     const cidades = [...new Set(missingPairs.map((p) => p.cidade))];
+    console.log(`[geocode] Querying DB for ${cidades.length} unique cities`);
     const { data: cached, error } = await supabase
       .from("geocode_cache")
       .select("cidade, uf, lat, lng")
@@ -99,13 +115,19 @@ async function batchGeocode(
           console.log(`[geocode] DB cache hit: ${key}`);
         }
       }
+    } else if (error) {
+      console.warn(`[geocode] DB query error: ${error.message}`);
     }
   }
 
-  // Step 3: Nominatim fallback for still-missing pairs (rare)
+  // Step 3: Nominatim fallback for still-missing pairs (rare with pre-populated cache)
   const stillMissing = Array.from(uniquePairs.values()).filter(
     (p) => !result.has(`${p.cidade},${p.uf}`)
   );
+
+  if (stillMissing.length > 0) {
+    console.log(`[geocode] Nominatim fallback for ${stillMissing.length} cities`);
+  }
 
   const toSaveToDb: { cidade: string; uf: string; lat: number; lng: number }[] = [];
 
@@ -247,20 +269,27 @@ Deno.serve(async (req) => {
 
     const oCidade = origemCidade || "Goiânia";
     const oUf = origemUf || "GO";
+    // Normalized versions used as keys
+    const oCidadeNorm = normalizarCidade(oCidade);
+    const oUfNorm = oUf.toUpperCase().trim();
 
-    // ── BATCH GEOCODE (DB-first, no artificial delays) ─────────────────────
+    const t0 = Date.now();
+
+    // ── BATCH GEOCODE (DB-first, single query) ─────────────────────────────
     const coordsMap = await batchGeocode(destinos, oCidade, oUf);
     console.log(
-      `[roteirizar] Geocoded ${coordsMap.size} unique city pairs (${destinos.length} destinations)`
+      `[roteirizar] Geocoded ${coordsMap.size} unique city pairs in ${Date.now() - t0}ms (${destinos.length} destinations)`
     );
 
-    const origemCoords = coordsMap.get(`${oCidade},${oUf}`) ?? null;
+    const origemCoords = coordsMap.get(`${oCidadeNorm},${oUfNorm}`) ?? null;
 
-    // Build geocoded destination list
+    // Build geocoded destination list (normalize keys)
     const geocoded: GeocodedDestino[] = [];
     for (let i = 0; i < destinos.length; i++) {
       const d = destinos[i];
-      const coords = coordsMap.get(`${d.cidade},${d.uf}`);
+      const cn = normalizarCidade(d.cidade);
+      const un = d.uf.toUpperCase().trim();
+      const coords = coordsMap.get(`${cn},${un}`);
       if (!coords) {
         console.log(
           `[roteirizar] Skipping ${d.cidade}, ${d.uf} — no coords found`
@@ -285,7 +314,7 @@ Deno.serve(async (req) => {
     // Apply small offset for same-city destinations
     const cityCount = new Map<string, number>();
     for (const g of geocoded) {
-      const key = `${g.cidade}-${g.uf}`;
+      const key = `${normalizarCidade(g.cidade)}-${g.uf.toUpperCase()}`;
       const count = cityCount.get(key) ?? 0;
       if (count > 0) {
         g.lat += count * 0.003;
@@ -303,8 +332,8 @@ Deno.serve(async (req) => {
           trechos: [],
           origemLat: origemCoords?.lat ?? null,
           origemLng: origemCoords?.lng ?? null,
-          origemCidadeNorm: oCidade,
-          origemUfNorm: oUf,
+          origemCidadeNorm: oCidadeNorm,
+          origemUfNorm: oUfNorm,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -330,13 +359,27 @@ Deno.serve(async (req) => {
     let trechos: { de: string; para: string; km: number; duracao: number }[] = [];
     let usedOsrmTrip = false;
 
+    // ── OSRM: for large routes fire /trip and /route in parallel ──────────
+    const isLargeRoute = allPoints.length > 15;
+    const osrmTripUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last&geometries=polyline&overview=full&steps=false`;
+    const osrmRouteUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=polyline&overview=full&steps=false`;
+
     // ── OSRM /trip ─────────────────────────────────────────────────────────
     try {
-      const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last&geometries=polyline&overview=full&steps=false`;
-      const osrmRes = await fetch(osrmUrl, {
-        signal: AbortSignal.timeout(15000),
-      });
-      const osrmData = await osrmRes.json();
+      // For large routes, fire both in parallel and use trip result if it arrives within timeout
+      const tripTimeout = isLargeRoute ? 12000 : 10000;
+      const tripPromise = fetch(osrmTripUrl, {
+        signal: AbortSignal.timeout(tripTimeout),
+      }).then((r) => r.json());
+
+      // For large routes, also start the route request in parallel as fallback
+      const routePromise = isLargeRoute
+        ? fetch(osrmRouteUrl, { signal: AbortSignal.timeout(10000) }).then((r) =>
+            r.json()
+          )
+        : null;
+
+      const osrmData = await tripPromise;
 
       console.log(
         `[roteirizar] OSRM trip code: ${osrmData.code}, trips: ${osrmData.trips?.length ?? 0}, waypoints: ${osrmData.waypoints?.length ?? 0}`
@@ -421,8 +464,13 @@ Deno.serve(async (req) => {
 
         usedOsrmTrip = true;
         console.log(
-          `[roteirizar] OSRM trip success. Order: ${orderedDestinos.map((d) => d.cidade).join(" → ")}`
+          `[roteirizar] OSRM trip success in ${Date.now() - t0}ms. Order: ${orderedDestinos.map((d) => d.cidade).join(" → ")}`
         );
+
+        // Cancel the parallel route request if it's still running (best-effort)
+        if (routePromise) {
+          routePromise.catch(() => {});
+        }
       }
     } catch (tripErr) {
       console.log(
@@ -434,8 +482,7 @@ Deno.serve(async (req) => {
     if (!usedOsrmTrip) {
       console.log(`[roteirizar] Falling back to OSRM /route with greedy order`);
       try {
-        const routeUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=polyline&overview=full&steps=false`;
-        const routeRes = await fetch(routeUrl, {
+        const routeRes = await fetch(osrmRouteUrl, {
           signal: AbortSignal.timeout(8000),
         });
         const routeData = await routeRes.json();
@@ -481,6 +528,8 @@ Deno.serve(async (req) => {
       }));
     }
 
+    console.log(`[roteirizar] Total time: ${Date.now() - t0}ms`);
+
     return new Response(
       JSON.stringify({
         ordemOtimizada: orderedDestinos,
@@ -489,8 +538,8 @@ Deno.serve(async (req) => {
         trechos,
         origemLat: origemCoords?.lat ?? null,
         origemLng: origemCoords?.lng ?? null,
-        origemCidadeNorm: oCidade,
-        origemUfNorm: oUf,
+        origemCidadeNorm: oCidadeNorm,
+        origemUfNorm: oUfNorm,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
