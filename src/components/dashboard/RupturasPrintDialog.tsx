@@ -136,7 +136,12 @@ export function RupturasPrintDialog({ open, onOpenChange, data }: Props) {
                       <td className="py-1 pr-2 font-mono">{p.codigo}</td>
                       <td className="py-1 pr-2">{p.nome}</td>
                       <td className="py-1 pr-2 text-right">{p.count}</td>
-                      <td className="py-1 text-right font-mono">{p.peso.toLocaleString("pt-BR")}</td>
+                      <td className="py-1 text-right font-mono">
+                        {p.porUnidade
+                          ? <>{p.qtd ?? 0} unid<br /><span style={{fontSize:"0.85em",opacity:0.7}}>{p.peso.toLocaleString("pt-BR")} kg</span></>
+                          : p.peso.toLocaleString("pt-BR")
+                        }
+                      </td>
                     </tr>
                   ))}
                 </tbody>
