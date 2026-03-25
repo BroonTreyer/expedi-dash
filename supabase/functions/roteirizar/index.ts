@@ -133,20 +133,29 @@ Deno.serve(async (req) => {
     const oUf = origemUf || "GO";
     const origemCoords = await geocode(oCidade, oUf);
 
-    // Geocode all destinations sequentially
+    // Geocode all destinations sequentially with 350ms delay to respect Nominatim rate limit
     const geocoded: GeocodedDestino[] = [];
     for (let i = 0; i < destinos.length; i++) {
       const d = destinos[i];
       let lat = d.lat;
       let lng = d.lng;
       if (lat == null || lng == null || lat === 0 || lng === 0) {
+        if (i > 0) await new Promise((r) => setTimeout(r, 350)); // rate-limit guard
         const coords = await geocode(d.cidade, d.uf);
         if (!coords) {
-          console.log(`[roteirizar] Geocode failed for: ${d.cidade}, ${d.uf}`);
-          continue;
+          console.log(`[roteirizar] Geocode failed for: ${d.cidade}, ${d.uf} — retrying after 1s`);
+          await new Promise((r) => setTimeout(r, 1000));
+          const retry = await geocode(d.cidade, d.uf);
+          if (!retry) {
+            console.log(`[roteirizar] Geocode retry also failed for: ${d.cidade}, ${d.uf}`);
+            continue;
+          }
+          lat = retry.lat;
+          lng = retry.lng;
+        } else {
+          lat = coords.lat;
+          lng = coords.lng;
         }
-        lat = coords.lat;
-        lng = coords.lng;
       }
       geocoded.push({ ...d, lat: lat!, lng: lng!, originalIndex: i });
     }
