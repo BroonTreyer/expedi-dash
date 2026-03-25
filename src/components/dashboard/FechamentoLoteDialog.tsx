@@ -139,7 +139,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           </div>
           <span className="text-muted-foreground">{totalPeso.toLocaleString("pt-BR")} kg</span>
           {roteirizacao?.distanciaTotal != null && roteirizacao.distanciaTotal > 0 && (
-            {/* BUG 20 FIX: Format with locale number separator */}
+            // BUG 20 FIX: Format with locale number separator
             <span className="font-medium">{roteirizacao.distanciaTotal.toLocaleString("pt-BR")} km</span>
           )}
           <div className="flex gap-1 flex-wrap">
