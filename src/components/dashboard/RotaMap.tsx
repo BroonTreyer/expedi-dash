@@ -165,10 +165,8 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
     const uniquePairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`)));
     const origemPair = origem ? `${origem.cidade},${origem.uf}` : null;
 
-    const allPairs = origemPair ? [...uniquePairs, origemPair] : uniquePairs;
-    const needsFetch = allPairs.some((key) => !geocodeCache.has(key));
-
-    if (!needsFetch) {
+    // Helper to build state maps from the module-level cache (no async needed)
+    const buildFromCache = () => {
       const coordMap = new Map<string, Coords>();
       for (const key of uniquePairs) {
         const c = geocodeCache.get(key);
@@ -176,9 +174,16 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
       }
       setGeocodedCoords(coordMap);
       if (origemPair) {
-        const c = geocodeCache.get(origemPair);
-        setOrigemCoords(c ?? null);
+        setOrigemCoords(geocodeCache.get(origemPair) ?? null);
       }
+    };
+
+    const allPairs = origemPair ? [...uniquePairs, origemPair] : uniquePairs;
+    const needsFetch = allPairs.some((key) => !geocodeCache.has(key));
+
+    // All already cached — populate state synchronously, no abort risk
+    if (!needsFetch) {
+      buildFromCache();
       return;
     }
 
@@ -186,19 +191,21 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
 
     (async () => {
       const coordMap = new Map<string, Coords>();
+      // BUG FIX: removed mid-loop abort check — let all geocoding complete so
+      // setState is always called. Last write wins (same cities → same result).
       for (const pair of uniquePairs) {
-        if (run !== abortRef.current) return;
         const [cidade, uf] = pair.split(",");
         const coords = await geocode(cidade, uf);
         if (coords) coordMap.set(pair, coords);
       }
 
       let origCoords: Coords | null = null;
-      if (origemPair && run === abortRef.current) {
+      if (origemPair) {
         const [cidade, uf] = origemPair.split(",");
         origCoords = await geocode(cidade, uf);
       }
 
+      // Only discard if a newer run has started (different city set)
       if (run !== abortRef.current) return;
 
       setGeocodedCoords(coordMap);
