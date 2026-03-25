@@ -69,8 +69,9 @@ function SortableDestinationCard({
   onToggle: () => void; onMoveUp: () => void; onMoveDown: () => void; onOrderChange: (n: number) => void;
   trecho?: TrechoInfo;
 }) {
+  // FIX: use ordem as fallback to avoid DnD ID collisions when multiple groups have no codigoCliente
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: group.codigoCliente ?? "__sem__",
+    id: group.codigoCliente ?? `__sem__${group.ordem}`,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [localOrder, setLocalOrder] = useState(String(group.ordem));
@@ -163,7 +164,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     }
   }, [open, items]);
 
-  const groupKey = (g: RotaGroup) => g.codigoCliente ?? "__sem__";
+  // FIX: groupKey must match useSortable id — use same fallback
+  const groupKey = (g: RotaGroup) => g.codigoCliente ?? `__sem__${g.ordem}`;
 
   const toggleGroup = useCallback((group: RotaGroup) => {
     const key = groupKey(group);
@@ -202,7 +204,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
-  const sortableIds = useMemo(() => groups.map((g) => groupKey(g)), [groups]);
+  // FIX: use ordem as fallback to avoid DnD sortableIds collisions
+  const sortableIds = useMemo(() => groups.map((g) => g.codigoCliente ?? `__sem__${g.ordem}`), [groups]);
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -264,15 +267,13 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
 
         setGroups((prev) => {
           const newOrder: RotaGroup[] = [];
+          // FIX CRÍTICO: Use originalIndex (returned by edge fn) to map back to the correct group.
+          // Previously used cidade+uf which silently dropped the 2nd client in the same city.
           for (const opt of data.ordemOtimizada) {
-            const found = prev.find(
-              (g) =>
-                g.cidade?.toLowerCase() === opt.cidade?.toLowerCase() &&
-                g.uf?.toLowerCase() === opt.uf?.toLowerCase()
-            );
+            const found = prev[opt.originalIndex];
             if (found && !newOrder.includes(found)) newOrder.push(found);
           }
-          // Append any groups not matched (e.g. missing city/uf)
+          // Append any groups not matched (e.g. failed geocoding)
           for (const g of prev) { if (!newOrder.includes(g)) newOrder.push(g); }
           return renumber(newOrder);
         });

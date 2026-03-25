@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, forwardRef } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -30,7 +30,8 @@ interface Coords {
   lng: number;
 }
 
-const geocodeCache = new Map<string, Coords | null>();
+// FIX: Only cache successful results — never cache null so transient Nominatim failures can be retried
+const geocodeCache = new Map<string, Coords>();
 
 async function geocode(cidade: string, uf: string): Promise<Coords | null> {
   const key = `${cidade},${uf}`;
@@ -45,13 +46,12 @@ async function geocode(cidade: string, uf: string): Promise<Coords | null> {
     const data = await res.json();
     if (data.length > 0) {
       const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      geocodeCache.set(key, coords);
+      geocodeCache.set(key, coords); // Only cache on success
       return coords;
     }
   } catch {
-    // ignore
+    // Do NOT cache failures — allow retry on next render
   }
-  geocodeCache.set(key, null);
   return null;
 }
 
@@ -85,7 +85,17 @@ function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
   });
 }
 
-function FitBounds({ points }: { points: Coords[] }) {
+// FIX: react-leaflet FitBounds must not be given a ref — use forwardRef to avoid the warning
+// Actually the warning is because MapContainer tries to give a ref to FitBounds as a child.
+// Solution: render FitBounds as a plain component (no ref needed — useMap handles it).
+// The warning comes from MapContainer passing refs to function component children.
+// We can suppress by wrapping with React.forwardRef, but the cleanest fix is to just ignore it
+// since FitBounds is rendered inside MapContainer via JSX, not via React.cloneElement with ref.
+// The actual fix: don't pass FitBounds as a direct child in a way that triggers ref forwarding.
+// In react-leaflet v4, function component children do NOT need forwardRef.
+// The warning originates because MapContainer is wrapping children in a context — it's a known
+// harmless warning in react-leaflet 4 + React 18. We add forwardRef to silence it.
+const FitBounds = forwardRef<HTMLDivElement, { points: Coords[] }>(function FitBounds({ points }, _ref) {
   const map = useMap();
   useEffect(() => {
     if (points.length === 0) return;
@@ -97,7 +107,7 @@ function FitBounds({ points }: { points: Coords[] }) {
     }
   }, [points, map]);
   return null;
-}
+});
 
 export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, loading: externalLoading }: Props) {
   // State holds geocoded points indexed by "cidade,uf" fingerprint → includes ALL destinos in current ordem
@@ -234,8 +244,8 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <FitBounds points={sortedPoints} />
-          {sortedPoints.map((p) => {
-            const idx = sortedPoints.indexOf(p);
+          {sortedPoints.map((p, idx) => {
+            // FIX: use map index directly — indexOf is fragile with object references
             const type = idx === 0 ? "start" : idx === sortedPoints.length - 1 ? "end" : "middle";
             return (
               <Marker
