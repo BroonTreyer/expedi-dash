@@ -114,6 +114,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
 }
 
 export default function Consolidado() {
+  const navigate = useNavigate();
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
