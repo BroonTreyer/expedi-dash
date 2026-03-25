@@ -234,8 +234,8 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <FitBounds points={sortedPoints} />
-          {sortedPoints.map((p) => {
-            const idx = sortedPoints.indexOf(p);
+          {sortedPoints.map((p, idx) => {
+            // FIX: use map index directly — indexOf is fragile with object references
             const type = idx === 0 ? "start" : idx === sortedPoints.length - 1 ? "end" : "middle";
             return (
               <Marker
