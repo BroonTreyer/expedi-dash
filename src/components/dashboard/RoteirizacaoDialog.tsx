@@ -267,6 +267,22 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
       if (data.trechos && data.trechos.length > 0) setTrechos(data.trechos);
 
+      // FIX: Pré-popular geocodeCache do RotaMap com coordenadas já geocodadas pela edge fn.
+      // Isso elimina o segundo geocoding via Nominatim no front-end (que falha com rate-limit).
+      if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
+        const newCoordsCache = new Map<string, { lat: number; lng: number }>();
+        for (const opt of data.ordemOtimizada) {
+          if (opt.lat != null && opt.lng != null && opt.cidade && opt.uf) {
+            newCoordsCache.set(`${opt.cidade},${opt.uf}`, { lat: opt.lat, lng: opt.lng });
+          }
+        }
+        // Incluir origem também (Goiânia, GO) se retornada
+        if (data.origemLat != null && data.origemLng != null) {
+          newCoordsCache.set("Goiânia,GO", { lat: data.origemLat, lng: data.origemLng });
+        }
+        if (newCoordsCache.size > 0) setCoordsCache(newCoordsCache);
+      }
+
       if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
         // Build a lookup: cidade+uf (lowercase) → trecho index from ordemOtimizada
         // ordemOtimizada[i].ordem tells us the 1-based position, index 'i' is 0-based insertion order
