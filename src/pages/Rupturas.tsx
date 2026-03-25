@@ -19,6 +19,7 @@ import { AlertTriangle, Weight, Package, Plus, Printer, CalendarIcon } from "luc
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -41,6 +42,7 @@ export default function Rupturas() {
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [vendedorFilter, setVendedorFilter] = useState("todos");
+  const [cargaFilter, setCargaFilter] = useState("todos");
   const [busca, setBusca] = useState("");
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
@@ -62,31 +64,36 @@ export default function Rupturas() {
     return carregamentos.filter((c) => {
       if (!c.ruptura) return false;
       if (vendedorFilter !== "todos" && c.vendedor_id !== vendedorFilter) return false;
+      if (cargaFilter !== "todos" && c.nome_carga !== cargaFilter) return false;
       if (busca) {
         const b = busca.toLowerCase();
         if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b) && !c.cliente?.toLowerCase().includes(b)) return false;
       }
       return true;
     });
-  }, [carregamentos, vendedorFilter, busca]);
+  }, [carregamentos, vendedorFilter, cargaFilter, busca]);
 
   // Dynamic filter options — only items with rupturas
   const rupturaVendedorIds = useMemo(() => new Set(carregamentos.filter(c => c.ruptura).map(c => c.vendedor_id).filter(Boolean)), [carregamentos]);
   const filteredVendedores = useMemo(() => vendedores.filter(v => rupturaVendedorIds.has(v.id)), [vendedores, rupturaVendedorIds]);
+  const rupturaCargas = useMemo(() => [...new Set(carregamentos.filter(c => c.ruptura && c.nome_carga).map(c => c.nome_carga!))].sort(), [carregamentos]);
 
   const totalPeso = useMemo(() => rupturas.reduce((s, c) => s + (c.peso ?? 0), 0), [rupturas]);
 
-  // Group by product
+  // Group by product — include cargas set
   const productSummary = useMemo(() => {
-    const map = new Map<string, { codigo: string; nome: string; count: number; peso: number }>();
+    const map = new Map<string, { codigo: string; nome: string; count: number; peso: number; cargas: Set<string> }>();
     for (const c of rupturas) {
       const key = c.codigo_produto || "SEM_COD";
       const existing = map.get(key);
       if (existing) {
         existing.count += 1;
         existing.peso += c.peso ?? 0;
+        if (c.nome_carga) existing.cargas.add(c.nome_carga);
       } else {
-        map.set(key, { codigo: c.codigo_produto || "—", nome: c.nome_produto || "—", count: 1, peso: c.peso ?? 0 });
+        const cargas = new Set<string>();
+        if (c.nome_carga) cargas.add(c.nome_carga);
+        map.set(key, { codigo: c.codigo_produto || "—", nome: c.nome_produto || "—", count: 1, peso: c.peso ?? 0, cargas });
       }
     }
     return [...map.values()].sort((a, b) => b.peso - a.peso);
@@ -216,6 +223,7 @@ export default function Rupturas() {
                       <TableHead className="text-xs">Produto</TableHead>
                       <TableHead className="text-xs text-right">Qtd Rupturas</TableHead>
                       <TableHead className="text-xs text-right">Peso Total (kg)</TableHead>
+                      <TableHead className="text-xs">Cargas Afetadas</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -225,6 +233,13 @@ export default function Rupturas() {
                         <TableCell className="text-xs">{p.nome}</TableCell>
                         <TableCell className="text-xs text-right font-medium">{p.count}</TableCell>
                         <TableCell className="text-xs text-right font-medium">{p.peso.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-xs">
+                          {p.cargas.size > 0
+                            ? [...p.cargas].map(nc => (
+                                <Badge key={nc} variant="outline" className="text-[10px] font-mono mr-1 mb-0.5">{nc}</Badge>
+                              ))
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -269,6 +284,17 @@ export default function Rupturas() {
               ))}
             </SelectContent>
           </Select>
+          {rupturaCargas.length > 0 && (
+            <Select value={cargaFilter} onValueChange={setCargaFilter}>
+              <SelectTrigger><SelectValue placeholder="Carga" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as cargas</SelectItem>
+                {rupturaCargas.map((nc) => (
+                  <SelectItem key={nc} value={nc}>{nc}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} />
         </div>
 

@@ -228,6 +228,12 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
             <div>{c.cidade ?? "—"}</div>
             <div className="text-muted-foreground">UF</div>
             <div>{c.uf ?? "—"}</div>
+            {!hideColumns.includes("nome_carga") && c.nome_carga && (
+              <>
+                <div className="text-muted-foreground">Carga</div>
+                <div><Badge variant="outline" className="text-[10px] font-mono">{c.nome_carga}</Badge></div>
+              </>
+            )}
           </>
         )}
       </div>
@@ -275,6 +281,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
     cidade: (c) => c.cidade ?? "",
     uf: (c) => c.uf ?? "",
     tipo_frete: (c) => c.tipo_frete ?? "",
+    nome_carga: (c) => c.nome_carga ?? "",
   }), []);
 
   const sortedData = useMemo(() => sortData(data, sortAccessors), [data, sortData, sortAccessors]);
@@ -344,6 +351,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
     + (selectable ? 1 : 0)
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
+    + (hideColumns.includes("nome_carga") ? 0 : 1)
     + (showPesoAprox ? 1 : 0)
     + (hasActions ? 1 : 0);
 
@@ -375,6 +383,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               <SortableTableHead sort={sort} sortKey="cliente" onSort={toggleSort}>Cliente</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
+              {!hideColumns.includes("nome_carga") && <SortableTableHead sort={sort} sortKey="nome_carga" onSort={toggleSort}>Carga</SortableTableHead>}
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
               <SortableTableHead sort={sort} sortKey="tipo_frete" onSort={toggleSort}>Frete</SortableTableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
@@ -453,6 +462,13 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     </TableCell>
                     <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
                     <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
+                    {!hideColumns.includes("nome_carga") && (
+                      <TableCell className="text-xs">
+                        {c.nome_carga
+                          ? <Badge variant="outline" className="text-xs font-mono">{c.nome_carga}</Badge>
+                          : <span className="text-muted-foreground/50">—</span>}
+                      </TableCell>
+                    )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{c.tipo_frete ?? "—"}</TableCell>
                     {hasActions && (
@@ -569,6 +585,13 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     </TableCell>
                     <TableCell className="text-sm">{first.cidade ?? "—"}</TableCell>
                     <TableCell className="text-sm">{first.uf ?? "—"}</TableCell>
+                    {!hideColumns.includes("nome_carga") && (
+                      <TableCell className="text-xs">
+                        {first.nome_carga
+                          ? <Badge variant="outline" className="text-xs font-mono">{first.nome_carga}</Badge>
+                          : <span className="text-muted-foreground/50">—</span>}
+                      </TableCell>
+                    )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{first.tipo_frete ?? "—"}</TableCell>
                     {hasActions && (
@@ -638,6 +661,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       <TableCell />
                       <TableCell />
                       <TableCell />
+                      {!hideColumns.includes("nome_carga") && <TableCell />}
                       {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                       <TableCell />
                       {hasActions && (
