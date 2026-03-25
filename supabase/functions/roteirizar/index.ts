@@ -511,7 +511,7 @@ Deno.serve(async (req) => {
           }
         } else {
           console.warn(
-            `[roteirizar] OSRM trip rejected (ratio ${validationRatio.toFixed(2)} > 2.5), using 2-opt result`
+            `[roteirizar] OSRM trip rejected (ratio ${validationRatio.toFixed(2)} > 1.8), using 2-opt result`
           );
         }
       }
