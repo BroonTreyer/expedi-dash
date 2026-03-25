@@ -311,6 +311,10 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     [activeGroups]
   );
 
+  // FIX: estabilizar objeto origem — evitar nova referência a cada render do pai
+  // que causa citySetKey diferente e destrói o MapContainer durante o geocoding
+  const origemEstavel = useMemo(() => ({ cidade: "Goiânia", uf: "GO" }), []);
+
   // Build trecho lookup by codigoCliente for the cards
   // trechos[0] = Goiânia→dest1, trechos[1] = dest1→dest2, ...
   // For a card at position idx in activeGroups, the "outgoing" leg is trechos[idx+1]
