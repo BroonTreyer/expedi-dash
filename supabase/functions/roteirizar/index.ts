@@ -613,6 +613,7 @@ Deno.serve(async (req) => {
         geometria: geometry,
         distanciaTotal,
         trechos,
+        estimado,
         origemLat: origemCoords?.lat ?? null,
         origemLng: origemCoords?.lng ?? null,
         origemCidadeNorm: oCidadeNorm,
