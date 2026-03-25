@@ -1,78 +1,49 @@
 
-## Diagnóstico completo — por que o sistema é lento e frágil
+## Diagnóstico: tabela `geocode_cache` não existe
 
-### Problema central: dependência total do Nominatim (geocoding externo + lento)
+A migration foi planejada mas nunca executada. O banco não tem a tabela, então **100% das cidades vão ao Nominatim** — 21 cidades × 600ms = ~14 segundos só de espera, mais o OSRM.
 
-O fluxo atual tem **3 geocodings sequenciais** para a mesma rota:
+Além disso, o OSRM `/trip` com 22 pontos (origem + 21 destinos) está sendo chamado com timeout de 15s. Para rotas longas (ex: Goiânia → Manaus → Macapá → SP), o servidor público do OSRM demora bastante.
 
-1. **Edge function**: geocoda origem (1 req) + N destinos (1 req cada, 500ms de delay entre cada) = `1 + N` requests Nominatim, com `500ms × N` de espera pura
-2. **RotaMap (front-end)**: mesmo tendo recebido lat/lng da edge function via `coordsCache`, quando o `geocodeCache` do módulo não tem a entrada (ex: primeiro acesso, ou módulo recarregado), o mapa chama Nominatim novamente para as cidades faltantes — mais 1200ms por cidade
+## O que será feito
 
-**Para 5 destinos**: a edge function gasta `500ms + (5-1) × 600ms = 2.9s` **só esperando** entre geocodes. Se o OSRM /trip demorar mais 15s, o total chega a ~18s. E ainda pode falhar.
+### 1. Criar migration com a tabela `geocode_cache` + ~800 cidades pré-populadas
 
-### Solução definitiva: banco de coordenadas pré-populado
+Tabela com PK `(cidade, uf)`, sem RLS (acesso via service role na edge function). Será populada com:
+- Todas as capitais brasileiras
+- Todas as cidades presentes nos logs (VITORIA DA CONQUISTA, EUNAPOLIS, PORTO SEGURO, ILHEUS, SIMOES FILHO, SALVADOR, LAURO DE FREITAS, ITABAIANA, CAPIM GROSSO, EUCLIDES DA CUNHA, JUAZEIRO DO NORTE, MACAPA, MANAUS, SINOP, CUIABA, VARZEA GRANDE, RONDONOPOLIS, FRANCO DA ROCHA, SAO PAULO, NOSSA SENHORA DO SOCORRO, etc.)
+- As ~500 maiores cidades do Brasil por estado
 
-A raiz do problema é que o sistema precisa descobrir as coordenadas de cada cidade **em tempo real**, o que força dependência do Nominatim com rate-limits e latência.
+Nomes em UPPERCASE sem acento — exatamente como vêm nos pedidos (o sistema já normaliza para uppercase).
 
-A solução é criar uma **tabela `geocode_cache`** no banco de dados com lat/lng por cidade+UF. As coordenadas das cidades brasileiras são dados estáticos — nunca mudam. Basta popular uma vez e a edge function consulta o banco primeiro, eliminando 100% das chamadas ao Nominatim para cidades já conhecidas.
+### 2. Ajustar a edge function `roteirizar` para normalizar o nome da cidade antes da busca
 
-### Plano de correção
+O log mostra que a origem `Goiânia` tem acento e case diferente das cidades dos destinos que chegam em UPPERCASE sem acento. A função precisa normalizar tudo para UPPERCASE sem acento **antes** de buscar no banco.
 
-#### 1. Criar tabela `geocode_cache` no banco
-```sql
-CREATE TABLE public.geocode_cache (
-  cidade text NOT NULL,
-  uf char(2) NOT NULL,
-  lat double precision NOT NULL,
-  lng double precision NOT NULL,
-  PRIMARY KEY (cidade, uf)
-);
--- Sem RLS, acesso público via service role na edge function
-```
-
-#### 2. Pré-popular com as principais cidades brasileiras
-Na mesma migration, inserir as coordenadas das cidades que aparecem nos pedidos e as ~500 maiores cidades do Brasil — eliminando a necessidade do Nominatim para 99% dos casos.
-
-#### 3. Refatorar `supabase/functions/roteirizar/index.ts`
-**Novo fluxo**:
-1. Extrair lista única de cidades dos destinos
-2. Buscar todas de uma vez no banco via `SELECT lat, lng FROM geocode_cache WHERE (cidade, uf) IN (...)` — **1 query, zero latência de rate-limit**
-3. Para cidades não encontradas no banco (raro): chamar Nominatim normalmente E gravar no banco para próximas vezes
-4. Remover todos os `await delay(...)` do loop de geocoding — não são mais necessários pois o banco não tem rate-limit
-
-**Resultado**: geocoding de 5 destinos: de `~3s` para `~50ms` (1 query ao banco).
-
-#### 4. Refatorar `src/components/dashboard/RotaMap.tsx`
-**Novo fluxo**:
-- Quando `coordsCache` é fornecido pela edge function (que já leu do banco), usar diretamente — **zero chamadas ao Nominatim**
-- Remover o loop de geocoding sequencial com delays de 1200ms
-- Manter apenas fallback Nominatim para quando o mapa é aberto sem prévia roteirização (exibir marcadores antes de clicar "Roteirizar")
-
-Para o fallback (antes de roteirizar), passar as coordenadas direto do banco via uma chamada ao Supabase, não ao Nominatim.
-
-#### 5. Adicionar função de geocoding rápido no front-end via banco
 ```typescript
-// Em vez de chamar Nominatim, chamar o banco diretamente:
-const { data } = await supabase
-  .from("geocode_cache")
-  .select("cidade, uf, lat, lng")
-  .in("cidade", cidades);
+function normalizarCidade(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+}
+// Usar na chave de busca: normalizarCidade(cidade)
 ```
+
+### 3. Reduzir timeout OSRM e adicionar paralelismo inteligente
+
+- Geocoding do banco: 1 query (já está implementado, só faltava a tabela)
+- OSRM `/trip` timeout: reduzir de 15s → 10s para 22+ pontos
+- Para rotas com >15 destinos: disparar `/trip` e `/route` em paralelo, usar o que responder primeiro
 
 ### Arquivos a editar
 
 | Arquivo | Mudança |
 |---|---|
-| Migration SQL (nova) | Criar tabela `geocode_cache` com PK cidade+uf, pré-popular com principais cidades BR |
-| `supabase/functions/roteirizar/index.ts` | Substituir geocoding sequencial Nominatim por query em lote ao banco; gravar novas cidades no banco; remover todos os delays |
-| `src/components/dashboard/RotaMap.tsx` | Substituir loop de geocoding Nominatim por query ao banco via supabase client; manter Nominatim apenas como último fallback |
-| `src/components/dashboard/RoteirizacaoDialog.tsx` | Pequena limpeza — remover estado `coordsCache` separado pois o mapa agora lê direto do banco |
+| Nova migration SQL | Criar `geocode_cache` + INSERT de ~800 cidades BR em UPPERCASE sem acento |
+| `supabase/functions/roteirizar/index.ts` | Normalizar nomes de cidades (uppercase + sem acento) antes de buscar no banco; reduzir timeout OSRM |
 
 ### Ganho esperado
 
 | Etapa | Antes | Depois |
 |---|---|---|
-| Geocoding de 5 cidades (edge fn) | 2.9s de delay puro + risco de falha | ~50ms (1 query SQL) |
-| Geocoding no mapa (front-end) | 1200ms × N cidades + retries | ~50ms (1 query Supabase) |
-| Marcadores faltando | Acontece frequentemente (rate-limit) | Nunca (banco não tem rate-limit) |
-| Total para roteirizar 5 destinos | ~15-20s | ~2-4s (só OSRM) |
+| Geocoding 21 cidades | ~14s (Nominatim sequencial) | ~50ms (1 query SQL) |
+| Cidades não encontradas | Comum (tabela vazia) | Raro (~99% cobertura) |
+| Tempo total | 20-30s | 3-6s (só OSRM) |
