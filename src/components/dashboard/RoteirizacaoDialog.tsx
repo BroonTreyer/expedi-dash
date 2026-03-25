@@ -139,6 +139,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [distanciaTotal, setDistanciaTotal] = useState<number | undefined>();
   const [trechos, setTrechos] = useState<TrechoInfo[] | undefined>();
   const [isRouting, setIsRouting] = useState(false);
+  // Coordenadas retornadas pela edge function para pré-popular o geocodeCache do RotaMap
+  const [coordsCache, setCoordsCache] = useState<Map<string, { lat: number; lng: number }> | undefined>();
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
 
