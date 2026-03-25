@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo, forwardRef } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DestinoRota {
   ordem: number;
@@ -29,7 +30,7 @@ interface Props {
   distanciaTotal?: number;
   trechos?: TrechoInfo[];
   loading?: boolean;
-  /** Coordenadas pré-geocodadas pela edge function — evita re-geocoding via Nominatim */
+  /** Coordenadas pré-geocodadas pela edge function — pula geocoding completamente */
   coordsCache?: Map<string, { lat: number; lng: number }>;
 }
 
@@ -38,13 +39,38 @@ interface Coords {
   lng: number;
 }
 
-// FIX: Only cache successful results — never cache null so transient Nominatim failures can be retried
+// Module-level cache: persists across re-renders and component remounts
 const geocodeCache = new Map<string, Coords>();
 
-async function geocode(cidade: string, uf: string): Promise<Coords | null> {
+/** Query DB geocode_cache for a batch of city+uf pairs */
+async function geocodeFromDb(
+  pairs: { cidade: string; uf: string }[]
+): Promise<Map<string, Coords>> {
+  const result = new Map<string, Coords>();
+  if (pairs.length === 0) return result;
+
+  const cidades = [...new Set(pairs.map((p) => p.cidade))];
+  const { data, error } = await supabase
+    .from("geocode_cache" as never)
+    .select("cidade, uf, lat, lng")
+    .in("cidade", cidades);
+
+  if (error || !data) return result;
+
+  const pairSet = new Set(pairs.map((p) => `${p.cidade},${p.uf}`));
+  for (const row of data as { cidade: string; uf: string; lat: number; lng: number }[]) {
+    const key = `${row.cidade},${row.uf}`;
+    if (pairSet.has(key)) {
+      result.set(key, { lat: row.lat, lng: row.lng });
+    }
+  }
+  return result;
+}
+
+/** Nominatim fallback (only for cities not in DB) */
+async function geocodeViaNominatim(cidade: string, uf: string): Promise<Coords | null> {
   const key = `${cidade},${uf}`;
   if (geocodeCache.has(key)) return geocodeCache.get(key)!;
-
   try {
     const q = encodeURIComponent(`${cidade}, ${uf}, Brasil`);
     const res = await fetch(
@@ -54,11 +80,11 @@ async function geocode(cidade: string, uf: string): Promise<Coords | null> {
     const data = await res.json();
     if (data.length > 0) {
       const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      geocodeCache.set(key, coords); // Only cache on success
+      geocodeCache.set(key, coords);
       return coords;
     }
   } catch {
-    // Do NOT cache failures — allow retry on next render
+    // Do not cache failures
   }
   return null;
 }
@@ -70,7 +96,6 @@ function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
     end: { bg: "hsl(0, 72%, 51%)", border: "white" },
   };
   const { bg, border } = colors[type];
-
   return L.divIcon({
     className: "custom-marker",
     html: `<div style="
@@ -116,31 +141,31 @@ function createOrigemIcon(label: string) {
   });
 }
 
-// FIX: react-leaflet FitBounds must not be given a ref — use forwardRef to avoid the warning
-// Actually the warning is because MapContainer tries to give a ref to FitBounds as a child.
-// Solution: render FitBounds as a plain component (no ref needed — useMap handles it).
-// The warning comes from MapContainer passing refs to function component children.
-// We can suppress by wrapping with React.forwardRef, but the cleanest fix is to just ignore it
-// since FitBounds is rendered inside MapContainer via JSX, not via React.cloneElement with ref.
-// The actual fix: don't pass FitBounds as a direct child in a way that triggers ref forwarding.
-// In react-leaflet v4, function component children do NOT need forwardRef.
-// The warning originates because MapContainer is wrapping children in a context — it's a known
-// harmless warning in react-leaflet 4 + React 18. We add forwardRef to silence it.
-const FitBounds = forwardRef<HTMLDivElement, { points: Coords[] }>(function FitBounds({ points }, _ref) {
-  const map = useMap();
-  useEffect(() => {
-    if (points.length === 0) return;
-    if (points.length === 1) {
-      map.setView([points[0].lat, points[0].lng], 8);
-    } else {
-      const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
-      map.fitBounds(bounds, { padding: [40, 40] });
-    }
-  }, [points, map]);
-  return null;
-});
+const FitBounds = forwardRef<HTMLDivElement, { points: Coords[] }>(
+  function FitBounds({ points }, _ref) {
+    const map = useMap();
+    useEffect(() => {
+      if (points.length === 0) return;
+      if (points.length === 1) {
+        map.setView([points[0].lat, points[0].lng], 8);
+      } else {
+        const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
+        map.fitBounds(bounds, { padding: [40, 40] });
+      }
+    }, [points, map]);
+    return null;
+  }
+);
 
-export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trechos, loading: externalLoading, coordsCache }: Props) {
+export function RotaMap({
+  destinos,
+  origem,
+  routeGeometry,
+  distanciaTotal,
+  trechos,
+  loading: externalLoading,
+  coordsCache,
+}: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
   const [localLoading, setLocalLoading] = useState(false);
@@ -148,15 +173,12 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
 
   const isLoading = externalLoading || localLoading;
 
-  // citySetKey: só muda quando o CONJUNTO de cidades muda (ignora ordem e referência do objeto)
   const citySetKey = useMemo(() => {
     const pairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`))).sort();
     const origemKey = origem ? `__origem__${origem.cidade},${origem.uf}` : "";
     return pairs.join("|") + origemKey;
   }, [destinos, origem]);
 
-  // mapKey: controlado por ref para NÃO destruir o MapContainer a cada re-render do pai.
-  // Só incrementa quando o conjunto de cidades muda de verdade.
   const mapKeyRef = useRef(0);
   const prevCitySetKeyRef = useRef("");
   if (prevCitySetKeyRef.current !== citySetKey) {
@@ -174,36 +196,40 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
       return;
     }
 
-    // FIX: Pré-popular geocodeCache com coordenadas vindas da edge function.
-    // Isso evita que o RotaMap refaça geocoding via Nominatim (que falha com rate-limit)
-    // para cidades que a edge function já geocodou com sucesso.
+    // Step 1: Pre-populate module cache from edge function coords (zero API calls needed)
     if (coordsCache && coordsCache.size > 0) {
       for (const [key, coords] of coordsCache) {
-        if (!geocodeCache.has(key)) geocodeCache.set(key, coords);
+        geocodeCache.set(key, coords);
       }
     }
 
-    const uniquePairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`)));
-    const origemPair = origem ? `${origem.cidade},${origem.uf}` : null;
+    const uniquePairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`))).map(
+      (key) => {
+        const [cidade, uf] = key.split(",");
+        return { cidade, uf, key };
+      }
+    );
+    const origemPair = origem
+      ? { cidade: origem.cidade, uf: origem.uf, key: `${origem.cidade},${origem.uf}` }
+      : null;
 
-    // Helper: popula estado direto do cache do módulo (sem async, sem risco de abort)
     const buildFromCache = () => {
       const coordMap = new Map<string, Coords>();
-      for (const key of uniquePairs) {
+      for (const { key } of uniquePairs) {
         const c = geocodeCache.get(key);
         if (c) coordMap.set(key, c);
       }
       setGeocodedCoords(coordMap);
       if (origemPair) {
-        setOrigemCoords(geocodeCache.get(origemPair) ?? null);
+        setOrigemCoords(geocodeCache.get(origemPair.key) ?? null);
       }
     };
 
     const allPairs = origemPair ? [...uniquePairs, origemPair] : uniquePairs;
-    const needsFetch = allPairs.some((key) => !geocodeCache.has(key));
+    const missingFromCache = allPairs.filter(({ key }) => !geocodeCache.has(key));
 
-    // Tudo já cacheado — popula estado de forma síncrona, sem risco de abort
-    if (!needsFetch) {
+    // Everything already cached → instant render
+    if (missingFromCache.length === 0) {
       buildFromCache();
       return;
     }
@@ -211,51 +237,31 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
     setLocalLoading(true);
 
     (async () => {
-      const coordMap = new Map<string, Coords>();
-      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      // Step 2: Query DB for missing pairs (fast, no rate-limit)
+      const dbCoords = await geocodeFromDb(
+        missingFromCache.map(({ cidade, uf }) => ({ cidade, uf }))
+      );
+      for (const [key, coords] of dbCoords) {
+        geocodeCache.set(key, coords);
+      }
 
-      // Geocode com delay de 1200ms entre requests + delay inicial de 500ms para o item 0.
-      // Isso garante que nunca disparamos 2 requests Nominatim em sequência sem espera,
-      // mesmo quando a edge function acabou de usar o Nominatim há pouco tempo.
-      for (let i = 0; i < uniquePairs.length; i++) {
-        const pair = uniquePairs[i];
-        if (geocodeCache.has(pair)) {
-          coordMap.set(pair, geocodeCache.get(pair)!);
-          continue;
-        }
-        // Sempre esperar — 500ms antes do primeiro, 1200ms entre os demais
-        await delay(i === 0 ? 500 : 1200);
-        const [cidade, uf] = pair.split(",");
-        // Até 3 retries com backoff exponencial: 0ms → 1.5s → 3s
+      // Step 3: Nominatim for anything still missing (very rare — only unknown cities)
+      const stillMissing = missingFromCache.filter(({ key }) => !geocodeCache.has(key));
+      for (let i = 0; i < stillMissing.length; i++) {
+        const { cidade, uf, key } = stillMissing[i];
+        if (i > 0) await new Promise((r) => setTimeout(r, 800));
         let coords: Coords | null = null;
         for (const wait of [0, 1500, 3000]) {
-          if (wait > 0) await delay(wait);
-          coords = await geocode(cidade, uf);
+          if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+          coords = await geocodeViaNominatim(cidade, uf);
           if (coords) break;
         }
-        if (coords) coordMap.set(pair, coords);
+        if (coords) geocodeCache.set(key, coords);
       }
 
-      let origCoords: Coords | null = null;
-      if (origemPair) {
-        if (geocodeCache.has(origemPair)) {
-          origCoords = geocodeCache.get(origemPair)!;
-        } else {
-          await delay(1200);
-          const [cidade, uf] = origemPair.split(",");
-          for (const wait of [0, 1500, 3000]) {
-            if (wait > 0) await delay(wait);
-            origCoords = await geocode(cidade, uf);
-            if (origCoords) break;
-          }
-        }
-      }
-
-      // Só descarta se um run mais novo com cidades DIFERENTES começou
       if (run !== abortRef.current) return;
 
-      setGeocodedCoords(coordMap);
-      setOrigemCoords(origCoords);
+      buildFromCache();
       setLocalLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,7 +270,12 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
   const sortedPoints = useMemo(() => {
     const sorted = [...destinos].sort((a, b) => a.ordem - b.ordem);
     const cityCount = new Map<string, number>();
-    const result: (Coords & { ordem: number; cliente: string; cidade: string; uf: string })[] = [];
+    const result: (Coords & {
+      ordem: number;
+      cliente: string;
+      cidade: string;
+      uf: string;
+    })[] = [];
 
     for (const d of sorted) {
       const key = `${d.cidade},${d.uf}`;
@@ -284,16 +295,14 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
     return result;
   }, [destinos, geocodedCoords]);
 
-  // Todos os pontos para FitBounds — inclui origem para o mapa mostrar ela também
   const allBoundsPoints = useMemo(() => {
     const pts: Coords[] = [...sortedPoints];
     if (origemCoords) pts.push(origemCoords);
     return pts;
   }, [sortedPoints, origemCoords]);
 
-  const polylinePositions: [number, number][] = routeGeometry && routeGeometry.length > 0
-    ? routeGeometry
-    : [];
+  const polylinePositions: [number, number][] =
+    routeGeometry && routeGeometry.length > 0 ? routeGeometry : [];
 
   if (destinos.length === 0) {
     return (
@@ -305,7 +314,6 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
 
   return (
     <div className="space-y-2">
-      {/* Distance info bar */}
       {distanciaTotal != null && distanciaTotal > 0 && (
         <div className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm">
           <span className="font-semibold">{distanciaTotal} km total</span>
@@ -322,11 +330,12 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
         </div>
       )}
 
-      {/* Map */}
       <div className="relative rounded-lg overflow-hidden border border-border">
         {isLoading && (
           <div className="absolute inset-0 z-[1000] bg-background/60 flex items-center justify-center">
-            <span className="text-sm text-muted-foreground animate-pulse">Carregando mapa...</span>
+            <span className="text-sm text-muted-foreground animate-pulse">
+              Carregando mapa...
+            </span>
           </div>
         )}
         <MapContainer
@@ -340,7 +349,6 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <FitBounds points={allBoundsPoints} />
 
-          {/* Origem marker (orange, special icon) */}
           {origemCoords && origem && (
             <Marker
               key="origem"
@@ -358,7 +366,8 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
           )}
 
           {sortedPoints.map((p, idx) => {
-            const type = idx === 0 ? "start" : idx === sortedPoints.length - 1 ? "end" : "middle";
+            const type =
+              idx === 0 ? "start" : idx === sortedPoints.length - 1 ? "end" : "middle";
             return (
               <Marker
                 key={`m-${p.ordem}-${p.cidade}-${p.uf}`}
@@ -367,7 +376,9 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
               >
                 <Popup>
                   <div className="text-xs">
-                    <strong>{p.ordem}. {p.cliente}</strong>
+                    <strong>
+                      {p.ordem}. {p.cliente}
+                    </strong>
                     <br />
                     {p.cidade} – {p.uf}
                   </div>
@@ -375,6 +386,7 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
               </Marker>
             );
           })}
+
           {polylinePositions.length > 1 && (
             <Polyline
               positions={polylinePositions}
@@ -388,12 +400,16 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
         </MapContainer>
       </div>
 
-      {/* Trecho details */}
       {trechos && trechos.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-muted-foreground">
           {trechos.map((t, i) => (
-            <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/20">
-              <span className="font-medium text-foreground truncate">{t.de} → {t.para}</span>
+            <div
+              key={i}
+              className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/20"
+            >
+              <span className="font-medium text-foreground truncate">
+                {t.de} → {t.para}
+              </span>
               <span className="ml-auto font-mono whitespace-nowrap">{t.km} km</span>
             </div>
           ))}
