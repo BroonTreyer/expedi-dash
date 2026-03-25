@@ -216,7 +216,7 @@ Deno.serve(async (req) => {
 
     try {
       const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last&geometries=polyline&overview=full&steps=false`;
-      const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(8000) });
+      const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(15000) });
       const osrmData = await osrmRes.json();
 
       console.log(`[roteirizar] OSRM trip code: ${osrmData.code}, trips: ${osrmData.trips?.length ?? 0}, waypoints: ${osrmData.waypoints?.length ?? 0}`);
