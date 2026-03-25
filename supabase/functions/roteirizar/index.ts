@@ -305,13 +305,14 @@ Deno.serve(async (req) => {
           distanciaTotal = Math.round((route.distance / 1000) * 10) / 10;
 
           const legs = route.legs || [];
-          const startLeg = hasOrigin ? 1 : 0;
-          for (let i = startLeg; i < legs.length; i++) {
-            const fromIdx = i - (hasOrigin ? 1 : 0);
+          // legs[0] = origem→dest1, legs[1] = dest1→dest2, ...
+          // fromIdx: -1 = origem, 0 = greedilyOrdered[0], etc.
+          for (let i = 0; i < legs.length; i++) {
+            const fromIdx = i - (hasOrigin ? 1 : 0); // -1 when i=0 and hasOrigin
             const toIdx = fromIdx + 1;
             trechos.push({
-              de: fromIdx < 0 ? oCidade : (greedilyOrdered[fromIdx]?.cliente ?? ""),
-              para: greedilyOrdered[toIdx]?.cliente ?? "",
+              de: fromIdx < 0 ? oCidade : (greedilyOrdered[fromIdx]?.cidade ?? oCidade),
+              para: toIdx >= 0 && toIdx < greedilyOrdered.length ? (greedilyOrdered[toIdx]?.cidade ?? "") : "",
               km: Math.round((legs[i].distance / 1000) * 10) / 10,
               duracao: Math.round(legs[i].duration / 60),
             });
