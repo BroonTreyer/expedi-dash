@@ -547,11 +547,10 @@ Deno.serve(async (req) => {
           for (let i = 0; i < legs.length; i++) {
             const fromIdx = i - (hasOrigin ? 1 : 0);
             const toIdx = fromIdx + 1;
-            trechos.push({
-              de:
-                fromIdx < 0
-                  ? oCidade
-                  : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade,
+          // BUG 9/11 FIX: Use original city name for "de" label on first trecho
+          const fallbackRouteLabels = { de: fromIdx < 0 ? oCidade : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade };
+          trechos.push({
+            de: fallbackRouteLabels.de,
               para:
                 toIdx >= 0 && toIdx < orderedGroups.length
                   ? orderedGroups[toIdx]?.members[0]?.cidade ?? ""
