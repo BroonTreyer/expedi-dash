@@ -361,9 +361,15 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const rotaDestinos = useMemo(
     () => activeGroups
       .filter((g) => g.cidade && g.uf)
-      .map((g) => ({ ordem: g.ordem, cliente: g.nomeCliente ?? "Sem cliente", cidade: g.cidade!, uf: g.uf! })),
+      .map((g, i) => ({ ordem: i + 1, cliente: g.nomeCliente ?? "Sem cliente", cidade: g.cidade!, uf: g.uf! })),
     [activeGroups]
   );
+
+  const activeOrderMap = useMemo(() => {
+    const map = new Map<string, number>();
+    activeGroups.forEach((g, i) => map.set(groupKey(g), i + 1));
+    return map;
+  }, [activeGroups]);
 
   // FIX: estabilizar objeto origem — evitar nova referência a cada render do pai
   // que causa citySetKey diferente e destrói o MapContainer durante o geocoding
