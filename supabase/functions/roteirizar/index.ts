@@ -335,6 +335,11 @@ Deno.serve(async (req) => {
         geometria: geometry,
         distanciaTotal,
         trechos,
+        // FIX: Retornar coordenadas da origem para o front-end pré-popular o geocodeCache
+        origemLat: origemCoords?.lat ?? null,
+        origemLng: origemCoords?.lng ?? null,
+        origemCidadeNorm: oCidade,
+        origemUfNorm: oUf,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
