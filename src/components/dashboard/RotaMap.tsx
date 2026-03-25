@@ -29,6 +29,8 @@ interface Props {
   distanciaTotal?: number;
   trechos?: TrechoInfo[];
   loading?: boolean;
+  /** Coordenadas pré-geocodadas pela edge function — evita re-geocoding via Nominatim */
+  coordsCache?: Map<string, { lat: number; lng: number }>;
 }
 
 interface Coords {
