@@ -367,8 +367,9 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         {/* Map */}
         <div>
           <Suspense fallback={<div className="h-[350px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
-            <RotaMap
+          <RotaMap
               destinos={rotaDestinos}
+              origem={{ cidade: "Goiânia", uf: "GO" }}
               routeGeometry={routeGeometry}
               distanciaTotal={distanciaTotal}
               trechos={trechos}
