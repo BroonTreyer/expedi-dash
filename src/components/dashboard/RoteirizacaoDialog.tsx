@@ -443,6 +443,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               trechos={trechos}
               loading={isRouting}
               coordsCache={coordsCache}
+              estimado={estimado}
             />
           </Suspense>
         </div>
