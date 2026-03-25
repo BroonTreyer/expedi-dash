@@ -17,8 +17,14 @@ interface TrechoInfo {
   duracao: number;
 }
 
+interface OrigemRota {
+  cidade: string;
+  uf: string;
+}
+
 interface Props {
   destinos: DestinoRota[];
+  origem?: OrigemRota;
   routeGeometry?: [number, number][];
   distanciaTotal?: number;
   trechos?: TrechoInfo[];
