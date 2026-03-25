@@ -276,9 +276,9 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
             newCoordsCache.set(`${opt.cidade},${opt.uf}`, { lat: opt.lat, lng: opt.lng });
           }
         }
-        // Incluir origem também (Goiânia, GO) se retornada
-        if (data.origemLat != null && data.origemLng != null) {
-          newCoordsCache.set("Goiânia,GO", { lat: data.origemLat, lng: data.origemLng });
+        // Incluir origem também se retornada pela edge function
+        if (data.origemLat != null && data.origemLng != null && data.origemCidadeNorm && data.origemUfNorm) {
+          newCoordsCache.set(`${data.origemCidadeNorm},${data.origemUfNorm}`, { lat: data.origemLat, lng: data.origemLng });
         }
         if (newCoordsCache.size > 0) setCoordsCache(newCoordsCache);
       }
