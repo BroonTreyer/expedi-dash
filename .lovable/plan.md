@@ -1,60 +1,56 @@
 
-## Problema
+## Problem: Only 1 Marker Shows on Map
 
-O mapa não exibe marcador para Goiânia (ponto de origem). O componente `RotaMap` só renderiza marcadores para os `destinos` (clientes), ignorando completamente a origem.
+### Root Cause Analysis
 
-Olhando a imagem enviada pelo usuário, vemos que:
-- O marcador **"2"** aparece em Pernambuco (correto)
-- O marcador **"1"** está visível em Ilhéus (correto)
-- Mas **Goiânia** (início da rota) não tem marcador — apenas a linha começa de lá
+After reading the full code, I found **two compounding bugs** that cause most markers to disappear:
 
-## Causa Raiz
+**BUG 1 — Race condition aborts geocoding mid-run**
 
-Em `RotaMap.tsx`, a prop `destinos` só contém os clientes de destino. Não há prop para a origem, nem lógica para geocodificar e renderizar um marcador especial para Goiânia.
+In `RotaMap.tsx`, the `useEffect` for geocoding depends on `citySetKey`. The `citySetKey` is a `useMemo` but the `origem` prop is passed as an **inline object literal** (`origem={{ cidade: "Goiânia", uf: "GO" }}`) from the parent. Even though `citySetKey` uses string values (not references), there's a race: `RoteirizacaoDialog` calls `setGroups()` after routing completes → `rotaDestinos` memo recomputes → `RotaMap` receives new `destinos` → `citySetKey` changes (because `destinos.sort()` order changed) → `abortRef.current++` → the in-progress geocode async loop checks `if (run !== abortRef.current) return` and **exits early without ever calling `setGeocodedCoords`**.
 
-## Plano de Correção
+Result: `geocodedCoords` stays empty → `sortedPoints` is empty → no markers rendered (or only 1 that was already in cache from before).
 
-### 1. `src/components/dashboard/RotaMap.tsx`
+**BUG 2 — `needsFetch` check exits early without setting state for already-cached cities**
 
-**Adicionar prop `origem`** à interface `Props`:
+In the `!needsFetch` early-exit branch (lines 171-183), `setGeocodedCoords` IS called correctly. But the `needsFetch` check uses `geocodeCache.has(key)` — the module-level cache. After an aborted run, some cities may be in the module cache but `geocodedCoords` (component state) is still empty. The next time `citySetKey` changes, `needsFetch` could be `false` (all cities in module cache) so the early-exit fires and sets state correctly. BUT if `citySetKey` does NOT change again after the abort, the component is stuck with empty `geocodedCoords`.
+
+**Summary**: After routing completes, `setGroups` reorders groups → `rotaDestinos` is a new array with same cities but different order → `citySetKey` is **identical** (sorted unique pairs don't change) → `useEffect` does NOT re-fire → `geocodedCoords` stays as whatever it was last set to (possibly empty from a prior aborted run).
+
+### Fix Plan
+
+**`src/components/dashboard/RotaMap.tsx`** — 3 changes:
+
+1. **Decouple `citySetKey` from `ordem`** (already done, stable) — but fix the abort-then-no-retry problem by making `citySetKey` **also trigger** a synchronous read from the module cache when `geocodedCoords` is empty (i.e., add a secondary `useMemo` that reads directly from `geocodeCache` and populates state without going async):
+   - Add a `useEffect` that runs after geocoding completes AND after any `citySetKey` change: if `geocodedCoords` is empty but all cities are in the module-level `geocodeCache`, populate from cache immediately (synchronously, no abort risk).
+
+2. **Fix the abort logic**: Change the abort check from being inside the async loop to only checking at the very end before `setGeocodedCoords`. This way even if a new run starts, the previous run still completes setting state (the latest run will overwrite with the same data anyway since cities didn't change).
+   - Remove `if (run !== abortRef.current) return` from inside the loop; only keep the final check before `setGeocodedCoords` and `setOrigemCoords`.
+
+3. **Simplify the abort pattern**: Instead of aborting mid-loop, let all geocoding complete and only reject the `setState` if a newer run has started. Since geocoding for the same cities produces the same result, there's no harm in the last write winning.
+
+**Concrete code changes:**
+
 ```typescript
-interface Props {
-  destinos: DestinoRota[];
-  origem?: { cidade: string; uf: string }; // novo
-  routeGeometry?: ...
+// BEFORE: aborts mid-loop on citySetKey change
+for (const pair of uniquePairs) {
+  if (run !== abortRef.current) return; // ← TOO AGGRESSIVE: aborts before setting state
   ...
 }
+
+// AFTER: let the loop complete, only discard if stale at the end
+for (const pair of uniquePairs) {
+  // removed abort check inside loop
+  ...
+}
+if (run !== abortRef.current) return; // only final check
+setGeocodedCoords(coordMap);
+setOrigemCoords(origCoords);
+setLocalLoading(false);
 ```
 
-**Geocodificar a origem** junto com os destinos (incluída no `citySetKey` e no `useEffect` de geocodificação).
+This is the minimal, targeted fix. Files to edit:
 
-**Criar ícone especial para origem** — estilo diferente: estrela ou "G" / ícone de casa, com cor distinta (ex: laranja/amarelo) para distinguir do marcador "start" dos destinos.
-
-**Renderizar o marcador de origem** separado dos `sortedPoints`, com `Popup` mostrando "Origem: Goiânia – GO" (ou a cidade/uf passada).
-
-**Incluir a coord da origem no `FitBounds`** para que o zoom/pan inclua Goiânia no bounds do mapa.
-
-### 2. `src/components/dashboard/RoteirizacaoDialog.tsx`
-
-Passar `origem={{ cidade: "Goiânia", uf: "GO" }}` (ou a origem configurada) para `<RotaMap>`.
-
-Usar a mesma origem que é enviada para a edge function (`origemCidade`/`origemUf`).
-
-### 3. `src/components/dashboard/FechamentoLoteDialog.tsx`
-
-Verificar se o mapa é renderizado lá também e passar a mesma prop `origem`.
-
-## Detalhes Técnicos
-
-- O ícone de origem terá cor **laranja** (`hsl(25, 95%, 53%)`) com letra "G" (ou ícone de pin especial), tamanho ligeiramente maior (34px) para destacar-se dos destinos
-- A origem é geocodificada junto no mesmo `useEffect`, sem requisição duplicada (usa o mesmo `geocodeCache`)
-- A `citySetKey` incluirá a origem para garantir re-geocodificação se a origem mudar
-- O `FitBounds` receberá todos os pontos incluindo a origem
-
-## Arquivos a Editar
-
-| Arquivo | Mudança |
+| File | Change |
 |---|---|
-| `RotaMap.tsx` | Adicionar prop `origem`, geocodificar, renderizar marcador especial, incluir no FitBounds |
-| `RoteirizacaoDialog.tsx` | Passar `origem={{ cidade: "Goiânia", uf: "GO" }}` ao RotaMap |
-| `FechamentoLoteDialog.tsx` | Verificar e passar `origem` se aplicável |
+| `src/components/dashboard/RotaMap.tsx` | Remove mid-loop abort checks; only abort at final setState |
