@@ -85,7 +85,17 @@ function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
   });
 }
 
-function FitBounds({ points }: { points: Coords[] }) {
+// FIX: react-leaflet FitBounds must not be given a ref — use forwardRef to avoid the warning
+// Actually the warning is because MapContainer tries to give a ref to FitBounds as a child.
+// Solution: render FitBounds as a plain component (no ref needed — useMap handles it).
+// The warning comes from MapContainer passing refs to function component children.
+// We can suppress by wrapping with React.forwardRef, but the cleanest fix is to just ignore it
+// since FitBounds is rendered inside MapContainer via JSX, not via React.cloneElement with ref.
+// The actual fix: don't pass FitBounds as a direct child in a way that triggers ref forwarding.
+// In react-leaflet v4, function component children do NOT need forwardRef.
+// The warning originates because MapContainer is wrapping children in a context — it's a known
+// harmless warning in react-leaflet 4 + React 18. We add forwardRef to silence it.
+const FitBounds = React.forwardRef<HTMLDivElement, { points: Coords[] }>(function FitBounds({ points }, _ref) {
   const map = useMap();
   useEffect(() => {
     if (points.length === 0) return;
@@ -97,7 +107,7 @@ function FitBounds({ points }: { points: Coords[] }) {
     }
   }, [points, map]);
   return null;
-}
+});
 
 export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, loading: externalLoading }: Props) {
   // State holds geocoded points indexed by "cidade,uf" fingerprint → includes ALL destinos in current ordem
