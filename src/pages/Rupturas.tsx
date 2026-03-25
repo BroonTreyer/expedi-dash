@@ -63,13 +63,14 @@ export default function Rupturas() {
     return carregamentos.filter((c) => {
       if (!c.ruptura) return false;
       if (vendedorFilter !== "todos" && c.vendedor_id !== vendedorFilter) return false;
+      if (cargaFilter !== "todos" && c.nome_carga !== cargaFilter) return false;
       if (busca) {
         const b = busca.toLowerCase();
         if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b) && !c.cliente?.toLowerCase().includes(b)) return false;
       }
       return true;
     });
-  }, [carregamentos, vendedorFilter, busca]);
+  }, [carregamentos, vendedorFilter, cargaFilter, busca]);
 
   // Dynamic filter options — only items with rupturas
   const rupturaVendedorIds = useMemo(() => new Set(carregamentos.filter(c => c.ruptura).map(c => c.vendedor_id).filter(Boolean)), [carregamentos]);
