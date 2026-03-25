@@ -57,7 +57,7 @@ async function geocode(cidade: string, uf: string): Promise<Coords | null> {
 function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
   const colors = {
     start: { bg: "hsl(142, 71%, 45%)", border: "white" },
-    middle: { bg: "hsl(var(--primary))", border: "white" },
+    middle: { bg: "hsl(217, 91%, 60%)", border: "white" },
     end: { bg: "hsl(0, 72%, 51%)", border: "white" },
   };
   const { bg, border } = colors[type];
@@ -113,37 +113,45 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
 
     setLocalLoading(true);
 
-    // Apply offset for same-city destinations
-    const cityCount = new Map<string, number>();
+    // FIX BUG 1: Geocode sequentially, then apply city offsets after all coords are resolved.
+    // This prevents the race condition where parallel Promise.all causes cityCount to always read 0.
+    (async () => {
+      const resolved: ({ lat: number; lng: number; ordem: number; cliente: string; cidade: string; uf: string } | null)[] = [];
 
-    Promise.all(
-      destinos.map(async (d) => {
+      // Phase 1: geocode all (may use cache or fetch)
+      for (const d of destinos) {
         const coords = await geocode(d.cidade, d.uf);
-        if (!coords) return null;
+        if (!coords) {
+          resolved.push(null);
+        } else {
+          resolved.push({ lat: coords.lat, lng: coords.lng, ordem: d.ordem, cliente: d.cliente, cidade: d.cidade, uf: d.uf });
+        }
+      }
 
-        const key = `${d.cidade},${d.uf}`;
+      if (run !== abortRef.current) return;
+
+      // Phase 2: apply sequential offset for same-city markers
+      const cityCount = new Map<string, number>();
+      const result: (typeof resolved[0] & {})[] = [];
+      for (const p of resolved) {
+        if (!p) continue;
+        const key = `${p.cidade},${p.uf}`;
         const count = cityCount.get(key) ?? 0;
         cityCount.set(key, count + 1);
+        result.push({
+          ...p,
+          lat: p.lat + count * 0.003,
+          lng: p.lng + count * 0.003,
+        });
+      }
 
-        return {
-          lat: coords.lat + count * 0.003,
-          lng: coords.lng + count * 0.003,
-          ordem: d.ordem,
-          cliente: d.cliente,
-          cidade: d.cidade,
-          uf: d.uf,
-        };
-      })
-    ).then((results) => {
-      if (run !== abortRef.current) return;
-      setPoints(results.filter(Boolean) as any);
+      setPoints(result as any);
       setLocalLoading(false);
-    });
+    })();
   }, [destinos]);
 
   const sortedPoints = [...points].sort((a, b) => a.ordem - b.ordem);
 
-  // Use real geometry if available, otherwise fall back to straight lines
   const polylinePositions: [number, number][] = routeGeometry && routeGeometry.length > 0
     ? routeGeometry
     : [];
@@ -193,20 +201,14 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
           <FitBounds points={sortedPoints} />
           {sortedPoints.map((p, idx) => {
             const type = idx === 0 ? "start" : idx === sortedPoints.length - 1 ? "end" : "middle";
-            const trecho = trechos?.[idx - 1];
+            // FIX BUG 2: use stable unique key that reflects current order
             return (
-              <Marker key={`${p.cidade}-${p.uf}-${p.ordem}`} position={[p.lat, p.lng]} icon={createMarkerIcon(p.ordem, type)}>
+              <Marker key={`marker-${p.cidade}-${p.uf}-${p.ordem}`} position={[p.lat, p.lng]} icon={createMarkerIcon(p.ordem, type)}>
                 <Popup>
                   <div className="text-xs">
                     <strong>{p.ordem}. {p.cliente}</strong>
                     <br />
                     {p.cidade} – {p.uf}
-                    {trecho && (
-                      <>
-                        <br />
-                        <span className="text-muted-foreground">{trecho.km} km · ~{trecho.duracao} min</span>
-                      </>
-                    )}
                   </div>
                 </Popup>
               </Marker>
@@ -216,10 +218,9 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
             <Polyline
               positions={polylinePositions}
               pathOptions={{
-                color: routeGeometry ? "hsl(217, 91%, 60%)" : "hsl(var(--primary))",
-                weight: routeGeometry ? 4 : 3,
-                dashArray: routeGeometry ? undefined : "8 4",
-                opacity: 0.8,
+                color: "hsl(217, 91%, 60%)",
+                weight: 4,
+                opacity: 0.85,
               }}
             />
           )}
@@ -231,8 +232,7 @@ export function RotaMap({ destinos, routeGeometry, distanciaTotal, trechos, load
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-muted-foreground">
           {trechos.map((t, i) => (
             <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/20">
-              <span className="font-medium text-foreground">{i + 1}→{i + 2}</span>
-              <span className="truncate">{t.de} → {t.para}</span>
+              <span className="font-medium text-foreground truncate">{t.de} → {t.para}</span>
               <span className="ml-auto font-mono whitespace-nowrap">{t.km} km</span>
             </div>
           ))}

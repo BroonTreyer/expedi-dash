@@ -218,6 +218,11 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       .filter((g) => g.cidade && g.uf)
       .map((g) => ({ cidade: g.cidade!, uf: g.uf!, cliente: g.nomeCliente ?? "Sem cliente" }));
 
+    // BUG 5: Always clear stale geometry before routing (even on early return)
+    setRouteGeometry(undefined);
+    setDistanciaTotal(undefined);
+    setTrechos(undefined);
+
     if (destinosParaRoteirizar.length < 2) {
       toast.info("Necessário ao menos 2 destinos para roteirizar");
       return;
@@ -238,9 +243,15 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         setGroups((prev) => {
           const newOrder: RotaGroup[] = [];
           for (const opt of data.ordemOtimizada) {
-            const found = prev.find((g) => g.cidade?.toLowerCase() === opt.cidade?.toLowerCase() && g.uf === opt.uf);
-            if (found) newOrder.push(found);
+            // Match by cidade+uf (case-insensitive)
+            const found = prev.find(
+              (g) =>
+                g.cidade?.toLowerCase() === opt.cidade?.toLowerCase() &&
+                g.uf?.toLowerCase() === opt.uf?.toLowerCase()
+            );
+            if (found && !newOrder.includes(found)) newOrder.push(found);
           }
+          // Append any groups not matched (e.g. missing city/uf)
           for (const g of prev) { if (!newOrder.includes(g)) newOrder.push(g); }
           return renumber(newOrder);
         });
@@ -340,7 +351,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
                     onMoveUp={() => moveUp(idx)}
                     onMoveDown={() => moveDown(idx)}
                     onOrderChange={(newPos) => moveToPosition(idx, newPos)}
-                    trecho={trechos?.[idx - 1]}
+                    trecho={trechos?.[idx]}
                   />
                 ))}
               </div>

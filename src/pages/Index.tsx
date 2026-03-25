@@ -374,10 +374,16 @@ export default function Index() {
             <span>{selectedWeight.toLocaleString("pt-BR")} kg</span>
             {(isAdmin || isLogistica) && (
               <>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setRoteirizacaoOpen(true)}>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => {
+                  setRoteirizacaoResult(null); // BUG 7: clear stale result
+                  setRoteirizacaoOpen(true);
+                }}>
                   <Route className="h-3.5 w-3.5" /> Roteirizar
                 </Button>
-                <Button size="sm" className="h-7 text-xs" onClick={() => setLoteDialogOpen(true)}>
+                <Button size="sm" className="h-7 text-xs" onClick={() => {
+                  setRoteirizacaoResult(null); // BUG 7: clear stale result when going directly
+                  setLoteDialogOpen(true);
+                }}>
                   <Truck className="h-3.5 w-3.5 mr-1" /> Fechar Carga
                 </Button>
                 {cargasFechadas.length > 0 && (

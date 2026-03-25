@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -92,7 +90,7 @@ Deno.serve(async (req) => {
     const oUf = origemUf || "GO";
     const origemCoords = await geocode(oCidade, oUf);
 
-    // Geocode all destinations
+    // Geocode all destinations sequentially
     const geocoded: GeocodedDestino[] = [];
     for (let i = 0; i < destinos.length; i++) {
       const d = destinos[i];
@@ -119,7 +117,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Apply small offset for same-city destinations
+    // Apply small offset for same-city destinations (sequential, no race condition)
     const cityCount = new Map<string, number>();
     for (const g of geocoded) {
       const key = `${g.cidade}-${g.uf}`;
@@ -175,7 +173,7 @@ Deno.serve(async (req) => {
         const fromIdx = hasOrigin ? i - 1 : i;
         const toIdx = hasOrigin ? i : i + 1;
         trechos.push({
-          de: geocoded[fromIdx]?.cliente ?? (i === startLeg && hasOrigin ? oCidade : ""),
+          de: fromIdx < 0 ? oCidade : (geocoded[fromIdx]?.cliente ?? ""),
           para: geocoded[toIdx]?.cliente ?? "",
           km: Math.round((legs[i].distance / 1000) * 10) / 10,
           duracao: Math.round(legs[i].duration / 60),
@@ -194,46 +192,42 @@ Deno.serve(async (req) => {
     }
 
     const trip = osrmData.trips[0];
-    const waypoints = osrmData.waypoints;
+    const waypoints: { waypoint_index: number; trips_index: number; name: string }[] = osrmData.waypoints;
     const geometry = decodePolyline(trip.geometry);
     const distanciaTotal = Math.round((trip.distance / 1000) * 10) / 10;
 
-    // Build ordered destinations from waypoints, excluding origin (index 0 if hasOrigin)
-    const originWpIdx = hasOrigin ? 0 : -1;
-    const destWaypoints = waypoints
-      .filter((_: any, idx: number) => idx !== originWpIdx || !hasOrigin)
-      .sort((a: any, b: any) => {
-        // Sort by the order OSRM placed them in the trip
-        const aPos = waypoints.indexOf(a);
-        const bPos = waypoints.indexOf(b);
-        return aPos - bPos;
-      });
+    // FIXED: sort by trips_index (position in the optimized trip), not by array indexOf
+    // waypoint_index = index in the input coordinate list
+    // trips_index = position in the optimized trip sequence
+    const sortedWaypoints = [...waypoints].sort((a, b) => a.trips_index - b.trips_index);
 
-    // Map waypoint_index back to geocoded destinations (offset by 1 if origin present)
-    const orderedDestinos = destWaypoints.map((wp: any, idx: number) => {
-      const geoIdx = hasOrigin ? wp.waypoint_index - 1 : wp.waypoint_index;
-      return {
-        ...geocoded[geoIdx],
-        ordem: idx + 1,
-      };
-    }).filter((d: any) => d.cidade); // filter out any undefined from bad mapping
+    // Build ordered destinations from sorted waypoints, skipping the origin (waypoint_index=0 when hasOrigin)
+    const orderedDestinos = sortedWaypoints
+      .filter((wp) => !(hasOrigin && wp.waypoint_index === 0)) // exclude origin
+      .map((wp, idx) => {
+        // waypoint_index in input: if hasOrigin, index 0 = origin, index 1..N = geocoded[0..N-1]
+        const geoIdx = hasOrigin ? wp.waypoint_index - 1 : wp.waypoint_index;
+        const g = geocoded[geoIdx];
+        if (!g) return null;
+        return { ...g, ordem: idx + 1 };
+      })
+      .filter((d): d is GeocodedDestino & { ordem: number } => d !== null && !!d.cidade);
 
-    // Build trechos from legs, skipping origin->first leg label
+    // Build trechos from legs
+    // legs[i] goes from sortedWaypoints[i] to sortedWaypoints[i+1]
     const trechos = (trip.legs || []).map((leg: any, i: number) => {
-      // For labeling: all waypoints in trip order
-      const allWpOrdered = waypoints.slice().sort((a: any, b: any) => {
-        const aI = waypoints.indexOf(a);
-        const bI = waypoints.indexOf(b);
-        return aI - bI;
-      });
-      const fromWp = allWpOrdered[i];
-      const toWp = allWpOrdered[i + 1];
+      const fromWp = sortedWaypoints[i];
+      const toWp = sortedWaypoints[i + 1];
+
       const fromGeoIdx = hasOrigin ? fromWp.waypoint_index - 1 : fromWp.waypoint_index;
       const toGeoIdx = hasOrigin ? toWp.waypoint_index - 1 : toWp.waypoint_index;
 
+      const fromLabel = fromGeoIdx < 0 ? oCidade : (geocoded[fromGeoIdx]?.cliente ?? "");
+      const toLabel = toGeoIdx < 0 ? oCidade : (geocoded[toGeoIdx]?.cliente ?? "");
+
       return {
-        de: fromGeoIdx < 0 ? oCidade : (geocoded[fromGeoIdx]?.cliente ?? ""),
-        para: toGeoIdx < 0 ? oCidade : (geocoded[toGeoIdx]?.cliente ?? ""),
+        de: fromLabel,
+        para: toLabel,
         km: Math.round((leg.distance / 1000) * 10) / 10,
         duracao: Math.round(leg.duration / 60),
       };
