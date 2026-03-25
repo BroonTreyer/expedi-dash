@@ -1,43 +1,79 @@
 
-## Root Cause
+## Diagnóstico
 
-The network responses confirm `"geometria":[]` and `"trechos":[]` — the haversine fallback code exists but never executes in time. The logs show `Total time: 20234ms`, meaning the edge function runs for over 20 seconds before the Supabase worker kills it.
-
-**Sequence of failure:**
-1. OSRM `/trip` called with 8s timeout → times out
-2. OSRM `/route` called with 5s timeout → times out  
-3. Total: ~13s of OSRM waiting + function overhead = >20s
-4. Supabase edge function is killed before the `catch(routeErr)` fallback can write `trechos` and `geometry` to the response
-
-**Fix: drastically cut timeouts and run both OSRM calls in parallel**
-
-Instead of sequential trip → route, fire both simultaneously with a `Promise.race` / `Promise.allSettled`. Use 3s timeout per call. If both fail (typically within 3s now instead of 13s), the haversine fallback runs at ~3s total, well within limits.
-
-## What to Change
-
-**`supabase/functions/roteirizar/index.ts`**
-
-Replace the sequential trip→route flow with parallel execution:
-
+Os logs confirmam que o OSRM público falha 100% das vezes:
 ```
-// Run /trip and /route at the same time, 3s timeout each
-const [tripResult, routeResult] = await Promise.allSettled([
-  fetch(osrmTripUrl, { signal: AbortSignal.timeout(3000) }).then(r => r.json()),
-  fetch(osrmRouteUrl, { signal: AbortSignal.timeout(3000) }).then(r => r.json()),
-]);
-
-// Try to use trip result first, then route result, then haversine fallback
+[roteirizar] OSRM trip failed: Signal timed out.
+[roteirizar] OSRM route also failed: Signal timed out.
+[roteirizar] Haversine fallback: 2223.7km, 6 trechos
+[roteirizar] Total time: 13901ms
 ```
 
-This means:
-- When OSRM is available: both calls succeed in ~1-2s, result is used normally
-- When OSRM is down: both fail in 3s, haversine fallback runs at ~3-4s total (safe)
-- The function always finishes in under 8s regardless of OSRM status
+O servidor `router.project-osrm.org` é público e sobrecarregado — mesmo 3s de timeout não é suficiente.
 
-The haversine fallback already correctly builds `trechos` and `geometry` — it just never gets to run in time with the current sequential 13s approach.
+**Solução:** Trocar para **OpenRouteService (ORS)**, que:
+- É gratuita (2.000 req/dia no plano free)
+- Tem cobertura completa do Brasil com dados do OpenStreetMap
+- Responde consistentemente em <1s
+- Usa API key — sem throttling aleatório
+- Retorna polyline com rota real por estradas, distâncias e durações por trecho
 
-## Files to Edit
+## Plano
 
-| File | Change |
+### 1. Configurar API key do ORS (secret)
+O usuário precisa criar uma conta gratuita em `openrouteservice.org` e gerar uma API key. A key será armazenada como secret `ORS_API_KEY`.
+
+### 2. `supabase/functions/roteirizar/index.ts`
+Substituir as chamadas OSRM pela API do ORS:
+
+**Endpoint usado:** `POST https://api.openrouteservice.org/v2/directions/driving-car/geojson`
+
+```json
+// Payload ORS:
+{
+  "coordinates": [[-49.26, -16.68], [-41.17, -14.86], ...],
+  "instructions": false,
+  "geometry_simplify": false
+}
+```
+
+**O ORS retorna:**
+- `features[0].geometry.coordinates` → array de [lng, lat] da rota real por estradas
+- `features[0].properties.segments[].distance` → km por trecho
+- `features[0].properties.segments[].duration` → duração por trecho
+- `features[0].properties.summary.distance` → distância total
+
+**Mudanças no código:**
+1. Remover todo o bloco de chamadas OSRM (`Promise.allSettled` com trip/route)
+2. Fazer uma única chamada `POST` ao ORS com timeout de 8s
+3. Parsear a resposta GeoJSON do ORS para extrair `geometry`, `trechos` e `distanciaTotal`
+4. Manter o fallback haversine caso o ORS também falhe
+5. Manter `estimado: false` quando ORS retorna dados reais, `estimado: true` no fallback
+
+**Estrutura da nova lógica:**
+```
+try {
+  const orsResult = await callORS(allPoints, ORS_API_KEY);
+  // usar geometria real por estradas
+  geometry = orsResult.coordinates.map(([lng, lat]) => [lat, lng]);
+  distanciaTotal = orsResult.totalKm;
+  trechos = orsResult.segments;
+} catch {
+  // haversine fallback (linha reta)
+  estimado = true;
+  // ... código existente
+}
+```
+
+## Arquivos a Editar
+
+| Arquivo | Mudança |
 |---|---|
-| `supabase/functions/roteirizar/index.ts` | Replace sequential trip→route OSRM calls (lines ~423-594) with parallel `Promise.allSettled` pattern, using 3s timeouts per call |
+| `supabase/functions/roteirizar/index.ts` | Substituir chamadas OSRM por chamada única ao ORS API; manter fallback haversine |
+
+## Pré-requisito
+
+O usuário precisa:
+1. Criar conta gratuita em **openrouteservice.org**
+2. Gerar uma API key no dashboard
+3. Informar a key para ser salva como secret `ORS_API_KEY`
