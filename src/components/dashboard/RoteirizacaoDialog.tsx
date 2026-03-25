@@ -274,7 +274,11 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         const newCoordsCache = new Map<string, { lat: number; lng: number }>();
         for (const opt of data.ordemOtimizada) {
           if (opt.lat != null && opt.lng != null && opt.cidade && opt.uf) {
-            newCoordsCache.set(`${opt.cidade},${opt.uf}`, { lat: opt.lat, lng: opt.lng });
+            // BUG 1 FIX: Normalize city key to UPPERCASE+no-accents to match RotaMap lookup
+            const normCidade = (opt.cidade as string)
+              .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+            const normUf = (opt.uf as string).toUpperCase().trim();
+            newCoordsCache.set(`${normCidade},${normUf}`, { lat: opt.lat, lng: opt.lng });
           }
         }
         // Incluir origem também se retornada pela edge function
