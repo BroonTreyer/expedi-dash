@@ -203,7 +203,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
-  const sortableIds = useMemo(() => groups.map((g) => groupKey(g)), [groups]);
+  // FIX: use ordem as fallback to avoid DnD sortableIds collisions
+  const sortableIds = useMemo(() => groups.map((g) => g.codigoCliente ?? `__sem__${g.ordem}`), [groups]);
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
