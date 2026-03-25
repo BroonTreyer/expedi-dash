@@ -199,6 +199,7 @@ export default function Consolidado() {
     motorista: (g) => g.motorista ?? "",
     pesoTotal: (g) => g.pesoTotal,
     qtdPedidos: (g) => g.qtdPedidos,
+    rupturaCount: (g) => g.rupturaCount,
     clientes: (g) => g.clientes.size,
     ufs: (g) => [...g.ufs].sort().join(", "),
   }), []);
