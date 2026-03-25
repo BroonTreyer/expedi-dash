@@ -201,18 +201,40 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
 
     (async () => {
       const coordMap = new Map<string, Coords>();
-      // FIX: sem verificação de abort dentro do loop — deixa o loop completar para
-      // que o geocodeCache seja populado. Última escrita vence (mesmas cidades = mesmo resultado).
-      for (const pair of uniquePairs) {
+      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+      // Geocode com delay de 350ms entre requests para respeitar o rate-limit do Nominatim.
+      // Se falhar, tenta novamente após 1.5s (Nominatim retorna [] silenciosamente sob carga).
+      for (let i = 0; i < uniquePairs.length; i++) {
+        const pair = uniquePairs[i];
+        if (geocodeCache.has(pair)) {
+          coordMap.set(pair, geocodeCache.get(pair)!);
+          continue;
+        }
+        if (i > 0) await delay(350);
         const [cidade, uf] = pair.split(",");
-        const coords = await geocode(cidade, uf);
+        let coords = await geocode(cidade, uf);
+        if (!coords) {
+          // Retry uma vez após 1.5s
+          await delay(1500);
+          coords = await geocode(cidade, uf);
+        }
         if (coords) coordMap.set(pair, coords);
       }
 
       let origCoords: Coords | null = null;
       if (origemPair) {
-        const [cidade, uf] = origemPair.split(",");
-        origCoords = await geocode(cidade, uf);
+        if (geocodeCache.has(origemPair)) {
+          origCoords = geocodeCache.get(origemPair)!;
+        } else {
+          await delay(350);
+          const [cidade, uf] = origemPair.split(",");
+          origCoords = await geocode(cidade, uf);
+          if (!origCoords) {
+            await delay(1500);
+            origCoords = await geocode(cidade, uf);
+          }
+        }
       }
 
       // Só descarta se um run mais novo com cidades DIFERENTES começou
