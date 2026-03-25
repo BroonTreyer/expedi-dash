@@ -462,6 +462,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
                     onMoveDown={() => moveDown(idx)}
                     onOrderChange={(newPos) => moveToPosition(idx, newPos)}
                     trecho={activeTrechoMap.get(groupKey(group))}
+                    displayOrder={activeOrderMap.get(groupKey(group)) ?? group.ordem}
                   />
                 ))}
               </div>
