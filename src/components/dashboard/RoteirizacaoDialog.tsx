@@ -416,6 +416,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               distanciaTotal={distanciaTotal}
               trechos={trechos}
               loading={isRouting}
+              coordsCache={coordsCache}
             />
           </Suspense>
         </div>
