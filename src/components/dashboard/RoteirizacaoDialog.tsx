@@ -65,11 +65,11 @@ interface Props {
 
 /* ─── Sortable card ─── */
 function SortableDestinationCard({
-  group, idx, totalCount, excluded, onToggle, onMoveUp, onMoveDown, onOrderChange, trecho,
+  group, idx, totalCount, excluded, onToggle, onMoveUp, onMoveDown, onOrderChange, trecho, displayOrder,
 }: {
   group: RotaGroup; idx: number; totalCount: number; excluded: boolean;
   onToggle: () => void; onMoveUp: () => void; onMoveDown: () => void; onOrderChange: (n: number) => void;
-  trecho?: TrechoInfo;
+  trecho?: TrechoInfo; displayOrder: number;
 }) {
   // FIX: use ordem as fallback to avoid DnD ID collisions when multiple groups have no codigoCliente
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
