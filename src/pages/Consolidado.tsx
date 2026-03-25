@@ -439,7 +439,11 @@ export default function Consolidado() {
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
                         <TableCell className="text-xs">{g.motorista ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{g.nomeCarga ?? "—"}</TableCell>
+                        <TableCell className="text-xs">
+                          {g.nomeCarga
+                            ? <Badge variant="secondary" className="font-mono text-xs">{g.nomeCarga}</Badge>
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
                         <TableCell className="text-right text-xs font-semibold">{g.pesoTotal.toLocaleString("pt-BR")}</TableCell>
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
                         <TableCell className="text-center text-xs">{g.clientes.size}</TableCell>
