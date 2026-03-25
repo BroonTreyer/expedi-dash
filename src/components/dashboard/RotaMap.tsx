@@ -33,6 +33,8 @@ interface Props {
   loading?: boolean;
   /** Coordenadas pré-geocodadas pela edge function — pula geocoding completamente */
   coordsCache?: Map<string, { lat: number; lng: number }>;
+  /** Quando true, a rota foi calculada por estimativa haversine (OSRM indisponível) */
+  estimado?: boolean;
 }
 
 interface Coords {
