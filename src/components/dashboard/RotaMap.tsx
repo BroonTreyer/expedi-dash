@@ -146,12 +146,22 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
 
   const isLoading = externalLoading || localLoading;
 
-  // Include origem in the city set key so geocoding re-runs if origem changes
+  // citySetKey: só muda quando o CONJUNTO de cidades muda (ignora ordem e referência do objeto)
   const citySetKey = useMemo(() => {
     const pairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`))).sort();
     const origemKey = origem ? `__origem__${origem.cidade},${origem.uf}` : "";
     return pairs.join("|") + origemKey;
   }, [destinos, origem]);
+
+  // mapKey: controlado por ref para NÃO destruir o MapContainer a cada re-render do pai.
+  // Só incrementa quando o conjunto de cidades muda de verdade.
+  const mapKeyRef = useRef(0);
+  const prevCitySetKeyRef = useRef("");
+  if (prevCitySetKeyRef.current !== citySetKey) {
+    prevCitySetKeyRef.current = citySetKey;
+    mapKeyRef.current += 1;
+  }
+  const mapKey = mapKeyRef.current;
 
   useEffect(() => {
     const run = ++abortRef.current;
@@ -165,7 +175,7 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
     const uniquePairs = Array.from(new Set(destinos.map((d) => `${d.cidade},${d.uf}`)));
     const origemPair = origem ? `${origem.cidade},${origem.uf}` : null;
 
-    // Helper to build state maps from the module-level cache (no async needed)
+    // Helper: popula estado direto do cache do módulo (sem async, sem risco de abort)
     const buildFromCache = () => {
       const coordMap = new Map<string, Coords>();
       for (const key of uniquePairs) {
@@ -181,7 +191,7 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
     const allPairs = origemPair ? [...uniquePairs, origemPair] : uniquePairs;
     const needsFetch = allPairs.some((key) => !geocodeCache.has(key));
 
-    // All already cached — populate state synchronously, no abort risk
+    // Tudo já cacheado — popula estado de forma síncrona, sem risco de abort
     if (!needsFetch) {
       buildFromCache();
       return;
@@ -191,8 +201,8 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
 
     (async () => {
       const coordMap = new Map<string, Coords>();
-      // BUG FIX: removed mid-loop abort check — let all geocoding complete so
-      // setState is always called. Last write wins (same cities → same result).
+      // FIX: sem verificação de abort dentro do loop — deixa o loop completar para
+      // que o geocodeCache seja populado. Última escrita vence (mesmas cidades = mesmo resultado).
       for (const pair of uniquePairs) {
         const [cidade, uf] = pair.split(",");
         const coords = await geocode(cidade, uf);
@@ -205,7 +215,7 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
         origCoords = await geocode(cidade, uf);
       }
 
-      // Only discard if a newer run has started (different city set)
+      // Só descarta se um run mais novo com cidades DIFERENTES começou
       if (run !== abortRef.current) return;
 
       setGeocodedCoords(coordMap);
@@ -238,14 +248,12 @@ export function RotaMap({ destinos, origem, routeGeometry, distanciaTotal, trech
     return result;
   }, [destinos, geocodedCoords]);
 
-  // All points for FitBounds — include origem so map zooms to show it
+  // Todos os pontos para FitBounds — inclui origem para o mapa mostrar ela também
   const allBoundsPoints = useMemo(() => {
     const pts: Coords[] = [...sortedPoints];
     if (origemCoords) pts.push(origemCoords);
     return pts;
   }, [sortedPoints, origemCoords]);
-
-  const mapKey = citySetKey;
 
   const polylinePositions: [number, number][] = routeGeometry && routeGeometry.length > 0
     ? routeGeometry

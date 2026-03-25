@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package, Printer } from "lucide-react";
+import { Truck, MapPin, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
@@ -28,6 +28,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
+  // FIX: estabilizar objeto origem — evitar nova referência a cada render
+  const origemEstavel = useMemo(() => ({ cidade: "Goiânia", uf: "GO" }), []);
   const [transportadora, setTransportadora] = useState("");
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [dataCarregamento, setDataCarregamento] = useState("");
@@ -162,9 +164,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         {/* BUG 8: Show map whenever there are destinations with city/uf, even without route geometry */}
         {rotaDestinos.length > 0 && (
           <Suspense fallback={<div className="h-[200px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
-            <RotaMap
+          <RotaMap
               destinos={rotaDestinos}
-              origem={{ cidade: "Goiânia", uf: "GO" }}
+              origem={origemEstavel}
               routeGeometry={roteirizacao?.routeGeometry}
               distanciaTotal={roteirizacao?.distanciaTotal}
               trechos={roteirizacao?.trechos}

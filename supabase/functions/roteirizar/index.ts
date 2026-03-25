@@ -223,49 +223,46 @@ Deno.serve(async (req) => {
         const trip = osrmData.trips[0];
         const waypoints: { waypoint_index: number; trips_index: number; name: string }[] = osrmData.waypoints;
 
-        // FIX CRÍTICO: trips_index = qual trip (sempre 0 num único trip), NÃO é a ordem de visita.
-        // waypoint_index = posição na sequência de visita do trip. Ordenar por waypoint_index.
-        const sortedByVisit = [...waypoints].sort((a, b) => a.waypoint_index - b.waypoint_index);
-
-        console.log(`[roteirizar] OSRM trip sorted by waypoint_index: ${JSON.stringify(sortedByVisit.map((w) => ({ wi: w.waypoint_index, ti: w.trips_index })))}`);
-
-        // Map back: waypoint at position 0 in visit order = origin (when hasOrigin), positions 1..N = destinations
-        const destinationWps = sortedByVisit.filter((_, pos) => !(hasOrigin && pos === 0));
-
-        // Each destination wp's original input index is its position in allPoints array minus 1 for origin
-        // allPoints = [origin, greedilyOrdered[0], greedilyOrdered[1], ...]
-        // waypoints[i] corresponds to allPoints[i], so waypoints[i].waypoint_index tells us visit order
-        // We need to map from input position → greedilyOrdered index
-        // The input index of each waypoint is its index in the original osrmData.waypoints array
-        const inputIndexByWaypoint = new Map<typeof sortedByVisit[0], number>();
-        osrmData.waypoints.forEach((wp: { waypoint_index: number; trips_index: number }, i: number) => {
-          inputIndexByWaypoint.set(wp, i);
+        // FIX CRÍTICO: Mapear waypoint_index → inputIndex via posição no array.
+        // osrmData.waypoints[i] corresponde a allPoints[i] (input index i).
+        // waypoint.waypoint_index = posição na sequência de visita otimizada.
+        // Construir mapa bidirecional: visitPos → inputIndex e inputIndex → visitPos
+        const visitPosToInputIdx = new Map<number, number>();
+        waypoints.forEach((wp, inputIdx) => {
+          visitPosToInputIdx.set(wp.waypoint_index, inputIdx);
         });
 
-        orderedDestinos = destinationWps.map((wp, idx) => {
-          // Find the original input index of this waypoint
-          const inputIdx = osrmData.waypoints.findIndex((w: { waypoint_index: number }) => w.waypoint_index === wp.waypoint_index);
+        const totalVisitPositions = waypoints.length;
+        console.log(`[roteirizar] OSRM trip visitPosToInputIdx: ${JSON.stringify(Array.from(visitPosToInputIdx.entries()))}`);
+
+        // Montar destinos na ordem de visita: visitPos 0 = origem (se hasOrigin), 1..N = destinos
+        orderedDestinos = [];
+        for (let visitPos = 0; visitPos < totalVisitPositions; visitPos++) {
+          // Pular posição 0 se é a origem
+          if (hasOrigin && visitPos === 0) continue;
+
+          const inputIdx = visitPosToInputIdx.get(visitPos);
+          if (inputIdx == null) continue;
+
           const geoIdx = hasOrigin ? inputIdx - 1 : inputIdx;
           const g = greedilyOrdered[geoIdx];
           if (!g) {
             console.log(`[roteirizar] WARNING: geoIdx ${geoIdx} out of bounds (inputIdx=${inputIdx}, greedilyOrdered.length=${greedilyOrdered.length})`);
-            return null;
+            continue;
           }
-          return { ...g, ordem: idx + 1 };
-        }).filter((d): d is GeocodedDestino & { ordem: number } => d !== null);
+          orderedDestinos.push({ ...g, ordem: orderedDestinos.length + 1 });
+        }
 
         geometry = decodePolyline(trip.geometry);
         distanciaTotal = Math.round((trip.distance / 1000) * 10) / 10;
 
-        // Build trechos from trip legs in visit order
+        // Construir trechos na ordem de visita (legs[i] = visita[i] → visita[i+1])
         // trechos[0] = origem → dest1, trechos[1] = dest1 → dest2, etc.
         trechos = (trip.legs || []).map((leg: { distance: number; duration: number }, i: number) => {
-          const fromWp = sortedByVisit[i];
-          const toWp = sortedByVisit[i + 1];
-          const fromInputIdx = osrmData.waypoints.findIndex((w: { waypoint_index: number }) => w.waypoint_index === fromWp.waypoint_index);
-          const toInputIdx = toWp ? osrmData.waypoints.findIndex((w: { waypoint_index: number }) => w.waypoint_index === toWp.waypoint_index) : -1;
-          const fromGeoIdx = hasOrigin ? fromInputIdx - 1 : fromInputIdx;
-          const toGeoIdx = hasOrigin ? toInputIdx - 1 : toInputIdx;
+          const fromInputIdx = visitPosToInputIdx.get(i);
+          const toInputIdx = visitPosToInputIdx.get(i + 1);
+          const fromGeoIdx = fromInputIdx != null ? (hasOrigin ? fromInputIdx - 1 : fromInputIdx) : -1;
+          const toGeoIdx = toInputIdx != null ? (hasOrigin ? toInputIdx - 1 : toInputIdx) : -1;
           const fromLabel = fromGeoIdx < 0 ? oCidade : (greedilyOrdered[fromGeoIdx]?.cliente ?? oCidade);
           const toLabel = toGeoIdx < 0 ? oCidade : (greedilyOrdered[toGeoIdx]?.cliente ?? "");
           return {
