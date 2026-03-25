@@ -309,15 +309,32 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         }
 
         setGroups((prev) => {
+          // BUG 4 FIX: Map ordemOtimizada back to groups via codigoCliente (stable identity).
+          // originalIndex refers to the index in destinosParaRoteirizar (subset when groups excluded),
+          // NOT to prev[] directly — so mapping by codigoCliente is more robust.
+          // Build lookup: codigoCliente → group (or cidade+uf as fallback for null-code clients)
+          const byClienteKey = new Map<string, RotaGroup>();
+          prev.forEach((g) => {
+            const k = g.codigoCliente ?? `__sem__${g.cidade ?? ""}__${g.uf ?? ""}`;
+            byClienteKey.set(k, g);
+          });
+
           const newOrder: RotaGroup[] = [];
-          // FIX CRÍTICO: Use originalIndex (returned by edge fn) to map back to the correct group.
-          // Previously used cidade+uf which silently dropped the 2nd client in the same city.
+          const seen = new Set<RotaGroup>();
           for (const opt of data.ordemOtimizada) {
-            const found = prev[opt.originalIndex];
-            if (found && !newOrder.includes(found)) newOrder.push(found);
+            const normCidade = (opt.cidade as string)
+              .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+            // Try codigoCliente first, then fall back by cidade+uf match against activeGroups
+            const byIdx = activeGroups[opt.originalIndex];
+            const found = byIdx
+              ?? (byClienteKey.get(normCidade) ?? null); // last-resort fallback
+            if (found && !seen.has(found)) {
+              newOrder.push(found);
+              seen.add(found);
+            }
           }
           // Append any groups not matched (e.g. failed geocoding)
-          for (const g of prev) { if (!newOrder.includes(g)) newOrder.push(g); }
+          for (const g of prev) { if (!seen.has(g)) newOrder.push(g); }
           return renumber(newOrder);
         });
       }
