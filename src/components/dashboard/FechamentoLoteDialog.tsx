@@ -28,6 +28,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
+  // FIX: estabilizar objeto origem — evitar nova referência a cada render
+  const origemEstavel = useMemo(() => ({ cidade: "Goiânia", uf: "GO" }), []);
   const [transportadora, setTransportadora] = useState("");
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [dataCarregamento, setDataCarregamento] = useState("");
