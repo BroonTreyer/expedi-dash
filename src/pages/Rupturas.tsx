@@ -222,6 +222,7 @@ export default function Rupturas() {
                       <TableHead className="text-xs">Produto</TableHead>
                       <TableHead className="text-xs text-right">Qtd Rupturas</TableHead>
                       <TableHead className="text-xs text-right">Peso Total (kg)</TableHead>
+                      <TableHead className="text-xs">Cargas Afetadas</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -231,6 +232,13 @@ export default function Rupturas() {
                         <TableCell className="text-xs">{p.nome}</TableCell>
                         <TableCell className="text-xs text-right font-medium">{p.count}</TableCell>
                         <TableCell className="text-xs text-right font-medium">{p.peso.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-xs">
+                          {p.cargas.size > 0
+                            ? [...p.cargas].map(nc => (
+                                <Badge key={nc} variant="outline" className="text-[10px] font-mono mr-1 mb-0.5">{nc}</Badge>
+                              ))
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
