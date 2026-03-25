@@ -453,7 +453,7 @@ Deno.serve(async (req) => {
           `[roteirizar] OSRM trip dist: ${osrmDistKm}km, 2-opt dist: ${twoOptDist.toFixed(0)}km, ratio: ${validationRatio.toFixed(2)}`
         );
 
-        if (validationRatio <= 2.5) {
+        if (validationRatio <= 1.8) {
           // Accept OSRM result — reconstruct group order from osrmOrder
           const newOrderedGroups: CityGroup[] = [];
           for (let visitPos = 0; visitPos < osrmOrder.length; visitPos++) {
