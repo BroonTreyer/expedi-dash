@@ -38,12 +38,13 @@ export default function Rupturas() {
   const isFaturamento = role === "faturamento";
   const canEdit = isAdmin || isFaturamento;
 
+  const [searchParams] = useSearchParams();
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [vendedorFilter, setVendedorFilter] = useState("todos");
-  const [cargaFilter, setCargaFilter] = useState("todos");
+  const [cargaFilter, setCargaFilter] = useState(() => searchParams.get("carga") || "todos");
   const [busca, setBusca] = useState("");
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
