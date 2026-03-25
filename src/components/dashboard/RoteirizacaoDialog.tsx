@@ -69,8 +69,9 @@ function SortableDestinationCard({
   onToggle: () => void; onMoveUp: () => void; onMoveDown: () => void; onOrderChange: (n: number) => void;
   trecho?: TrechoInfo;
 }) {
+  // FIX: use ordem as fallback to avoid DnD ID collisions when multiple groups have no codigoCliente
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: group.codigoCliente ?? "__sem__",
+    id: group.codigoCliente ?? `__sem__${group.ordem}`,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [localOrder, setLocalOrder] = useState(String(group.ordem));
