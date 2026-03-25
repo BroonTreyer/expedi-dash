@@ -254,6 +254,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     setRouteGeometry(undefined);
     setDistanciaTotal(undefined);
     setTrechos(undefined);
+    setEstimado(false);
 
     if (destinosParaRoteirizar.length < 2) {
       toast.info("Necessário ao menos 2 destinos com cidade/UF para roteirizar");
