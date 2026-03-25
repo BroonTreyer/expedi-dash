@@ -271,6 +271,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       if (data.geometria && data.geometria.length > 0) setRouteGeometry(data.geometria);
       if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
       if (data.trechos && data.trechos.length > 0) setTrechos(data.trechos);
+      setEstimado(!!data.estimado);
 
       // FIX: Pré-popular geocodeCache do RotaMap com coordenadas já geocodadas pela edge fn.
       // Isso elimina o segundo geocoding via Nominatim no front-end (que falha com rate-limit).
