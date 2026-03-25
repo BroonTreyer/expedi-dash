@@ -198,6 +198,7 @@ export function RotaMap({
   trechos,
   loading: externalLoading,
   coordsCache,
+  estimado,
 }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
