@@ -19,6 +19,7 @@ import { AlertTriangle, Weight, Package, Plus, Printer, CalendarIcon } from "luc
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
