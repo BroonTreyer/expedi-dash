@@ -430,8 +430,9 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         </div>
 
         {/* Map */}
+        {/* BUG 18 FIX: Suspense fallback height matches RotaMap's h-[320px] (was h-[350px]) */}
         <div>
-          <Suspense fallback={<div className="h-[350px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
+          <Suspense fallback={<div className="h-[320px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
           <RotaMap
               destinos={rotaDestinos}
               origem={origemEstavel}
