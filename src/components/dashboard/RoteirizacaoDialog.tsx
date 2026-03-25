@@ -34,6 +34,8 @@ export interface RoteirizacaoResult {
   routeGeometry?: [number, number][];
   distanciaTotal?: number;
   trechos?: TrechoInfo[];
+  /** BUG 7 FIX: Pre-geocoded coords from edge function to avoid duplicate Nominatim calls */
+  coordsCache?: Map<string, { lat: number; lng: number }>;
 }
 
 export interface RotaGroup {
