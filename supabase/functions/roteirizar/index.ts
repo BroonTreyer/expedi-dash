@@ -66,6 +66,49 @@ function decodePolyline(encoded: string): [number, number][] {
   return coords;
 }
 
+/** Haversine distance in km between two points */
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Greedy nearest-neighbor sort starting from an origin point.
+ * Returns geocoded destinations in optimized order.
+ */
+function greedySort(
+  origin: { lat: number; lng: number },
+  destinations: GeocodedDestino[]
+): GeocodedDestino[] {
+  if (destinations.length <= 1) return destinations;
+
+  const remaining = [...destinations];
+  const sorted: GeocodedDestino[] = [];
+  let current = origin;
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const d = haversine(current.lat, current.lng, remaining[i].lat, remaining[i].lng);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    const [next] = remaining.splice(bestIdx, 1);
+    sorted.push(next);
+    current = { lat: next.lat, lng: next.lng };
+  }
+
+  return sorted;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -96,23 +139,23 @@ Deno.serve(async (req) => {
       const d = destinos[i];
       let lat = d.lat;
       let lng = d.lng;
-      if (!lat || !lng) {
+      if (lat == null || lng == null || lat === 0 || lng === 0) {
         const coords = await geocode(d.cidade, d.uf);
-        if (!coords) continue;
+        if (!coords) {
+          console.log(`[roteirizar] Geocode failed for: ${d.cidade}, ${d.uf}`);
+          continue;
+        }
         lat = coords.lat;
         lng = coords.lng;
       }
-      geocoded.push({ ...d, lat, lng, originalIndex: i });
+      geocoded.push({ ...d, lat: lat!, lng: lng!, originalIndex: i });
     }
 
-    if (geocoded.length < 2) {
+    console.log(`[roteirizar] Geocoded ${geocoded.length}/${destinos.length} destinations`);
+
+    if (geocoded.length === 0) {
       return new Response(
-        JSON.stringify({
-          ordemOtimizada: geocoded.map((g, i) => ({ ...g, ordem: i + 1 })),
-          geometria: [],
-          distanciaTotal: 0,
-          trechos: [],
-        }),
+        JSON.stringify({ ordemOtimizada: [], geometria: [], distanciaTotal: 0, trechos: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -129,109 +172,136 @@ Deno.serve(async (req) => {
       cityCount.set(key, count + 1);
     }
 
-    // Build waypoints: origin first (if available), then destinations
-    const hasOrigin = !!origemCoords;
-    const allPoints = hasOrigin
-      ? [origemCoords!, ...geocoded.map((g) => ({ lat: g.lat, lng: g.lng }))]
-      : geocoded.map((g) => ({ lat: g.lat, lng: g.lng }));
-
-    const coordsStr = allPoints.map((p) => `${p.lng},${p.lat}`).join(";");
-
-    // Use OSRM trip (TSP) with source=first so route starts from origin
-    const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last&geometries=polyline&overview=full&steps=false`;
-
-    const osrmRes = await fetch(osrmUrl);
-    const osrmData = await osrmRes.json();
-
-    if (osrmData.code !== "Ok" || !osrmData.trips || osrmData.trips.length === 0) {
-      // Fallback: route endpoint (non-optimized)
-      const routeUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=polyline&overview=full&steps=false`;
-      const routeRes = await fetch(routeUrl);
-      const routeData = await routeRes.json();
-
-      if (routeData.code !== "Ok" || !routeData.routes || routeData.routes.length === 0) {
-        return new Response(
-          JSON.stringify({
-            ordemOtimizada: geocoded.map((g, i) => ({ ...g, ordem: i + 1 })),
-            geometria: [],
-            distanciaTotal: 0,
-            trechos: [],
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const route = routeData.routes[0];
-      const geometry = decodePolyline(route.geometry);
-      const distanciaTotal = Math.round((route.distance / 1000) * 10) / 10;
-
-      // Build trechos, skipping origin leg
-      const legs = route.legs || [];
-      const startLeg = hasOrigin ? 1 : 0;
-      const trechos = [];
-      for (let i = startLeg; i < legs.length; i++) {
-        const fromIdx = hasOrigin ? i - 1 : i;
-        const toIdx = hasOrigin ? i : i + 1;
-        trechos.push({
-          de: fromIdx < 0 ? oCidade : (geocoded[fromIdx]?.cliente ?? ""),
-          para: geocoded[toIdx]?.cliente ?? "",
-          km: Math.round((legs[i].distance / 1000) * 10) / 10,
-          duracao: Math.round(legs[i].duration / 60),
-        });
-      }
-
+    if (geocoded.length < 2) {
       return new Response(
         JSON.stringify({
           ordemOtimizada: geocoded.map((g, i) => ({ ...g, ordem: i + 1 })),
-          geometria: geometry,
-          distanciaTotal,
-          trechos,
+          geometria: [],
+          distanciaTotal: 0,
+          trechos: [],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const trip = osrmData.trips[0];
-    const waypoints: { waypoint_index: number; trips_index: number; name: string }[] = osrmData.waypoints;
-    const geometry = decodePolyline(trip.geometry);
-    const distanciaTotal = Math.round((trip.distance / 1000) * 10) / 10;
+    // --- GREEDY PRE-SORT (guarantees a logical order even if OSRM fails) ---
+    const originFallback = origemCoords ?? { lat: -16.6869, lng: -49.2648 }; // Goiânia
+    const greedilyOrdered = greedySort(originFallback, [...geocoded]);
+    console.log(`[roteirizar] Greedy order: ${greedilyOrdered.map((g) => g.cidade).join(" → ")}`);
 
-    // FIXED: sort by trips_index (position in the optimized trip), not by array indexOf
-    // waypoint_index = index in the input coordinate list
-    // trips_index = position in the optimized trip sequence
-    const sortedWaypoints = [...waypoints].sort((a, b) => a.trips_index - b.trips_index);
+    // Build waypoints for OSRM: origin first, then greedy-sorted destinations
+    const hasOrigin = !!origemCoords;
+    const allPoints = hasOrigin
+      ? [origemCoords!, ...greedilyOrdered.map((g) => ({ lat: g.lat, lng: g.lng }))]
+      : greedilyOrdered.map((g) => ({ lat: g.lat, lng: g.lng }));
 
-    // Build ordered destinations from sorted waypoints, skipping the origin (waypoint_index=0 when hasOrigin)
-    const orderedDestinos = sortedWaypoints
-      .filter((wp) => !(hasOrigin && wp.waypoint_index === 0)) // exclude origin
-      .map((wp, idx) => {
-        // waypoint_index in input: if hasOrigin, index 0 = origin, index 1..N = geocoded[0..N-1]
-        const geoIdx = hasOrigin ? wp.waypoint_index - 1 : wp.waypoint_index;
-        const g = geocoded[geoIdx];
-        if (!g) return null;
-        return { ...g, ordem: idx + 1 };
-      })
-      .filter((d): d is GeocodedDestino & { ordem: number } => d !== null && !!d.cidade);
+    const coordsStr = allPoints.map((p) => `${p.lng},${p.lat}`).join(";");
 
-    // Build trechos from legs
-    // legs[i] goes from sortedWaypoints[i] to sortedWaypoints[i+1]
-    const trechos = (trip.legs || []).map((leg: any, i: number) => {
-      const fromWp = sortedWaypoints[i];
-      const toWp = sortedWaypoints[i + 1];
+    // Try OSRM /trip for global optimization
+    let orderedDestinos: (GeocodedDestino & { ordem: number })[] = [];
+    let geometry: [number, number][] = [];
+    let distanciaTotal = 0;
+    let trechos: { de: string; para: string; km: number; duracao: number }[] = [];
 
-      const fromGeoIdx = hasOrigin ? fromWp.waypoint_index - 1 : fromWp.waypoint_index;
-      const toGeoIdx = hasOrigin ? toWp.waypoint_index - 1 : toWp.waypoint_index;
+    let usedOsrmTrip = false;
 
-      const fromLabel = fromGeoIdx < 0 ? oCidade : (geocoded[fromGeoIdx]?.cliente ?? "");
-      const toLabel = toGeoIdx < 0 ? oCidade : (geocoded[toGeoIdx]?.cliente ?? "");
+    try {
+      const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last&geometries=polyline&overview=full&steps=false`;
+      const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(8000) });
+      const osrmData = await osrmRes.json();
 
-      return {
-        de: fromLabel,
-        para: toLabel,
-        km: Math.round((leg.distance / 1000) * 10) / 10,
-        duracao: Math.round(leg.duration / 60),
-      };
-    });
+      console.log(`[roteirizar] OSRM trip code: ${osrmData.code}, trips: ${osrmData.trips?.length ?? 0}, waypoints: ${osrmData.waypoints?.length ?? 0}`);
+
+      if (
+        osrmData.code === "Ok" &&
+        Array.isArray(osrmData.trips) &&
+        osrmData.trips.length > 0 &&
+        Array.isArray(osrmData.waypoints) &&
+        osrmData.waypoints.length > 0 &&
+        typeof osrmData.waypoints[0].trips_index === "number"
+      ) {
+        const trip = osrmData.trips[0];
+        const waypoints: { waypoint_index: number; trips_index: number; name: string }[] = osrmData.waypoints;
+
+        // Sort by trips_index to get the optimized visit order
+        const sortedByTrip = [...waypoints].sort((a, b) => a.trips_index - b.trips_index);
+
+        console.log(`[roteirizar] OSRM trip sorted waypoints: ${JSON.stringify(sortedByTrip.map((w) => ({ wi: w.waypoint_index, ti: w.trips_index })))}`);
+
+        // Map back: waypoint_index 0 = origin (when hasOrigin), 1..N = greedilyOrdered[0..N-1]
+        const destinationWps = sortedByTrip.filter((wp) => !(hasOrigin && wp.waypoint_index === 0));
+
+        orderedDestinos = destinationWps.map((wp, idx) => {
+          const geoIdx = hasOrigin ? wp.waypoint_index - 1 : wp.waypoint_index;
+          const g = greedilyOrdered[geoIdx];
+          if (!g) {
+            console.log(`[roteirizar] WARNING: geoIdx ${geoIdx} out of bounds (greedilyOrdered.length=${greedilyOrdered.length})`);
+            return null;
+          }
+          return { ...g, ordem: idx + 1 };
+        }).filter((d): d is GeocodedDestino & { ordem: number } => d !== null);
+
+        geometry = decodePolyline(trip.geometry);
+        distanciaTotal = Math.round((trip.distance / 1000) * 10) / 10;
+
+        // Build trechos: sortedByTrip[i] → sortedByTrip[i+1]
+        trechos = (trip.legs || []).map((leg: { distance: number; duration: number }, i: number) => {
+          const fromWp = sortedByTrip[i];
+          const toWp = sortedByTrip[i + 1];
+          const fromGeoIdx = hasOrigin ? fromWp.waypoint_index - 1 : fromWp.waypoint_index;
+          const toGeoIdx = toWp ? (hasOrigin ? toWp.waypoint_index - 1 : toWp.waypoint_index) : -1;
+          const fromLabel = fromGeoIdx < 0 ? oCidade : (greedilyOrdered[fromGeoIdx]?.cliente ?? "");
+          const toLabel = toGeoIdx < 0 ? oCidade : (greedilyOrdered[toGeoIdx]?.cliente ?? "");
+          return {
+            de: fromLabel,
+            para: toLabel,
+            km: Math.round((leg.distance / 1000) * 10) / 10,
+            duracao: Math.round(leg.duration / 60),
+          };
+        });
+
+        usedOsrmTrip = true;
+        console.log(`[roteirizar] OSRM trip success. Order: ${orderedDestinos.map((d) => d.cidade).join(" → ")}`);
+      }
+    } catch (tripErr) {
+      console.log(`[roteirizar] OSRM trip failed: ${(tripErr as Error).message}`);
+    }
+
+    // Fallback: use /route with greedy pre-sorted order (already logical)
+    if (!usedOsrmTrip) {
+      console.log(`[roteirizar] Falling back to OSRM /route with greedy order`);
+      try {
+        const routeUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=polyline&overview=full&steps=false`;
+        const routeRes = await fetch(routeUrl, { signal: AbortSignal.timeout(8000) });
+        const routeData = await routeRes.json();
+
+        console.log(`[roteirizar] OSRM route code: ${routeData.code}`);
+
+        if (routeData.code === "Ok" && Array.isArray(routeData.routes) && routeData.routes.length > 0) {
+          const route = routeData.routes[0];
+          geometry = decodePolyline(route.geometry);
+          distanciaTotal = Math.round((route.distance / 1000) * 10) / 10;
+
+          const legs = route.legs || [];
+          const startLeg = hasOrigin ? 1 : 0;
+          for (let i = startLeg; i < legs.length; i++) {
+            const fromIdx = i - (hasOrigin ? 1 : 0);
+            const toIdx = fromIdx + 1;
+            trechos.push({
+              de: fromIdx < 0 ? oCidade : (greedilyOrdered[fromIdx]?.cliente ?? ""),
+              para: greedilyOrdered[toIdx]?.cliente ?? "",
+              km: Math.round((legs[i].distance / 1000) * 10) / 10,
+              duracao: Math.round(legs[i].duration / 60),
+            });
+          }
+        }
+      } catch (routeErr) {
+        console.log(`[roteirizar] OSRM route also failed: ${(routeErr as Error).message}`);
+      }
+
+      // Use greedy order as the optimized order
+      orderedDestinos = greedilyOrdered.map((g, idx) => ({ ...g, ordem: idx + 1 }));
+    }
 
     return new Response(
       JSON.stringify({
@@ -243,6 +313,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
+    console.error(`[roteirizar] Unhandled error: ${(err as Error).message}`);
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

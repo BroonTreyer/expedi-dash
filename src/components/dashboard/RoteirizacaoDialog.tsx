@@ -117,7 +117,7 @@ function SortableDestinationCard({
           </div>
           {trecho && (
             <div className="text-xs text-muted-foreground mt-0.5 font-mono">
-              ↳ {trecho.km} km · ~{trecho.duracao} min
+              ↳ {trecho.km} km · ~{trecho.duracao} min até próximo
             </div>
           )}
         </div>
@@ -214,17 +214,20 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   }, []);
 
   const handleRoteirizar = useCallback(async () => {
+    // Guard: prevent double calls
+    if (isRouting) return;
+
     const destinosParaRoteirizar = activeGroups
       .filter((g) => g.cidade && g.uf)
       .map((g) => ({ cidade: g.cidade!, uf: g.uf!, cliente: g.nomeCliente ?? "Sem cliente" }));
 
-    // BUG 5: Always clear stale geometry before routing (even on early return)
+    // Always clear stale geometry before any routing attempt
     setRouteGeometry(undefined);
     setDistanciaTotal(undefined);
     setTrechos(undefined);
 
     if (destinosParaRoteirizar.length < 2) {
-      toast.info("Necessário ao menos 2 destinos para roteirizar");
+      toast.info("Necessário ao menos 2 destinos com cidade/UF para roteirizar");
       return;
     }
 
@@ -236,14 +239,32 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       if (error) throw error;
 
       if (data.geometria && data.geometria.length > 0) setRouteGeometry(data.geometria);
-      setDistanciaTotal(data.distanciaTotal);
-      setTrechos(data.trechos);
+      if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
+      if (data.trechos && data.trechos.length > 0) setTrechos(data.trechos);
 
       if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
+        // Build a lookup: cidade+uf (lowercase) → trecho index from ordemOtimizada
+        // ordemOtimizada[i].ordem tells us the 1-based position, index 'i' is 0-based insertion order
+        const trechosByKey = new Map<string, TrechoInfo>();
+        if (data.trechos && data.trechos.length > 0) {
+          // trechos[0] = Goiânia → dest1, trechos[1] = dest1 → dest2, etc.
+          // We assign each trecho to the DESTINATION it leads FROM (de → para)
+          // So dest at ordem=1 gets trechos[0] (trecho FROM dest1 to dest2), etc.
+          data.ordemOtimizada.forEach((opt: { cidade: string; uf: string; ordem: number }, i: number) => {
+            const key = `${opt.cidade?.toLowerCase()},${opt.uf?.toLowerCase()}`;
+            // trechos index i corresponds to leg FROM this destination to the next
+            // (trechos[0] = origin→dest1, trechos[1] = dest1→dest2, ...)
+            // Card for dest at position i should show trecho[i] (leg leaving that dest)
+            const legIdx = i + 1; // skip origin leg (trechos[0] = origin→dest1)
+            if (data.trechos[legIdx]) {
+              trechosByKey.set(key, data.trechos[legIdx]);
+            }
+          });
+        }
+
         setGroups((prev) => {
           const newOrder: RotaGroup[] = [];
           for (const opt of data.ordemOtimizada) {
-            // Match by cidade+uf (case-insensitive)
             const found = prev.find(
               (g) =>
                 g.cidade?.toLowerCase() === opt.cidade?.toLowerCase() &&
@@ -262,15 +283,15 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     } finally {
       setIsRouting(false);
     }
-  }, [activeGroups]);
+  }, [activeGroups, isRouting]);
 
-  // Auto-route on open
+  // Auto-route on open — only fires once per dialog open
   useEffect(() => {
-    if (shouldAutoRoute && groups.length >= 2) {
+    if (shouldAutoRoute && !isRouting && groups.length >= 2) {
       setShouldAutoRoute(false);
       handleRoteirizar();
     }
-  }, [shouldAutoRoute, groups, handleRoteirizar]);
+  }, [shouldAutoRoute, isRouting, groups.length, handleRoteirizar]);
 
   const handleAdvance = () => {
     onAdvance({
@@ -283,9 +304,30 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   };
 
   const rotaDestinos = useMemo(
-    () => activeGroups.filter((g) => g.cidade && g.uf).map((g) => ({ ordem: g.ordem, cliente: g.nomeCliente ?? "Sem cliente", cidade: g.cidade!, uf: g.uf! })),
+    () => activeGroups
+      .filter((g) => g.cidade && g.uf)
+      .map((g) => ({ ordem: g.ordem, cliente: g.nomeCliente ?? "Sem cliente", cidade: g.cidade!, uf: g.uf! })),
     [activeGroups]
   );
+
+  // Build trecho lookup by codigoCliente for the cards
+  // trechos[0] = Goiânia→dest1, trechos[1] = dest1→dest2, ...
+  // For a card at position idx in activeGroups, the "outgoing" leg is trechos[idx+1]
+  // (trechos[0] is the origin leg, idx=0 should show the leg FROM dest1 to dest2 = trechos[1])
+  const activeTrechoMap = useMemo(() => {
+    const map = new Map<string, TrechoInfo>();
+    if (!trechos) return map;
+    activeGroups
+      .filter((g) => g.cidade && g.uf)
+      .forEach((g, i) => {
+        // i=0 → trechos[1] (leg FROM dest1), i=1 → trechos[2], last has no outgoing
+        const legIdx = i + 1;
+        if (trechos[legIdx]) {
+          map.set(groupKey(g), trechos[legIdx]);
+        }
+      });
+    return map;
+  }, [trechos, activeGroups]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -351,7 +393,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
                     onMoveUp={() => moveUp(idx)}
                     onMoveDown={() => moveDown(idx)}
                     onOrderChange={(newPos) => moveToPosition(idx, newPos)}
-                    trecho={trechos?.[idx]}
+                    trecho={activeTrechoMap.get(groupKey(group))}
                   />
                 ))}
               </div>
