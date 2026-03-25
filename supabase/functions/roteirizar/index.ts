@@ -272,8 +272,8 @@ Deno.serve(async (req) => {
           const toInputIdx = visitPosToInputIdx.get(i + 1);
           const fromGeoIdx = fromInputIdx != null ? (hasOrigin ? fromInputIdx - 1 : fromInputIdx) : -1;
           const toGeoIdx = toInputIdx != null ? (hasOrigin ? toInputIdx - 1 : toInputIdx) : -1;
-          const fromLabel = fromGeoIdx < 0 ? oCidade : (greedilyOrdered[fromGeoIdx]?.cliente ?? oCidade);
-          const toLabel = toGeoIdx < 0 ? oCidade : (greedilyOrdered[toGeoIdx]?.cliente ?? "");
+          const fromLabel = fromGeoIdx < 0 ? oCidade : (greedilyOrdered[fromGeoIdx]?.cidade ?? oCidade);
+          const toLabel = toGeoIdx < 0 ? oCidade : (greedilyOrdered[toGeoIdx]?.cidade ?? "");
           return {
             de: fromLabel,
             para: toLabel,
