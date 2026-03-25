@@ -196,9 +196,28 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const ufsUnicas = useMemo(() => { const set = new Set<string>(); activeGroups.forEach((g) => { if (g.uf) set.add(g.uf); }); return Array.from(set).sort(); }, [activeGroups]);
 
   const renumber = (arr: RotaGroup[]) => arr.map((g, i) => ({ ...g, ordem: i + 1 }));
-  const moveUp = (idx: number) => { if (idx === 0) return; setGroups((prev) => { const next = [...prev]; [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]; return renumber(next); }); };
-  const moveDown = (idx: number) => { if (idx >= groups.length - 1) return; setGroups((prev) => { const next = [...prev]; [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]; return renumber(next); }); };
-  const moveToPosition = (fromIdx: number, toPosition: number) => { setGroups((prev) => { const next = [...prev]; const [item] = next.splice(fromIdx, 1); next.splice(toPosition - 1, 0, item); return renumber(next); }); };
+
+  // Clear stale route geometry whenever the user manually reorders destinations
+  const clearRouteGeometry = useCallback(() => {
+    setRouteGeometry(undefined);
+    setDistanciaTotal(undefined);
+    setTrechos(undefined);
+  }, []);
+
+  const moveUp = (idx: number) => {
+    if (idx === 0) return;
+    clearRouteGeometry();
+    setGroups((prev) => { const next = [...prev]; [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]; return renumber(next); });
+  };
+  const moveDown = (idx: number) => {
+    if (idx >= groups.length - 1) return;
+    clearRouteGeometry();
+    setGroups((prev) => { const next = [...prev]; [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]; return renumber(next); });
+  };
+  const moveToPosition = (fromIdx: number, toPosition: number) => {
+    clearRouteGeometry();
+    setGroups((prev) => { const next = [...prev]; const [item] = next.splice(fromIdx, 1); next.splice(toPosition - 1, 0, item); return renumber(next); });
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -209,12 +228,13 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    clearRouteGeometry();
     setGroups((prev) => {
       const oldIdx = prev.findIndex((g) => groupKey(g) === active.id);
       const newIdx = prev.findIndex((g) => groupKey(g) === over.id);
       return renumber(arrayMove(prev, oldIdx, newIdx));
     });
-  }, []);
+  }, [clearRouteGeometry]);
 
   const handleRoteirizar = useCallback(async () => {
     // Guard: prevent double calls
