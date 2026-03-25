@@ -96,14 +96,13 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
             {collapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-full text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  <button
+                    className="w-full flex items-center justify-center p-2 rounded-md text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
                     onClick={signOut}
+                    aria-label="Sair"
                   >
                     <LogOut className="h-4 w-4" />
-                  </Button>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">Sair</TooltipContent>
               </Tooltip>
