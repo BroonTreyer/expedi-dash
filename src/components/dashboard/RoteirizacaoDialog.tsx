@@ -144,6 +144,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [isRouting, setIsRouting] = useState(false);
   // Coordenadas retornadas pela edge function para pré-popular o geocodeCache do RotaMap
   const [coordsCache, setCoordsCache] = useState<Map<string, { lat: number; lng: number }> | undefined>();
+  const [estimado, setEstimado] = useState(false);
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
 
@@ -253,6 +254,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     setRouteGeometry(undefined);
     setDistanciaTotal(undefined);
     setTrechos(undefined);
+    setEstimado(false);
 
     if (destinosParaRoteirizar.length < 2) {
       toast.info("Necessário ao menos 2 destinos com cidade/UF para roteirizar");
@@ -269,6 +271,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       if (data.geometria && data.geometria.length > 0) setRouteGeometry(data.geometria);
       if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
       if (data.trechos && data.trechos.length > 0) setTrechos(data.trechos);
+      setEstimado(!!data.estimado);
 
       // FIX: Pré-popular geocodeCache do RotaMap com coordenadas já geocodadas pela edge fn.
       // Isso elimina o segundo geocoding via Nominatim no front-end (que falha com rate-limit).
@@ -440,6 +443,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               trechos={trechos}
               loading={isRouting}
               coordsCache={coordsCache}
+              estimado={estimado}
             />
           </Suspense>
         </div>
