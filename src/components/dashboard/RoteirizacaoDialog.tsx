@@ -76,9 +76,9 @@ function SortableDestinationCard({
     id: group.codigoCliente ?? `__sem__${group.ordem}`,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
-  const [localOrder, setLocalOrder] = useState(String(group.ordem));
+  const [localOrder, setLocalOrder] = useState(String(displayOrder));
 
-  useEffect(() => { setLocalOrder(String(group.ordem)); }, [group.ordem]);
+  useEffect(() => { setLocalOrder(String(displayOrder)); }, [displayOrder]);
 
   const handleOrderBlur = () => {
     const num = parseInt(localOrder, 10);
