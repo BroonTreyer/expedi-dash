@@ -91,6 +91,29 @@ function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
   });
 }
 
+function createOrigemIcon(label: string) {
+  return L.divIcon({
+    className: "custom-marker-origem",
+    html: `<div style="
+      background: hsl(25, 95%, 53%);
+      color: white;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      border: 3px solid white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      pointer-events: none;
+    ">${label}</div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  });
+}
+
 // FIX: react-leaflet FitBounds must not be given a ref — use forwardRef to avoid the warning
 // Actually the warning is because MapContainer tries to give a ref to FitBounds as a child.
 // Solution: render FitBounds as a plain component (no ref needed — useMap handles it).
