@@ -281,6 +281,88 @@ export default function Rupturas() {
                   </TableBody>
                 </Table>
               </div>
+           )}
+         </div>
+       )}
+
+        {/* Cargas Fechadas com Pendência */}
+        {cargasComPendencia.length > 0 && (
+          <div className="rounded-lg border border-destructive/30 overflow-hidden">
+            <div className="bg-destructive/10 px-3 sm:px-4 py-2 flex items-center gap-2">
+              <Truck className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs sm:text-sm font-semibold text-destructive">
+                Cargas Fechadas com Pendência ({cargasComPendencia.length})
+              </p>
+            </div>
+            {isMobile ? (
+              <div className="divide-y divide-border/50">
+                {cargasComPendencia.map((g) => (
+                  <div key={g.carga_id} className="px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        className="font-mono font-semibold text-primary underline-offset-2 hover:underline text-left"
+                        onClick={() => setCargaFilter(g.nome_carga)}
+                      >
+                        {g.nome_carga}
+                      </button>
+                      <div className="flex gap-2 shrink-0 font-medium">
+                        <span>{g.count} ruptura{g.count !== 1 ? "s" : ""}</span>
+                        <span>{g.peso.toLocaleString("pt-BR")} kg</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {[...g.statuses].map((s) => (
+                        <Badge key={s} className={cn("text-[10px]", RUPTURA_STATUS_COLORS[s as keyof typeof RUPTURA_STATUS_COLORS] ?? "bg-muted text-foreground")}>{s}</Badge>
+                      ))}
+                    </div>
+                    <p className="text-muted-foreground mt-1">
+                      {[...g.produtos.values()].map((p) => `${p.nome} (${p.count}x)`).join(", ")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-xs">Carga</TableHead>
+                      <TableHead className="text-xs text-right">Rupturas</TableHead>
+                      <TableHead className="text-xs text-right">Peso (kg)</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Produtos Pendentes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cargasComPendencia.map((g) => (
+                      <TableRow key={g.carga_id}>
+                        <TableCell className="text-xs font-mono">
+                          <button
+                            className="font-semibold text-primary underline-offset-2 hover:underline"
+                            onClick={() => setCargaFilter(g.nome_carga)}
+                          >
+                            {g.nome_carga}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-xs text-right font-medium">{g.count}</TableCell>
+                        <TableCell className="text-xs text-right font-medium">{g.peso.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-xs">
+                          <div className="flex flex-wrap gap-1">
+                            {[...g.statuses].map((s) => (
+                              <Badge key={s} className={cn("text-[10px]", RUPTURA_STATUS_COLORS[s as keyof typeof RUPTURA_STATUS_COLORS] ?? "bg-muted text-foreground")}>{s}</Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {[...g.produtos.values()].map((p, i) => (
+                            <span key={i}>{i > 0 && ", "}{p.nome} <span className="font-medium text-foreground">({p.count}x)</span></span>
+                          ))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
         )}
