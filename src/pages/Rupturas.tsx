@@ -41,6 +41,7 @@ export default function Rupturas() {
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [vendedorFilter, setVendedorFilter] = useState("todos");
+  const [cargaFilter, setCargaFilter] = useState("todos");
   const [busca, setBusca] = useState("");
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
