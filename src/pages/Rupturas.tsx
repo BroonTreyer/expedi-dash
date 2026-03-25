@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { useIsMobile } from "@/hooks/use-mobile";
