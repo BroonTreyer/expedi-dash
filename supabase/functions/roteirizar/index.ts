@@ -133,20 +133,29 @@ Deno.serve(async (req) => {
     const oUf = origemUf || "GO";
     const origemCoords = await geocode(oCidade, oUf);
 
-    // Geocode all destinations sequentially
+    // Geocode all destinations sequentially with 350ms delay to respect Nominatim rate limit
     const geocoded: GeocodedDestino[] = [];
     for (let i = 0; i < destinos.length; i++) {
       const d = destinos[i];
       let lat = d.lat;
       let lng = d.lng;
       if (lat == null || lng == null || lat === 0 || lng === 0) {
+        if (i > 0) await new Promise((r) => setTimeout(r, 350)); // rate-limit guard
         const coords = await geocode(d.cidade, d.uf);
         if (!coords) {
-          console.log(`[roteirizar] Geocode failed for: ${d.cidade}, ${d.uf}`);
-          continue;
+          console.log(`[roteirizar] Geocode failed for: ${d.cidade}, ${d.uf} — retrying after 1s`);
+          await new Promise((r) => setTimeout(r, 1000));
+          const retry = await geocode(d.cidade, d.uf);
+          if (!retry) {
+            console.log(`[roteirizar] Geocode retry also failed for: ${d.cidade}, ${d.uf}`);
+            continue;
+          }
+          lat = retry.lat;
+          lng = retry.lng;
+        } else {
+          lat = coords.lat;
+          lng = coords.lng;
         }
-        lat = coords.lat;
-        lng = coords.lng;
       }
       geocoded.push({ ...d, lat: lat!, lng: lng!, originalIndex: i });
     }
@@ -207,7 +216,7 @@ Deno.serve(async (req) => {
 
     try {
       const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last&geometries=polyline&overview=full&steps=false`;
-      const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(8000) });
+      const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(15000) });
       const osrmData = await osrmRes.json();
 
       console.log(`[roteirizar] OSRM trip code: ${osrmData.code}, trips: ${osrmData.trips?.length ?? 0}, waypoints: ${osrmData.waypoints?.length ?? 0}`);
@@ -263,8 +272,8 @@ Deno.serve(async (req) => {
           const toInputIdx = visitPosToInputIdx.get(i + 1);
           const fromGeoIdx = fromInputIdx != null ? (hasOrigin ? fromInputIdx - 1 : fromInputIdx) : -1;
           const toGeoIdx = toInputIdx != null ? (hasOrigin ? toInputIdx - 1 : toInputIdx) : -1;
-          const fromLabel = fromGeoIdx < 0 ? oCidade : (greedilyOrdered[fromGeoIdx]?.cliente ?? oCidade);
-          const toLabel = toGeoIdx < 0 ? oCidade : (greedilyOrdered[toGeoIdx]?.cliente ?? "");
+          const fromLabel = fromGeoIdx < 0 ? oCidade : (greedilyOrdered[fromGeoIdx]?.cidade ?? oCidade);
+          const toLabel = toGeoIdx < 0 ? oCidade : (greedilyOrdered[toGeoIdx]?.cidade ?? "");
           return {
             de: fromLabel,
             para: toLabel,
@@ -296,13 +305,14 @@ Deno.serve(async (req) => {
           distanciaTotal = Math.round((route.distance / 1000) * 10) / 10;
 
           const legs = route.legs || [];
-          const startLeg = hasOrigin ? 1 : 0;
-          for (let i = startLeg; i < legs.length; i++) {
-            const fromIdx = i - (hasOrigin ? 1 : 0);
+          // legs[0] = origem→dest1, legs[1] = dest1→dest2, ...
+          // fromIdx: -1 = origem, 0 = greedilyOrdered[0], etc.
+          for (let i = 0; i < legs.length; i++) {
+            const fromIdx = i - (hasOrigin ? 1 : 0); // -1 when i=0 and hasOrigin
             const toIdx = fromIdx + 1;
             trechos.push({
-              de: fromIdx < 0 ? oCidade : (greedilyOrdered[fromIdx]?.cliente ?? ""),
-              para: greedilyOrdered[toIdx]?.cliente ?? "",
+              de: fromIdx < 0 ? oCidade : (greedilyOrdered[fromIdx]?.cidade ?? oCidade),
+              para: toIdx >= 0 && toIdx < greedilyOrdered.length ? (greedilyOrdered[toIdx]?.cidade ?? "") : "",
               km: Math.round((legs[i].distance / 1000) * 10) / 10,
               duracao: Math.round(legs[i].duration / 60),
             });
