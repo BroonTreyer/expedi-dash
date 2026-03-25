@@ -75,6 +75,7 @@ export default function Rupturas() {
   // Dynamic filter options — only items with rupturas
   const rupturaVendedorIds = useMemo(() => new Set(carregamentos.filter(c => c.ruptura).map(c => c.vendedor_id).filter(Boolean)), [carregamentos]);
   const filteredVendedores = useMemo(() => vendedores.filter(v => rupturaVendedorIds.has(v.id)), [vendedores, rupturaVendedorIds]);
+  const rupturaCargas = useMemo(() => [...new Set(carregamentos.filter(c => c.ruptura && c.nome_carga).map(c => c.nome_carga!))].sort(), [carregamentos]);
 
   const totalPeso = useMemo(() => rupturas.reduce((s, c) => s + (c.peso ?? 0), 0), [rupturas]);
 
