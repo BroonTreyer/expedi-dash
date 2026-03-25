@@ -70,6 +70,7 @@ interface CargaGroup {
   tipoCaminhao: string | null;
   pesoTotal: number;
   qtdPedidos: number;
+  rupturaCount: number;
   clientes: Set<string>;
   ufs: Set<string>;
   status: string;
