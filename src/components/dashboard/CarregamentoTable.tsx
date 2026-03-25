@@ -234,6 +234,8 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 <div><Badge variant="outline" className="text-[10px] font-mono">{c.nome_carga}</Badge></div>
               </>
             )}
+          </>
+        )}
       </div>
 
       {!isGrouped && canChangeStatus && (
