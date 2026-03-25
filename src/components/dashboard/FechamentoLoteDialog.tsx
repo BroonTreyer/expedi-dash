@@ -159,14 +159,14 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           })}
         </div>
 
-        {/* Route map (read-only) */}
-        {roteirizacao?.routeGeometry && (
+        {/* BUG 8: Show map whenever there are destinations with city/uf, even without route geometry */}
+        {rotaDestinos.length > 0 && (
           <Suspense fallback={<div className="h-[200px] rounded-lg border border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground animate-pulse">Carregando mapa...</div>}>
             <RotaMap
               destinos={rotaDestinos}
-              routeGeometry={roteirizacao.routeGeometry}
-              distanciaTotal={roteirizacao.distanciaTotal}
-              trechos={roteirizacao.trechos}
+              routeGeometry={roteirizacao?.routeGeometry}
+              distanciaTotal={roteirizacao?.distanciaTotal}
+              trechos={roteirizacao?.trechos}
             />
           </Suspense>
         )}

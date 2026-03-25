@@ -351,7 +351,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
                     onMoveUp={() => moveUp(idx)}
                     onMoveDown={() => moveDown(idx)}
                     onOrderChange={(newPos) => moveToPosition(idx, newPos)}
-                    trecho={trechos?.[idx - 1]}
+                    trecho={trechos?.[idx]}
                   />
                 ))}
               </div>
