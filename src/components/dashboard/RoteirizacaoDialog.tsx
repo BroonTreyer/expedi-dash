@@ -338,7 +338,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
           return renumber(newOrder);
         });
       }
-      toast.success(`Rota otimizada: ${data.distanciaTotal} km`);
+      // BUG 11 FIX: Format distance with locale separator
+      toast.success(`Rota otimizada: ${Number(data.distanciaTotal).toLocaleString("pt-BR")} km`);
     } catch (err: any) {
       toast.error("Erro ao roteirizar: " + (err.message ?? "Tente novamente"));
     } finally {
