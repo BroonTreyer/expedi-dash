@@ -92,6 +92,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         tipoCaminhao: item.tipo_caminhao,
         pesoTotal: 0,
         qtdPedidos: 0,
+        rupturaCount: 0,
         clientes: new Set(),
         ufs: new Set(),
         status: item.status,
@@ -101,6 +102,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
       map.set(item.carga_id, g);
     }
     g.pesoTotal += item.peso ?? 0;
+    if (item.ruptura) g.rupturaCount += 1;
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
     g.items.push(item);
