@@ -101,6 +101,40 @@ export default function Rupturas() {
     return [...map.values()].sort((a, b) => b.peso - a.peso);
   }, [rupturas]);
 
+  // Cargas fechadas com pendência — usa TODOS os carregamentos (sem filtros)
+  const cargasComPendencia = useMemo(() => {
+    const map = new Map<string, {
+      nome_carga: string;
+      carga_id: string;
+      count: number;
+      peso: number;
+      produtos: Map<string, { nome: string; count: number }>;
+      statuses: Set<string>;
+    }>();
+    for (const c of carregamentos) {
+      if (!c.ruptura || !c.carga_id) continue;
+      const key = c.carga_id;
+      if (!map.has(key)) {
+        map.set(key, {
+          nome_carga: c.nome_carga ?? c.carga_id,
+          carga_id: c.carga_id,
+          count: 0, peso: 0,
+          produtos: new Map(),
+          statuses: new Set(),
+        });
+      }
+      const g = map.get(key)!;
+      g.count++;
+      g.peso += c.peso ?? 0;
+      g.statuses.add(c.status);
+      const pk = c.codigo_produto || "SEM_COD";
+      const existing = g.produtos.get(pk);
+      if (existing) existing.count++;
+      else g.produtos.set(pk, { nome: c.nome_produto || c.codigo_produto || "—", count: 1 });
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count);
+  }, [carregamentos]);
+
   const printData = useMemo<RupturasPrintData | null>(() => {
     if (rupturas.length === 0) return null;
     return {
