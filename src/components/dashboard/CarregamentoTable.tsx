@@ -456,6 +456,13 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     </TableCell>
                     <TableCell className="text-sm">{c.cidade ?? "—"}</TableCell>
                     <TableCell className="text-sm">{c.uf ?? "—"}</TableCell>
+                    {!hideColumns.includes("nome_carga") && (
+                      <TableCell className="text-xs">
+                        {c.nome_carga
+                          ? <Badge variant="outline" className="text-xs font-mono">{c.nome_carga}</Badge>
+                          : <span className="text-muted-foreground/50">—</span>}
+                      </TableCell>
+                    )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{c.tipo_frete ?? "—"}</TableCell>
                     {hasActions && (
