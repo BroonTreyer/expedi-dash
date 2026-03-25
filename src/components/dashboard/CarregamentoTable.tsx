@@ -345,6 +345,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
     + (selectable ? 1 : 0)
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
+    + (hideColumns.includes("nome_carga") ? 0 : 1)
     + (showPesoAprox ? 1 : 0)
     + (hasActions ? 1 : 0);
 
