@@ -527,11 +527,12 @@ Deno.serve(async (req) => {
     }
 
     // ── Fallback: OSRM /route with 2-opt order ─────────────────────────────
+    let estimado = false;
     if (!usedOsrmTrip) {
       console.log(`[roteirizar] Using OSRM /route with 2-opt order`);
       try {
         const routeData = await fetch(osrmRouteUrl, {
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(5000),
         }).then((r) => r.json());
 
         if (
@@ -563,8 +564,33 @@ Deno.serve(async (req) => {
         }
       } catch (routeErr) {
         console.log(`[roteirizar] OSRM route also failed: ${(routeErr as Error).message}`);
-        // Pure 2-opt fallback with haversine distance estimation
+        // Pure haversine fallback — generate trechos and straight-line geometry
         distanciaTotal = Math.round(twoOptDist * 10) / 10;
+        estimado = true;
+
+        // Build ordered points: origin + one per city group
+        const allFallbackPoints = [
+          { cidade: oCidade, lat: originFallback.lat, lng: originFallback.lng },
+          ...orderedGroups.map((g) => ({
+            cidade: g.members[0]?.cidade ?? g.cityKey.split(",")[0],
+            lat: g.lat,
+            lng: g.lng,
+          })),
+        ];
+
+        // Haversine trechos
+        for (let i = 0; i < allFallbackPoints.length - 1; i++) {
+          const from = allFallbackPoints[i];
+          const to = allFallbackPoints[i + 1];
+          const km = Math.round(haversine(from.lat, from.lng, to.lat, to.lng) * 10) / 10;
+          // Estimate duration at avg 60 km/h
+          const duracao = Math.round((km / 60) * 60);
+          trechos.push({ de: from.cidade, para: to.cidade, km, duracao });
+        }
+
+        // Straight-line polyline geometry
+        geometry = allFallbackPoints.map((p) => [p.lat, p.lng] as [number, number]);
+        console.log(`[roteirizar] Haversine fallback: ${distanciaTotal}km, ${trechos.length} trechos`);
       }
     }
 
