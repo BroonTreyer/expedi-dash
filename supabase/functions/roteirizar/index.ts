@@ -416,159 +416,119 @@ Deno.serve(async (req) => {
     let trechos: { de: string; para: string; km: number; duracao: number }[] = [];
     let usedOsrmTrip = false;
 
-    // ── OSRM /trip ─────────────────────────────────────────────────────────
+    // ── OSRM /trip and /route fired IN PARALLEL (3s timeout each) ────────────
+    // Sequential 8s+5s = 13s+ exceeds function budget when both timeout.
+    // Parallel 3s means worst case ~3s before haversine fallback runs.
     const osrmTripUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last&geometries=polyline&overview=full&steps=false`;
     const osrmRouteUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=polyline&overview=full&steps=false`;
 
-    try {
-      const osrmData = await fetch(osrmTripUrl, {
-        signal: AbortSignal.timeout(8000),
-      }).then((r) => r.json());
+    const [tripSettled, routeSettled] = await Promise.allSettled([
+      fetch(osrmTripUrl, { signal: AbortSignal.timeout(3000) }).then((r) => r.json()),
+      fetch(osrmRouteUrl, { signal: AbortSignal.timeout(3000) }).then((r) => r.json()),
+    ]);
 
-      console.log(
-        `[roteirizar] OSRM trip code: ${osrmData.code}, waypoints: ${osrmData.waypoints?.length ?? 0}`
-      );
+    const osrmTripData = tripSettled.status === "fulfilled" ? tripSettled.value : null;
+    const osrmRouteData = routeSettled.status === "fulfilled" ? routeSettled.value : null;
 
-      if (
-        osrmData.code === "Ok" &&
-        Array.isArray(osrmData.trips) &&
-        osrmData.trips.length > 0 &&
-        Array.isArray(osrmData.waypoints) &&
-        osrmData.waypoints.length > 0 &&
-        typeof osrmData.waypoints[0].waypoint_index === "number"
-      ) {
-        const trip = osrmData.trips[0];
-        const waypoints: { waypoint_index: number; trips_index: number }[] =
-          osrmData.waypoints;
-
-        /**
-         * CORRECTED MAPPING:
-         * waypoints[inputIdx].waypoint_index = the position this input point should occupy in the optimized route.
-         * We build an array where osrmOrder[visitPos] = inputIdx of the group to visit at that position.
-         */
-        const osrmOrder: number[] = new Array(waypoints.length);
-        waypoints.forEach((wp, inputIdx) => {
-          osrmOrder[wp.waypoint_index] = inputIdx;
-        });
-
-        // Validate OSRM result: total distance should not be outrageously larger than 2-opt
-        const osrmDistKm = Math.round((trip.distance / 1000) * 10) / 10;
-        const validationRatio = osrmDistKm / Math.max(twoOptDist, 1);
-
-        console.log(
-          `[roteirizar] OSRM trip dist: ${osrmDistKm}km, 2-opt dist: ${twoOptDist.toFixed(0)}km, ratio: ${validationRatio.toFixed(2)}`
-        );
-
-        if (validationRatio <= 1.8) {
-          // Accept OSRM result — reconstruct group order from osrmOrder
-          const newOrderedGroups: CityGroup[] = [];
-          for (let visitPos = 0; visitPos < osrmOrder.length; visitPos++) {
-            if (hasOrigin && visitPos === 0) continue; // skip origin position
-            const inputIdx = osrmOrder[visitPos];
-            if (inputIdx == null) continue;
-            const groupIdx = hasOrigin ? inputIdx - 1 : inputIdx;
-            if (groupIdx < 0 || groupIdx >= optimizedGroups.length) {
-              console.warn(`[roteirizar] groupIdx ${groupIdx} out of bounds`);
-              continue;
-            }
-            newOrderedGroups.push(optimizedGroups[groupIdx]);
-          }
-
-          if (newOrderedGroups.length === optimizedGroups.length) {
-            orderedGroups = newOrderedGroups;
-            geometry = decodePolyline(trip.geometry);
-            distanciaTotal = osrmDistKm;
-
-            trechos = (trip.legs || []).map(
-              (leg: { distance: number; duration: number }, i: number) => {
-                const fromVisitPos = i;
-                const toVisitPos = i + 1;
-                const fromInputIdx = osrmOrder[fromVisitPos];
-                const toInputIdx = osrmOrder[toVisitPos];
-                const fromGroupIdx = hasOrigin ? fromInputIdx - 1 : fromInputIdx;
-                const toGroupIdx = hasOrigin ? toInputIdx - 1 : toInputIdx;
-                // BUG 9/11 FIX: Use original city name (with accents) for "de" label on first trecho
-                const fromLabel =
-                  fromGroupIdx < 0
-                    ? oCidade  // origin label with original accents (e.g. "Goiânia")
-                    : optimizedGroups[fromGroupIdx]?.members[0]?.cidade ?? oCidade;
-                const toLabel =
-                  toGroupIdx != null &&
-                  toGroupIdx >= 0 &&
-                  toGroupIdx < optimizedGroups.length
-                    ? optimizedGroups[toGroupIdx]?.members[0]?.cidade ?? ""
-                    : "";
-                return {
-                  de: fromLabel,
-                  para: toLabel,
-                  km: Math.round((leg.distance / 1000) * 10) / 10,
-                  duracao: Math.round(leg.duration / 60),
-                };
-              }
-            );
-
-            usedOsrmTrip = true;
-            console.log(
-              `[roteirizar] OSRM trip accepted in ${Date.now() - t0}ms. Order: ${orderedGroups.map((g) => g.members[0]?.cidade).join(" → ")}`
-            );
-          } else {
-            console.warn(
-              `[roteirizar] OSRM trip group count mismatch (${newOrderedGroups.length} vs ${optimizedGroups.length}), falling back to 2-opt`
-            );
-          }
-        } else {
-          console.warn(
-            `[roteirizar] OSRM trip rejected (ratio ${validationRatio.toFixed(2)} > 1.8), using 2-opt result`
-          );
-        }
-      }
-    } catch (tripErr) {
-      console.log(`[roteirizar] OSRM trip failed: ${(tripErr as Error).message}`);
+    if (tripSettled.status === "rejected") {
+      console.log(`[roteirizar] OSRM trip failed: ${(tripSettled.reason as Error).message}`);
+    }
+    if (routeSettled.status === "rejected") {
+      console.log(`[roteirizar] OSRM route failed: ${(routeSettled.reason as Error).message}`);
     }
 
-    // ── Fallback: OSRM /route with 2-opt order ─────────────────────────────
+    // ── Try /trip result first ─────────────────────────────────────────────
     let estimado = false;
-    if (!usedOsrmTrip) {
-      console.log(`[roteirizar] Using OSRM /route with 2-opt order`);
-      try {
-        const routeData = await fetch(osrmRouteUrl, {
-          signal: AbortSignal.timeout(5000),
-        }).then((r) => r.json());
+    if (
+      osrmTripData?.code === "Ok" &&
+      Array.isArray(osrmTripData.trips) &&
+      osrmTripData.trips.length > 0 &&
+      Array.isArray(osrmTripData.waypoints) &&
+      osrmTripData.waypoints.length > 0 &&
+      typeof osrmTripData.waypoints[0].waypoint_index === "number"
+    ) {
+      const trip = osrmTripData.trips[0];
+      const waypoints: { waypoint_index: number; trips_index: number }[] = osrmTripData.waypoints;
 
-        if (
-          routeData.code === "Ok" &&
-          Array.isArray(routeData.routes) &&
-          routeData.routes.length > 0
-        ) {
-          const route = routeData.routes[0];
-          geometry = decodePolyline(route.geometry);
-          distanciaTotal = Math.round((route.distance / 1000) * 10) / 10;
+      const osrmOrder: number[] = new Array(waypoints.length);
+      waypoints.forEach((wp, inputIdx) => { osrmOrder[wp.waypoint_index] = inputIdx; });
 
-          const legs = route.legs || [];
-          for (let i = 0; i < legs.length; i++) {
-            const fromIdx = i - (hasOrigin ? 1 : 0);
-            const toIdx = fromIdx + 1;
-          // BUG 9/11 FIX: Use original city name for "de" label on first trecho
-          const fallbackRouteLabels = { de: fromIdx < 0 ? oCidade : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade };
-          trechos.push({
-            de: fallbackRouteLabels.de,
-              para:
-                toIdx >= 0 && toIdx < orderedGroups.length
-                  ? orderedGroups[toIdx]?.members[0]?.cidade ?? ""
-                  : "",
-              km: Math.round((legs[i].distance / 1000) * 10) / 10,
-              duracao: Math.round(legs[i].duration / 60),
-            });
+      const osrmDistKm = Math.round((trip.distance / 1000) * 10) / 10;
+      const validationRatio = osrmDistKm / Math.max(twoOptDist, 1);
+      console.log(`[roteirizar] OSRM trip dist: ${osrmDistKm}km, 2-opt: ${twoOptDist.toFixed(0)}km, ratio: ${validationRatio.toFixed(2)}`);
+
+      if (validationRatio <= 1.8) {
+        const newOrderedGroups: CityGroup[] = [];
+        for (let visitPos = 0; visitPos < osrmOrder.length; visitPos++) {
+          if (hasOrigin && visitPos === 0) continue;
+          const inputIdx = osrmOrder[visitPos];
+          if (inputIdx == null) continue;
+          const groupIdx = hasOrigin ? inputIdx - 1 : inputIdx;
+          if (groupIdx < 0 || groupIdx >= optimizedGroups.length) {
+            console.warn(`[roteirizar] groupIdx ${groupIdx} out of bounds`);
+            continue;
           }
-          console.log(`[roteirizar] OSRM route success: ${distanciaTotal}km`);
+          newOrderedGroups.push(optimizedGroups[groupIdx]);
         }
-      } catch (routeErr) {
-        console.log(`[roteirizar] OSRM route also failed: ${(routeErr as Error).message}`);
-        // Pure haversine fallback — generate trechos and straight-line geometry
+
+        if (newOrderedGroups.length === optimizedGroups.length) {
+          orderedGroups = newOrderedGroups;
+          geometry = decodePolyline(trip.geometry);
+          distanciaTotal = osrmDistKm;
+          trechos = (trip.legs || []).map(
+            (leg: { distance: number; duration: number }, i: number) => {
+              const fromInputIdx = osrmOrder[i];
+              const toInputIdx = osrmOrder[i + 1];
+              const fromGroupIdx = hasOrigin ? fromInputIdx - 1 : fromInputIdx;
+              const toGroupIdx = hasOrigin ? toInputIdx - 1 : toInputIdx;
+              const fromLabel = fromGroupIdx < 0 ? oCidade : optimizedGroups[fromGroupIdx]?.members[0]?.cidade ?? oCidade;
+              const toLabel = toGroupIdx != null && toGroupIdx >= 0 && toGroupIdx < optimizedGroups.length
+                ? optimizedGroups[toGroupIdx]?.members[0]?.cidade ?? "" : "";
+              return {
+                de: fromLabel, para: toLabel,
+                km: Math.round((leg.distance / 1000) * 10) / 10,
+                duracao: Math.round(leg.duration / 60),
+              };
+            }
+          );
+          usedOsrmTrip = true;
+          console.log(`[roteirizar] OSRM trip accepted in ${Date.now() - t0}ms`);
+        } else {
+          console.warn(`[roteirizar] OSRM trip group count mismatch, falling back`);
+        }
+      } else {
+        console.warn(`[roteirizar] OSRM trip rejected (ratio ${validationRatio.toFixed(2)} > 1.8)`);
+      }
+    }
+
+    // ── Try /route result (if /trip failed) ───────────────────────────────
+    if (!usedOsrmTrip) {
+      if (
+        osrmRouteData?.code === "Ok" &&
+        Array.isArray(osrmRouteData.routes) &&
+        osrmRouteData.routes.length > 0
+      ) {
+        const route = osrmRouteData.routes[0];
+        geometry = decodePolyline(route.geometry);
+        distanciaTotal = Math.round((route.distance / 1000) * 10) / 10;
+        const legs = route.legs || [];
+        for (let i = 0; i < legs.length; i++) {
+          const fromIdx = i - (hasOrigin ? 1 : 0);
+          const toIdx = fromIdx + 1;
+          trechos.push({
+            de: fromIdx < 0 ? oCidade : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade,
+            para: toIdx >= 0 && toIdx < orderedGroups.length ? orderedGroups[toIdx]?.members[0]?.cidade ?? "" : "",
+            km: Math.round((legs[i].distance / 1000) * 10) / 10,
+            duracao: Math.round(legs[i].duration / 60),
+          });
+        }
+        console.log(`[roteirizar] OSRM route accepted: ${distanciaTotal}km`);
+      } else {
+        // ── Pure haversine fallback — always runs when OSRM is unavailable ──
+        console.log(`[roteirizar] Both OSRM calls failed — using haversine fallback`);
         distanciaTotal = Math.round(twoOptDist * 10) / 10;
         estimado = true;
 
-        // Build ordered points: origin + one per city group
         const allFallbackPoints = [
           { cidade: oCidade, lat: originFallback.lat, lng: originFallback.lng },
           ...orderedGroups.map((g) => ({
@@ -578,17 +538,13 @@ Deno.serve(async (req) => {
           })),
         ];
 
-        // Haversine trechos
         for (let i = 0; i < allFallbackPoints.length - 1; i++) {
           const from = allFallbackPoints[i];
           const to = allFallbackPoints[i + 1];
           const km = Math.round(haversine(from.lat, from.lng, to.lat, to.lng) * 10) / 10;
-          // Estimate duration at avg 60 km/h
-          const duracao = Math.round((km / 60) * 60);
-          trechos.push({ de: from.cidade, para: to.cidade, km, duracao });
+          trechos.push({ de: from.cidade, para: to.cidade, km, duracao: Math.round((km / 60) * 60) });
         }
 
-        // Straight-line polyline geometry
         geometry = allFallbackPoints.map((p) => [p.lat, p.lng] as [number, number]);
         console.log(`[roteirizar] Haversine fallback: ${distanciaTotal}km, ${trechos.length} trechos`);
       }
