@@ -1,89 +1,129 @@
 
-## Bugs identificados nos prints — diagnóstico completo
+## Diagnóstico dos 2 Bugs
 
-### BUG 1 — Marcadores 3 e 4 somem do mapa (Eunápolis e Porto Seguro)
+### BUG 1 — Só aparece 1 marcador no mapa (dos 6 esperados)
 
-**Causa**: Nominatim tem rate-limit silencioso. Quando o front-end faz 7 requisições geocode simultâneas em sequência rápida (6 destinos + origem), o Nominatim retorna HTTP 200 mas com array vazio `[]` para algumas cidades — silenciosamente. O código em `RotaMap.tsx` linha 52-55:
+**Causa raiz**: O `geocodeCache` é uma `Map` definida no **escopo do módulo** (`const geocodeCache = new Map()`). Isso significa que ele é **compartilhado entre todos os renders e persiste durante toda a sessão**. Na primeira vez que o dialog abre, o geocoding funciona e popula o cache. Na segunda ou terceira abertura do dialog (com os **mesmos pedidos**), o `needsFetch` avalia que tudo está em cache → chama `buildFromCache()` e sai sem ir async. 
+
+O problema real está na linha 241:
 ```typescript
-const data = await res.json();
-if (data.length > 0) {
-  // só entra aqui se retornou resultado — Eunápolis e Porto Seguro não entram
-}
-```
-Resultado: `geocodeCache` não armazena Eunápolis e Porto Seguro → `geocodedCoords` fica sem essas chaves → `sortedPoints` filtra fora (`if (!base) continue`) → marcadores 3 e 4 nunca são renderizados.
-
-**Fix**: Adicionar delay de 300ms entre cada requisição Nominatim no `useEffect` do RotaMap, e também na edge function. Isso respeita o rate limit do Nominatim (1 req/segundo por User-Agent).
-
----
-
-### BUG 2 — Rota subótima: vai para MT antes de BA (order errada no greedy)
-
-**Causa**: O OSRM `/trip` fez timeout (log: `OSRM trip failed: Signal timed out`) e o fallback greedy rodou. Mas o greedy resultou em: `RONDONOPOLIS → CUIABA → EUNAPOLIS → PORTO SEGURO → ILHEUS → JUAZEIRO DO NORTE`.
-
-Ir de Goiânia para Rondonópolis (MT, ~480km oeste) antes de Ilhéus (BA, ~850km leste) é ilógico — o greedy está funcionando mas a ordem depende dos resultados do geocoding. O problema: como Eunápolis e Porto Seguro **falharam no geocoding da edge function também**, eles foram **excluídos do `greedilyOrdered`**. Com apenas 4 pontos (Rondonópolis, Cuiabá, Ilhéus, Juazeiro), o greedy calculou a sequência errada porque tinha menos dados.
-
-Mas olhando os logs: `Geocoded 6/6 destinations` — todos geocodificaram na edge function. O problema do greedy então é simplesmente que o nearest-neighbor a partir de Goiânia escolhe Rondonópolis como mais próximo, o que está errado geometricamente.
-
-Verificando: Goiânia (lat=-16.68, lng=-49.26). Rondonópolis (lat=-16.47, lng=-54.63) = ~550km. Ilhéus (lat=-14.78, lng=-39.04) = ~1070km. Logo o greedy está correto ao escolher Rondonópolis primeiro em linha reta, mas a rota viária real de Goiânia → Ilhéus/BA → MT → CE → BA é muito mais longa.
-
-O verdadeiro problema da rota: o OSRM `/trip` (que faria a otimização real) falhou por timeout. O servidor público OSRM com 7+ pontos demora mais de 8s. **Fix: aumentar timeout para 15s**, e usar o servidor alternativo `valhalla.openstreetmap.de` ou `osrm.router.project-osrm.org` como backup.
-
----
-
-### BUG 3 — Trechos com distâncias erradas (2341.9 km de Rondonópolis→Cuiabá sendo que são ~215km)
-
-**Causa**: No fallback `/route`, os trechos são montados com indexação incorreta. Linhas 299-309 da edge function:
-```typescript
-const startLeg = hasOrigin ? 1 : 0; // pula leg 0 = origem→dest1
-for (let i = startLeg; i < legs.length; i++) {
-  const fromIdx = i - (hasOrigin ? 1 : 0); // fromIdx = 0 quando i=1
-  const toIdx = fromIdx + 1;               // toIdx = 1
+// Só descarta se um run mais novo com cidades DIFERENTES começou
+if (run !== abortRef.current) return;
 ```
 
-Com 6 destinos + origem = 7 waypoints = 6 legs. `legs[0]` = Goiânia→Rondonópolis, `legs[1]` = Rondonópolis→Cuiabá, etc. O código começa em `i=1` (startLeg=1) mas **inclui apenas legs[1] em diante**, ou seja, **omite o primeiro trecho** (Goiânia→Rondonópolis = 214.8km) e desloca todos os outros. Então:
-- `trechos[0]` na UI deveria ser "Goiânia → Rondonópolis: 214.8km" mas é calculado como `fromIdx=-1` que usa o fallback `oCidade` para DE, e fica com distância de `legs[1]` (Rondonópolis→Cuiabá = 64km)?
+O `abortRef.current` é incrementado com `++abortRef.current` no início de CADA chamada ao `useEffect`. Quando o dialog reabre, `open` → `items` → `useEffect(open, items)` no `RoteirizacaoDialog` roda, chama `setShouldAutoRoute(true)` → componente re-renderiza → `shouldAutoRoute=true` + `groups.length >= 2` → `handleRoteirizar()` dispara → `setIsRouting(true)` causa novo render → `RotaMap` recebe nova referência de `rotaDestinos` (mesmo conteúdo, novo array via `useMemo`) mas `citySetKey` é **idêntico** (mesmas cidades). 
 
-Não, olhando de novo: `startLeg = hasOrigin ? 1 : 0`. Se `hasOrigin=true`, começa em `i=1`. `fromIdx = 1 - 1 = 0` → `greedilyOrdered[0]` = Rondonópolis. `toIdx=1` → Cuiabá. Distância = `legs[1].distance` = Rondonópolis→Cuiabá = ~215km. Parece correto...
+Portanto `mapKeyRef` NÃO incrementa. O `useEffect([citySetKey])` também NÃO re-executa. **O `geocodedCoords` permanece com o valor do render anterior** — que pode ser um `Map` vazio se o componente foi desmontado e remontado (dialog fecha e abre → React desmonta e remonta o `RotaMap` lazy-loaded → `useState` reseta para `new Map()` vazio → `citySetKey` não mudou entre dois mounts → `useEffect` **NÃO dispara na remontagem porque a dep não mudou de undefined para algo**).
 
-Mas o print mostra "SENDAS DISTRIBUIDORA S/A → SENDAS DISTRIBUIDORA S/A ... 214.8 km" (Rondonópolis→Cuiabá usando o mesmo cliente para ambos, pois são clientes diferentes na mesma rede mas o sistema usa `g.nomeCliente` e ambos são "SENDAS DISTRIBUIDORA S/A"). E "2341.9 km" aparece como "SENDAS DISTRIBUIDORA S/A → MATEUS EUNAPOLIS".
+**Esse é o bug central**: quando o `MapContainer` (e o `RotaMap` inteiro) é desmontado e remontado (ao fechar/abrir o Dialog, ou Suspense remontando), o `useState(new Map())` começa vazio. O `useEffect([citySetKey])` compara a dep com o valor **anterior do hook** — mas como o componente foi desmontado, ele não tem "anterior". React **sempre executa** o `useEffect` no primeiro mount. MAS: `citySetKey` com as mesmas cidades → `buildFromCache()` popula corretamente se tudo está em cache → **deveria funcionar**.
 
-Rondonópolis → Eunápolis = 2341.9km? Isso não faz sentido. Cuiabá → Eunápolis seria ~2000km, mas de forma mais direta. Porém olhando de novo: **o OSRM `/trip` SUCEDEU para os 2 destinos menores** (log: `OSRM trip success. Order: ILHEUS → JUAZEIRO DO NORTE`) e o `/trip` para 6 destinos **falhou por timeout**. Então para 6 destinos, usou `/route` com greedy. O greedy colocou Rondonópolis→Cuiabá→Eunápolis→Porto Seguro→Ilhéus→Juazeiro. A distância Cuiabá→Eunápolis é de fato enorme (~2300km) por estrada.
+Investigando mais: o **verdadeiro** problema é o `abortRef.current`. Quando o `RotaMap` remonta:
+1. `abortRef.current = 0` (novo ref)
+2. `useEffect` roda: `run = ++abortRef.current = 1`
+3. `needsFetch = false` (tudo em cache) → `buildFromCache()` → retorna CEDO (`return`)
+4. `setGeocodedCoords(coordMap)` é chamado — **correto**
 
-Então as distâncias podem estar corretas para a rota gerada, mas a rota em si é subótima. O real problema é que com OSRM `/trip` falhando, a rota fica na ordem greedy que é ruim.
+Então por que os marcadores somem? Olhando a imagem: o mapa mostra **somente o marcador 2** (Rondonópolis) com a rota passando apenas por MT. Isso sugere que o **OSRM /trip** retornou com sucesso mas com `orderedDestinos` incompleto — apenas 1 destino mapeado (geoIdx fora de bounds) — e a função `setGroups` reordenou para apenas 1 grupo ativo.
 
-**Fix real**: Aumentar timeout do OSRM `/trip` de 8s para 15s para dar tempo ao servidor público processar 7 waypoints. E adicionar um segundo servidor OSRM como fallback antes de desistir para o greedy.
-
----
-
-### BUG 4 — Label dos trechos usa `cliente` em vez de cidade (confuso: "SENDAS → SENDAS")
-
-No código da edge function, linha 266-267:
+**BUG 1 REAL**: Na linha 256-262 do edge function:
 ```typescript
-const fromLabel = fromGeoIdx < 0 ? oCidade : (greedilyOrdered[fromGeoIdx]?.cliente ?? oCidade);
-const toLabel = toGeoIdx < 0 ? oCidade : (greedilyOrdered[toGeoIdx]?.cliente ?? "");
+const geoIdx = hasOrigin ? inputIdx - 1 : inputIdx;
+const g = greedilyOrdered[geoIdx];
 ```
 
-Usa `cliente` (nome do cliente) como label do trecho, então dois clientes iguais mostram "SENDAS → SENDAS". Deveria usar `cidade` para clareza.
+`greedilyOrdered` tem os destinos na **ordem greedy**, mas `inputIdx` é a posição em `allPoints` que contém `[origemCoords, ...greedilyOrdered]`. Se `visitPos=1` → `inputIdx=visitPosToInputIdx.get(1)`, mas o mapa `visitPosToInputIdx` mapeia `waypoint_index → inputIdx`. O OSRM pode retornar `waypoints[0].waypoint_index = 0` (origem), `waypoints[1].waypoint_index = 3` (4º ponto como 2ª visita), etc. 
 
----
+Para `visitPos = 1` (1ª visita após origem), se `inputIdx = visitPosToInputIdx.get(1)` retornar, por exemplo, `inputIdx = 4`, então `geoIdx = 4 - 1 = 3`. Se `greedilyOrdered.length = 6`, isso funcionaria. Mas se apenas 1 destino foi geocodificado (os outros 5 falharam), `greedilyOrdered` tem length=1, e todos os `geoIdx >= 1` retornam `undefined` → `WARNING: geoIdx X out of bounds` → `continue` → `orderedDestinos` fica com apenas 1 elemento.
+
+**Confirmando**: O Nominatim está falhando para a maioria das cidades na edge function (rate limit) → `geocoded.length = 1` → `greedilyOrdered` tem 1 elemento → `setGroups` reconstrói com apenas 1 grupo → `rotaDestinos` tem apenas 1 destino → `sortedPoints` renderiza 1 marcador.
+
+**Por que geocoded.length = 1?** Porque o primeiro geocode (origem) já consome a cota do Nominatim. O delay de `if (i > 0)` só aplica entre destinos, **mas não há delay entre o geocode da ORIGEM e o primeiro destino (i=0)**. Linha 134: `geocode(oCidade, oUf)` sem delay, depois linha 143: `if (i > 0) await delay(350)` — quando `i=0`, não tem delay → duas requests sem delay → Nominatim silencia as seguintes.
+
+### BUG 2 — Mover bloco não atualiza a rota no mapa
+
+**Causa**: As funções `moveUp`, `moveDown`, `moveToPosition` e `handleDragEnd` chamam `setGroups(renumber(arr))`. Isso atualiza `groups` e consequentemente `activeGroups` e `rotaDestinos`. O mapa recebe novos `destinos` com novas `ordem` values.
+
+Mas a `routeGeometry`, `distanciaTotal` e `trechos` **não são limpos quando o usuário move manualmente**. O mapa continua exibindo a geometria antiga (que correspondia à ordem antiga). Os `trechos` no card também ficam desatualizados.
+
+Além disso, o `citySetKey` é calculado por **conjunto de cidades** (sorted unique) — não leva em conta a **ordem** dos destinos. Portanto mover um bloco não recalcula o mapa (correto para não regeocoder), mas a geometria da rota antiga não faz sentido com a nova ordem. A rota deveria ser recalculada automaticamente quando o usuário reordena os blocos.
+
+**Fix**: Limpar `routeGeometry`, `distanciaTotal` e `trechos` (ou re-roteirizar automaticamente) sempre que `groups` mudar via drag/move, indicando visualmente que a rota precisa ser recalculada.
 
 ## Plano de Correção
 
-### 1. `supabase/functions/roteirizar/index.ts`
-- **Delay entre geocodings**: adicionar `await new Promise(r => setTimeout(r, 350))` entre chamadas Nominatim na edge function para não throttlear
-- **Timeout do OSRM `/trip` de 8s → 15s**: dar mais tempo para o servidor público processar 6+ waypoints
-- **Label dos trechos**: trocar `cliente` por `cidade` no cálculo de `fromLabel`/`toLabel`
+### Fix 1 — Edge function `supabase/functions/roteirizar/index.ts`
 
-### 2. `src/components/dashboard/RotaMap.tsx`
-- **Delay entre geocodings**: adicionar delay de 350ms entre cada `geocode()` no `useEffect` do loop de destinos para evitar rate limit do Nominatim no front-end
-- **Retry em cidades que falharam**: se `geocodedCoords` terminar com menos cidades que `uniquePairs.length`, re-tentar as que faltam após 2 segundos (uma única vez)
+Adicionar delay **antes** do primeiro destino (i=0) também, garantindo delay após geocode da origem:
+```typescript
+// ANTES:
+const origemCoords = await geocode(oCidade, oUf);
+for (let i = 0; i < destinos.length; i++) {
+  if (i > 0) await delay(350); // ← sem delay para i=0!
 
-### 3. `src/components/dashboard/RoteirizacaoDialog.tsx`  
-- **Sem mudanças necessárias** — a lógica de mapeamento `originalIndex` está correta
+// DEPOIS:
+const origemCoords = await geocode(oCidade, oUf);
+await delay(400); // delay após origem, antes do primeiro destino
+for (let i = 0; i < destinos.length; i++) {
+  if (i > 0) await delay(400);
+```
 
-### Arquivos a editar
+### Fix 2 — `RotaMap.tsx`: Forçar re-geocoding quando componente remonta com cache vazio
+
+O `useEffect([citySetKey])` não re-executa se `citySetKey` não mudou entre dois mounts. Adicionar uma dependência de montagem usando um ref que detecta se o componente remontou com `geocodedCoords` vazio:
+
+```typescript
+// Após o componente remontar, se geocodedCoords está vazio mas o cache tem os dados, popular imediatamente
+const mountedRef = useRef(0);
+useEffect(() => {
+  mountedRef.current++; // incrementa a cada mount
+}, []);
+```
+
+OU mais simples: trocar a dep do `useEffect` de `[citySetKey]` para `[citySetKey, mountedRef.current]` — não funciona porque ref não dispara re-render.
+
+**Solução mais simples e correta**: usar um `key` no próprio `RotaMap` dentro do `RoteirizacaoDialog` baseado em `open` (dialog aberto). Quando `open=false → true`, o `RotaMap` remonta e o `useEffect` sempre executa (React sempre roda effects no mount). Como `buildFromCache` está correto, isso populará os `geocodedCoords` imediatamente.
+
+```tsx
+// RoteirizacaoDialog.tsx
+const mapInstanceKey = useMemo(() => (open ? "open" : "closed"), [open]);
+// ...
+<RotaMap key={mapInstanceKey} ... />
+```
+
+Não — isso recriaria o MapContainer toda vez que o dialog abre.
+
+**Solução real e cirúrgica**: No `useEffect([citySetKey])` do `RotaMap`, **sempre** executar `buildFromCache()` no início antes do check de `needsFetch`, para garantir que o estado seja populado mesmo se `citySetKey` não mudou entre dois mounts:
+
+Na verdade, o React **sempre** executa `useEffect` no primeiro mount de um componente, independente das deps. Então isso deve funcionar. O problema pode ser outro.
+
+**Investigando de novo**: O `Dialog` usa `open` prop. Quando `open=false`, o `DialogContent` pode ser mantido no DOM com `display:none` (depende da implementação) ou desmontado. Verificando o shadcn Dialog — ele **desmonta** o conteúdo quando `open=false`. Logo o `RotaMap` e `MapContainer` são desmontados. Quando o dialog reabre, o `RotaMap` monta do zero, `geocodedCoords = new Map()`, `useEffect` roda → `buildFromCache()` → deveria popular.
+
+O verdadeiro bug dos marcadores sumindo é o **edge function geocoding falhando** (Fix 1), não o front-end. O front-end está correto — ele renderiza o que a edge function retorna via `setGroups`.
+
+### Fix 3 — `RoteirizacaoDialog.tsx`: Limpar rota ao mover blocos manualmente
+
+Nas funções `moveUp`, `moveDown`, `moveToPosition` e `handleDragEnd`, adicionar limpeza da geometria antiga:
+
+```typescript
+const clearRoute = useCallback(() => {
+  setRouteGeometry(undefined);
+  setDistanciaTotal(undefined);
+  setTrechos(undefined);
+}, []);
+
+const moveUp = (idx: number) => {
+  clearRoute(); // ← adicionar
+  if (idx === 0) return; 
+  setGroups(...);
+};
+// idem para moveDown, moveToPosition, handleDragEnd
+```
+
+Isso faz o mapa exibir apenas os marcadores (sem a linha de rota antiga/inválida) após reordenação manual, deixando claro que o usuário precisa clicar "Roteirizar" para recalcular.
+
+## Arquivos a editar
 
 | Arquivo | Mudança |
 |---|---|
-| `supabase/functions/roteirizar/index.ts` | Delay 350ms entre geocodings; timeout OSRM de 8s→15s; label trechos usa cidade |
-| `src/components/dashboard/RotaMap.tsx` | Delay 350ms entre geocodings no front-end; retry automático para cidades que falharam |
+| `supabase/functions/roteirizar/index.ts` | Adicionar delay de 400ms ANTES do primeiro destino (após geocode da origem) para evitar rate-limit do Nominatim |
+| `src/components/dashboard/RoteirizacaoDialog.tsx` | Limpar `routeGeometry/distanciaTotal/trechos` ao mover blocos via drag, moveUp, moveDown, moveToPosition |
