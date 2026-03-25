@@ -30,7 +30,8 @@ interface Coords {
   lng: number;
 }
 
-const geocodeCache = new Map<string, Coords | null>();
+// FIX: Only cache successful results — never cache null so transient Nominatim failures can be retried
+const geocodeCache = new Map<string, Coords>();
 
 async function geocode(cidade: string, uf: string): Promise<Coords | null> {
   const key = `${cidade},${uf}`;
@@ -45,13 +46,12 @@ async function geocode(cidade: string, uf: string): Promise<Coords | null> {
     const data = await res.json();
     if (data.length > 0) {
       const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      geocodeCache.set(key, coords);
+      geocodeCache.set(key, coords); // Only cache on success
       return coords;
     }
   } catch {
-    // ignore
+    // Do NOT cache failures — allow retry on next render
   }
-  geocodeCache.set(key, null);
   return null;
 }
 
