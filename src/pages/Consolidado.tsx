@@ -365,6 +365,14 @@ export default function Consolidado() {
                         <div className="flex items-center gap-2">
                           {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
                           <span className="font-mono font-bold text-sm">{g.placa ?? "—"}</span>
+                          {g.rupturaCount > 0 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/rupturas?carga=${encodeURIComponent(g.nomeCarga || g.cargaId)}`); }}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
+                            >
+                              <AlertTriangle className="h-2.5 w-2.5" />{g.rupturaCount}
+                            </button>
+                          )}
                         </div>
                         <div onClick={(e) => e.stopPropagation()}>
                           <StatusSelect value={g.status} onChange={(v) => handleStatusChange(g, v)} />
@@ -384,7 +392,10 @@ export default function Consolidado() {
                       <div className="border-t border-border bg-muted/20 divide-y divide-border/50">
                         {g.items.map((item) => (
                           <div key={item.id} className="px-3 py-2 text-xs space-y-0.5">
-                            <div className="font-medium">Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}</div>
+                            <div className="font-medium flex items-center gap-1.5">
+                              Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
+                              {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                            </div>
                             <div className="flex justify-between text-muted-foreground">
                               <span>{item.cliente ?? item.codigo_cliente ?? "—"}</span>
                               <span>{(item.peso ?? 0).toLocaleString("pt-BR")} kg</span>
