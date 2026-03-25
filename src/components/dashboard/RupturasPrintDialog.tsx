@@ -9,6 +9,8 @@ interface ProductSummaryItem {
   nome: string;
   count: number;
   peso: number;
+  qtd?: number;
+  porUnidade?: boolean;
 }
 
 interface RupturaItem {
