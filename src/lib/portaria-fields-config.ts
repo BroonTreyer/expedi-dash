@@ -111,7 +111,7 @@ export const VISIBILITY: VisibilityMatrix = {
   nota_fiscal:        { carga_propria: "oculto",      terceirizado: "opcional",    fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   doca_setor:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "opcional",    visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   carga_id:           { carga_propria: "opcional",    terceirizado: "opcional",    fornecedor: "opcional",    visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
-  numero_lacre:       { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  numero_lacre:       { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
 
   // Controle
   responsavel_interno:{ carga_propria: "oculto",      terceirizado: "opcional",    fornecedor: "oculto",      visitante: "oculto",      prestador: "obrigatorio", outros: "oculto" },
