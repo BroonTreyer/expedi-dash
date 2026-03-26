@@ -270,11 +270,13 @@ export default function Consolidado() {
             <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs">← Painel</Button>
             <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
           </div>
-          {groups.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
-              <Printer className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Imprimir</span>
-            </Button>
-          )}
+          <div>
+            {groups.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+                <Printer className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Imprimir</span>
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Filters */}

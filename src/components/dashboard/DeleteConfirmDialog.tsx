@@ -41,4 +41,4 @@ export const DeleteConfirmDialog = forwardRef<HTMLDivElement, Props>(function De
       </AlertDialogContent>
     </AlertDialog>
   );
-}
+});

@@ -23,7 +23,13 @@ export function ProtectedRoute({ children, allowedRoles }: Props) {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  const accessDenied = !!(allowedRoles && role && !allowedRoles.includes(role));
+
+  useEffect(() => {
+    if (accessDenied) toast.error("Acesso não permitido para seu nível");
+  }, [accessDenied]);
+
+  if (accessDenied) {
     return <Navigate to="/" replace />;
   }
 

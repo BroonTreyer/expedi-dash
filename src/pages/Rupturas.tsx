@@ -357,9 +357,9 @@ export default function Rupturas() {
                   </TableBody>
                 </Table>
               </div>
-           )}
-         </div>
-       )}
+            )}
+          </div>
+        )}
 
         {/* Cargas Fechadas com Pendência */}
         {cargasComPendencia.length > 0 && (

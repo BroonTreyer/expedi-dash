@@ -30,4 +30,4 @@ export const StatusSelect = forwardRef<HTMLDivElement, Props>(function StatusSel
       </SelectContent>
     </Select>
   );
-}
+});
