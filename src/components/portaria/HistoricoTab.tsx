@@ -44,7 +44,7 @@ const categoriaBadgeColor: Record<string, string> = {
 
 const PAGE_SIZE = 25;
 
-export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails, isLoading }: Props) {
+export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails, isLoading, isMultiDay }: Props) {
   const isMobile = useIsMobile();
   const { role } = useAuth();
   const deleteMov = useDeleteMovimentacao();
