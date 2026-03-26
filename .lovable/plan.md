@@ -2,25 +2,20 @@
 
 ## Problema
 
-O calendário do date picker usa `bg-primary` (vermelho #D42027) para dias selecionados e `bg-accent` (verde #4CAF50) para "hoje" e range. Resultado: vermelho e verde lado a lado — visual agressivo.
+Quando "hoje" (dia 26) faz parte do range selecionado, a classe `day_today` (`bg-slate-200 text-slate-900`) compete com `day_selected` (`bg-slate-800 text-white`), resultando em texto apagado/acinzentado.
 
-## Solução
-
-Trocar as classes do `calendar.tsx` para usar cores neutras/slate, sem alterar as variáveis CSS globais (que são usadas em outros lugares).
-
-| Classe | Antes | Depois |
-|---|---|---|
-| `cell` (range bg) | `bg-accent/50`, `bg-accent` | `bg-slate-100` |
-| `day_selected` | `bg-primary` (vermelho) | `bg-slate-800 text-white` |
-| `day_today` | `bg-accent` (verde) | `bg-slate-200 text-slate-900` |
-| `day_outside` (selected) | `bg-accent/50` | `bg-slate-100/50` |
-| `day_range_middle` | `bg-accent` | `bg-slate-100 text-slate-900` |
-
-### Arquivo a editar
+## Correção
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/ui/calendar.tsx` | Substituir todas as referências a `bg-primary`/`bg-accent` nas classes do calendário por tons de slate neutros |
+| `src/components/ui/calendar.tsx` | Na classe `day_today` (linha 36), adicionar `aria-selected:bg-slate-800 aria-selected:text-white` para que, quando o dia de hoje estiver selecionado, mantenha o visual escuro com texto branco igual aos outros dias |
 
-Resultado: calendário limpo, profissional, sem vermelho/verde.
+Linha 36 de:
+```
+"bg-slate-200 text-slate-900"
+```
+Para:
+```
+"bg-slate-200 text-slate-900 aria-selected:bg-slate-800 aria-selected:text-white"
+```
 
