@@ -208,13 +208,13 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                     {g.entrada && (
                       <Badge variant="default" className="gap-1 text-[11px]">
                         <ArrowDownToLine className="h-3 w-3" />
-                        {format(new Date(g.entrada.data_hora), "HH:mm", { locale: ptBR })}
+                        {format(new Date(g.entrada.data_hora), dateFmt, { locale: ptBR })}
                       </Badge>
                     )}
                      {g.saida && (
                       <Badge variant="secondary" className="gap-1 text-[11px]">
-                        <ArrowUpFromLine className="h-3 w-3" /> Retorno
-                        {format(new Date(g.saida.data_hora), "HH:mm", { locale: ptBR })}
+                        <ArrowUpFromLine className="h-3 w-3" /> Retorno{" "}
+                        {format(new Date(g.saida.data_hora), dateFmt, { locale: ptBR })}
                       </Badge>
                     )}
                     <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[r.categoria] || ""}`}>

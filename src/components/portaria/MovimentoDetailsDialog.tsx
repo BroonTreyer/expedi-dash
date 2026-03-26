@@ -151,21 +151,21 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
 
             {/* Admin actions */}
             {isAdmin && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
                   <Pencil className="h-3 w-3" /> Editar
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm" className="gap-1.5 text-xs">
-                      <Trash2 className="h-3 w-3" /> Excluir
+                      <Trash2 className="h-3 w-3" /> Excluir Tudo
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.
+                        Tem certeza que deseja excluir este registro (entrada + retorno)? Esta ação não pode ser desfeita.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -177,6 +177,30 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                {s && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10">
+                        <Trash2 className="h-3 w-3" /> Excluir Retorno
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir apenas o retorno?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Isso remove apenas o registro de retorno. A entrada permanecerá e o veículo voltará ao pátio.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={async () => { await deleteMov.mutateAsync(s.id); onOpenChange(false); }} disabled={deleteMov.isPending}>
+                          {deleteMov.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Excluir Retorno
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             )}
 

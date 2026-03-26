@@ -180,7 +180,7 @@ export function useCreateMovimentacao() {
   });
 }
 
-export async function uploadFotoMovimentacao(file: File, tipo: "placa" | "doc") {
+export async function uploadFotoMovimentacao(file: File, tipo: "placa" | "doc" | "painel" | "nota") {
   const ext = file.name.split(".").pop() || "jpg";
   const path = `movimentacoes/${tipo}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
   const { error } = await supabase.storage.from("portaria").upload(path, file);

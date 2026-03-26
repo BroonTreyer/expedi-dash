@@ -63,8 +63,9 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
       }
     });
 
-    // Recalculate km_rodado
-    if (updates.km_final && updates.km_inicial) {
+    // Only recalculate km_rodado if both values are in the same record
+    // For retorno records, km_inicial lives on the entrada — don't produce wrong values
+    if (updates.km_final != null && updates.km_inicial != null) {
       updates.km_rodado = Number(updates.km_final) - Number(updates.km_inicial);
     }
 

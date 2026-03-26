@@ -261,6 +261,7 @@ export default function Portaria() {
                   tipoFilter={tipoFilter === "all" ? "" : tipoFilter}
                   onViewDetails={openDetails}
                   isLoading={isLoading}
+                  isMultiDay={dateFromStr !== dateToStr}
                 />
               </CardContent>
             </Card>
