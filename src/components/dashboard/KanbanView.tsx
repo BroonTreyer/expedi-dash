@@ -44,6 +44,7 @@ export function KanbanView({ data, onStatusChange }: Props) {
                         <EtapaBadge etapa={c.etapa} />
                       </div>
                       <span className="text-xs font-semibold">{c.nome_produto || c.codigo_produto || "Sem produto"}</span>
+                      {c.numero_pedido && <span className="text-[10px] text-muted-foreground font-mono">Pedido #{c.numero_pedido}</span>}
                     </div>
                     <div className="text-[11px] text-muted-foreground space-y-0.5">
                       <div>{c.vendedores?.nome_vendedor ?? "—"}</div>

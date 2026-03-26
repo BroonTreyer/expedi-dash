@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import type { RegistroPortaria } from "@/hooks/useRegistrosPortaria";
 
@@ -14,6 +14,7 @@ export function EvidenciasViewer({ open, onOpenChange, registros }: Props) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Evidências da Portaria</DialogTitle>
+          <DialogDescription>Fotos e registros de validação</DialogDescription>
         </DialogHeader>
         {registros.length === 0 && (
           <p className="text-sm text-muted-foreground py-4">Nenhuma evidência registrada.</p>

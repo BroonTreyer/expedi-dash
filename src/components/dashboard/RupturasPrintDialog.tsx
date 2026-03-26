@@ -78,6 +78,11 @@ export function RupturasPrintDialog({ open, onOpenChange, data }: Props) {
   };
 
   const dataFormatada = (() => {
+    if (data.data.includes(" a ")) {
+      const [from, to] = data.data.split(" a ");
+      const fmt = (s: string) => { const [y, m, d] = s.split("-"); return `${d}/${m}/${y}`; };
+      return `${fmt(from)} a ${fmt(to)}`;
+    }
     const [y, m, d] = data.data.split("-");
     return `${d}/${m}/${y}`;
   })();
