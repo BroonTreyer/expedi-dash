@@ -76,7 +76,28 @@ export default function Portaria() {
       return;
     }
     const headers = ["Data/Hora", "Tipo", "Categoria", "Placa", "Motorista", "Empresa", "Setor", "Rota", "KM Inicial", "KM Final", "KM Rodado", "Observações"];
-    const rows = movimentacoes.map((m) => [
+    // Apply active filters before export
+    const filtered = movimentacoes.filter((m) => {
+      if (categoriaFilter && categoriaFilter !== "all" && m.categoria !== categoriaFilter) return false;
+      if (tipoFilter && tipoFilter !== "all" && m.tipo_movimento !== tipoFilter) return false;
+      if (search) {
+        const s = search.toLowerCase();
+        return (
+          m.placa?.toLowerCase().includes(s) ||
+          m.motorista?.toLowerCase().includes(s) ||
+          m.empresa?.toLowerCase().includes(s) ||
+          m.nome_completo?.toLowerCase().includes(s) ||
+          m.documento?.toLowerCase().includes(s) ||
+          m.rota?.toLowerCase().includes(s)
+        );
+      }
+      return true;
+    });
+    if (filtered.length === 0) {
+      toast.error("Nenhum dado para exportar com os filtros atuais");
+      return;
+    }
+    const rows = filtered.map((m) => [
       format(new Date(m.data_hora), "dd/MM/yyyy HH:mm"),
       m.tipo_movimento === "entrada" ? "Entrada" : "Retorno",
       CATEGORIAS.find((c) => c.value === m.categoria)?.label || m.categoria,
@@ -99,7 +120,7 @@ export default function Portaria() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exportado com sucesso!");
-  }, [movimentacoes, dateFromStr, dateToStr]);
+  }, [movimentacoes, dateFromStr, dateToStr, categoriaFilter, tipoFilter, search]);
 
   return (
     <Layout>
@@ -240,6 +261,7 @@ export default function Portaria() {
                   tipoFilter={tipoFilter === "all" ? "" : tipoFilter}
                   onViewDetails={openDetails}
                   isLoading={isLoading}
+                  isMultiDay={dateFromStr !== dateToStr}
                 />
               </CardContent>
             </Card>

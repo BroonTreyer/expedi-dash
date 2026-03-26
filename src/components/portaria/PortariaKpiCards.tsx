@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowDownToLine, ArrowUpFromLine, ParkingCircle } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, ParkingCircle, Truck } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
 interface Props {
@@ -15,12 +15,14 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     const entradas = movimentacoes.filter((m) => m.tipo_movimento === "entrada");
     const saidas = movimentacoes.filter((m) => m.tipo_movimento === "saida");
 
+    const terceirizados = entradas.filter((m) => m.categoria === "terceirizado").length;
+    const entradasSemTerc = entradas.filter((m) => m.categoria !== "terceirizado");
     const saidasVinculadas = new Set(
       saidas.filter((m) => m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id!)
     );
-    const noPatio = entradas.filter((e) => !saidasVinculadas.has(e.id)).length;
+    const noPatio = entradasSemTerc.filter((e) => !saidasVinculadas.has(e.id)).length;
 
-    return { entradas: entradas.length, saidas: saidas.length, noPatio };
+    return { entradas: entradas.length, saidas: saidas.length, noPatio, terceirizados };
   }, [movimentacoes]);
 
   const suffix = dateLabel || "Hoje";
@@ -28,13 +30,14 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
   const cards = [
     { label: `Entradas ${suffix}`, value: stats.entradas, icon: ArrowDownToLine, color: "text-accent" },
     { label: `Retornos ${suffix}`, value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
-    { label: "Veículos no Pátio", value: stats.noPatio, icon: ParkingCircle, color: "text-destructive" },
+    { label: "No Pátio", value: stats.noPatio, icon: ParkingCircle, color: "text-destructive" },
+    ...(stats.terceirizados > 0 ? [{ label: `Terceirizados ${suffix}`, value: stats.terceirizados, icon: Truck, color: "text-blue-600 dark:text-blue-400" }] : []),
   ];
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {[...Array(3)].map((_, i) => (
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+        {[...Array(4)].map((_, i) => (
           <Card key={i}><CardContent className="p-3 sm:p-4"><Skeleton className="h-14 w-full" /></CardContent></Card>
         ))}
       </div>
@@ -42,7 +45,7 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+    <div className={`grid gap-2 sm:gap-3 ${cards.length > 3 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
       {cards.map((c) => (
         <Card key={c.label}>
           <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">

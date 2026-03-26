@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ interface Props {
   tipoFilter: string;
   onViewDetails: (entrada: MovimentacaoPortaria | undefined, saida: MovimentacaoPortaria | undefined) => void;
   isLoading?: boolean;
+  isMultiDay?: boolean;
 }
 
 interface GrupoMovimento {
@@ -43,7 +44,7 @@ const categoriaBadgeColor: Record<string, string> = {
 
 const PAGE_SIZE = 25;
 
-export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails, isLoading }: Props) {
+export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilter, onViewDetails, isLoading, isMultiDay }: Props) {
   const isMobile = useIsMobile();
   const { role } = useAuth();
   const deleteMov = useDeleteMovimentacao();
@@ -131,7 +132,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
   }, [grupos, sort, sortData]);
 
   // Reset page when filters change
-  useMemo(() => setPage(0), [search, categoriaFilter, tipoFilter]);
+  useEffect(() => { setPage(0); }, [search, categoriaFilter, tipoFilter]);
 
   const totalPages = Math.ceil(sortedGrupos.length / PAGE_SIZE);
   const paginatedGrupos = sortedGrupos.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -158,12 +159,14 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
     );
   }
 
+  const dateFmt = isMultiDay ? "dd/MM HH:mm" : "HH:mm";
+
   const formatHora = (g: GrupoMovimento) => {
     if (g.entrada && g.saida) {
-      return `${format(new Date(g.entrada.data_hora), "HH:mm", { locale: ptBR })} → ${format(new Date(g.saida.data_hora), "HH:mm", { locale: ptBR })}`;
+      return `${format(new Date(g.entrada.data_hora), dateFmt, { locale: ptBR })} → ${format(new Date(g.saida.data_hora), dateFmt, { locale: ptBR })}`;
     }
     const m = g.entrada || g.saida!;
-    return format(new Date(m.data_hora), "HH:mm", { locale: ptBR });
+    return format(new Date(m.data_hora), dateFmt, { locale: ptBR });
   };
 
   const ref = (g: GrupoMovimento) => g.entrada || g.saida!;
@@ -205,13 +208,13 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                     {g.entrada && (
                       <Badge variant="default" className="gap-1 text-[11px]">
                         <ArrowDownToLine className="h-3 w-3" />
-                        {format(new Date(g.entrada.data_hora), "HH:mm", { locale: ptBR })}
+                        {format(new Date(g.entrada.data_hora), dateFmt, { locale: ptBR })}
                       </Badge>
                     )}
                      {g.saida && (
                       <Badge variant="secondary" className="gap-1 text-[11px]">
-                        <ArrowUpFromLine className="h-3 w-3" /> Retorno
-                        {format(new Date(g.saida.data_hora), "HH:mm", { locale: ptBR })}
+                        <ArrowUpFromLine className="h-3 w-3" /> Retorno{" "}
+                        {format(new Date(g.saida.data_hora), dateFmt, { locale: ptBR })}
                       </Badge>
                     )}
                     <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[r.categoria] || ""}`}>

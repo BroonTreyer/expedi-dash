@@ -129,6 +129,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         observacoes: null,
         usuario_id: user?.id ?? null,
         movimento_vinculado_id: entrada.id,
+        // Propagate category-specific fields
+        nome_completo: entrada.nome_completo || null,
+        documento: entrada.documento || null,
+        rota: entrada.rota || null,
+        pessoa_visitada: entrada.pessoa_visitada || null,
+        servico_executar: entrada.servico_executar || null,
+        tipo_operacao: entrada.tipo_operacao || null,
+        nota_fiscal: entrada.nota_fiscal || null,
+        telefone: entrada.telefone || null,
+        apelido: entrada.apelido || null,
       });
       setSaidaRapidaId(null);
     } catch {
