@@ -362,13 +362,15 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
               })()}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              {!canSave && !saving && (
+                <p className="text-[11px] text-destructive mr-auto">Preencha todos os campos obrigatórios (*)</p>
+              )}
               <Button variant="outline" onClick={handleClose} disabled={saving}>Cancelar</Button>
               <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                 Registrar {tipo === "entrada" ? "Entrada" : "Retorno"}
               </Button>
-
             </DialogFooter>
           </>
         )}
