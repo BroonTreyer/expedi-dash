@@ -443,54 +443,6 @@ export default function Rupturas() {
           </div>
         )}
 
-        {/* Filtros */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("h-9 text-sm justify-start gap-2", !dateRange.from && "text-muted-foreground")}>
-                <CalendarIcon className="h-4 w-4" />
-                {dateRange.from ? (
-                  dateRange.to && dateRange.from.getTime() !== dateRange.to.getTime() ? (
-                    <>{format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} – {format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}</>
-                  ) : (
-                    format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
-                  )
-                ) : (
-                  "Selecionar datas"
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="range" selected={dateRange} onSelect={(range) => { if (range) setDateRange(range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
-              <div className="p-2 border-t flex justify-end gap-1">
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDateRange({ from: today, to: today })}>Hoje</Button>
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => { const d = new Date(); d.setDate(d.getDate() - 6); setDateRange({ from: d, to: today }); }}>Últimos 7 dias</Button>
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => { const d = new Date(); setDateRange({ from: new Date(d.getFullYear(), d.getMonth(), 1), to: d }); }}>Este mês</Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-          <Select value={vendedorFilter} onValueChange={setVendedorFilter}>
-            <SelectTrigger><SelectValue placeholder="Vendedor" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos vendedores</SelectItem>
-              {filteredVendedores.map((v) => (
-                <SelectItem key={v.id} value={v.id}>{v.nome_vendedor}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {rupturaCargas.length > 0 && (
-            <Select value={cargaFilter} onValueChange={setCargaFilter}>
-              <SelectTrigger><SelectValue placeholder="Carga" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas as cargas</SelectItem>
-                {rupturaCargas.map((nc) => (
-                  <SelectItem key={nc} value={nc}>{nc}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Input placeholder="Buscar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} />
-        </div>
 
         {isLoading ? (
           <div className="text-center py-12 text-muted-foreground">Carregando dados...</div>
