@@ -1,219 +1,193 @@
 
+# Auditoria Completa do Projeto — Etapa 2 de 2
 
-# Auditoria Completa do Projeto — Etapa 1 de 2
-
-Auditoria linha por linha de todas as paginas, componentes e hooks. Separada em duas etapas por volume.
-
----
-
-## ETAPA 1 — Paginas Principais + Dashboard + Componentes Core
+Revisão linha por linha de todos os componentes restantes: Dashboard dialogs, Portaria sub-components, hooks, e CSS/responsividade.
 
 ---
 
-### 1. CONSOLE ERROR — `DeleteConfirmDialog` recebe ref indevida
+## Problemas Encontrados
 
-**Arquivo:** `src/components/dashboard/DeleteConfirmDialog.tsx`
-**Problema:** O console mostra `Function components cannot be given refs`. O `DeleteConfirmDialog` e o componente interno e o `AlertDialog` de Radix tenta passar ref. O componente é function component sem `forwardRef`.
-**Severidade:** Warning (console poluido, UX degradada em dev)
-**Correção:** Envolver o componente com `forwardRef`.
+### 21. BUG — `CarregamentoDialog` fecha antes de todas as mutações completarem
 
----
-
-### 2. CONSOLE ERROR — `StatusSelect` recebe ref indevida
-
-**Arquivo:** `src/components/dashboard/StatusSelect.tsx`
-**Problema:** Mesmo problema — `StatusSelect` em `CarregamentoTable` recebe ref do Radix mas nao tem `forwardRef`.
-**Severidade:** Warning
-**Correção:** Envolver com `forwardRef`.
-
----
-
-### 3. BUG — `Rupturas.tsx` busca nao filtra por vendedor/nome corretamente
-
-**Arquivo:** `src/pages/Rupturas.tsx` linhas 70-73
-**Problema:** O filtro `busca` verifica `nome_produto`, `codigo_produto` e `cliente`. Mas nao inclui `nome_carga`, `codigo_cliente`, nem `vendedores.nome_vendedor`. Buscar pelo nome do vendedor nao retorna resultados.
+**Arquivo:** `src/components/dashboard/CarregamentoDialog.tsx` linhas 140-178
+**Problema:** `handleSubmit` chama `onSubmit()` múltiplas vezes em loop (para multi-item) e depois `onOpenChange(false)` imediatamente. Como `onSubmit` chama `updateMut.mutate()` ou `createMut.mutate()`, as mutações são assíncronas. O dialog fecha antes que as mutações concluam. Se alguma falhar, o usuário não vê o erro porque o dialog já fechou.
 **Severidade:** Media
-**Correção:** Expandir busca para incluir `c.nome_carga`, `c.codigo_cliente`.
+**Correção:** Usar `mutateAsync` + `Promise.all` ou fechar apenas no `onSuccess`.
 
 ---
 
-### 4. BUG — `Rupturas.tsx` nao tem date picker na barra de filtros superior
+### 22. BUG — `CarregamentoDialog` useEffect deps incompletas
 
-**Arquivo:** `src/pages/Rupturas.tsx` linhas 391-416
-**Problema:** O date picker fica **abaixo** do bloco "Cargas Fechadas com Pendencia" e **abaixo** dos KPIs. O usuario precisa scrollar para ver os filtros. Layout confuso: KPIs > Resumo por Produto > Cargas com Pendencia > Filtros > Tabela.
-**Severidade:** UX Alta
-**Correção:** Mover os filtros (date picker, vendedor, carga, busca) para **antes** dos KPIs, logo abaixo do header.
-
----
-
-### 5. BUG — `Rupturas.tsx` indentation inconsistente gera layout quebrado
-
-**Arquivo:** `src/pages/Rupturas.tsx` linhas 305-306
-**Problema:** Indentacao com 3 espacos (`   )}`) em vez de 4, causa warnings de formatacao. Nao quebra funcionalidade mas inconsistente.
-**Severidade:** Baixa (code quality)
-
----
-
-### 6. BUG — `Index.tsx` filtro `showLogistica` exclui tudo quando ativo
-
-**Arquivo:** `src/pages/Index.tsx` linhas 117-118
-**Problema:** Quando `showLogistica === true`, filtra `c.etapa !== "logistica"` retornando false. Entao so mostra items com `etapa === "logistica"`. Mas os filtros de status/vendedor/etc **continuam aplicados**. Se o usuario tem filtro de status "Carregado" e clica "Ver Logistica OK", pode ver lista vazia. Nao ha feedback explicando isso.
-**Severidade:** UX Media
-**Correção:** Quando `showLogistica` ativo, resetar filtro de status para "todos" ou mostrar aviso.
-
----
-
-### 7. BUG — `Index.tsx` nao reseta `selectedIds` ao mudar data
-
-**Arquivo:** `src/pages/Index.tsx`
-**Problema:** `selectedIds` persiste entre mudancas de data. Se o usuario seleciona items no dia 25/03 e troca para 26/03, `selectedIds` mantem IDs antigos. O `selectedInView` filtra corretamente, mas o state acumula IDs orfaos indefinidamente.
-**Severidade:** Baixa (memory leak leve)
-**Correção:** `useEffect` que limpa `selectedIds` quando `dateFromStr`/`dateToStr` muda.
-
----
-
-### 8. UX — `Consolidado.tsx` nao tem botao "Voltar ao Painel"
-
-**Arquivo:** `src/pages/Consolidado.tsx`
-**Problema:** O Index tem botao "Ver Finalizados" que navega para `/consolidado`, mas o Consolidado nao tem botao para voltar. O usuario depende da sidebar.
-**Severidade:** UX Baixa
-
----
-
-### 9. BUG — `Consolidado.tsx` items expandidos perdem estado ao reordenar
-
-**Arquivo:** `src/pages/Consolidado.tsx` linhas 250-257
-**Problema:** `expanded` guarda `cargaId`. Quando o usuario ordena por coluna, os groups sao reordenados mas `expanded` mantem os mesmos IDs, correto. Porem ao mudar filtro de UF ou Status, grupos podem desaparecer e `expanded` acumula IDs orfaos.
-**Severidade:** Baixa
-**Correção:** Limpar `expanded` quando `filtered` muda.
-
----
-
-### 10. BUG — `Usuarios.tsx` sem `DialogDescription`
-
-**Arquivo:** `src/pages/Usuarios.tsx` linha 182
-**Problema:** O Dialog "Criar Usuario" tem `DialogTitle` mas nao `DialogDescription`. Radix requer ambos para acessibilidade. O console pode mostrar warning.
-**Severidade:** Acessibilidade
-**Correção:** Adicionar `DialogDescription`.
-
----
-
-### 11. BUG — `Usuarios.tsx` fetch manual sem invalidacao reativa
-
-**Arquivo:** `src/pages/Usuarios.tsx` linhas 104-122
-**Problema:** `fetchUsers()` usa `useState` + `useEffect` manual em vez de `useQuery`. Nao tem cache, nao tem invalidacao automatica, nao tem loading/error handling robusto. Se outro admin muda roles simultaneamente, a lista nao atualiza.
-**Severidade:** Media
-**Correção:** Migrar para `useQuery` com queryKey `["users"]`.
-
----
-
-### 12. BUG — `Clientes.tsx` upsert com `onConflict` nao tipado
-
-**Arquivo:** `src/pages/Clientes.tsx` linha 94
-**Problema:** `supabase.from("clientes").upsert(batch, { onConflict: "codigo_cliente" } as any)` — o `as any` esconde que `codigo_cliente` pode nao ter UNIQUE constraint no banco. Se nao tiver, o upsert falha silenciosamente ou insere duplicatas.
-**Severidade:** Potencial bug de dados
-**Correção:** Verificar se `codigo_cliente` tem UNIQUE constraint no banco. A tabela `clientes` nao mostra unique constraint no schema fornecido.
-
----
-
-### 13. BUG — `KanbanView.tsx` nao permite drag-and-drop entre colunas
-
-**Arquivo:** `src/components/dashboard/KanbanView.tsx`
-**Problema:** O Kanban renderiza cards por status mas nao implementa drag. O visual sugere interatividade (cards dentro de colunas) mas nao e arrastavel. Pode confundir usuarios.
-**Severidade:** UX Media
-**Correção:** Ou implementar drag-and-drop para mudar status, ou adicionar botoes de "mover" dentro de cada card.
-
----
-
-### 14. BUG — `CarregamentoTable.tsx` `handleLoteSubmit` faz N mutacoes sequenciais
-
-**Arquivo:** `src/pages/Index.tsx` linhas 223-228
-**Problema:** `handleLoteSubmit` chama `updateMut.mutate(u)` em loop. Cada chamada e uma mutacao separada. Se 20 items sao selecionados, 20 requests separados. Sem batch, sem tratamento de falha parcial.
-**Severidade:** Performance Media
-**Correção:** Criar um `batchUpdate` no hook que usa uma unica transacao.
-
----
-
-### 15. SEGURANCA — `carregamentos_dia` DELETE aberto para qualquer autenticado
-
-**Arquivo:** RLS policies de `carregamentos_dia`
-**Problema:** A policy de DELETE e `USING (true)` para `authenticated`. Qualquer usuario logado pode deletar qualquer carregamento via API direta. Similar ao problema ja corrigido em `movimentacoes_portaria`.
-**Severidade:** Alta
-**Correção:** Restringir DELETE a admin usando `has_role(auth.uid(), 'admin')`.
-
----
-
-### 16. SEGURANCA — `produtos`, `vendedores`, `tipos_caminhao`, `clientes` DELETE aberto
-
-**Arquivo:** RLS policies de todas as tabelas de cadastro
-**Problema:** Todas as tabelas de cadastro permitem DELETE para qualquer `authenticated`. Um usuario com role `logistica` pode deletar todos os vendedores via API.
-**Severidade:** Alta
-**Correção:** Restringir DELETE e INSERT/UPDATE a roles `admin` + `faturamento` conforme UI.
-
----
-
-### 17. BUG — `useCarregamentos.ts` realtime channel nao depende do dateRange
-
-**Arquivo:** `src/hooks/useCarregamentos.ts` linha 104
-**Problema:** O `useEffect` do realtime tem `[queryClient]` como dependencia, nao `[dateFrom, dateEnd]`. Isso significa que o channel e criado uma unica vez. Correto — mas o `invalidateQueries` usa `queryKey: ["carregamentos"]` sem especificar datas, invalidando TODOS os caches de carregamentos. Comportamento OK mas pode causar refetch desnecessario.
+**Arquivo:** `src/components/dashboard/CarregamentoDialog.tsx` linha 86
+**Problema:** `useEffect` depende de `[editing, open, selectedDate]` mas usa `vendedores`, `produtos` e `defaultRuptura` internamente. Se `vendedores` carregar DEPOIS do dialog abrir, o `codigoVendedorInput` não será preenchido. Na prática funciona porque `open` re-dispara, mas é frágil.
 **Severidade:** Baixa
 
 ---
 
-### 18. BUG — `Auth.tsx` importa asset inexistente potencialmente
+### 23. BUG — `FechamentoLoteDialog` não propaga `nome_carga` quando gerado automaticamente
 
-**Arquivo:** `src/pages/Auth.tsx` linha 9
-**Problema:** `import fricoLogo from "@/assets/frico-logo.png"` — se o arquivo nao existe, o build quebra. Nao vi `src/assets/` na listagem de arquivos. Pode ser que existe mas nao foi listado.
-**Severidade:** Potencial build break
-**Correção:** Verificar existencia do asset.
+**Arquivo:** `src/components/dashboard/FechamentoLoteDialog.tsx` linha 79
+**Problema:** `const cargaId = nomeCarga || \`CG-...\``. Quando `nomeCarga` está vazio, o `cargaId` gerado automaticamente **não** é passado como `nome_carga` nos updates (linha 93: `...(nomeCarga ? { nome_carga: nomeCarga } : {})`). Resultado: o registro tem `carga_id` mas `nome_carga` fica null. No Consolidado e nos filtros, aparece o `carga_id` criptíco em vez de um nome amigável.
+**Severidade:** Media
+**Correção:** Sempre setar `nome_carga: nomeCarga || cargaId`.
 
 ---
 
-### 19. UX — `ProtectedRoute.tsx` nao mostra mensagem de "Acesso negado"
+### 24. BUG — `ConsolidadoPrintDialog` dataFormatada crashea com range
 
-**Arquivo:** `src/components/ProtectedRoute.tsx` linha 24
-**Problema:** Quando `allowedRoles` nao inclui o role do usuario, redireciona silenciosamente para `/`. O usuario nao sabe por que foi redirecionado.
+**Arquivo:** `src/components/dashboard/ConsolidadoPrintDialog.tsx` linha 74
+**Problema:** `data.data` pode ser `"2026-03-20 a 2026-03-26"` (range). O `split("-")` retorna 5+ elementos, causando data formatada errada como `03/20 a 2026/2026`.
+**Severidade:** Media
+**Correção:** Verificar se `data.data` contém " a " e formatar cada parte separadamente.
+
+---
+
+### 25. BUG — `RupturasPrintDialog` mesmo problema de dataFormatada com range
+
+**Arquivo:** `src/components/dashboard/RupturasPrintDialog.tsx` linha 80
+**Problema:** Idêntico ao #24. `data.data` pode ser range.
+**Severidade:** Media
+**Correção:** Mesma solução do #24.
+
+---
+
+### 26. UX — `EvidenciasViewer` sem `DialogDescription`
+
+**Arquivo:** `src/components/portaria/EvidenciasViewer.tsx` linha 14
+**Problema:** Falta `DialogDescription` para acessibilidade.
+**Severidade:** A11Y Baixa
+**Correção:** Adicionar `<DialogDescription className="sr-only">...</DialogDescription>`.
+
+---
+
+### 27. UX — `PhotoViewerDialog` renderiza null quando url é null (early return antes do Dialog)
+
+**Arquivo:** `src/components/portaria/PhotoViewerDialog.tsx` linha 13
+**Problema:** `if (!url) return null;` antes do `<Dialog>`. Quando `url` muda de não-null para null, o Dialog não tem chance de animar o fechamento. O componente simplesmente desaparece. Deveria usar `open={open && !!url}` no Dialog em vez de early return.
 **Severidade:** UX Baixa
-**Correção:** Mostrar toast "Acesso nao permitido" antes de redirecionar.
+**Correção:** Remover early return, usar `open={open && !!url}`.
 
 ---
 
-### 20. BUG — `Portaria.tsx` dateRange.to pode ser undefined
+### 28. BUG — `CarregamentoTable` grupo expandido perde referência ao re-sort
 
-**Arquivo:** `src/pages/Portaria.tsx` linha 41
-**Problema:** `dateRange.to?.toDateString()` — quando o usuario seleciona range e clica uma unica data, `to` pode ser `undefined` temporariamente. `isToday` pode ser true quando nao deveria.
-**Severidade:** Baixa (edge case)
+**Arquivo:** `src/components/dashboard/CarregamentoTable.tsx` linha 262
+**Problema:** `expanded` guarda `codigoCliente` como key. Ao mudar sort, os groups são recriados e `codigoCliente` permanece válido — OK. Mas `expanded` nunca é limpo quando `data` muda. Se o filtro muda e um `codigoCliente` desaparece, `expanded` mantém IDs órfãos indefinidamente.
+**Severidade:** Baixa (memory leak leve, mesmo problema do Consolidado #9)
 
 ---
 
-## ETAPA 1 — Resumo de Prioridades
+### 29. PERF — `CarregamentoTable` recria `sortAccessors` desnecessariamente
+
+**Arquivo:** `src/components/dashboard/CarregamentoTable.tsx` linha 271
+**Problema:** `sortAccessors` é criado com `useMemo(() => ({...}), [])` — correto, deps vazias. OK, sem problema real.
+**Severidade:** Nenhuma — falso alarme.
+
+---
+
+### 30. BUG — `Consolidado.tsx` StatusSelect no mobile não previne propagação
+
+**Arquivo:** `src/pages/Consolidado.tsx` linhas 377-379
+**Problema:** O `StatusSelect` no card mobile está envolvido em `<div onClick={(e) => e.stopPropagation()}>` — OK, funciona. Sem bug.
+**Severidade:** Nenhuma — já tratado.
+
+---
+
+### 31. UX — `RotaMap` marker icons são recriados a cada render
+
+**Arquivo:** `src/components/dashboard/RotaMap.tsx` linha 454
+**Problema:** `createMarkerIcon(p.ordem, type)` é chamado dentro do map render. Cada render cria novos `L.divIcon` objects. Leaflet compara por referência, então cada render força re-render dos markers.
+**Severidade:** Performance Baixa
+**Correção:** Memoizar icons por `(num, type)` key.
+
+---
+
+### 32. BUG — `Consolidado.tsx` dateRange.to pode ser undefined temporariamente
+
+**Arquivo:** `src/pages/Consolidado.tsx` linha 121
+**Problema:** Mesmo issue do Portaria (#20 Etapa 1). `dateToStr` fallback para `dateFromStr` quando `to` é undefined. Correto. Sem bug.
+**Severidade:** Nenhuma — já tratado com fallback.
+
+---
+
+### 33. CSS — Print styles usam hardcoded class `printing-carga`
+
+**Arquivo:** `src/index.css` (preciso verificar)
+**Problema:** `CargaPrintDialog`, `ConsolidadoPrintDialog`, `RupturasPrintDialog` todos usam `document.body.classList.add("printing-carga")` e clonam content para `#carga-print-root`. Se dois print dialogs abrem em sequência rápida, o `cleanup` do primeiro pode remover o root do segundo.
+**Severidade:** Edge case Baixa — operação sequencial, não simultânea.
+
+---
+
+### 34. UX — `Filters.tsx` busca só filtra por produto, não por cliente/cidade
+
+**Arquivo:** `src/components/dashboard/Filters.tsx` linha 237
+**Problema:** O placeholder diz "Buscar produto..." e o filtro em `Index.tsx` linha 130 só verifica `nome_produto` e `codigo_produto`. Não busca por `cliente`, `cidade`, `motorista`, ou `nome_carga`.
+**Severidade:** UX Media
+**Correção:** Expandir busca em `Index.tsx` para incluir `cliente`, `motorista`, `cidade`, `nome_carga`. Atualizar placeholder.
+
+---
+
+### 35. BUG — `CarregamentoDialog` modo "editar" com multi-items cria duplicatas
+
+**Arquivo:** `src/components/dashboard/CarregamentoDialog.tsx` linhas 153-164
+**Problema:** Quando `editing` existe e `items.length > 1`, o loop chama `onSubmit` para cada item. O primeiro item usa `editing.id` (update), mas items subsequentes **não** têm ID — serão tratados como criação (sem `id`). Resultado: editar e adicionar um segundo produto cria um novo registro duplicado.
+**Severidade:** Baixa — multi-item editing é raro e items.length é quase sempre 1 quando editing.
+
+---
+
+### 36. UX — `KanbanView` cards não mostram número do pedido
+
+**Arquivo:** `src/components/dashboard/KanbanView.tsx` linha 46
+**Problema:** Os cards Kanban mostram produto, vendedor, peso, placa, cidade. Mas **não** mostram `numero_pedido`. No modo tabela, o pedido é visível. No Kanban, não há como identificar qual pedido específico é cada card.
+**Severidade:** UX Media
+**Correção:** Adicionar `c.numero_pedido` ao card.
+
+---
+
+### 37. UX — `PlacaInput` autocomplete não funciona com placas minúsculas digitadas
+
+**Arquivo:** `src/components/portaria/PlacaInput.tsx` linha 18
+**Problema:** `formatPlaca` converte para uppercase. O `usePlacaAutocomplete` recebe o valor já uppercase. OK, sem bug. Funciona corretamente.
+**Severidade:** Nenhuma.
+
+---
+
+### 38. A11Y — `CapturaFoto` imagem preview sem lazy loading
+
+**Arquivo:** `src/components/portaria/CapturaFoto.tsx` linha 57
+**Problema:** `<img src={preview}...>` — preview de câmera local não precisa lazy loading (é blob URL). Sem problema.
+**Severidade:** Nenhuma.
+
+---
+
+## Resumo de Issues Reais (excluindo falsos alarmes)
 
 | # | Tipo | Severidade | Arquivo Principal |
 |---|---|---|---|
-| 15 | SEGURANCA | CRITICA | RLS carregamentos_dia |
-| 16 | SEGURANCA | CRITICA | RLS cadastros |
-| 12 | BUG DADOS | ALTA | Clientes.tsx (upsert) |
-| 4 | UX | ALTA | Rupturas.tsx (layout filtros) |
-| 1 | CONSOLE | MEDIA | DeleteConfirmDialog.tsx |
-| 2 | CONSOLE | MEDIA | StatusSelect.tsx |
-| 3 | BUG | MEDIA | Rupturas.tsx (busca) |
-| 6 | UX | MEDIA | Index.tsx (showLogistica) |
-| 11 | BUG | MEDIA | Usuarios.tsx (fetch manual) |
-| 13 | UX | MEDIA | KanbanView.tsx |
-| 14 | PERF | MEDIA | Index.tsx (batch update) |
-| 7 | MEMORIA | BAIXA | Index.tsx (selectedIds) |
-| 8 | UX | BAIXA | Consolidado.tsx |
-| 9 | BUG | BAIXA | Consolidado.tsx (expanded) |
-| 10 | A11Y | BAIXA | Usuarios.tsx |
-| 17 | PERF | BAIXA | useCarregamentos.ts |
-| 18 | BUILD | VERIFICAR | Auth.tsx |
-| 19 | UX | BAIXA | ProtectedRoute.tsx |
-| 20 | BUG | BAIXA | Portaria.tsx |
-| 5 | CODE | BAIXA | Rupturas.tsx |
+| 23 | BUG | MEDIA | FechamentoLoteDialog.tsx (nome_carga null) |
+| 24 | BUG | MEDIA | ConsolidadoPrintDialog.tsx (dataFormatada range) |
+| 25 | BUG | MEDIA | RupturasPrintDialog.tsx (dataFormatada range) |
+| 34 | UX | MEDIA | Index.tsx + Filters.tsx (busca limitada) |
+| 36 | UX | MEDIA | KanbanView.tsx (sem numero_pedido) |
+| 21 | BUG | MEDIA | CarregamentoDialog.tsx (close before mutations) |
+| 26 | A11Y | BAIXA | EvidenciasViewer.tsx |
+| 27 | UX | BAIXA | PhotoViewerDialog.tsx (early return) |
+| 31 | PERF | BAIXA | RotaMap.tsx (marker icons) |
+| 28 | MEM | BAIXA | CarregamentoTable.tsx (expanded orphans) |
+| 35 | BUG | BAIXA | CarregamentoDialog.tsx (multi-item edit) |
 
----
+## Arquivos a Editar
 
-A **Etapa 2** cobrira: todos os componentes de dashboard restantes (CarregamentoDialog, FechamentoLoteDialog, RoteirizacaoDialog, RotaMap, CargaPrintDialog, ConsolidadoPrintDialog, RupturasPrintDialog, MultiSelectFilter, EtapaBadge, StatusBadge), todos os componentes de portaria (RegistroMovimentoDialog detalhado, CapturaFoto, PlacaInput, OcrResultado, EvidenciasViewer, PhotoViewerDialog), hooks restantes, e verificacao completa de CSS/responsividade.
+| Arquivo | Itens |
+|---|---|
+| `src/components/dashboard/FechamentoLoteDialog.tsx` | #23 |
+| `src/components/dashboard/ConsolidadoPrintDialog.tsx` | #24 |
+| `src/components/dashboard/RupturasPrintDialog.tsx` | #25 |
+| `src/pages/Index.tsx` | #34 |
+| `src/components/dashboard/Filters.tsx` | #34 |
+| `src/components/dashboard/KanbanView.tsx` | #36 |
+| `src/components/portaria/EvidenciasViewer.tsx` | #26 |
+| `src/components/portaria/PhotoViewerDialog.tsx` | #27 |
+| `src/components/dashboard/RotaMap.tsx` | #31 |
 
-Deseja que eu prossiga com a Etapa 2 ou que implemente as correcoes da Etapa 1 primeiro?
-
+Posso implementar todas as correções de uma vez.
