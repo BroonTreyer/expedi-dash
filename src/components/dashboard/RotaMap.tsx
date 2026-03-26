@@ -114,14 +114,20 @@ async function geocodeViaNominatim(cidade: string, uf: string): Promise<Coords |
   return null;
 }
 
+// Memoized marker icon cache to avoid recreating L.divIcon on every render
+const markerIconCache = new Map<string, L.DivIcon>();
+
 function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
+  const cacheKey = `${num}-${type}`;
+  if (markerIconCache.has(cacheKey)) return markerIconCache.get(cacheKey)!;
+
   const colors = {
     start: { bg: "hsl(142, 71%, 45%)", border: "white" },
     middle: { bg: "hsl(217, 91%, 60%)", border: "white" },
     end: { bg: "hsl(0, 72%, 51%)", border: "white" },
   };
   const { bg, border } = colors[type];
-  return L.divIcon({
+  const icon = L.divIcon({
     className: "custom-marker",
     html: `<div style="
       background: ${bg};
@@ -141,6 +147,8 @@ function createMarkerIcon(num: number, type: "start" | "middle" | "end") {
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
+  markerIconCache.set(cacheKey, icon);
+  return icon;
 }
 
 function createOrigemIcon(label: string) {
