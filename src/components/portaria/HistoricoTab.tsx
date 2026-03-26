@@ -23,6 +23,7 @@ interface Props {
   tipoFilter: string;
   onViewDetails: (entrada: MovimentacaoPortaria | undefined, saida: MovimentacaoPortaria | undefined) => void;
   isLoading?: boolean;
+  isMultiDay?: boolean;
 }
 
 interface GrupoMovimento {
