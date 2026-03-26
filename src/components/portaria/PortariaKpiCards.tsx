@@ -7,10 +7,10 @@ import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
   isLoading?: boolean;
+  dateLabel?: string;
 }
 
-
-export function PortariaKpiCards({ movimentacoes = [], isLoading }: Props) {
+export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: Props) {
   const stats = useMemo(() => {
     const entradas = movimentacoes.filter((m) => m.tipo_movimento === "entrada");
     const saidas = movimentacoes.filter((m) => m.tipo_movimento === "saida");
@@ -20,13 +20,14 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading }: Props) {
     );
     const noPatio = entradas.filter((e) => !saidasVinculadas.has(e.id)).length;
 
-
     return { entradas: entradas.length, saidas: saidas.length, noPatio };
   }, [movimentacoes]);
 
+  const suffix = dateLabel || "Hoje";
+
   const cards = [
-    { label: "Entradas Hoje", value: stats.entradas, icon: ArrowDownToLine, color: "text-accent" },
-    { label: "Retornos Hoje", value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
+    { label: `Entradas ${suffix}`, value: stats.entradas, icon: ArrowDownToLine, color: "text-accent" },
+    { label: `Retornos ${suffix}`, value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
     { label: "Veículos no Pátio", value: stats.noPatio, icon: ParkingCircle, color: "text-destructive" },
   ];
 

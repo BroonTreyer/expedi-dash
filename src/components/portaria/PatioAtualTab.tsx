@@ -11,6 +11,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { CATEGORIAS, useCreateMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
@@ -42,6 +44,17 @@ function getTempoClass(minutos: number): string {
   return "text-muted-foreground";
 }
 
+function getInfoExtra(m: MovimentacaoPortaria): string | null {
+  if (m.categoria === "carga_propria" && m.rota) return `Rota: ${m.rota}`;
+  if ((m.categoria === "visitante" || m.categoria === "prestador") && m.nome_completo) {
+    let info = m.nome_completo;
+    if (m.categoria === "prestador" && m.servico_executar) info += ` — ${m.servico_executar}`;
+    if (m.categoria === "visitante" && m.pessoa_visitada) info += ` → ${m.pessoa_visitada}`;
+    return info;
+  }
+  return null;
+}
+
 export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading }: Props) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -49,6 +62,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000);
@@ -63,7 +77,6 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     );
     return movimentacoes
       .filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id))
-      // Terceirizado doesn't need exit — exclude from patio
       .filter((m) => m.categoria !== "terceirizado")
       .filter((m) => {
         if (categoriaFilter && m.categoria !== categoriaFilter) return false;
@@ -72,10 +85,26 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         return (
           m.placa?.toLowerCase().includes(s) ||
           m.motorista?.toLowerCase().includes(s) ||
-          m.empresa?.toLowerCase().includes(s)
+          m.empresa?.toLowerCase().includes(s) ||
+          m.nome_completo?.toLowerCase().includes(s) ||
+          m.documento?.toLowerCase().includes(s) ||
+          m.pessoa_visitada?.toLowerCase().includes(s) ||
+          m.servico_executar?.toLowerCase().includes(s) ||
+          m.rota?.toLowerCase().includes(s)
         );
       });
   }, [movimentacoes, search, categoriaFilter]);
+
+  const sortedVeiculos = useMemo(() => {
+    return sortData(veiculosNoPatio, {
+      data_hora: (m) => new Date(m.data_hora).getTime(),
+      tempo: (m) => differenceInMinutes(now, new Date(m.data_hora)),
+      categoria: (m) => m.categoria,
+      placa: (m) => m.placa,
+      motorista: (m) => m.motorista,
+      empresa: (m) => m.empresa,
+    });
+  }, [veiculosNoPatio, sortData, now]);
 
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
 
@@ -117,7 +146,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     );
   }
 
-  if (veiculosNoPatio.length === 0) {
+  if (sortedVeiculos.length === 0) {
     return (
       <div className="py-12 flex flex-col items-center gap-2 text-muted-foreground">
         <ParkingCircle className="h-10 w-10 opacity-30" />
@@ -130,10 +159,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   if (isMobile) {
     return (
       <div className="p-3 space-y-3">
-        {veiculosNoPatio.map((m) => {
+        {sortedVeiculos.map((m) => {
           const minutos = differenceInMinutes(now, new Date(m.data_hora));
           const isSaidaRapida = saidaRapidaId === m.id;
           const isSaving = savingId === m.id;
+          const infoExtra = getInfoExtra(m);
 
           return (
             <Card key={m.id} className={minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
@@ -168,6 +198,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       <span className="text-muted-foreground">Setor: </span>{m.destino_setor}
                     </div>
                   )}
+                  {infoExtra && (
+                    <div className="col-span-2 truncate text-primary/80">
+                      {infoExtra}
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end pt-1">
                   {m.categoria === "carga_propria" ? (
@@ -175,13 +210,13 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                        <ArrowUpFromLine className="h-3 w-3" /> Retorno c/ KM
                     </Button>
                   ) : isSaidaRapida ? (
-                    <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-3 animate-in fade-in duration-200">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaidaRapidaId(null)} disabled={isSaving}>
                         Cancelar
                       </Button>
                       <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleSaidaRapida(m)} disabled={isSaving}>
                         {isSaving ? <span className="animate-spin">⏳</span> : <ArrowUpFromLine className="h-3 w-3" />}
-                        Confirmar
+                        Confirmar Retorno
                       </Button>
                     </div>
                   ) : (
@@ -203,21 +238,21 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Entrada</TableHead>
-            <TableHead>Tempo</TableHead>
-            <TableHead>Categoria</TableHead>
-            <TableHead>Placa</TableHead>
-            <TableHead>Motorista</TableHead>
-            <TableHead>Empresa</TableHead>
-            <TableHead>Setor</TableHead>
+            <SortableTableHead sortKey="data_hora" sort={sort} onSort={toggleSort}>Entrada</SortableTableHead>
+            <SortableTableHead sortKey="tempo" sort={sort} onSort={toggleSort}>Tempo</SortableTableHead>
+            <SortableTableHead sortKey="categoria" sort={sort} onSort={toggleSort}>Categoria</SortableTableHead>
+            <SortableTableHead sortKey="placa" sort={sort} onSort={toggleSort}>Placa</SortableTableHead>
+            <SortableTableHead sortKey="motorista" sort={sort} onSort={toggleSort}>Motorista</SortableTableHead>
+            <TableHead>Info</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {veiculosNoPatio.map((m) => {
+          {sortedVeiculos.map((m) => {
             const minutos = differenceInMinutes(now, new Date(m.data_hora));
             const isSaidaRapida = saidaRapidaId === m.id;
             const isSaving = savingId === m.id;
+            const infoExtra = getInfoExtra(m);
 
             return (
               <TableRow key={m.id} className={minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
@@ -240,15 +275,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </TableCell>
                 <TableCell className="font-mono font-medium">{m.placa || "—"}</TableCell>
                 <TableCell>{m.motorista || "—"}</TableCell>
-                <TableCell className="text-sm">{m.empresa || "—"}</TableCell>
-                <TableCell className="text-sm">{m.destino_setor || "—"}</TableCell>
+                <TableCell className="text-sm max-w-[200px] truncate">
+                  {infoExtra || m.empresa || m.destino_setor || "—"}
+                </TableCell>
                 <TableCell className="text-right">
                   {m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                       <ArrowUpFromLine className="h-3 w-3" /> Retorno c/ KM
                     </Button>
                   ) : isSaidaRapida ? (
-                    <div className="flex items-center gap-1.5 justify-end animate-in fade-in duration-200">
+                    <div className="flex items-center gap-3 justify-end animate-in fade-in duration-200">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaidaRapidaId(null)} disabled={isSaving}>
                         Cancelar
                       </Button>
