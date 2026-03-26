@@ -120,7 +120,7 @@ export default function Portaria() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exportado com sucesso!");
-  }, [movimentacoes, dateFromStr, dateToStr]);
+  }, [movimentacoes, dateFromStr, dateToStr, categoriaFilter, tipoFilter, search]);
 
   return (
     <Layout>
