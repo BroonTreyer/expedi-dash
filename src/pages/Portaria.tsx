@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/Layout";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History } from "lucide-react";
+import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, X } from "lucide-react";
 import { useMovimentacoes, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
@@ -19,7 +19,7 @@ import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimento
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
-
+import { toast } from "sonner";
 
 export default function Portaria() {
   const today = new Date();
@@ -38,13 +38,24 @@ export default function Portaria() {
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
+  const dateLabel = isToday ? "Hoje" : "no Período";
+
+  const hasActiveFilters = search || categoriaFilter || tipoFilter;
+
+  const clearFilters = () => {
+    setSearch("");
+    setCategoriaFilter("");
+    setTipoFilter("");
+  };
+
   const counts = useMemo(() => {
     const saidasVinculadas = new Set(
       movimentacoes
         .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
         .map((m) => m.movimento_vinculado_id!)
     );
-    const patio = movimentacoes.filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id)).length;
+    const patio = movimentacoes.filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id) && m.categoria !== "terceirizado").length;
     return { patio, historico: movimentacoes.length };
   }, [movimentacoes]);
 
@@ -58,6 +69,37 @@ export default function Portaria() {
     setDetailsSaida(saida || null);
     setDetailsOpen(true);
   };
+
+  const exportCSV = useCallback(() => {
+    if (movimentacoes.length === 0) {
+      toast.error("Nenhum dado para exportar");
+      return;
+    }
+    const headers = ["Data/Hora", "Tipo", "Categoria", "Placa", "Motorista", "Empresa", "Setor", "Rota", "KM Inicial", "KM Final", "KM Rodado", "Observações"];
+    const rows = movimentacoes.map((m) => [
+      format(new Date(m.data_hora), "dd/MM/yyyy HH:mm"),
+      m.tipo_movimento === "entrada" ? "Entrada" : "Retorno",
+      CATEGORIAS.find((c) => c.value === m.categoria)?.label || m.categoria,
+      m.placa || "",
+      m.motorista || m.nome_completo || "",
+      m.empresa || "",
+      m.destino_setor || "",
+      m.rota || "",
+      m.km_inicial ?? "",
+      m.km_final ?? "",
+      m.km_rodado ?? "",
+      m.observacoes || "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `portaria_${dateFromStr}_${dateToStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exportado com sucesso!");
+  }, [movimentacoes, dateFromStr, dateToStr]);
 
   return (
     <Layout>
@@ -112,18 +154,20 @@ export default function Portaria() {
             <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
               <Plus className="h-3.5 w-3.5" /> Registrar
             </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={exportCSV}>
+              <Download className="h-3.5 w-3.5" /> CSV
+            </Button>
           </div>
         </div>
 
-
         {/* KPIs */}
-        <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} />
+        <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} dateLabel={dateLabel} />
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1 sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar placa, motorista, empresa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Buscar placa, motorista, empresa, nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
             <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
@@ -134,6 +178,11 @@ export default function Portaria() {
               ))}
             </SelectContent>
           </Select>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground h-9" onClick={clearFilters}>
+              <X className="h-3.5 w-3.5" /> Limpar
+            </Button>
+          )}
         </div>
 
         {/* Tabs */}

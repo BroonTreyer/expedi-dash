@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Camera, RotateCcw, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,9 +16,18 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl }: Props) {
 
   const preview = previewUrl || localPreview;
 
+  // Cleanup ObjectURL on unmount or when localPreview changes
+  useEffect(() => {
+    return () => {
+      if (localPreview) URL.revokeObjectURL(localPreview);
+    };
+  }, [localPreview]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Revoke previous local URL before creating new one
+    if (localPreview) URL.revokeObjectURL(localPreview);
     setLocalPreview(URL.createObjectURL(file));
     onCapture(file);
     // reset input so same file can be re-selected
@@ -26,6 +35,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl }: Props) {
   };
 
   const handleRetake = () => {
+    if (localPreview) URL.revokeObjectURL(localPreview);
     setLocalPreview(null);
     inputRef.current?.click();
   };
