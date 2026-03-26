@@ -343,17 +343,23 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
               })}
 
               {/* KM Rodado calculated display */}
-              {categoria === "carga_propria" && values.km_final && values.km_inicial && (
-                <div className="rounded-md bg-muted/50 p-3 text-sm">
-                  <span className="text-muted-foreground">KM Rodado: </span>
-                  <span className="font-semibold">{(Number(values.km_final) - Number(values.km_inicial)).toFixed(0)} km</span>
-                  {values.km_rota && (
-                    <span className="text-muted-foreground ml-2">
-                      (Rota: {values.km_rota} km — {Math.abs(Number(values.km_final) - Number(values.km_inicial) - Number(values.km_rota)).toFixed(0)} km de diferença)
-                    </span>
-                  )}
-                </div>
-              )}
+              {(() => {
+                const kmIni = tipo === "saida" && prefill?.km_inicial != null ? prefill.km_inicial : values.km_inicial;
+                if (!(categoria === "carga_propria" && values.km_final && kmIni != null)) return null;
+                const rodado = Number(values.km_final) - Number(kmIni);
+                const kmRota = values.km_rota || (tipo === "saida" ? prefill?.km_rota : null);
+                return (
+                  <div className="rounded-md bg-muted/50 p-3 text-sm">
+                    <span className="text-muted-foreground">KM Rodado: </span>
+                    <span className="font-semibold">{rodado.toFixed(0)} km</span>
+                    {kmRota && (
+                      <span className="text-muted-foreground ml-2">
+                        (Rota: {kmRota} km — {Math.abs(rodado - Number(kmRota)).toFixed(0)} km de diferença)
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <DialogFooter>
