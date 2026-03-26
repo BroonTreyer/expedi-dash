@@ -112,8 +112,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
 
     // Calculate km_rodado for carga_propria
     let kmRodado: number | null = null;
-    if (categoria === "carga_propria" && values.km_final && values.km_inicial) {
-      kmRodado = Number(values.km_final) - Number(values.km_inicial);
+    const kmInicialSource = tipo === "saida" && prefill?.km_inicial != null ? prefill.km_inicial : values.km_inicial;
+    if (categoria === "carga_propria" && values.km_final && kmInicialSource != null) {
+      kmRodado = Number(values.km_final) - Number(kmInicialSource);
     }
 
     try {
