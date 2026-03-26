@@ -179,6 +179,7 @@ export default function Usuarios() {
             <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Criar Usuário</DialogTitle>
+                <p className="text-sm text-muted-foreground">Preencha os dados para criar um novo usuário</p>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div className="space-y-2">

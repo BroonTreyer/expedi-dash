@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { STATUSES, STATUS_COLORS, type CarregamentoStatus } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -9,7 +10,7 @@ interface Props {
   statusColors?: Record<string, string>;
 }
 
-export function StatusSelect({ value, onChange, statuses, statusColors }: Props) {
+export const StatusSelect = forwardRef<HTMLDivElement, Props>(function StatusSelect({ value, onChange, statuses, statusColors }, _ref) {
   const items = statuses ?? STATUSES;
   const colors = statusColors ?? STATUS_COLORS;
 
@@ -29,4 +30,4 @@ export function StatusSelect({ value, onChange, statuses, statusColors }: Props)
       </SelectContent>
     </Select>
   );
-}
+});

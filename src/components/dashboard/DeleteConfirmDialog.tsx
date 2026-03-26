@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,13 +18,13 @@ interface Props {
   description?: string;
 }
 
-export function DeleteConfirmDialog({
+export const DeleteConfirmDialog = forwardRef<HTMLDivElement, Props>(function DeleteConfirmDialog({
   open,
   onOpenChange,
   onConfirm,
   title = "Confirmar exclusão",
   description = "Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.",
-}: Props) {
+}, _ref) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -40,4 +41,4 @@ export function DeleteConfirmDialog({
       </AlertDialogContent>
     </AlertDialog>
   );
-}
+});
