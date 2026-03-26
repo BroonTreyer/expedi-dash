@@ -1,185 +1,219 @@
 
 
-# Auditoria Completa — Aba Portaria (Rodada 2)
+# Auditoria Completa do Projeto — Etapa 1 de 2
 
-Revisão pós-implementação das correções anteriores. Foco em problemas remanescentes e melhorias novas.
-
----
-
-## Problemas Encontrados
-
-### 1. BUG — Exclusão no Histórico só deleta entrada, retorno fica órfão visualmente
-
-**Problema:** `useDeleteMovimentacao` deleta registros vinculados (`movimento_vinculado_id = id`) e depois o registro em si. Porém, no `HistoricoTab`, o botão "Excluir" usa `r.id` (que é `g.entrada || g.saida`). Se o grupo tem entrada + saída, exclui a entrada e seus filhos — OK. Mas se o admin quer excluir **só o retorno** (corrigir um retorno errado), não há opção. O botão sempre exclui o registro principal do grupo.
-
-**Correção:** No `MovimentoDetailsDialog`, permitir excluir entrada ou retorno individualmente (dois botões quando ambos existem).
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/MovimentoDetailsDialog.tsx` | Botão "Excluir Retorno" separado quando `s` existe |
+Auditoria linha por linha de todas as paginas, componentes e hooks. Separada em duas etapas por volume.
 
 ---
 
-### 2. BUG — `useMemo` com side effect no HistoricoTab
-
-**Problema:** Linha 134: `useMemo(() => setPage(0), [search, categoriaFilter, tipoFilter])` usa `useMemo` para executar um side effect (`setPage`). Isso é um anti-pattern do React e pode causar warnings em strict mode. O `useMemo` não deve ter side effects.
-
-**Correção:** Trocar por `useEffect`.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/HistoricoTab.tsx` | Linha 134: trocar `useMemo` por `useEffect` |
+## ETAPA 1 — Paginas Principais + Dashboard + Componentes Core
 
 ---
 
-### 3. BUG — EditMovimentoDialog não recalcula km_rodado com prefill
+### 1. CONSOLE ERROR — `DeleteConfirmDialog` recebe ref indevida
 
-**Problema:** Na edição (linha 67), `km_rodado` é calculado como `km_final - km_inicial` do mesmo registro. Porém, para um registro de **retorno** (saída), `km_inicial` está no registro de **entrada** vinculado, não no próprio. O admin edita o KM Final do retorno, mas o `km_rodado` não recalcula corretamente porque `km_inicial` do retorno é `null`.
-
-**Correção:** Buscar `km_inicial` do registro de entrada vinculado quando editando um retorno. Ou: aceitar que o EditDialog é simplificado e não recalcular km_rodado automaticamente (remover o cálculo errado).
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/EditMovimentoDialog.tsx` | Remover recálculo automático de km_rodado ou buscar entrada vinculada |
+**Arquivo:** `src/components/dashboard/DeleteConfirmDialog.tsx`
+**Problema:** O console mostra `Function components cannot be given refs`. O `DeleteConfirmDialog` e o componente interno e o `AlertDialog` de Radix tenta passar ref. O componente é function component sem `forwardRef`.
+**Severidade:** Warning (console poluido, UX degradada em dev)
+**Correção:** Envolver o componente com `forwardRef`.
 
 ---
 
-### 4. UX — Pátio não exclui "terceirizado" do count mas exclui da lista
+### 2. CONSOLE ERROR — `StatusSelect` recebe ref indevida
 
-**Problema:** Em `Portaria.tsx` linha 58, o `counts.patio` filtra `m.categoria !== "terceirizado"`. OK. Mas no `PortariaKpiCards`, o "Veículos no Pátio" conta a mesma coisa. Porém, as "Entradas" e "Retornos" contam **todos** os registros, incluindo terceirizados. Isso gera confusão: "30 entradas mas só 5 no pátio" quando 20 são terceirizados.
-
-**Correção:** Adicionar KPI "Terceirizados" separado ou filtrar terceirizados dos KPIs de entrada/retorno.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/PortariaKpiCards.tsx` | Adicionar 4° card "Terceirizados" ou nota explicativa |
+**Arquivo:** `src/components/dashboard/StatusSelect.tsx`
+**Problema:** Mesmo problema — `StatusSelect` em `CarregamentoTable` recebe ref do Radix mas nao tem `forwardRef`.
+**Severidade:** Warning
+**Correção:** Envolver com `forwardRef`.
 
 ---
 
-### 5. UX — Saída rápida não propaga campos do retorno
+### 3. BUG — `Rupturas.tsx` busca nao filtra por vendedor/nome corretamente
 
-**Problema:** `handleSaidaRapida` no `PatioAtualTab` cria um registro de saída com campos mínimos (placa, motorista, empresa). Não propaga `nome_completo`, `documento`, `rota`, `categoria`-specific fields. O retorno rápido de um visitante perde o nome dele.
-
-**Correção:** Propagar campos relevantes da entrada: `nome_completo`, `documento`, `rota`, `pessoa_visitada`, `servico_executar`, `tipo_operacao`, `nota_fiscal`.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/PatioAtualTab.tsx` | Expandir `handleSaidaRapida` com campos adicionais |
+**Arquivo:** `src/pages/Rupturas.tsx` linhas 70-73
+**Problema:** O filtro `busca` verifica `nome_produto`, `codigo_produto` e `cliente`. Mas nao inclui `nome_carga`, `codigo_cliente`, nem `vendedores.nome_vendedor`. Buscar pelo nome do vendedor nao retorna resultados.
+**Severidade:** Media
+**Correção:** Expandir busca para incluir `c.nome_carga`, `c.codigo_cliente`.
 
 ---
 
-### 6. UX — CSV exporta todos os movimentos, não respeita filtros de categoria/tipo
+### 4. BUG — `Rupturas.tsx` nao tem date picker na barra de filtros superior
 
-**Problema:** `exportCSV` em `Portaria.tsx` usa `movimentacoes` diretamente (todos os dados do período). Se o usuário filtrou por "Carga Própria" e "Entradas", o CSV exporta tudo, não o filtro atual.
-
-**Correção:** Aplicar os filtros ativos (`categoriaFilter`, `tipoFilter`, `search`) antes de gerar o CSV.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/pages/Portaria.tsx` | Filtrar `movimentacoes` com os mesmos critérios antes de exportar |
+**Arquivo:** `src/pages/Rupturas.tsx` linhas 391-416
+**Problema:** O date picker fica **abaixo** do bloco "Cargas Fechadas com Pendencia" e **abaixo** dos KPIs. O usuario precisa scrollar para ver os filtros. Layout confuso: KPIs > Resumo por Produto > Cargas com Pendencia > Filtros > Tabela.
+**Severidade:** UX Alta
+**Correção:** Mover os filtros (date picker, vendedor, carga, busca) para **antes** dos KPIs, logo abaixo do header.
 
 ---
 
-### 7. UX — Sem data completa no Histórico mobile
+### 5. BUG — `Rupturas.tsx` indentation inconsistente gera layout quebrado
 
-**Problema:** Nos cards mobile do Histórico, só mostra "HH:mm" da entrada/retorno. Se o período é "Este mês", o operador não sabe **qual dia** cada registro aconteceu.
-
-**Correção:** Mostrar "dd/MM HH:mm" ao invés de só "HH:mm" quando o range é maior que 1 dia.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/HistoricoTab.tsx` | Receber prop `isMultiDay` e ajustar formato |
-| `src/pages/Portaria.tsx` | Passar prop |
+**Arquivo:** `src/pages/Rupturas.tsx` linhas 305-306
+**Problema:** Indentacao com 3 espacos (`   )}`) em vez de 4, causa warnings de formatacao. Nao quebra funcionalidade mas inconsistente.
+**Severidade:** Baixa (code quality)
 
 ---
 
-### 8. UX — Upload de foto não indica tipo correto para painel/nota
+### 6. BUG — `Index.tsx` filtro `showLogistica` exclui tudo quando ativo
 
-**Problema:** `handleFotoCapture` em `RegistroMovimentoDialog` calcula `tipoFoto` como `"placa"` ou `"doc"` baseado no `fieldKey.includes("placa")`. Mas `foto_painel_url` e `foto_nota_url` não contêm "placa", então são classificados como `"doc"`. Funciona (mesma pasta), mas a organização no storage fica errada.
-
-**Correção:** Mapear `fieldKey` para tipo correto: `foto_painel_url → "painel"`, `foto_nota_url → "nota"`, `foto_documento_url → "doc"`, `foto_placa_url → "placa"`.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/RegistroMovimentoDialog.tsx` | Expandir mapeamento de tipo de foto |
-| `src/hooks/useMovimentacoesPortaria.ts` | `uploadFotoMovimentacao` aceitar mais tipos |
+**Arquivo:** `src/pages/Index.tsx` linhas 117-118
+**Problema:** Quando `showLogistica === true`, filtra `c.etapa !== "logistica"` retornando false. Entao so mostra items com `etapa === "logistica"`. Mas os filtros de status/vendedor/etc **continuam aplicados**. Se o usuario tem filtro de status "Carregado" e clica "Ver Logistica OK", pode ver lista vazia. Nao ha feedback explicando isso.
+**Severidade:** UX Media
+**Correção:** Quando `showLogistica` ativo, resetar filtro de status para "todos" ou mostrar aviso.
 
 ---
 
-### 9. SEGURANÇA — Qualquer usuário autenticado pode excluir movimentações
+### 7. BUG — `Index.tsx` nao reseta `selectedIds` ao mudar data
 
-**Problema:** O RLS de `movimentacoes_portaria` permite DELETE para qualquer `authenticated`. A UI restringe a admin, mas a API não. Um operador comum poderia chamar a API diretamente.
-
-**Correção:** Adicionar RLS policy de DELETE restrito a admins usando `has_role(auth.uid(), 'admin')`.
-
-| Arquivo | Mudança |
-|---|---|
-| Migration SQL | `DROP POLICY` + `CREATE POLICY` para DELETE com check de admin |
+**Arquivo:** `src/pages/Index.tsx`
+**Problema:** `selectedIds` persiste entre mudancas de data. Se o usuario seleciona items no dia 25/03 e troca para 26/03, `selectedIds` mantem IDs antigos. O `selectedInView` filtra corretamente, mas o state acumula IDs orfaos indefinidamente.
+**Severidade:** Baixa (memory leak leve)
+**Correção:** `useEffect` que limpa `selectedIds` quando `dateFromStr`/`dateToStr` muda.
 
 ---
 
-### 10. UX — Detalhes do movimento não mostra "Número do Lacre" destacado no retorno
+### 8. UX — `Consolidado.tsx` nao tem botao "Voltar ao Painel"
 
-**Problema:** O `MovimentoDetailsDialog` mostra `m.numero_lacre || s?.numero_lacre` na seção básica. Funciona, mas como o lacre agora é obrigatório **só no retorno** de Carga Própria, o valor vem de `s.numero_lacre`. Se não houver `s` (retorno não registrado), nunca aparece. OK lógico, mas o label "Nº Lacre/Etiqueta" não distingue se é da entrada ou retorno.
-
-**Correção:** Quando ambos existem, mostrar separadamente: "Lacre (Entrada)" e "Lacre (Retorno)".
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/MovimentoDetailsDialog.tsx` | Separar exibição de lacre por registro |
+**Arquivo:** `src/pages/Consolidado.tsx`
+**Problema:** O Index tem botao "Ver Finalizados" que navega para `/consolidado`, mas o Consolidado nao tem botao para voltar. O usuario depende da sidebar.
+**Severidade:** UX Baixa
 
 ---
 
-### 11. PERFORMANCE — Realtime subscription não filtra por data
+### 9. BUG — `Consolidado.tsx` items expandidos perdem estado ao reordenar
 
-**Problema:** O channel em `useMovimentacoes` escuta `event: "*"` na tabela inteira. Qualquer INSERT/UPDATE/DELETE em `movimentacoes_portaria` (mesmo de meses atrás) invalida o cache. Com muitos operadores simultâneos, gera invalidações desnecessárias.
-
-**Correção:** Não é possível filtrar por data no Realtime do Supabase (limitação), mas pode-se usar `filter` por `tipo_movimento` ou simplesmente aceitar o comportamento atual (impacto baixo).
-
-**Ação:** Nenhuma — manter como está. Impacto real é mínimo.
-
----
-
-### 12. UX — Histórico não mostra data quando range > 1 dia (desktop)
-
-**Problema:** No desktop, a coluna "Hora" mostra `HH:mm → HH:mm`. Quando o range é "Este mês", não há indicação do dia.
-
-**Correção:** Mostrar `dd/MM HH:mm` na coluna quando range > 1 dia.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/HistoricoTab.tsx` | Ajustar `formatHora` para incluir dia quando multi-day |
+**Arquivo:** `src/pages/Consolidado.tsx` linhas 250-257
+**Problema:** `expanded` guarda `cargaId`. Quando o usuario ordena por coluna, os groups sao reordenados mas `expanded` mantem os mesmos IDs, correto. Porem ao mudar filtro de UF ou Status, grupos podem desaparecer e `expanded` acumula IDs orfaos.
+**Severidade:** Baixa
+**Correção:** Limpar `expanded` quando `filtered` muda.
 
 ---
 
-## Priorização
+### 10. BUG — `Usuarios.tsx` sem `DialogDescription`
 
-| # | Tipo | Impacto | Esforço | Prioridade |
-|---|---|---|---|---|
-| 2 | BUG | Medio | Baixo | P0 |
-| 3 | BUG | Medio | Baixo | P0 |
-| 5 | BUG | Alto | Baixo | P0 |
-| 9 | SEG | Alto | Baixo | P0 |
-| 6 | UX | Alto | Baixo | P1 |
-| 7+12 | UX | Medio | Baixo | P1 |
-| 8 | UX | Baixo | Baixo | P1 |
-| 1 | UX | Medio | Medio | P2 |
-| 4 | UX | Baixo | Baixo | P2 |
-| 10 | UX | Baixo | Baixo | P2 |
+**Arquivo:** `src/pages/Usuarios.tsx` linha 182
+**Problema:** O Dialog "Criar Usuario" tem `DialogTitle` mas nao `DialogDescription`. Radix requer ambos para acessibilidade. O console pode mostrar warning.
+**Severidade:** Acessibilidade
+**Correção:** Adicionar `DialogDescription`.
 
-## Resumo de arquivos a editar
+---
 
-| Arquivo | Itens |
-|---|---|
-| `src/components/portaria/HistoricoTab.tsx` | #2, #7, #12 |
-| `src/components/portaria/PatioAtualTab.tsx` | #5 |
-| `src/components/portaria/EditMovimentoDialog.tsx` | #3 |
-| `src/components/portaria/RegistroMovimentoDialog.tsx` | #8 |
-| `src/components/portaria/MovimentoDetailsDialog.tsx` | #1, #10 |
-| `src/pages/Portaria.tsx` | #6, #7 |
-| `src/hooks/useMovimentacoesPortaria.ts` | #8 |
-| `src/components/portaria/PortariaKpiCards.tsx` | #4 |
-| Migration SQL | #9 |
+### 11. BUG — `Usuarios.tsx` fetch manual sem invalidacao reativa
 
-Posso implementar tudo de uma vez ou por prioridade. O que prefere?
+**Arquivo:** `src/pages/Usuarios.tsx` linhas 104-122
+**Problema:** `fetchUsers()` usa `useState` + `useEffect` manual em vez de `useQuery`. Nao tem cache, nao tem invalidacao automatica, nao tem loading/error handling robusto. Se outro admin muda roles simultaneamente, a lista nao atualiza.
+**Severidade:** Media
+**Correção:** Migrar para `useQuery` com queryKey `["users"]`.
+
+---
+
+### 12. BUG — `Clientes.tsx` upsert com `onConflict` nao tipado
+
+**Arquivo:** `src/pages/Clientes.tsx` linha 94
+**Problema:** `supabase.from("clientes").upsert(batch, { onConflict: "codigo_cliente" } as any)` — o `as any` esconde que `codigo_cliente` pode nao ter UNIQUE constraint no banco. Se nao tiver, o upsert falha silenciosamente ou insere duplicatas.
+**Severidade:** Potencial bug de dados
+**Correção:** Verificar se `codigo_cliente` tem UNIQUE constraint no banco. A tabela `clientes` nao mostra unique constraint no schema fornecido.
+
+---
+
+### 13. BUG — `KanbanView.tsx` nao permite drag-and-drop entre colunas
+
+**Arquivo:** `src/components/dashboard/KanbanView.tsx`
+**Problema:** O Kanban renderiza cards por status mas nao implementa drag. O visual sugere interatividade (cards dentro de colunas) mas nao e arrastavel. Pode confundir usuarios.
+**Severidade:** UX Media
+**Correção:** Ou implementar drag-and-drop para mudar status, ou adicionar botoes de "mover" dentro de cada card.
+
+---
+
+### 14. BUG — `CarregamentoTable.tsx` `handleLoteSubmit` faz N mutacoes sequenciais
+
+**Arquivo:** `src/pages/Index.tsx` linhas 223-228
+**Problema:** `handleLoteSubmit` chama `updateMut.mutate(u)` em loop. Cada chamada e uma mutacao separada. Se 20 items sao selecionados, 20 requests separados. Sem batch, sem tratamento de falha parcial.
+**Severidade:** Performance Media
+**Correção:** Criar um `batchUpdate` no hook que usa uma unica transacao.
+
+---
+
+### 15. SEGURANCA — `carregamentos_dia` DELETE aberto para qualquer autenticado
+
+**Arquivo:** RLS policies de `carregamentos_dia`
+**Problema:** A policy de DELETE e `USING (true)` para `authenticated`. Qualquer usuario logado pode deletar qualquer carregamento via API direta. Similar ao problema ja corrigido em `movimentacoes_portaria`.
+**Severidade:** Alta
+**Correção:** Restringir DELETE a admin usando `has_role(auth.uid(), 'admin')`.
+
+---
+
+### 16. SEGURANCA — `produtos`, `vendedores`, `tipos_caminhao`, `clientes` DELETE aberto
+
+**Arquivo:** RLS policies de todas as tabelas de cadastro
+**Problema:** Todas as tabelas de cadastro permitem DELETE para qualquer `authenticated`. Um usuario com role `logistica` pode deletar todos os vendedores via API.
+**Severidade:** Alta
+**Correção:** Restringir DELETE e INSERT/UPDATE a roles `admin` + `faturamento` conforme UI.
+
+---
+
+### 17. BUG — `useCarregamentos.ts` realtime channel nao depende do dateRange
+
+**Arquivo:** `src/hooks/useCarregamentos.ts` linha 104
+**Problema:** O `useEffect` do realtime tem `[queryClient]` como dependencia, nao `[dateFrom, dateEnd]`. Isso significa que o channel e criado uma unica vez. Correto — mas o `invalidateQueries` usa `queryKey: ["carregamentos"]` sem especificar datas, invalidando TODOS os caches de carregamentos. Comportamento OK mas pode causar refetch desnecessario.
+**Severidade:** Baixa
+
+---
+
+### 18. BUG — `Auth.tsx` importa asset inexistente potencialmente
+
+**Arquivo:** `src/pages/Auth.tsx` linha 9
+**Problema:** `import fricoLogo from "@/assets/frico-logo.png"` — se o arquivo nao existe, o build quebra. Nao vi `src/assets/` na listagem de arquivos. Pode ser que existe mas nao foi listado.
+**Severidade:** Potencial build break
+**Correção:** Verificar existencia do asset.
+
+---
+
+### 19. UX — `ProtectedRoute.tsx` nao mostra mensagem de "Acesso negado"
+
+**Arquivo:** `src/components/ProtectedRoute.tsx` linha 24
+**Problema:** Quando `allowedRoles` nao inclui o role do usuario, redireciona silenciosamente para `/`. O usuario nao sabe por que foi redirecionado.
+**Severidade:** UX Baixa
+**Correção:** Mostrar toast "Acesso nao permitido" antes de redirecionar.
+
+---
+
+### 20. BUG — `Portaria.tsx` dateRange.to pode ser undefined
+
+**Arquivo:** `src/pages/Portaria.tsx` linha 41
+**Problema:** `dateRange.to?.toDateString()` — quando o usuario seleciona range e clica uma unica data, `to` pode ser `undefined` temporariamente. `isToday` pode ser true quando nao deveria.
+**Severidade:** Baixa (edge case)
+
+---
+
+## ETAPA 1 — Resumo de Prioridades
+
+| # | Tipo | Severidade | Arquivo Principal |
+|---|---|---|---|
+| 15 | SEGURANCA | CRITICA | RLS carregamentos_dia |
+| 16 | SEGURANCA | CRITICA | RLS cadastros |
+| 12 | BUG DADOS | ALTA | Clientes.tsx (upsert) |
+| 4 | UX | ALTA | Rupturas.tsx (layout filtros) |
+| 1 | CONSOLE | MEDIA | DeleteConfirmDialog.tsx |
+| 2 | CONSOLE | MEDIA | StatusSelect.tsx |
+| 3 | BUG | MEDIA | Rupturas.tsx (busca) |
+| 6 | UX | MEDIA | Index.tsx (showLogistica) |
+| 11 | BUG | MEDIA | Usuarios.tsx (fetch manual) |
+| 13 | UX | MEDIA | KanbanView.tsx |
+| 14 | PERF | MEDIA | Index.tsx (batch update) |
+| 7 | MEMORIA | BAIXA | Index.tsx (selectedIds) |
+| 8 | UX | BAIXA | Consolidado.tsx |
+| 9 | BUG | BAIXA | Consolidado.tsx (expanded) |
+| 10 | A11Y | BAIXA | Usuarios.tsx |
+| 17 | PERF | BAIXA | useCarregamentos.ts |
+| 18 | BUILD | VERIFICAR | Auth.tsx |
+| 19 | UX | BAIXA | ProtectedRoute.tsx |
+| 20 | BUG | BAIXA | Portaria.tsx |
+| 5 | CODE | BAIXA | Rupturas.tsx |
+
+---
+
+A **Etapa 2** cobrira: todos os componentes de dashboard restantes (CarregamentoDialog, FechamentoLoteDialog, RoteirizacaoDialog, RotaMap, CargaPrintDialog, ConsolidadoPrintDialog, RupturasPrintDialog, MultiSelectFilter, EtapaBadge, StatusBadge), todos os componentes de portaria (RegistroMovimentoDialog detalhado, CapturaFoto, PlacaInput, OcrResultado, EvidenciasViewer, PhotoViewerDialog), hooks restantes, e verificacao completa de CSS/responsividade.
+
+Deseja que eu prossiga com a Etapa 2 ou que implemente as correcoes da Etapa 1 primeiro?
 
