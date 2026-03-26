@@ -238,11 +238,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
       <Table>
         <TableHeader>
           <TableRow>
-            <SortableTableHead sortKey="data_hora" sort={sort} onToggle={toggleSort}>Entrada</SortableTableHead>
-            <SortableTableHead sortKey="tempo" sort={sort} onToggle={toggleSort}>Tempo</SortableTableHead>
-            <SortableTableHead sortKey="categoria" sort={sort} onToggle={toggleSort}>Categoria</SortableTableHead>
-            <SortableTableHead sortKey="placa" sort={sort} onToggle={toggleSort}>Placa</SortableTableHead>
-            <SortableTableHead sortKey="motorista" sort={sort} onToggle={toggleSort}>Motorista</SortableTableHead>
+            <SortableTableHead sortKey="data_hora" sort={sort} onSort={toggleSort}>Entrada</SortableTableHead>
+            <SortableTableHead sortKey="tempo" sort={sort} onSort={toggleSort}>Tempo</SortableTableHead>
+            <SortableTableHead sortKey="categoria" sort={sort} onSort={toggleSort}>Categoria</SortableTableHead>
+            <SortableTableHead sortKey="placa" sort={sort} onSort={toggleSort}>Placa</SortableTableHead>
+            <SortableTableHead sortKey="motorista" sort={sort} onSort={toggleSort}>Motorista</SortableTableHead>
             <TableHead>Info</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>

@@ -255,12 +255,12 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
         <Table>
           <TableHeader>
             <TableRow>
-              <SortableTableHead sortKey="hora" sort={sort} onToggle={toggleSort}>Hora</SortableTableHead>
+              <SortableTableHead sortKey="hora" sort={sort} onSort={toggleSort}>Hora</SortableTableHead>
               <TableHead className="text-center">Tipo</TableHead>
-              <SortableTableHead sortKey="categoria" sort={sort} onToggle={toggleSort} className="text-center">Categoria</SortableTableHead>
-              <SortableTableHead sortKey="placa" sort={sort} onToggle={toggleSort} className="text-center">Placa</SortableTableHead>
-              <SortableTableHead sortKey="motorista" sort={sort} onToggle={toggleSort} className="text-center">Motorista</SortableTableHead>
-              <SortableTableHead sortKey="empresa" sort={sort} onToggle={toggleSort} className="text-center">Empresa</SortableTableHead>
+              <SortableTableHead sortKey="categoria" sort={sort} onSort={toggleSort} className="text-center">Categoria</SortableTableHead>
+              <SortableTableHead sortKey="placa" sort={sort} onSort={toggleSort} className="text-center">Placa</SortableTableHead>
+              <SortableTableHead sortKey="motorista" sort={sort} onSort={toggleSort} className="text-center">Motorista</SortableTableHead>
+              <SortableTableHead sortKey="empresa" sort={sort} onSort={toggleSort} className="text-center">Empresa</SortableTableHead>
               <TableHead className="text-center">Setor</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
