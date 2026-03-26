@@ -59,10 +59,6 @@ export default function Index() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [undoCargaId, setUndoCargaId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  // #7: Reset selectedIds when date changes
-  const dateKey = `${dateFromStr}_${dateToStr}`;
-  React.useEffect(() => { setSelectedIds([]); }, [dateKey]);
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
   const [printData, setPrintData] = useState<CargaPrintData | null>(null);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
@@ -73,6 +69,9 @@ export default function Index() {
 
   const dateFromStr = filters.dateRange.from ? format(filters.dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = filters.dateRange.to ? format(filters.dateRange.to, "yyyy-MM-dd") : dateFromStr;
+
+  // #7: Reset selectedIds when date changes
+  useEffect(() => { setSelectedIds([]); }, [dateFromStr, dateToStr]);
   const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
