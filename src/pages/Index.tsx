@@ -131,7 +131,8 @@ export default function Index() {
       if (filters.uf !== "todos" && c.uf !== filters.uf) return false;
       if (filters.busca) {
         const b = filters.busca.toLowerCase();
-        if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b)) return false;
+        const fields = [c.nome_produto, c.codigo_produto, c.cliente, c.motorista, c.cidade, c.nome_carga, c.placa, c.codigo_cliente];
+        if (!fields.some(f => f?.toLowerCase().includes(b))) return false;
       }
       return true;
     });

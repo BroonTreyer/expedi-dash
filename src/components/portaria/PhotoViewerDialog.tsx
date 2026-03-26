@@ -15,11 +15,15 @@ export function PhotoViewerDialog({ open, onOpenChange, url, alt }: Props) {
       <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 sm:p-4">
         <DialogTitle className="sr-only">{alt || "Foto"}</DialogTitle>
         <div className="flex items-center justify-center w-full h-full">
-          <img
-            src={url}
-            alt={alt || "Foto"}
-            className="max-w-full max-h-[85vh] object-contain rounded-md"
-          />
+          {url ? (
+            <img
+              src={url}
+              alt={alt || "Foto"}
+              className="max-w-full max-h-[85vh] object-contain rounded-md"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhuma foto disponível</p>
+          )}
         </div>
         <Button
           variant="ghost"

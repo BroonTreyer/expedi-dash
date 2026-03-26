@@ -77,6 +77,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
     const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
     const cargaId = nomeCarga || `CG-${dateStr}-${timeStr}-${rand}`;
+    const nomeCargaFinal = nomeCarga || cargaId;
 
     const updates = groups.flatMap((group) =>
       group.items.map((item) => ({
@@ -90,7 +91,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         carga_id: cargaId,
         data: dataCarregamento,
         ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
-        ...(nomeCarga ? { nome_carga: nomeCarga } : {}),
+        nome_carga: nomeCargaFinal,
       }))
     );
     onSubmit(updates);
