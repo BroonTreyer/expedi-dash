@@ -1,214 +1,185 @@
 
 
-# Auditoria Completa — Aba Portaria
+# Auditoria Completa — Aba Portaria (Rodada 2)
 
-## Problemas Identificados e Melhorias Propostas
+Revisão pós-implementação das correções anteriores. Foco em problemas remanescentes e melhorias novas.
 
 ---
 
-### 1. BUG — Retorno de Carga Própria não calcula KM Rodado corretamente
+## Problemas Encontrados
 
-**Problema:** No `handleSave` do `RegistroMovimentoDialog`, o cálculo `km_rodado = km_final - km_inicial` usa `values.km_inicial` e `values.km_final` do mesmo formulário. Mas no retorno (saída), o `km_inicial` não está no formulário (está oculto na `VISIBILITY_SAIDA`), então `values.km_inicial` é `undefined`. O KM Rodado é salvo como `null`.
+### 1. BUG — Exclusão no Histórico só deleta entrada, retorno fica órfão visualmente
 
-**Correção:** Quando `tipo === "saida"` e `prefill` existe, usar `prefill.km_inicial` (da entrada vinculada) para calcular `km_rodado = km_final - prefill.km_inicial`.
+**Problema:** `useDeleteMovimentacao` deleta registros vinculados (`movimento_vinculado_id = id`) e depois o registro em si. Porém, no `HistoricoTab`, o botão "Excluir" usa `r.id` (que é `g.entrada || g.saida`). Se o grupo tem entrada + saída, exclui a entrada e seus filhos — OK. Mas se o admin quer excluir **só o retorno** (corrigir um retorno errado), não há opção. O botão sempre exclui o registro principal do grupo.
+
+**Correção:** No `MovimentoDetailsDialog`, permitir excluir entrada ou retorno individualmente (dois botões quando ambos existem).
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/RegistroMovimentoDialog.tsx` | Linha ~115: usar `prefill?.km_inicial` quando `tipo === "saida"` |
+| `src/components/portaria/MovimentoDetailsDialog.tsx` | Botão "Excluir Retorno" separado quando `s` existe |
 
 ---
 
-### 2. BUG — KM Rodado display no formulário de retorno nunca aparece
+### 2. BUG — `useMemo` com side effect no HistoricoTab
 
-**Problema:** O bloco de KM Rodado (linha ~345) verifica `values.km_final && values.km_inicial`, mas no retorno `km_inicial` não está nos `values` (campo oculto). O display nunca renderiza.
+**Problema:** Linha 134: `useMemo(() => setPage(0), [search, categoriaFilter, tipoFilter])` usa `useMemo` para executar um side effect (`setPage`). Isso é um anti-pattern do React e pode causar warnings em strict mode. O `useMemo` não deve ter side effects.
 
-**Correção:** Quando `tipo === "saida"`, usar `prefill?.km_inicial` para exibir o cálculo.
+**Correção:** Trocar por `useEffect`.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/RegistroMovimentoDialog.tsx` | Linha ~345: considerar `prefill?.km_inicial` para o display |
+| `src/components/portaria/HistoricoTab.tsx` | Linha 134: trocar `useMemo` por `useEffect` |
 
 ---
 
-### 3. BUG — Pátio Atual não mostra informações relevantes por categoria
+### 3. BUG — EditMovimentoDialog não recalcula km_rodado com prefill
 
-**Problema:** Cards do pátio mostram Motorista/Empresa/Setor para todas as categorias, mas visitantes e prestadores têm `nome_completo`, `pessoa_visitada`, `servico_executar` que não aparecem. Um visitante aparece como "Placa: — | Motorista: —" sem nenhuma informação util.
+**Problema:** Na edição (linha 67), `km_rodado` é calculado como `km_final - km_inicial` do mesmo registro. Porém, para um registro de **retorno** (saída), `km_inicial` está no registro de **entrada** vinculado, não no próprio. O admin edita o KM Final do retorno, mas o `km_rodado` não recalcula corretamente porque `km_inicial` do retorno é `null`.
 
-**Correção:** Exibir campos relevantes da categoria: `nome_completo` para visitantes/prestadores, `rota` para carga própria, `servico_executar` para prestadores.
+**Correção:** Buscar `km_inicial` do registro de entrada vinculado quando editando um retorno. Ou: aceitar que o EditDialog é simplificado e não recalcular km_rodado automaticamente (remover o cálculo errado).
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/PatioAtualTab.tsx` | Adicionar campos condicionais por categoria nos cards/tabela |
+| `src/components/portaria/EditMovimentoDialog.tsx` | Remover recálculo automático de km_rodado ou buscar entrada vinculada |
 
 ---
 
-### 4. UX — Sem feedback visual de "N° Lacre obrigatório" no retorno
+### 4. UX — Pátio não exclui "terceirizado" do count mas exclui da lista
 
-**Problema:** No retorno de Carga Própria, `numero_lacre` é `"obrigatorio"` mas o formulário não destaca visualmente que campos obrigatórios estão faltando. O botão "Registrar Retorno" fica desabilitado sem explicação clara.
+**Problema:** Em `Portaria.tsx` linha 58, o `counts.patio` filtra `m.categoria !== "terceirizado"`. OK. Mas no `PortariaKpiCards`, o "Veículos no Pátio" conta a mesma coisa. Porém, as "Entradas" e "Retornos" contam **todos** os registros, incluindo terceirizados. Isso gera confusão: "30 entradas mas só 5 no pátio" quando 20 são terceirizados.
 
-**Correção:** Adicionar um resumo de campos obrigatórios pendentes no footer do dialog.
+**Correção:** Adicionar KPI "Terceirizados" separado ou filtrar terceirizados dos KPIs de entrada/retorno.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/RegistroMovimentoDialog.tsx` | Adicionar texto "X campos obrigatórios pendentes" antes do botão |
+| `src/components/portaria/PortariaKpiCards.tsx` | Adicionar 4° card "Terceirizados" ou nota explicativa |
 
 ---
 
-### 5. PERFORMANCE — Histórico faz O(n²) para agrupar movimentos
+### 5. UX — Saída rápida não propaga campos do retorno
 
-**Problema:** No `HistoricoTab`, o `useMemo` usa `movimentacoes.find()` dentro de um loop, resultando em complexidade O(n²). Com muitos registros, isso impacta performance.
+**Problema:** `handleSaidaRapida` no `PatioAtualTab` cria um registro de saída com campos mínimos (placa, motorista, empresa). Não propaga `nome_completo`, `documento`, `rota`, `categoria`-specific fields. O retorno rápido de um visitante perde o nome dele.
 
-**Correção:** Usar um `Map` pré-indexado por `id` para lookup O(1).
+**Correção:** Propagar campos relevantes da entrada: `nome_completo`, `documento`, `rota`, `pessoa_visitada`, `servico_executar`, `tipo_operacao`, `nota_fiscal`.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/HistoricoTab.tsx` | Criar `Map<id, MovimentacaoPortaria>` antes do loop de agrupamento |
+| `src/components/portaria/PatioAtualTab.tsx` | Expandir `handleSaidaRapida` com campos adicionais |
 
 ---
 
-### 6. UX — Sem paginação no Histórico
+### 6. UX — CSV exporta todos os movimentos, não respeita filtros de categoria/tipo
 
-**Problema:** Se o período selecionado é "Este mês", potencialmente centenas de registros são renderizados de uma vez. Sem paginação, o scroll é infinito e o DOM pesado.
+**Problema:** `exportCSV` em `Portaria.tsx` usa `movimentacoes` diretamente (todos os dados do período). Se o usuário filtrou por "Carga Própria" e "Entradas", o CSV exporta tudo, não o filtro atual.
 
-**Correção:** Adicionar paginação simples (20-30 itens por página) ou "Carregar mais".
+**Correção:** Aplicar os filtros ativos (`categoriaFilter`, `tipoFilter`, `search`) antes de gerar o CSV.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/HistoricoTab.tsx` | Adicionar estado de paginação e limitar renderização |
+| `src/pages/Portaria.tsx` | Filtrar `movimentacoes` com os mesmos critérios antes de exportar |
 
 ---
 
-### 7. UX — Sem exportação de dados
+### 7. UX — Sem data completa no Histórico mobile
 
-**Problema:** Nenhuma opção de exportar os dados da portaria (CSV/PDF). Para auditoria e relatórios operacionais, isso é essencial.
+**Problema:** Nos cards mobile do Histórico, só mostra "HH:mm" da entrada/retorno. Se o período é "Este mês", o operador não sabe **qual dia** cada registro aconteceu.
 
-**Correção:** Adicionar botão "Exportar CSV" no header do Histórico com os dados filtrados.
+**Correção:** Mostrar "dd/MM HH:mm" ao invés de só "HH:mm" quando o range é maior que 1 dia.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/Portaria.tsx` | Botão de exportação no header do card Histórico |
-| `src/components/portaria/HistoricoTab.tsx` | Expor dados filtrados para o parent |
+| `src/components/portaria/HistoricoTab.tsx` | Receber prop `isMultiDay` e ajustar formato |
+| `src/pages/Portaria.tsx` | Passar prop |
 
 ---
 
-### 8. UX — Sem indicação de "Rota" na aba Pátio para Carga Própria
+### 8. UX — Upload de foto não indica tipo correto para painel/nota
 
-**Problema:** Para Carga Própria, o campo `rota` é obrigatório na entrada, mas não aparece na tabela do pátio nem nos cards mobile. O operador não sabe qual rota o veículo está fazendo.
+**Problema:** `handleFotoCapture` em `RegistroMovimentoDialog` calcula `tipoFoto` como `"placa"` ou `"doc"` baseado no `fieldKey.includes("placa")`. Mas `foto_painel_url` e `foto_nota_url` não contêm "placa", então são classificados como `"doc"`. Funciona (mesma pasta), mas a organização no storage fica errada.
 
-**Correção:** Adicionar coluna "Rota" na tabela desktop e campo nos cards mobile (só para `carga_propria`).
+**Correção:** Mapear `fieldKey` para tipo correto: `foto_painel_url → "painel"`, `foto_nota_url → "nota"`, `foto_documento_url → "doc"`, `foto_placa_url → "placa"`.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/PatioAtualTab.tsx` | Adicionar rota na renderização |
+| `src/components/portaria/RegistroMovimentoDialog.tsx` | Expandir mapeamento de tipo de foto |
+| `src/hooks/useMovimentacoesPortaria.ts` | `uploadFotoMovimentacao` aceitar mais tipos |
 
 ---
 
-### 9. UX — KPIs não refletem período multi-dia
+### 9. SEGURANÇA — Qualquer usuário autenticado pode excluir movimentações
 
-**Problema:** Os KPI labels dizem "Entradas Hoje" e "Retornos Hoje", mas se o usuário seleciona "Últimos 7 dias" ou "Este mês", os números são do período todo e o label fica incorreto.
+**Problema:** O RLS de `movimentacoes_portaria` permite DELETE para qualquer `authenticated`. A UI restringe a admin, mas a API não. Um operador comum poderia chamar a API diretamente.
 
-**Correção:** Mudar labels para "Entradas" e "Retornos" (sem "Hoje"), ou passar o range de datas e ajustar dinamicamente.
+**Correção:** Adicionar RLS policy de DELETE restrito a admins usando `has_role(auth.uid(), 'admin')`.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/PortariaKpiCards.tsx` | Receber prop `isToday` ou `dateLabel`, ajustar labels |
-| `src/pages/Portaria.tsx` | Passar informação do range |
+| Migration SQL | `DROP POLICY` + `CREATE POLICY` para DELETE com check de admin |
 
 ---
 
-### 10. SEGURANÇA — Saída rápida não exige confirmação dupla em mobile
+### 10. UX — Detalhes do movimento não mostra "Número do Lacre" destacado no retorno
 
-**Problema:** No mobile, o botão "Retorno" abre confirmação inline, mas um toque acidental pode confirmar a saída. O fluxo é: toque "Retorno" → toque "Confirmar" (dois toques consecutivos no mesmo lugar).
+**Problema:** O `MovimentoDetailsDialog` mostra `m.numero_lacre || s?.numero_lacre` na seção básica. Funciona, mas como o lacre agora é obrigatório **só no retorno** de Carga Própria, o valor vem de `s.numero_lacre`. Se não houver `s` (retorno não registrado), nunca aparece. OK lógico, mas o label "Nº Lacre/Etiqueta" não distingue se é da entrada ou retorno.
 
-**Correção:** Mover o botão "Confirmar" para posição diferente do "Retorno" para evitar double-tap acidental.
+**Correção:** Quando ambos existem, mostrar separadamente: "Lacre (Entrada)" e "Lacre (Retorno)".
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/PatioAtualTab.tsx` | Reorganizar layout dos botões de confirmação |
+| `src/components/portaria/MovimentoDetailsDialog.tsx` | Separar exibição de lacre por registro |
 
 ---
 
-### 11. UX — Sem busca por nome/documento no filtro de busca
+### 11. PERFORMANCE — Realtime subscription não filtra por data
 
-**Problema:** O campo de busca filtra por `placa`, `motorista`, `empresa`. Mas para visitantes e prestadores, os campos relevantes são `nome_completo`, `documento`, `pessoa_visitada`. Essas categorias são invisíveis na busca.
+**Problema:** O channel em `useMovimentacoes` escuta `event: "*"` na tabela inteira. Qualquer INSERT/UPDATE/DELETE em `movimentacoes_portaria` (mesmo de meses atrás) invalida o cache. Com muitos operadores simultâneos, gera invalidações desnecessárias.
 
-**Correção:** Expandir o filtro de busca para incluir `nome_completo`, `documento`, `pessoa_visitada`, `servico_executar`.
+**Correção:** Não é possível filtrar por data no Realtime do Supabase (limitação), mas pode-se usar `filter` por `tipo_movimento` ou simplesmente aceitar o comportamento atual (impacto baixo).
+
+**Ação:** Nenhuma — manter como está. Impacto real é mínimo.
+
+---
+
+### 12. UX — Histórico não mostra data quando range > 1 dia (desktop)
+
+**Problema:** No desktop, a coluna "Hora" mostra `HH:mm → HH:mm`. Quando o range é "Este mês", não há indicação do dia.
+
+**Correção:** Mostrar `dd/MM HH:mm` na coluna quando range > 1 dia.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/PatioAtualTab.tsx` | Expandir condição de busca |
-| `src/components/portaria/HistoricoTab.tsx` | Expandir condição de busca |
+| `src/components/portaria/HistoricoTab.tsx` | Ajustar `formatHora` para incluir dia quando multi-day |
 
 ---
 
-### 12. UX — Sem ordenação nas tabelas
-
-**Problema:** As tabelas do Pátio e Histórico não permitem ordenação por coluna. O operador pode querer ordenar por tempo no pátio, por placa, ou por categoria.
-
-**Correção:** Usar `useSortableTable` (já existe no projeto) nas tabelas da portaria.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/PatioAtualTab.tsx` | Integrar `useSortableTable` |
-| `src/components/portaria/HistoricoTab.tsx` | Integrar `useSortableTable` |
-
----
-
-### 13. BUG — Memory leak no CapturaFoto
-
-**Problema:** `URL.createObjectURL(file)` na linha 22 do `CapturaFoto` nunca é revogado com `URL.revokeObjectURL`. Cada foto capturada aloca memória no browser que nunca é liberada.
-
-**Correção:** Revogar a URL anterior no `handleChange` e no cleanup do componente.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/CapturaFoto.tsx` | Adicionar `useEffect` cleanup e revogar URL anterior |
-
----
-
-### 14. UX — Sem indicação de N° Lacre no Pátio/Histórico/Detalhes para retorno
-
-**Problema:** O N° Lacre agora é obrigatório no retorno de Carga Própria, mas o campo `numero_lacre` do registro de saída não é propagado para o `handleSave` do retorno porque `values.numero_lacre` é incluído mas `km_inicial` não é herdado do prefill.
-
-**Correção:** Já coberto pela correção #1, mas garantir que no `MovimentoDetailsDialog` o lacre do retorno (`s?.numero_lacre`) apareça destacado.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/MovimentoDetailsDialog.tsx` | Já exibe `m.numero_lacre || s?.numero_lacre` — OK |
-
----
-
-### 15. UX — Sem "Limpar filtros" na portaria
-
-**Problema:** Se o usuário seleciona uma categoria e busca algo, não há botão para resetar todos os filtros de uma vez.
-
-**Correção:** Adicionar botão "Limpar" que aparece quando há filtros ativos.
-
-| Arquivo | Mudança |
-|---|---|
-| `src/pages/Portaria.tsx` | Botão condicional "Limpar filtros" na barra de filtros |
-
----
-
-## Priorização (Impacto x Esforço)
+## Priorização
 
 | # | Tipo | Impacto | Esforço | Prioridade |
 |---|---|---|---|---|
-| 1 | BUG | Alto | Baixo | P0 |
 | 2 | BUG | Medio | Baixo | P0 |
-| 3 | UX | Alto | Medio | P1 |
-| 5 | PERF | Medio | Baixo | P1 |
-| 9 | UX | Medio | Baixo | P1 |
-| 11 | UX | Alto | Baixo | P1 |
-| 13 | BUG | Baixo | Baixo | P1 |
-| 4 | UX | Medio | Baixo | P2 |
-| 6 | UX | Medio | Medio | P2 |
-| 7 | UX | Alto | Medio | P2 |
-| 8 | UX | Medio | Baixo | P2 |
-| 10 | SEG | Baixo | Baixo | P2 |
-| 12 | UX | Medio | Medio | P3 |
-| 15 | UX | Baixo | Baixo | P3 |
-| 14 | — | — | — | Já funciona |
+| 3 | BUG | Medio | Baixo | P0 |
+| 5 | BUG | Alto | Baixo | P0 |
+| 9 | SEG | Alto | Baixo | P0 |
+| 6 | UX | Alto | Baixo | P1 |
+| 7+12 | UX | Medio | Baixo | P1 |
+| 8 | UX | Baixo | Baixo | P1 |
+| 1 | UX | Medio | Medio | P2 |
+| 4 | UX | Baixo | Baixo | P2 |
+| 10 | UX | Baixo | Baixo | P2 |
 
-Posso implementar todas as correções P0 e P1 de uma vez (itens 1, 2, 3, 5, 9, 11, 13), ou posso fazer por grupo de prioridade. O que prefere?
+## Resumo de arquivos a editar
+
+| Arquivo | Itens |
+|---|---|
+| `src/components/portaria/HistoricoTab.tsx` | #2, #7, #12 |
+| `src/components/portaria/PatioAtualTab.tsx` | #5 |
+| `src/components/portaria/EditMovimentoDialog.tsx` | #3 |
+| `src/components/portaria/RegistroMovimentoDialog.tsx` | #8 |
+| `src/components/portaria/MovimentoDetailsDialog.tsx` | #1, #10 |
+| `src/pages/Portaria.tsx` | #6, #7 |
+| `src/hooks/useMovimentacoesPortaria.ts` | #8 |
+| `src/components/portaria/PortariaKpiCards.tsx` | #4 |
+| Migration SQL | #9 |
+
+Posso implementar tudo de uma vez ou por prioridade. O que prefere?
 
