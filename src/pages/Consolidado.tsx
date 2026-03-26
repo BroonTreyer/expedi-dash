@@ -265,8 +265,11 @@ export default function Consolidado() {
   return (
     <Layout>
       <div className="p-4 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs">← Painel</Button>
+            <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
+          </div>
           {groups.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
               <Printer className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Imprimir</span>
