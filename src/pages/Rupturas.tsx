@@ -69,7 +69,13 @@ export default function Rupturas() {
       if (cargaFilter !== "todos" && c.nome_carga !== cargaFilter) return false;
       if (busca) {
         const b = busca.toLowerCase();
-        if (!c.nome_produto?.toLowerCase().includes(b) && !c.codigo_produto?.toLowerCase().includes(b) && !c.cliente?.toLowerCase().includes(b)) return false;
+        if (
+          !c.nome_produto?.toLowerCase().includes(b) &&
+          !c.codigo_produto?.toLowerCase().includes(b) &&
+          !c.cliente?.toLowerCase().includes(b) &&
+          !c.nome_carga?.toLowerCase().includes(b) &&
+          !c.codigo_cliente?.toLowerCase().includes(b)
+        ) return false;
       }
       return true;
     });
