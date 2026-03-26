@@ -131,7 +131,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
   }, [grupos, sort, sortData]);
 
   // Reset page when filters change
-  useMemo(() => setPage(0), [search, categoriaFilter, tipoFilter]);
+  useEffect(() => { setPage(0); }, [search, categoriaFilter, tipoFilter]);
 
   const totalPages = Math.ceil(sortedGrupos.length / PAGE_SIZE);
   const paginatedGrupos = sortedGrupos.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
