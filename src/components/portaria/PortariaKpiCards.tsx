@@ -15,12 +15,14 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     const entradas = movimentacoes.filter((m) => m.tipo_movimento === "entrada");
     const saidas = movimentacoes.filter((m) => m.tipo_movimento === "saida");
 
+    const terceirizados = entradas.filter((m) => m.categoria === "terceirizado").length;
+    const entradasSemTerc = entradas.filter((m) => m.categoria !== "terceirizado");
     const saidasVinculadas = new Set(
       saidas.filter((m) => m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id!)
     );
-    const noPatio = entradas.filter((e) => !saidasVinculadas.has(e.id)).length;
+    const noPatio = entradasSemTerc.filter((e) => !saidasVinculadas.has(e.id)).length;
 
-    return { entradas: entradas.length, saidas: saidas.length, noPatio };
+    return { entradas: entradas.length, saidas: saidas.length, noPatio, terceirizados };
   }, [movimentacoes]);
 
   const suffix = dateLabel || "Hoje";
