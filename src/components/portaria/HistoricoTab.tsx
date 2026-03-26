@@ -159,12 +159,14 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
     );
   }
 
+  const dateFmt = isMultiDay ? "dd/MM HH:mm" : "HH:mm";
+
   const formatHora = (g: GrupoMovimento) => {
     if (g.entrada && g.saida) {
-      return `${format(new Date(g.entrada.data_hora), "HH:mm", { locale: ptBR })} → ${format(new Date(g.saida.data_hora), "HH:mm", { locale: ptBR })}`;
+      return `${format(new Date(g.entrada.data_hora), dateFmt, { locale: ptBR })} → ${format(new Date(g.saida.data_hora), dateFmt, { locale: ptBR })}`;
     }
     const m = g.entrada || g.saida!;
-    return format(new Date(m.data_hora), "HH:mm", { locale: ptBR });
+    return format(new Date(m.data_hora), dateFmt, { locale: ptBR });
   };
 
   const ref = (g: GrupoMovimento) => g.entrada || g.saida!;
