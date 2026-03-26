@@ -174,7 +174,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         });
       }
     }
-    onOpenChange(false);
+    // Close after a brief delay to allow mutations to fire
+    setTimeout(() => onOpenChange(false), 150);
   };
 
   const showVendas = mode === "vendas" || mode === "editar";
