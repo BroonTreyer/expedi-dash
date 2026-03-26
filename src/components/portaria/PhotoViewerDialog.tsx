@@ -10,7 +10,6 @@ interface Props {
 }
 
 export function PhotoViewerDialog({ open, onOpenChange, url, alt }: Props) {
-  if (!url) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 sm:p-4">
