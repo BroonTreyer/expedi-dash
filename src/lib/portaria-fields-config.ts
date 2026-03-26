@@ -115,9 +115,9 @@ export const VISIBILITY: VisibilityMatrix = {
 
   // Controle
   responsavel_interno:{ carga_propria: "oculto",      terceirizado: "opcional",    fornecedor: "oculto",      visitante: "oculto",      prestador: "obrigatorio", outros: "oculto" },
-  conferente:         { carga_propria: "opcional",    terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
-  ocorrencia:         { carga_propria: "opcional",    terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
-  observacoes:        { carga_propria: "opcional",    terceirizado: "opcional",    fornecedor: "opcional",    visitante: "opcional",    prestador: "opcional",    outros: "obrigatorio" },
+  conferente:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  ocorrencia:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  observacoes:        { carga_propria: "oculto",      terceirizado: "opcional",    fornecedor: "opcional",    visitante: "opcional",    prestador: "opcional",    outros: "obrigatorio" },
 
   // Evidências
   foto_placa_url:     { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto",      prestador: "obrigatorio", outros: "obrigatorio" },
