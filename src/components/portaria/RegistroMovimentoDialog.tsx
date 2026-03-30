@@ -62,6 +62,19 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
         empresa: prefill.empresa || "",
         carga_id: prefill.carga_id || "",
       });
+    } else if (prefillFromPlanilha) {
+      setStep("form");
+      setTipo(prefillFromPlanilha.tipo || "entrada");
+      setCategoria((prefillFromPlanilha.categoria as Categoria) || "carga_propria");
+      setValues({
+        placa: prefillFromPlanilha.placa || "",
+        motorista: prefillFromPlanilha.motorista || "",
+        empresa: prefillFromPlanilha.empresa || "",
+        carga_id: prefillFromPlanilha.carga_id || "",
+        rota: prefillFromPlanilha.rota || "",
+        peso: prefillFromPlanilha.peso ?? "",
+        qtd_entregas: prefillFromPlanilha.qtd_entregas ?? "",
+      });
     } else {
       setStep("categoria");
       setTipo("entrada");
@@ -71,7 +84,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
     setOcrLoading(false);
     setTextoPlacaLido(null);
     setConfiancaPlaca(null);
-  }, [open, prefill]);
+  }, [open, prefill, prefillFromPlanilha]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, tipo), [categoria, tipo]);
   const canSave = useMemo(() => validateForm(categoria, values, tipo), [categoria, values, tipo]);
