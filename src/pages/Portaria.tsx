@@ -234,6 +234,14 @@ export default function Portaria() {
         {/* KPIs */}
         <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} dateLabel={dateLabel} />
 
+        {/* Veículos Esperados */}
+        <VeiculosEsperadosPanel
+          veiculos={veiculosEsperados}
+          conferidos={placasConferidas}
+          onRegistrar={openRegistroFromPlanilha}
+          onClear={() => { setVeiculosEsperados([]); setPlacasConferidas(new Set()); }}
+        />
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1 sm:max-w-sm">
