@@ -1,32 +1,43 @@
 
 
-## Problema
+## Mudança de Conceito
 
-O parser atual assume que MOTORISTA está na coluna 6 e TRANSPORTADORA na coluna 7, mas a planilha real tem colunas extras entre QT ENTREGAS e MOTORISTA (CUSTO/KG, % FRETE, IPO VEICULO na seção PRÓPRIA; NEG?, VLR KG, IPO VEICULO em FROTAS; NEG?, VLR KG, VLR FRETE em INTERIOR). MOTORISTA está na posição 9 e TRANSP/AJUDANTES na posição 10.
+A planilha importada deve funcionar como **lista de veículos esperados** (referência para o conferente), não como criação automática de entradas. O conferente ainda precisa registrar cada entrada manualmente com fotos, KM, conferência de placa, etc.
 
-## Solução
+## O que muda
 
-Reescrever o parser para detectar dinamicamente a posição das colunas usando a linha de cabeçalho de cada seção, em vez de posições fixas.
+### 1. `ImportarPlanilhaDialog.tsx` — Salvar como "cargas esperadas", não como movimentações
 
-### Lógica do novo parser
+- Em vez de inserir em `movimentacoes_portaria`, salvar os dados parseados em um **state global/contexto** ou em uma tabela auxiliar
+- Abordagem mais simples: manter os dados em memória (state no `Portaria.tsx`) como lista de "veículos esperados"
+- O botão muda de "Importar X registros" para "Carregar X veículos esperados"
+- Não cria nenhum registro no banco ao importar
 
-1. Ao encontrar uma linha de cabeçalho (contém "PLACA", "DESTINO", etc.), mapear o índice de cada coluna conhecida
-2. Usar esse mapa para extrair dados das linhas seguintes até o próximo cabeçalho/seção
-3. Colunas mapeadas: DATA, PLACA, DESTINO, N° CARGA, PESO, QT ENTREGAS, MOTORISTA, TRANSP./AJUDANTES, IPO VEICULO/TIPO VEICULO
-4. Extrair também FATURAMENTO e DT. ENTREGA do cabeçalho superior da planilha
-5. Adicionar campo `ajudantes` e `tipo_veiculo` ao ParsedRow
-6. Na seção PRÓPRIA, coluna 10 = AJUDANTES; em FROTAS/INTERIOR, coluna 10 = TRANSPORTADORA
+### 2. `Portaria.tsx` — Exibir painel de "Veículos Esperados"
 
-### Arquivo a editar
+- Novo state `veiculosEsperados: ParsedRow[]` alimentado pelo dialog de importação
+- Exibir um card/painel acima das tabs mostrando a lista de veículos esperados com: Placa, Motorista, Rota, N° Carga, Peso
+- Cada linha tem um botão "Registrar Entrada" que abre o `RegistroMovimentoDialog` com os dados pré-preenchidos (placa, motorista, carga_id, rota, peso, empresa, qtd_entregas)
+- Quando o conferente completa o registro (tira fotos, confere placa, informa KM), o veículo sai da lista de esperados
+- Badge visual mostrando "X de Y veículos conferidos"
+
+### 3. `RegistroMovimentoDialog.tsx` — Aceitar prefill expandido
+
+- O `prefill` atual só funciona para retorno (saída). Expandir para aceitar prefill de entrada também
+- Quando prefill vem da planilha (entrada), preencher: placa, motorista, empresa, carga_id, rota, peso, qtd_entregas
+- O conferente ainda precisa: tirar foto da placa, confirmar placa via OCR, tirar foto do painel, informar KM inicial
+- A `data_hora` será o momento do registro (não a data da planilha)
+
+### 4. Marcar veículos já conferidos
+
+- Quando uma entrada é criada com sucesso, comparar a placa com a lista de esperados e marcar como "conferido"
+- Visual: linha riscada ou com check verde na lista de esperados
+
+## Arquivos a editar
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/ImportarPlanilhaDialog.tsx` | Reescrever `parseXlsx` com detecção dinâmica de colunas via header row; adicionar campos `ajudantes` e `tipo_veiculo` ao ParsedRow e à tabela preview; mapear `ajudantes` para o campo correspondente na importação |
-
-### Detalhes técnicos
-
-- Quando uma linha contém "PLACA" e "DESTINO", tratar como header e construir um `Map<string, number>` dos nomes normalizados para índices
-- Palavras-chave de busca nos headers: `DATA`, `PLACA`, `DESTINO`, `CARGA` (para N° CARGA), `PESO`, `ENTREG` (para QT ENTREGAS), `MOTORISTA`, `TRANSP`, `AJUDANTE`, `VEICULO`/`VEÍCULO`
-- Detecção de grupo: linhas que contenham apenas "FROTAS" ou "INTERIOR" (já existe, manter)
-- Na importação para `movimentacoes_portaria`, mapear `tipo_veiculo` para um campo de observação ou ignorar (não existe coluna dedicada na tabela)
+| `src/components/portaria/ImportarPlanilhaDialog.tsx` | Remover insert no banco; retornar dados via callback `onImport(rows)` |
+| `src/pages/Portaria.tsx` | State `veiculosEsperados`; painel visual; botão "Registrar Entrada" por veículo; marcar conferidos ao criar movimentação |
+| `src/components/portaria/RegistroMovimentoDialog.tsx` | Aceitar prefill para entrada (não só saída); preencher campos da planilha mantendo campos obrigatórios (fotos, KM) vazios para o conferente |
 
