@@ -34,6 +34,7 @@ export default function Portaria() {
   const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
