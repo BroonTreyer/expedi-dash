@@ -240,7 +240,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                 Cadastro de {categoriaLabel}
               </DialogTitle>
               <DialogDescription>
-                {prefill ? `Registrar retorno do veículo ${prefill.placa}` : `Preencha os dados de ${tipo === "entrada" ? "entrada" : "retorno"}`}
+                {prefill ? `Registrar retorno do veículo ${prefill.placa}` : prefillFromPlanilha ? `Conferir entrada do veículo ${prefillFromPlanilha.placa}` : `Preencha os dados de ${tipo === "entrada" ? "entrada" : "retorno"}`}
               </DialogDescription>
             </DialogHeader>
 
