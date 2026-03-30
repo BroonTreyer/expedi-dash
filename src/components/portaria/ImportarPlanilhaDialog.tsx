@@ -292,8 +292,9 @@ export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
                     <TableHead className="text-xs">N° Carga</TableHead>
                     <TableHead className="text-xs text-right">Peso</TableHead>
                     <TableHead className="text-xs text-right">Qt Entr.</TableHead>
+                    <TableHead className="text-xs">Tipo Veículo</TableHead>
                     <TableHead className="text-xs">Motorista</TableHead>
-                    <TableHead className="text-xs">Transp.</TableHead>
+                    <TableHead className="text-xs">Transp./Ajud.</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -306,8 +307,9 @@ export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
                       <TableCell className="text-xs py-1.5">{r.carga_id}</TableCell>
                       <TableCell className="text-xs py-1.5 text-right">{r.peso ?? "—"}</TableCell>
                       <TableCell className="text-xs py-1.5 text-right">{r.qtd_entregas ?? "—"}</TableCell>
+                      <TableCell className="text-xs py-1.5">{r.tipo_veiculo}</TableCell>
                       <TableCell className="text-xs py-1.5">{r.motorista}</TableCell>
-                      <TableCell className="text-xs py-1.5">{r.transportadora}</TableCell>
+                      <TableCell className="text-xs py-1.5">{r.transportadora || r.ajudantes || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
