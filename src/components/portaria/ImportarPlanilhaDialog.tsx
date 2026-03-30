@@ -6,7 +6,6 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Upload, FileSpreadsheet, AlertTriangle, Check } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
-import * as XLSX from "xlsx";
 
 // ParsedRow is exported from the Props section below
 
