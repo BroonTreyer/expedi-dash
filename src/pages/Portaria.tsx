@@ -327,9 +327,15 @@ export default function Portaria() {
         </Tabs>
       </div>
 
-      <RegistroMovimentoDialog open={dialogOpen} onOpenChange={setDialogOpen} prefill={prefill} />
+      <RegistroMovimentoDialog
+        open={dialogOpen}
+        onOpenChange={handleDialogClose}
+        prefill={prefill}
+        prefillFromPlanilha={prefillFromPlanilha}
+        onCreated={handleMovimentacaoCreated}
+      />
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
-      <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
+      <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onImport={handleImportPlanilha} />
     </Layout>
   );
 }
