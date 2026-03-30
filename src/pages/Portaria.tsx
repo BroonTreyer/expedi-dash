@@ -16,6 +16,7 @@ import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
 import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimentoDialog";
+import { ImportarPlanilhaDialog } from "@/components/portaria/ImportarPlanilhaDialog";
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
