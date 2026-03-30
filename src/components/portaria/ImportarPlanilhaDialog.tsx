@@ -300,8 +300,8 @@ export function ImportarPlanilhaDialog({ open, onOpenChange, onImport }: Props) 
         <DialogFooter>
           <Button variant="ghost" onClick={() => handleClose(false)}>Cancelar</Button>
           {validCount > 0 && (
-            <Button onClick={handleImport} disabled={importing}>
-              {importing ? "Importando..." : `Importar ${validCount} registros`}
+            <Button onClick={handleConfirm}>
+              Carregar {validCount} veículos esperados
             </Button>
           )}
         </DialogFooter>
