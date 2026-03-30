@@ -180,6 +180,9 @@ export default function Portaria() {
             <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={exportCSV}>
               <Download className="h-3.5 w-3.5" /> CSV
             </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={() => setImportDialogOpen(true)}>
+              <Upload className="h-3.5 w-3.5" /> Importar
+            </Button>
           </div>
         </div>
 
