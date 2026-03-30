@@ -37,9 +37,12 @@ export default function Portaria() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
+  const [prefillFromPlanilha, setPrefillFromPlanilha] = useState<Record<string, any> | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [veiculosEsperados, setVeiculosEsperados] = useState<ParsedRow[]>([]);
+  const [placasConferidas, setPlacasConferidas] = useState<Set<string>>(new Set());
 
   const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
   const dateLabel = isToday ? "Hoje" : "no Período";
