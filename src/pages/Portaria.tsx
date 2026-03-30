@@ -67,7 +67,48 @@ export default function Portaria() {
 
   const openRegistro = (prefillData?: MovimentacaoPortaria) => {
     setPrefill(prefillData || null);
+    setPrefillFromPlanilha(null);
     setDialogOpen(true);
+  };
+
+  const openRegistroFromPlanilha = (row: ParsedRow) => {
+    setPrefill(null);
+    const isTerceirizado = row.grupo === "FROTAS" || row.grupo === "INTERIOR";
+    setPrefillFromPlanilha({
+      tipo: "entrada" as const,
+      categoria: isTerceirizado ? "terceirizado" : "carga_propria",
+      placa: row.placa,
+      motorista: row.motorista,
+      empresa: row.transportadora || "",
+      carga_id: row.carga_id,
+      rota: row.destino,
+      peso: row.peso,
+      qtd_entregas: row.qtd_entregas,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleImportPlanilha = (rows: ParsedRow[]) => {
+    setVeiculosEsperados(rows);
+    setPlacasConferidas(new Set());
+  };
+
+  const handleDialogClose = (v: boolean) => {
+    setDialogOpen(v);
+    if (!v) {
+      setPrefillFromPlanilha(null);
+    }
+  };
+
+  // Mark placa as conferida when a new entrada is created
+  const handleMovimentacaoCreated = (placa: string) => {
+    if (veiculosEsperados.length > 0 && placa) {
+      const norm = placa.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+      const match = veiculosEsperados.find((v) => v.placa.replace(/[^A-Z0-9]/gi, "").toUpperCase() === norm);
+      if (match) {
+        setPlacasConferidas((prev) => new Set([...prev, match.placa]));
+      }
+    }
   };
 
   const openDetails = (entrada?: MovimentacaoPortaria, saida?: MovimentacaoPortaria) => {
