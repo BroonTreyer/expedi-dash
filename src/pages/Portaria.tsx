@@ -12,6 +12,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X } from "lucide-react";
 import { useMovimentacoes, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
+import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
@@ -33,6 +35,10 @@ export default function Portaria() {
   const [tipoFilter, setTipoFilter] = useState("");
 
   const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
+  const { data: veiculosEsperados = [] } = useVeiculosEsperados(dateFromStr);
+  const importarMutation = useImportarVeiculosEsperados();
+  const marcarConferidoMutation = useMarcarConferido();
+  const limparMutation = useLimparVeiculosEsperados();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -41,8 +47,6 @@ export default function Portaria() {
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [veiculosEsperados, setVeiculosEsperados] = useState<ParsedRow[]>([]);
-  const [placasConferidas, setPlacasConferidas] = useState<Set<string>>(new Set());
 
   const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
   const dateLabel = isToday ? "Hoje" : "no Período";
@@ -71,26 +75,25 @@ export default function Portaria() {
     setDialogOpen(true);
   };
 
-  const openRegistroFromPlanilha = (row: ParsedRow) => {
+  const openRegistroFromVeiculoEsperado = (v: VeiculoEsperado) => {
     setPrefill(null);
-    const isTerceirizado = row.grupo === "FROTAS" || row.grupo === "INTERIOR";
+    const isTerceirizado = v.grupo === "FROTAS" || v.grupo === "INTERIOR";
     setPrefillFromPlanilha({
       tipo: "entrada" as const,
       categoria: isTerceirizado ? "terceirizado" : "carga_propria",
-      placa: row.placa,
-      motorista: row.motorista,
-      empresa: row.transportadora || "",
-      carga_id: row.carga_id,
-      rota: row.destino,
-      peso: row.peso,
-      qtd_entregas: row.qtd_entregas,
+      placa: v.placa,
+      motorista: v.motorista || "",
+      empresa: v.transportadora || "",
+      carga_id: v.carga_id || "",
+      rota: v.destino || "",
+      peso: v.peso,
+      qtd_entregas: v.qtd_entregas,
     });
     setDialogOpen(true);
   };
 
-  const handleImportPlanilha = (rows: ParsedRow[]) => {
-    setVeiculosEsperados(rows);
-    setPlacasConferidas(new Set());
+  const handleImportConfirm = (rows: ParsedRow[]) => {
+    importarMutation.mutate({ rows, dataReferencia: dateFromStr });
   };
 
   const handleDialogClose = (v: boolean) => {
@@ -100,13 +103,12 @@ export default function Portaria() {
     }
   };
 
-  // Mark placa as conferida when a new entrada is created
   const handleMovimentacaoCreated = (placa: string) => {
     if (veiculosEsperados.length > 0 && placa) {
       const norm = placa.replace(/[^A-Z0-9]/gi, "").toUpperCase();
-      const match = veiculosEsperados.find((v) => v.placa.replace(/[^A-Z0-9]/gi, "").toUpperCase() === norm);
+      const match = veiculosEsperados.find((v) => !v.conferido && v.placa.replace(/[^A-Z0-9]/gi, "").toUpperCase() === norm);
       if (match) {
-        setPlacasConferidas((prev) => new Set([...prev, match.placa]));
+        marcarConferidoMutation.mutate({ placa: match.placa, dataReferencia: dateFromStr });
       }
     }
   };
@@ -123,7 +125,6 @@ export default function Portaria() {
       return;
     }
     const headers = ["Data/Hora", "Tipo", "Categoria", "Placa", "Motorista", "Empresa", "Setor", "Rota", "KM Inicial", "KM Final", "KM Rodado", "Observações"];
-    // Apply active filters before export
     const filtered = movimentacoes.filter((m) => {
       if (categoriaFilter && categoriaFilter !== "all" && m.categoria !== categoriaFilter) return false;
       if (tipoFilter && tipoFilter !== "all" && m.tipo_movimento !== tipoFilter) return false;
@@ -237,9 +238,9 @@ export default function Portaria() {
         {/* Veículos Esperados */}
         <VeiculosEsperadosPanel
           veiculos={veiculosEsperados}
-          conferidos={placasConferidas}
-          onRegistrar={openRegistroFromPlanilha}
-          onClear={() => { setVeiculosEsperados([]); setPlacasConferidas(new Set()); }}
+          onRegistrar={openRegistroFromVeiculoEsperado}
+          onClear={() => limparMutation.mutate(dateFromStr)}
+          isClearing={limparMutation.isPending}
         />
 
         {/* Filters */}
@@ -335,7 +336,7 @@ export default function Portaria() {
         onCreated={handleMovimentacaoCreated}
       />
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
-      <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onImport={handleImportPlanilha} />
+      <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />
     </Layout>
   );
 }
