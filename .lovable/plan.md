@@ -1,21 +1,44 @@
 
 
+# Migrar OCR de Placas: Tesseract.js → IA com Visão (Gemini)
+
 ## Problema
 
-No mobile (390px), o header do painel "Veículos Esperados" usa `flex items-center justify-between` com tudo em uma linha: ícone + título + 2 badges + botão "Limpar lista". Isso estoura horizontalmente — os badges e o botão ficam comprimidos ou cortados.
+O OCR atual usa **Tesseract.js** no client-side. Tesseract é um OCR genérico de texto — péssimo para placas veiculares em fotos reais (ângulo, reflexo, sujeira, resolução variável). Resultado: leituras imprecisas e confiança baixa.
 
-## Correção
+## Solução
 
-No `CardHeader` (linhas 23-40), mudar o layout para empilhar no mobile:
+Substituir o Tesseract.js pela **edge function `ocr-portaria`** que já existe no projeto e usa o modelo **Gemini 2.5 Flash** via Lovable AI Gateway. Essa função já está pronta e faz exatamente isso — recebe a URL da imagem, envia para o modelo de visão, e retorna texto + confiança. Porém ela **nunca é chamada** — o código client-side ainda usa Tesseract diretamente.
 
-1. Trocar o container de `flex items-center justify-between` para `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2`
-2. O título com ícone fica na primeira linha
-3. Os badges ficam em `flex flex-wrap gap-1` abaixo do título no mobile, ao lado no desktop
-4. O botão "Limpar lista" fica na segunda linha no mobile, alinhado à direita
+## O que muda
 
-### Arquivo
+### 1. `src/hooks/useRegistrosPortaria.ts` — Trocar implementação do `processarOCR`
+
+Remover o import do Tesseract.js e substituir pela chamada à edge function:
+
+```typescript
+export async function processarOCR(imageUrl: string, tipo: "placa" | "km") {
+  const { data, error } = await supabase.functions.invoke("ocr-portaria", {
+    body: { imageUrl, tipo },
+  });
+  if (error) throw error;
+  return { texto: data.texto, confianca: data.confianca };
+}
+```
+
+### 2. Nenhum outro arquivo muda
+
+Todos os componentes (`RegistroMovimentoDialog`, `RegistroPortariaDialog`) já chamam `processarOCR` — a interface (entrada/saída) permanece idêntica. A troca é transparente.
+
+## Resultado esperado
+
+- Leitura de placas com modelo de visão treinado (Gemini) em vez de OCR genérico
+- Reconhecimento muito superior para placas Mercosul e formato antigo
+- Sem dependência do Tesseract.js (pacote pesado, ~15MB de WASM)
+
+## Arquivos
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Reestruturar o CardHeader (linhas 23-40) para empilhar verticalmente no mobile com `flex-col sm:flex-row` e `flex-wrap` nos badges |
+| `src/hooks/useRegistrosPortaria.ts` | Substituir `processarOCR` de Tesseract.js para `supabase.functions.invoke("ocr-portaria")` |
 
