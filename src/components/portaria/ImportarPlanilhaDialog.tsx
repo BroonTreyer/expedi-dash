@@ -19,6 +19,8 @@ interface ParsedRow {
   qtd_entregas: number | null;
   motorista: string;
   transportadora: string;
+  ajudantes: string;
+  tipo_veiculo: string;
   valid: boolean;
 }
 
@@ -33,6 +35,27 @@ function parseNum(val: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+function buildColumnMap(row: unknown[]): Map<string, number> | null {
+  const headerStr = row.map((c) => String(c ?? "").trim().toUpperCase());
+  const hasPlaca = headerStr.some((s) => s === "PLACA");
+  const hasDestino = headerStr.some((s) => s.includes("DESTINO"));
+  if (!hasPlaca || !hasDestino) return null;
+
+  const map = new Map<string, number>();
+  headerStr.forEach((s, i) => {
+    if (s === "DATA") map.set("DATA", i);
+    else if (s === "PLACA") map.set("PLACA", i);
+    else if (s.includes("DESTINO")) map.set("DESTINO", i);
+    else if (s.includes("CARGA")) map.set("CARGA", i);
+    else if (s === "PESO") map.set("PESO", i);
+    else if (s.includes("ENTREG")) map.set("ENTREGAS", i);
+    else if (s.includes("MOTORISTA")) map.set("MOTORISTA", i);
+    else if (s.includes("TRANSP") || s.includes("AJUDANTE")) map.set("TRANSP", i);
+    else if (s.includes("VEICULO") || s.includes("VEÍCULO")) map.set("VEICULO", i);
+  });
+  return map;
+}
+
 function parseXlsx(data: ArrayBuffer): ParsedRow[] {
   const wb = XLSX.read(data, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
@@ -41,41 +64,70 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   const rows: ParsedRow[] = [];
   let currentGrupo = "PRÓPRIA";
+  let colMap: Map<string, number> | null = null;
 
   for (const row of raw) {
     if (!row || row.length === 0) continue;
     const first = String(row[0] ?? "").trim().toUpperCase();
 
-    // Skip header/total rows
-    if (first === "DATA" || first === "TOTAL" || first === "" && row.every((c) => !c)) continue;
+    // Skip total rows
     if (first.includes("TOTAL")) continue;
+    // Skip empty rows
+    if (first === "" && row.every((c) => !c)) continue;
 
     // Detect group headers
     if (first === "FROTAS" || first === "INTERIOR") {
       currentGrupo = first;
+      colMap = null; // reset — next row should be the header
       continue;
     }
-    // Also detect if the row is a section header (only first cell has text, rest empty)
+
+    // Check if this row is a section header (only first cell, rest empty)
     const nonEmpty = row.filter((c) => c != null && String(c).trim() !== "");
     if (nonEmpty.length <= 1 && first.length > 0 && !first.match(/^\d/)) {
-      currentGrupo = first;
+      // Could be a group name like "PRÓPRIA" or a title row
+      const maybeGroup = first.replace(/[^A-ZÁÉÍÓÚÃÕÊ]/g, "");
+      if (maybeGroup.length > 2) {
+        currentGrupo = first;
+        colMap = null;
+      }
       continue;
     }
 
-    // Parse data row — expect at least a few columns
+    // Try to detect header row
+    const possibleMap = buildColumnMap(row);
+    if (possibleMap) {
+      colMap = possibleMap;
+      continue;
+    }
+
+    // If no column map yet, skip
+    if (!colMap) continue;
     if (row.length < 3) continue;
 
-    const dataVal = String(row[0] ?? "").trim();
-    const placa = String(row[1] ?? "").trim().toUpperCase();
-    const destino = String(row[2] ?? "").trim();
-    const cargaId = String(row[3] ?? "").trim();
-    const peso = parseNum(row[4]);
-    const qtdEntregas = parseNum(row[5]);
-    const motorista = String(row[6] ?? "").trim();
-    const transportadora = String(row[7] ?? "").trim();
+    const get = (key: string) => {
+      const idx = colMap!.get(key);
+      return idx != null ? String(row[idx] ?? "").trim() : "";
+    };
+    const getNum = (key: string) => {
+      const idx = colMap!.get(key);
+      return idx != null ? parseNum(row[idx]) : null;
+    };
 
-    // Skip rows that look like sub-headers
-    if (placa === "PLACA" || destino === "DESTINO") continue;
+    const placa = get("PLACA").toUpperCase();
+    // Skip sub-header echoes
+    if (placa === "PLACA") continue;
+
+    const dataVal = get("DATA");
+    const destino = get("DESTINO");
+    const cargaId = get("CARGA");
+    const peso = getNum("PESO");
+    const qtdEntregas = getNum("ENTREGAS");
+    const motorista = get("MOTORISTA");
+    const transpOrAjudante = get("TRANSP");
+    const tipoVeiculo = get("VEICULO");
+
+    const isTerceirizado = currentGrupo === "FROTAS" || currentGrupo === "INTERIOR";
 
     rows.push({
       grupo: currentGrupo,
@@ -86,7 +138,9 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
       peso,
       qtd_entregas: qtdEntregas,
       motorista,
-      transportadora,
+      transportadora: isTerceirizado ? transpOrAjudante : "",
+      ajudantes: isTerceirizado ? "" : transpOrAjudante,
+      tipo_veiculo: tipoVeiculo,
       valid: placa.length >= 3,
     });
   }
