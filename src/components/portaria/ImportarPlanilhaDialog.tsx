@@ -24,9 +24,25 @@ interface ParsedRow {
   valid: boolean;
 }
 
+export interface ParsedRow {
+  grupo: string;
+  data: string;
+  placa: string;
+  destino: string;
+  carga_id: string;
+  peso: number | null;
+  qtd_entregas: number | null;
+  motorista: string;
+  transportadora: string;
+  ajudantes: string;
+  tipo_veiculo: string;
+  valid: boolean;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onImport?: (rows: ParsedRow[]) => void;
 }
 
 function parseNum(val: unknown): number | null {
