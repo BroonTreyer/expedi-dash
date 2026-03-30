@@ -2,37 +2,20 @@
 
 ## Problema
 
-O painel "Veículos Esperados" usa uma tabela com 8 colunas que fica ilegível no mobile (390px). Precisa de layout responsivo em cards para telas pequenas.
+No mobile (390px), o header do painel "Veículos Esperados" usa `flex items-center justify-between` com tudo em uma linha: ícone + título + 2 badges + botão "Limpar lista". Isso estoura horizontalmente — os badges e o botão ficam comprimidos ou cortados.
 
-## Solução
+## Correção
 
-Converter `VeiculosEsperadosPanel.tsx` para usar **cards empilhados no mobile/tablet** e manter a tabela apenas no desktop (md+), seguindo o padrão de responsividade do projeto.
+No `CardHeader` (linhas 23-40), mudar o layout para empilhar no mobile:
 
-### Layout Mobile (< 768px) — Cards
-
-Cada veículo vira um card compacto:
-```text
-┌─────────────────────────────┐
-│ 🚛 ABC1D23        Pendente  │
-│ Motorista: João Silva       │
-│ Rota: INTERIOR  |  Carga: 5 │
-│ Peso: 1.200  |  Entregas: 8 │
-│ [  Registrar Entrada      ] │
-└─────────────────────────────┘
-```
-- Placa em destaque (font-mono, bold)
-- Badge de status (pendente/conferido)
-- Dados em grid 2 colunas
-- Botão full-width
-- Conferidos: opacity-50, check verde, sem botão
-
-### Layout Desktop (≥ 768px) — Tabela atual
-
-Mantém a tabela existente sem alterações.
+1. Trocar o container de `flex items-center justify-between` para `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2`
+2. O título com ícone fica na primeira linha
+3. Os badges ficam em `flex flex-wrap gap-1` abaixo do título no mobile, ao lado no desktop
+4. O botão "Limpar lista" fica na segunda linha no mobile, alinhado à direita
 
 ### Arquivo
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Adicionar renderização condicional: cards no mobile (`md:hidden`), tabela no desktop (`hidden md:block`). Scroll vertical com `max-h-[300px]` nos cards |
+| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Reestruturar o CardHeader (linhas 23-40) para empilhar verticalmente no mobile com `flex-col sm:flex-row` e `flex-wrap` nos badges |
 
