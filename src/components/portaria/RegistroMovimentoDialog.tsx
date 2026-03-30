@@ -178,8 +178,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
         foto_painel_url: values.foto_painel_url || null,
         foto_nota_url: values.foto_nota_url || null,
       } as any);
+      const savedPlaca = values.placa?.trim().toUpperCase() || "";
+      if (savedPlaca) onCreated?.(savedPlaca);
       onOpenChange(false);
-    } catch {
     } finally {
       setSaving(false);
     }
