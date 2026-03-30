@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, AlertTriangle, Check } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 
-interface ParsedRow {
+// ParsedRow is exported from the Props section below
+
+export interface ParsedRow {
   grupo: string;
   data: string;
   placa: string;
@@ -27,6 +27,7 @@ interface ParsedRow {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onImport?: (rows: ParsedRow[]) => void;
 }
 
 function parseNum(val: unknown): number | null {
@@ -148,11 +149,9 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
   return rows;
 }
 
-export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
+export function ImportarPlanilhaDialog({ open, onOpenChange, onImport }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
-  const [importing, setImporting] = useState(false);
-  const queryClient = useQueryClient();
 
   const validCount = useMemo(() => rows.filter((r) => r.valid).length, [rows]);
 
@@ -184,44 +183,14 @@ export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
     [handleFile]
   );
 
-  const handleImport = async () => {
+  const handleConfirm = () => {
     const validRows = rows.filter((r) => r.valid);
     if (validRows.length === 0) return;
-
-    setImporting(true);
-    try {
-      const now = new Date();
-      const records = validRows.map((r) => {
-        const isTerceirizado = r.grupo === "FROTAS" || r.grupo === "INTERIOR";
-        const obs = [r.tipo_veiculo && `Veículo: ${r.tipo_veiculo}`, r.ajudantes && `Ajudantes: ${r.ajudantes}`].filter(Boolean).join(" | ");
-        return {
-          tipo_movimento: "entrada" as const,
-          categoria: isTerceirizado ? "terceirizado" : "carga_propria",
-          placa: r.placa || null,
-          motorista: r.motorista || null,
-          empresa: r.transportadora || null,
-          rota: r.destino || null,
-          carga_id: r.carga_id || null,
-          peso: r.peso,
-          qtd_entregas: r.qtd_entregas,
-          observacoes: obs || null,
-          data_hora: now.toISOString(),
-        };
-      });
-
-      const { error } = await supabase.from("movimentacoes_portaria").insert(records);
-      if (error) throw error;
-
-      toast.success(`${validRows.length} registros importados com sucesso!`);
-      queryClient.invalidateQueries({ queryKey: ["movimentacoes-portaria"] });
-      setRows([]);
-      setFileName("");
-      onOpenChange(false);
-    } catch (err: any) {
-      toast.error("Erro ao importar: " + (err.message || "Erro desconhecido"));
-    } finally {
-      setImporting(false);
-    }
+    onImport?.(validRows);
+    toast.success(`${validRows.length} veículos carregados na lista de esperados`);
+    setRows([]);
+    setFileName("");
+    onOpenChange(false);
   };
 
   const handleClose = (val: boolean) => {
@@ -241,7 +210,7 @@ export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
             Importar Mapa de Carregamento
           </DialogTitle>
           <DialogDescription>
-            Faça upload da planilha XLSX para criar entradas automaticamente
+            Faça upload da planilha XLSX para carregar a lista de veículos esperados
           </DialogDescription>
         </DialogHeader>
 
@@ -329,8 +298,8 @@ export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
         <DialogFooter>
           <Button variant="ghost" onClick={() => handleClose(false)}>Cancelar</Button>
           {validCount > 0 && (
-            <Button onClick={handleImport} disabled={importing}>
-              {importing ? "Importando..." : `Importar ${validCount} registros`}
+            <Button onClick={handleConfirm}>
+              Carregar {validCount} veículos esperados
             </Button>
           )}
         </DialogFooter>

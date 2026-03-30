@@ -16,8 +16,9 @@ import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
 import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimentoDialog";
-import { ImportarPlanilhaDialog } from "@/components/portaria/ImportarPlanilhaDialog";
+import { ImportarPlanilhaDialog, type ParsedRow } from "@/components/portaria/ImportarPlanilhaDialog";
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
+import { VeiculosEsperadosPanel } from "@/components/portaria/VeiculosEsperadosPanel";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
@@ -36,9 +37,12 @@ export default function Portaria() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
+  const [prefillFromPlanilha, setPrefillFromPlanilha] = useState<Record<string, any> | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [veiculosEsperados, setVeiculosEsperados] = useState<ParsedRow[]>([]);
+  const [placasConferidas, setPlacasConferidas] = useState<Set<string>>(new Set());
 
   const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
   const dateLabel = isToday ? "Hoje" : "no Período";
@@ -63,7 +67,48 @@ export default function Portaria() {
 
   const openRegistro = (prefillData?: MovimentacaoPortaria) => {
     setPrefill(prefillData || null);
+    setPrefillFromPlanilha(null);
     setDialogOpen(true);
+  };
+
+  const openRegistroFromPlanilha = (row: ParsedRow) => {
+    setPrefill(null);
+    const isTerceirizado = row.grupo === "FROTAS" || row.grupo === "INTERIOR";
+    setPrefillFromPlanilha({
+      tipo: "entrada" as const,
+      categoria: isTerceirizado ? "terceirizado" : "carga_propria",
+      placa: row.placa,
+      motorista: row.motorista,
+      empresa: row.transportadora || "",
+      carga_id: row.carga_id,
+      rota: row.destino,
+      peso: row.peso,
+      qtd_entregas: row.qtd_entregas,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleImportPlanilha = (rows: ParsedRow[]) => {
+    setVeiculosEsperados(rows);
+    setPlacasConferidas(new Set());
+  };
+
+  const handleDialogClose = (v: boolean) => {
+    setDialogOpen(v);
+    if (!v) {
+      setPrefillFromPlanilha(null);
+    }
+  };
+
+  // Mark placa as conferida when a new entrada is created
+  const handleMovimentacaoCreated = (placa: string) => {
+    if (veiculosEsperados.length > 0 && placa) {
+      const norm = placa.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+      const match = veiculosEsperados.find((v) => v.placa.replace(/[^A-Z0-9]/gi, "").toUpperCase() === norm);
+      if (match) {
+        setPlacasConferidas((prev) => new Set([...prev, match.placa]));
+      }
+    }
   };
 
   const openDetails = (entrada?: MovimentacaoPortaria, saida?: MovimentacaoPortaria) => {
@@ -189,6 +234,14 @@ export default function Portaria() {
         {/* KPIs */}
         <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} dateLabel={dateLabel} />
 
+        {/* Veículos Esperados */}
+        <VeiculosEsperadosPanel
+          veiculos={veiculosEsperados}
+          conferidos={placasConferidas}
+          onRegistrar={openRegistroFromPlanilha}
+          onClear={() => { setVeiculosEsperados([]); setPlacasConferidas(new Set()); }}
+        />
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1 sm:max-w-sm">
@@ -274,9 +327,15 @@ export default function Portaria() {
         </Tabs>
       </div>
 
-      <RegistroMovimentoDialog open={dialogOpen} onOpenChange={setDialogOpen} prefill={prefill} />
+      <RegistroMovimentoDialog
+        open={dialogOpen}
+        onOpenChange={handleDialogClose}
+        prefill={prefill}
+        prefillFromPlanilha={prefillFromPlanilha}
+        onCreated={handleMovimentacaoCreated}
+      />
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
-      <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
+      <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onImport={handleImportPlanilha} />
     </Layout>
   );
 }

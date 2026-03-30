@@ -29,9 +29,11 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   prefill?: MovimentacaoPortaria | null;
+  prefillFromPlanilha?: Record<string, any> | null;
+  onCreated?: (placa: string) => void;
 }
 
-export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) {
+export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFromPlanilha, onCreated }: Props) {
   const { user } = useAuth();
   const createMov = useCreateMovimentacao();
   const [step, setStep] = useState<"categoria" | "form">("categoria");
@@ -60,6 +62,19 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         empresa: prefill.empresa || "",
         carga_id: prefill.carga_id || "",
       });
+    } else if (prefillFromPlanilha) {
+      setStep("form");
+      setTipo(prefillFromPlanilha.tipo || "entrada");
+      setCategoria((prefillFromPlanilha.categoria as Categoria) || "carga_propria");
+      setValues({
+        placa: prefillFromPlanilha.placa || "",
+        motorista: prefillFromPlanilha.motorista || "",
+        empresa: prefillFromPlanilha.empresa || "",
+        carga_id: prefillFromPlanilha.carga_id || "",
+        rota: prefillFromPlanilha.rota || "",
+        peso: prefillFromPlanilha.peso ?? "",
+        qtd_entregas: prefillFromPlanilha.qtd_entregas ?? "",
+      });
     } else {
       setStep("categoria");
       setTipo("entrada");
@@ -69,7 +84,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
     setOcrLoading(false);
     setTextoPlacaLido(null);
     setConfiancaPlaca(null);
-  }, [open, prefill]);
+  }, [open, prefill, prefillFromPlanilha]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, tipo), [categoria, tipo]);
   const canSave = useMemo(() => validateForm(categoria, values, tipo), [categoria, values, tipo]);
@@ -163,8 +178,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
         foto_painel_url: values.foto_painel_url || null,
         foto_nota_url: values.foto_nota_url || null,
       } as any);
+      const savedPlaca = values.placa?.trim().toUpperCase() || "";
+      if (savedPlaca) onCreated?.(savedPlaca);
       onOpenChange(false);
-    } catch {
     } finally {
       setSaving(false);
     }
@@ -224,7 +240,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) 
                 Cadastro de {categoriaLabel}
               </DialogTitle>
               <DialogDescription>
-                {prefill ? `Registrar retorno do veículo ${prefill.placa}` : `Preencha os dados de ${tipo === "entrada" ? "entrada" : "retorno"}`}
+                {prefill ? `Registrar retorno do veículo ${prefill.placa}` : prefillFromPlanilha ? `Conferir entrada do veículo ${prefillFromPlanilha.placa}` : `Preencha os dados de ${tipo === "entrada" ? "entrada" : "retorno"}`}
               </DialogDescription>
             </DialogHeader>
 
