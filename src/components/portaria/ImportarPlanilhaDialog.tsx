@@ -211,7 +211,7 @@ export function ImportarPlanilhaDialog({ open, onOpenChange, onImport }: Props) 
             Importar Mapa de Carregamento
           </DialogTitle>
           <DialogDescription>
-            Faça upload da planilha XLSX para criar entradas automaticamente
+            Faça upload da planilha XLSX para carregar a lista de veículos esperados
           </DialogDescription>
         </DialogHeader>
 
