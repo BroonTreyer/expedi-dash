@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, X } from "lucide-react";
+import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X } from "lucide-react";
 import { useMovimentacoes, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
 import { HistoricoTab } from "@/components/portaria/HistoricoTab";
 import { RegistroMovimentoDialog } from "@/components/portaria/RegistroMovimentoDialog";
+import { ImportarPlanilhaDialog } from "@/components/portaria/ImportarPlanilhaDialog";
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
@@ -33,6 +34,7 @@ export default function Portaria() {
   const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
@@ -178,6 +180,9 @@ export default function Portaria() {
             <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={exportCSV}>
               <Download className="h-3.5 w-3.5" /> CSV
             </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={() => setImportDialogOpen(true)}>
+              <Upload className="h-3.5 w-3.5" /> Importar
+            </Button>
           </div>
         </div>
 
@@ -271,6 +276,7 @@ export default function Portaria() {
 
       <RegistroMovimentoDialog open={dialogOpen} onOpenChange={setDialogOpen} prefill={prefill} />
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
+      <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
     </Layout>
   );
 }
