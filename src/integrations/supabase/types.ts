@@ -491,6 +491,66 @@ export type Database = {
         }
         Relationships: []
       }
+      veiculos_esperados: {
+        Row: {
+          ajudantes: string | null
+          carga_id: string | null
+          conferido: boolean
+          conferido_em: string | null
+          conferido_por: string | null
+          created_at: string
+          criado_por: string | null
+          data_referencia: string
+          destino: string | null
+          grupo: string
+          id: string
+          motorista: string | null
+          peso: number | null
+          placa: string
+          qtd_entregas: number | null
+          tipo_veiculo: string | null
+          transportadora: string | null
+        }
+        Insert: {
+          ajudantes?: string | null
+          carga_id?: string | null
+          conferido?: boolean
+          conferido_em?: string | null
+          conferido_por?: string | null
+          created_at?: string
+          criado_por?: string | null
+          data_referencia?: string
+          destino?: string | null
+          grupo?: string
+          id?: string
+          motorista?: string | null
+          peso?: number | null
+          placa: string
+          qtd_entregas?: number | null
+          tipo_veiculo?: string | null
+          transportadora?: string | null
+        }
+        Update: {
+          ajudantes?: string | null
+          carga_id?: string | null
+          conferido?: boolean
+          conferido_em?: string | null
+          conferido_por?: string | null
+          created_at?: string
+          criado_por?: string | null
+          data_referencia?: string
+          destino?: string | null
+          grupo?: string
+          id?: string
+          motorista?: string | null
+          peso?: number | null
+          placa?: string
+          qtd_entregas?: number | null
+          tipo_veiculo?: string | null
+          transportadora?: string | null
+        }
+        Relationships: []
+      }
       vendedores: {
         Row: {
           ativo: boolean
