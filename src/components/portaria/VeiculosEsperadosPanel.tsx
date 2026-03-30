@@ -40,7 +40,54 @@ export function VeiculosEsperadosPanel({ veiculos, conferidos, onRegistrar, onCl
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-auto max-h-[250px]">
+        {/* Mobile: Cards */}
+        <div className="md:hidden overflow-auto max-h-[300px] space-y-2 p-3">
+          {veiculos.map((v, i) => {
+            const isConferido = conferidos.has(v.placa);
+            return (
+              <div
+                key={i}
+                className={`rounded-lg border bg-card p-3 space-y-2 ${isConferido ? "opacity-50" : ""}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isConferido ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                    ) : (
+                      <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
+                    )}
+                    <span className={`font-mono font-bold text-sm ${isConferido ? "line-through" : ""}`}>
+                      {v.placa}
+                    </span>
+                  </div>
+                  <Badge
+                    variant={isConferido ? "secondary" : "outline"}
+                    className={`text-[10px] h-5 ${!isConferido ? "border-amber-300 text-amber-700 dark:text-amber-400" : ""}`}
+                  >
+                    {isConferido ? "Conferido" : "Pendente"}
+                  </Badge>
+                </div>
+                <div className={`text-xs ${isConferido ? "line-through" : ""}`}>
+                  <span className="text-muted-foreground">Motorista:</span> {v.motorista || "—"}
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  <div><span className="text-muted-foreground">Rota:</span> {v.destino || "—"}</div>
+                  <div><span className="text-muted-foreground">Carga:</span> {v.carga_id || "—"}</div>
+                  <div><span className="text-muted-foreground">Peso:</span> {v.peso ?? "—"}</div>
+                  <div><span className="text-muted-foreground">Entregas:</span> {v.qtd_entregas ?? "—"}</div>
+                </div>
+                {!isConferido && (
+                  <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1" onClick={() => onRegistrar(v)}>
+                    Registrar Entrada
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop: Table */}
+        <div className="hidden md:block overflow-auto max-h-[250px]">
           <Table>
             <TableHeader>
               <TableRow>
