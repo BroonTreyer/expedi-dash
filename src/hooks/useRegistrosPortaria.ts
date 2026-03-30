@@ -96,28 +96,9 @@ export async function uploadFotoPortaria(file: File, cargaId: string, tipo: stri
 }
 
 export async function processarOCR(imageUrl: string, tipo: "placa" | "km"): Promise<{ texto: string; confianca: number }> {
-  const Tesseract = await import("tesseract.js");
-  const { data } = await Tesseract.recognize(imageUrl, "por", {
-    logger: () => {},
+  const { data, error } = await supabase.functions.invoke("ocr-portaria", {
+    body: { imageUrl, tipo },
   });
-
-  const rawText = data.text.trim();
-  const confidence = Math.round(data.confidence);
-
-  if (tipo === "placa") {
-    // Try Mercosul (ABC1D23) or old format (ABC-1234)
-    const cleaned = rawText.replace(/[\s\-\.]/g, "").toUpperCase();
-    const match = cleaned.match(/[A-Z]{3}\d[A-Z0-9]\d{2}/) || cleaned.match(/[A-Z]{3}\d{4}/);
-    return {
-      texto: match ? match[0] : cleaned.slice(0, 7),
-      confianca: match ? confidence : Math.min(confidence, 40),
-    };
-  }
-
-  // KM: extract only digits
-  const digits = rawText.replace(/\D/g, "");
-  return {
-    texto: digits || "0",
-    confianca: digits ? confidence : Math.min(confidence, 30),
-  };
+  if (error) throw error;
+  return { texto: data.texto, confianca: data.confianca };
 }
