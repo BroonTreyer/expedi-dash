@@ -151,11 +151,9 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
   return rows;
 }
 
-export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
+export function ImportarPlanilhaDialog({ open, onOpenChange, onImport }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
-  const [importing, setImporting] = useState(false);
-  const queryClient = useQueryClient();
 
   const validCount = useMemo(() => rows.filter((r) => r.valid).length, [rows]);
 
@@ -187,44 +185,14 @@ export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
     [handleFile]
   );
 
-  const handleImport = async () => {
+  const handleConfirm = () => {
     const validRows = rows.filter((r) => r.valid);
     if (validRows.length === 0) return;
-
-    setImporting(true);
-    try {
-      const now = new Date();
-      const records = validRows.map((r) => {
-        const isTerceirizado = r.grupo === "FROTAS" || r.grupo === "INTERIOR";
-        const obs = [r.tipo_veiculo && `Veículo: ${r.tipo_veiculo}`, r.ajudantes && `Ajudantes: ${r.ajudantes}`].filter(Boolean).join(" | ");
-        return {
-          tipo_movimento: "entrada" as const,
-          categoria: isTerceirizado ? "terceirizado" : "carga_propria",
-          placa: r.placa || null,
-          motorista: r.motorista || null,
-          empresa: r.transportadora || null,
-          rota: r.destino || null,
-          carga_id: r.carga_id || null,
-          peso: r.peso,
-          qtd_entregas: r.qtd_entregas,
-          observacoes: obs || null,
-          data_hora: now.toISOString(),
-        };
-      });
-
-      const { error } = await supabase.from("movimentacoes_portaria").insert(records);
-      if (error) throw error;
-
-      toast.success(`${validRows.length} registros importados com sucesso!`);
-      queryClient.invalidateQueries({ queryKey: ["movimentacoes-portaria"] });
-      setRows([]);
-      setFileName("");
-      onOpenChange(false);
-    } catch (err: any) {
-      toast.error("Erro ao importar: " + (err.message || "Erro desconhecido"));
-    } finally {
-      setImporting(false);
-    }
+    onImport?.(validRows);
+    toast.success(`${validRows.length} veículos carregados na lista de esperados`);
+    setRows([]);
+    setFileName("");
+    onOpenChange(false);
   };
 
   const handleClose = (val: boolean) => {
