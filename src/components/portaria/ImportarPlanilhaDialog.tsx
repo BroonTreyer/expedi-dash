@@ -193,6 +193,7 @@ export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
       const now = new Date();
       const records = validRows.map((r) => {
         const isTerceirizado = r.grupo === "FROTAS" || r.grupo === "INTERIOR";
+        const obs = [r.tipo_veiculo && `Veículo: ${r.tipo_veiculo}`, r.ajudantes && `Ajudantes: ${r.ajudantes}`].filter(Boolean).join(" | ");
         return {
           tipo_movimento: "entrada" as const,
           categoria: isTerceirizado ? "terceirizado" : "carga_propria",
@@ -203,6 +204,7 @@ export function ImportarPlanilhaDialog({ open, onOpenChange }: Props) {
           carga_id: r.carga_id || null,
           peso: r.peso,
           qtd_entregas: r.qtd_entregas,
+          observacoes: obs || null,
           data_hora: now.toISOString(),
         };
       });
