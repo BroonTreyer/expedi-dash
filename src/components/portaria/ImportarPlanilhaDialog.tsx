@@ -9,20 +9,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 
-interface ParsedRow {
-  grupo: string;
-  data: string;
-  placa: string;
-  destino: string;
-  carga_id: string;
-  peso: number | null;
-  qtd_entregas: number | null;
-  motorista: string;
-  transportadora: string;
-  ajudantes: string;
-  tipo_veiculo: string;
-  valid: boolean;
-}
+// ParsedRow is exported from the Props section below
 
 export interface ParsedRow {
   grupo: string;
