@@ -4,10 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, AlertTriangle, Check } from "lucide-react";
-import { toast } from "sonner";
 import * as XLSX from "xlsx";
-
-// ParsedRow is exported from the Props section below
 
 export interface ParsedRow {
   grupo: string;
@@ -27,7 +24,8 @@ export interface ParsedRow {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport?: (rows: ParsedRow[]) => void;
+  onConfirm: (rows: ParsedRow[]) => void;
+  isImporting?: boolean;
 }
 
 function parseNum(val: unknown): number | null {
@@ -71,22 +69,17 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
     if (!row || row.length === 0) continue;
     const first = String(row[0] ?? "").trim().toUpperCase();
 
-    // Skip total rows
     if (first.includes("TOTAL")) continue;
-    // Skip empty rows
     if (first === "" && row.every((c) => !c)) continue;
 
-    // Detect group headers
     if (first === "FROTAS" || first === "INTERIOR") {
       currentGrupo = first;
-      colMap = null; // reset — next row should be the header
+      colMap = null;
       continue;
     }
 
-    // Check if this row is a section header (only first cell, rest empty)
     const nonEmpty = row.filter((c) => c != null && String(c).trim() !== "");
     if (nonEmpty.length <= 1 && first.length > 0 && !first.match(/^\d/)) {
-      // Could be a group name like "PRÓPRIA" or a title row
       const maybeGroup = first.replace(/[^A-ZÁÉÍÓÚÃÕÊ]/g, "");
       if (maybeGroup.length > 2) {
         currentGrupo = first;
@@ -95,14 +88,12 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
       continue;
     }
 
-    // Try to detect header row
     const possibleMap = buildColumnMap(row);
     if (possibleMap) {
       colMap = possibleMap;
       continue;
     }
 
-    // If no column map yet, skip
     if (!colMap) continue;
     if (row.length < 3) continue;
 
@@ -116,7 +107,6 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
     };
 
     const placa = get("PLACA").toUpperCase();
-    // Skip sub-header echoes
     if (placa === "PLACA") continue;
 
     const dataVal = get("DATA");
@@ -149,7 +139,7 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
   return rows;
 }
 
-export function ImportarPlanilhaDialog({ open, onOpenChange, onImport }: Props) {
+export function ImportarPlanilhaDialog({ open, onOpenChange, onConfirm, isImporting }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
 
@@ -164,10 +154,10 @@ export function ImportarPlanilhaDialog({ open, onOpenChange, onImport }: Props) 
         const parsed = parseXlsx(data);
         setRows(parsed);
         if (parsed.length === 0) {
-          toast.error("Nenhum dado encontrado na planilha");
+          import("sonner").then(({ toast }) => toast.error("Nenhum dado encontrado na planilha"));
         }
       } catch {
-        toast.error("Erro ao ler planilha. Verifique o formato.");
+        import("sonner").then(({ toast }) => toast.error("Erro ao ler planilha. Verifique o formato."));
         setRows([]);
       }
     };
@@ -186,8 +176,7 @@ export function ImportarPlanilhaDialog({ open, onOpenChange, onImport }: Props) 
   const handleConfirm = () => {
     const validRows = rows.filter((r) => r.valid);
     if (validRows.length === 0) return;
-    onImport?.(validRows);
-    toast.success(`${validRows.length} veículos carregados na lista de esperados`);
+    onConfirm(validRows);
     setRows([]);
     setFileName("");
     onOpenChange(false);
@@ -298,8 +287,8 @@ export function ImportarPlanilhaDialog({ open, onOpenChange, onImport }: Props) 
         <DialogFooter>
           <Button variant="ghost" onClick={() => handleClose(false)}>Cancelar</Button>
           {validCount > 0 && (
-            <Button onClick={handleConfirm}>
-              Carregar {validCount} veículos esperados
+            <Button onClick={handleConfirm} disabled={isImporting}>
+              {isImporting ? "Importando..." : `Carregar ${validCount} veículos esperados`}
             </Button>
           )}
         </DialogFooter>

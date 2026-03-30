@@ -3,19 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { ClipboardCheck, Truck, X, CheckCircle2 } from "lucide-react";
-import type { ParsedRow } from "./ImportarPlanilhaDialog";
+import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 
 interface Props {
-  veiculos: ParsedRow[];
-  conferidos: Set<string>;
-  onRegistrar: (veiculo: ParsedRow) => void;
+  veiculos: VeiculoEsperado[];
+  onRegistrar: (veiculo: VeiculoEsperado) => void;
   onClear: () => void;
+  isClearing?: boolean;
 }
 
-export function VeiculosEsperadosPanel({ veiculos, conferidos, onRegistrar, onClear }: Props) {
+export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing }: Props) {
   if (veiculos.length === 0) return null;
 
-  const totalConferidos = veiculos.filter((v) => conferidos.has(v.placa)).length;
+  const totalConferidos = veiculos.filter((v) => v.conferido).length;
   const pendentes = veiculos.length - totalConferidos;
 
   return (
@@ -38,7 +38,7 @@ export function VeiculosEsperadosPanel({ veiculos, conferidos, onRegistrar, onCl
               )}
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground self-end sm:self-auto" onClick={onClear}>
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground self-end sm:self-auto" onClick={onClear} disabled={isClearing}>
             <X className="h-3 w-3" /> Limpar lista
           </Button>
         </div>
@@ -46,11 +46,11 @@ export function VeiculosEsperadosPanel({ veiculos, conferidos, onRegistrar, onCl
       <CardContent className="p-0">
         {/* Mobile: Cards */}
         <div className="md:hidden overflow-auto max-h-[300px] space-y-2 p-3">
-          {veiculos.map((v, i) => {
-            const isConferido = conferidos.has(v.placa);
+          {veiculos.map((v) => {
+            const isConferido = v.conferido;
             return (
               <div
-                key={i}
+                key={v.id}
                 className={`rounded-lg border bg-card p-3 space-y-2 ${isConferido ? "opacity-50" : ""}`}
               >
                 <div className="flex items-center justify-between">
@@ -106,10 +106,10 @@ export function VeiculosEsperadosPanel({ veiculos, conferidos, onRegistrar, onCl
               </TableRow>
             </TableHeader>
             <TableBody>
-              {veiculos.map((v, i) => {
-                const isConferido = conferidos.has(v.placa);
+              {veiculos.map((v) => {
+                const isConferido = v.conferido;
                 return (
-                  <TableRow key={i} className={isConferido ? "opacity-50" : ""}>
+                  <TableRow key={v.id} className={isConferido ? "opacity-50" : ""}>
                     <TableCell className="py-1.5">
                       {isConferido ? (
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
