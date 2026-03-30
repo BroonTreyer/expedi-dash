@@ -21,20 +21,24 @@ export function VeiculosEsperadosPanel({ veiculos, conferidos, onRegistrar, onCl
   return (
     <Card className="border-primary/20 bg-primary/5">
       <CardHeader className="py-3 px-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <ClipboardCheck className="h-4 w-4 text-primary" />
-            Veículos Esperados
-            <Badge variant="secondary" className="text-[10px] h-5">
-              {totalConferidos}/{veiculos.length} conferidos
-            </Badge>
-            {pendentes > 0 && (
-              <Badge variant="outline" className="text-[10px] h-5 border-amber-300 text-amber-700 dark:text-amber-400">
-                {pendentes} pendentes
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-primary shrink-0" />
+              Veículos Esperados
+            </CardTitle>
+            <div className="flex flex-wrap gap-1">
+              <Badge variant="secondary" className="text-[10px] h-5">
+                {totalConferidos}/{veiculos.length} conferidos
               </Badge>
-            )}
-          </CardTitle>
-          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground" onClick={onClear}>
+              {pendentes > 0 && (
+                <Badge variant="outline" className="text-[10px] h-5 border-amber-300 text-amber-700 dark:text-amber-400">
+                  {pendentes} pendentes
+                </Badge>
+              )}
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground self-end sm:self-auto" onClick={onClear}>
             <X className="h-3 w-3" /> Limpar lista
           </Button>
         </div>
