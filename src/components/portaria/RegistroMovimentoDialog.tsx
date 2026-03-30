@@ -33,7 +33,7 @@ interface Props {
   onCreated?: (placa: string) => void;
 }
 
-export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) {
+export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFromPlanilha, onCreated }: Props) {
   const { user } = useAuth();
   const createMov = useCreateMovimentacao();
   const [step, setStep] = useState<"categoria" | "form">("categoria");
