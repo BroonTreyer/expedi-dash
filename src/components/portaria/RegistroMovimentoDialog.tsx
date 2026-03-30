@@ -29,6 +29,8 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   prefill?: MovimentacaoPortaria | null;
+  prefillFromPlanilha?: Record<string, any> | null;
+  onCreated?: (placa: string) => void;
 }
 
 export function RegistroMovimentoDialog({ open, onOpenChange, prefill }: Props) {
