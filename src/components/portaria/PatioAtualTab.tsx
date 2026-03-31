@@ -285,7 +285,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     </div>
                   ) : (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => setSaidaRapidaId(m.id)}>
-                       <ArrowUpFromLine className="h-3 w-3" /> Retorno
+                       <ArrowUpFromLine className="h-3 w-3" /> Saída
                     </Button>
                   )}
                 </div>
