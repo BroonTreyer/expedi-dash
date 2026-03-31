@@ -44,6 +44,7 @@ const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "
 
 export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
   const updateMov = useUpdateMovimentacao();
+  const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const [values, setValues] = useState<Record<string, any>>({});
 
   useEffect(() => {
