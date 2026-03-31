@@ -409,7 +409,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
               <SortableTableHead sort={sort} sortKey="tipo_frete" onSort={toggleSort}>Frete</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="created_at" onSort={toggleSort}>Dt. Cadastro</SortableTableHead>
-              <SortableTableHead sort={sort} sortKey="data" onSort={toggleSort}>Dt. Pedido</SortableTableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>
