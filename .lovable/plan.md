@@ -1,25 +1,23 @@
 
 
-# Adicionar Coluna "Data Cadastro" na Tabela de Expedição
+# Corrigir "Limpar Lista" na Portaria
 
 ## Problema
 
-A tabela do painel de expedição não exibe a data em que os pedidos foram inseridos (`created_at`). Quando se visualiza vários dias ou pedidos pendentes de dias anteriores, não há como saber quando cada pedido foi cadastrado.
+O botão "Limpar lista" chama `limparMutation.mutate(dateFromStr)` que deleta apenas os veículos da data selecionada (ex: `2026-03-31`). Porém, o painel exibe veículos de uma janela de ±3 dias. Se os veículos visíveis são de datas como `2026-03-28` ou `2026-03-30`, o DELETE não os afeta — a lista parece não limpar.
 
 ## Solução
 
-**`src/components/dashboard/CarregamentoTable.tsx`**:
+**`src/hooks/useVeiculosEsperados.ts`** — Alterar `useLimparVeiculosEsperados` para aceitar um array de datas (ou um range) e deletar todas as datas visíveis, não apenas uma.
 
-1. Adicionar coluna **"Dt. Cadastro"** após a coluna "Frete", exibindo `created_at` formatado como `dd/MM` (dia/mês, compacto)
-2. Adicionar coluna **"Dt. Pedido"** logo após, exibindo o campo `data` formatado como `dd/MM`
-3. Adicionar sort accessors para ambas (`created_at` e `data`)
-4. Atualizar `colCount` (+2)
-5. Adicionar as mesmas informações no `MobileCardItem` (seção de detalhes)
-6. Renderizar nas linhas de grupo expandido também
+**`src/pages/Portaria.tsx`** — Passar todas as datas únicas dos `veiculosEsperados` visíveis ao mutation, ou passar o range `dataInicio`/`dataLimite` para deletar tudo na janela.
 
-As datas serão exibidas no formato compacto `dd/MM` para não ocupar espaço excessivo na tabela.
+Abordagem concreta:
+1. Mudar `useLimparVeiculosEsperados` para aceitar `{ dataInicio: string, dataFim: string }` e usar `.gte("data_referencia", dataInicio).lte("data_referencia", dataFim)` no DELETE
+2. Em `Portaria.tsx`, calcular o range ±3 dias e passar ao mutation
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/dashboard/CarregamentoTable.tsx` | Adicionar colunas "Dt. Cadastro" (created_at) e "Dt. Pedido" (data) na tabela desktop e mobile |
+| `src/hooks/useVeiculosEsperados.ts` | `useLimparVeiculosEsperados` aceita range de datas e deleta com `.gte/.lte` |
+| `src/pages/Portaria.tsx` | Passar range de datas ao invés de data única |
 
