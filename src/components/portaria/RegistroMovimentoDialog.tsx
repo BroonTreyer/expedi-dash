@@ -105,7 +105,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
   };
 
   const handleFotoCapture = async (fieldKey: string, file: File) => {
-    const tipoFotoMap: Record<string, string> = { foto_placa_url: "placa", foto_painel_url: "painel", foto_nota_url: "nota", foto_documento_url: "doc" };
+    const tipoFotoMap: Record<string, string> = { foto_placa_url: "placa", foto_painel_url: "painel", foto_nota_url: "nota", foto_documento_url: "doc", foto_lacre_url: "lacre" };
     const tipoFoto = (tipoFotoMap[fieldKey] || "doc") as "placa" | "doc" | "painel" | "nota";
     try {
       const publicUrl = await uploadFotoMovimentacao(file, tipoFoto);
