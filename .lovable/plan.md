@@ -1,37 +1,24 @@
 
 
-# Permissões Granulares para Perfil Portaria
+# Ocultar Veículos Conferidos da Lista de Esperados
 
 ## Problema
 
-Atualmente `isReadOnly = role === "portaria"` bloqueia TUDO. O perfil portaria precisa:
-- **Registrar entrada/saída** (botão Registrar + registro de saída no pátio + registro a partir de esperados)
-- **NÃO pode**: Importar planilha, Exportar CSV
+Quando o usuário registra entrada de um veículo esperado, o sistema marca como `conferido` mas continua mostrando o veículo na lista (com opacidade reduzida). O usuário quer que ele desapareça.
 
 ## Solução
 
-**`src/pages/Portaria.tsx`**:
+**`src/components/portaria/VeiculosEsperadosPanel.tsx`**: Filtrar os veículos conferidos antes de renderizar. Mostrar apenas veículos pendentes na lista principal, e atualizar os contadores para refletir isso.
 
-1. Substituir `isReadOnly` por uma flag mais específica:
-```typescript
-const isPortaria = role === "portaria";
-```
+- Após o filtro de busca, adicionar `.filter(v => !v.conferido)` para excluir conferidos
+- Manter o badge "X/Y conferidos" usando a lista completa para referência
+- Se todos foram conferidos e a lista filtrada está vazia, mostrar mensagem de "Todos conferidos"
 
-2. No bloco de botões do header (linha 235-247), separar os botões:
-   - Botão "Registrar" — visível para todos (remover guard)
-   - Botões "CSV" e "Importar" — escondidos para portaria (`!isPortaria`)
+## Correção adicional: Runtime error `isReadOnly`
 
-3. Nas props `readOnly` passadas para `PatioAtualTab` e `VeiculosEsperadosPanel` — mudar para `false` (portaria pode registrar saída e registrar a partir de esperados)
-
-4. Manter `onClear` (limpar lista de esperados) bloqueado para portaria — só admin/logística
-
-5. Os dialogs `RegistroMovimentoDialog` e `ImportarPlanilhaDialog`:
-   - `RegistroMovimentoDialog` — renderizar sempre (portaria precisa)
-   - `ImportarPlanilhaDialog` — esconder para portaria
-
-6. Remover guard `isReadOnly` das funções `openRegistro` e `openRegistroFromVeiculoEsperado`
+O erro `isReadOnly is not defined` vem de um build cacheado. O código atual já não usa essa variável. Um rebuild deve resolver, mas não há mudança de código necessária.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/Portaria.tsx` | Substituir `isReadOnly` por controles granulares: portaria registra mas não importa/exporta/limpa |
+| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Filtrar veículos conferidos da lista visível, mostrar apenas pendentes |
 
