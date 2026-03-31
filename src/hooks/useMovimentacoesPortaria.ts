@@ -186,8 +186,9 @@ export async function uploadFotoMovimentacao(file: File, tipo: "placa" | "doc" |
   const path = `movimentacoes/${tipo}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
   const { error } = await supabase.storage.from("portaria").upload(path, file);
   if (error) throw error;
-  const { data: urlData } = supabase.storage.from("portaria").getPublicUrl(path);
-  return urlData.publicUrl;
+  const { data: signedData, error: signError } = await supabase.storage.from("portaria").createSignedUrl(path, 60 * 60 * 24 * 365);
+  if (signError || !signedData?.signedUrl) throw signError || new Error("Failed to create signed URL");
+  return signedData.signedUrl;
 }
 
 export function usePlacaAutocomplete(placa: string) {
