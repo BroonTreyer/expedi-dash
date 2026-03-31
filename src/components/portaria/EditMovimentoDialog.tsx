@@ -13,16 +13,19 @@ interface Props {
   movimento: MovimentacaoPortaria | null;
 }
 
-const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "text" | "number" | "textarea" }[] = [
+const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "text" | "number" | "textarea" | "select"; options?: string[] }[] = [
   { key: "placa", label: "Placa", type: "text" },
   { key: "motorista", label: "Motorista", type: "text" },
   { key: "empresa", label: "Empresa", type: "text" },
+  { key: "categoria", label: "Categoria", type: "select", options: ["carga_propria", "terceirizado", "fornecedor", "visitante", "prestador", "outros"] },
+  { key: "tipo_movimento", label: "Tipo Movimento", type: "select", options: ["entrada", "saida"] },
   { key: "nome_completo", label: "Nome Completo", type: "text" },
   { key: "documento", label: "Documento", type: "text" },
   { key: "telefone", label: "Telefone", type: "text" },
   { key: "carga_id", label: "Carga ID", type: "text" },
   { key: "rota", label: "Rota", type: "text" },
   { key: "apelido", label: "Apelido", type: "text" },
+  { key: "destino_setor", label: "Setor/Destino", type: "text" },
   { key: "km_inicial", label: "KM Inicial", type: "number" },
   { key: "km_final", label: "KM Final", type: "number" },
   { key: "km_rota", label: "KM Rota", type: "number" },

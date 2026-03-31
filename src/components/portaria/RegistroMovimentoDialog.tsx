@@ -267,7 +267,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                                 onAutofill={(d) => {
                                   if (d.motorista) set("motorista", d.motorista);
                                   if (d.empresa) set("empresa", d.empresa);
-                                  if (d.destino_setor) set("doca_setor", d.destino_setor);
+                                  if (d.destino_setor) set("destino_setor", d.destino_setor);
                                 }}
                                 disabled={saving || !!prefill}
                               />
