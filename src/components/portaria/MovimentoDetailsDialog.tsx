@@ -54,15 +54,22 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const isAdmin = role === "admin";
 
   const placaBusca = movimento?.placa?.trim().toUpperCase() || "";
+  const dataMovimento = movimento?.data_hora ? new Date(movimento.data_hora).toISOString().slice(0, 10) : "";
   const { data: veiculoEsperado } = useQuery({
-    queryKey: ["veiculo-esperado-detalhe", placaBusca],
+    queryKey: ["veiculo-esperado-detalhe", placaBusca, dataMovimento],
     queryFn: async () => {
-      if (!placaBusca) return null;
+      if (!placaBusca || !dataMovimento) return null;
+      // Search in a ±3 day window around the movement date
+      const dMov = new Date(dataMovimento + "T00:00:00");
+      const dFrom = new Date(dMov); dFrom.setDate(dFrom.getDate() - 3);
+      const dTo = new Date(dMov); dTo.setDate(dTo.getDate() + 3);
       const { data, error } = await supabase
         .from("veiculos_esperados")
         .select("data_referencia")
         .ilike("placa", placaBusca)
-        .order("data_referencia", { ascending: false })
+        .gte("data_referencia", dFrom.toISOString().slice(0, 10))
+        .lte("data_referencia", dTo.toISOString().slice(0, 10))
+        .order("data_referencia", { ascending: true })
         .limit(1);
       if (error) {
         console.error("Erro ao buscar veículo esperado:", error);
@@ -70,7 +77,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
       }
       return data?.[0] || null;
     },
-    enabled: !!placaBusca && open,
+    enabled: !!placaBusca && !!dataMovimento && open,
   });
 
   if (!movimento) return null;
