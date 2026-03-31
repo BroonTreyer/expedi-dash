@@ -158,7 +158,6 @@ export default function Motoristas() {
         open={!!photoUrl}
         onOpenChange={() => setPhotoUrl(null)}
         url={photoUrl ?? ""}
-        title="Documento do Motorista"
       />
     </Layout>
   );
