@@ -316,6 +316,11 @@ export default function Index() {
     setPrintDialogOpen(true);
   }, []);
 
+  // Guard: portaria users should never see this page
+  if (role === "portaria") {
+    return <Navigate to="/portaria" replace />;
+  }
+
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
