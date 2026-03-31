@@ -50,16 +50,47 @@ DataAtrasadaBadge.displayName = "DataAtrasadaBadge";
 export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada, readOnly, search }: Props) {
   if (veiculos.length === 0) return null;
 
+  const totalConferidos = veiculos.filter((v) => v.conferido).length;
+  const pendentes = veiculos.length - totalConferidos;
+
+  // Filter out conferidos, then apply search
+  const pendingVeiculos = veiculos.filter((v) => !v.conferido);
   const filtered = search
-    ? veiculos.filter((v) => {
+    ? pendingVeiculos.filter((v) => {
         const s = search.toLowerCase();
         return [v.placa, v.motorista, v.transportadora, v.destino, v.carga_id]
           .some((field) => field?.toLowerCase().includes(s));
       })
-    : veiculos;
+    : pendingVeiculos;
 
-  const totalConferidos = veiculos.filter((v) => v.conferido).length;
-  const pendentes = veiculos.length - totalConferidos;
+  if (pendentes === 0) {
+    return (
+      <Card>
+        <CardHeader className="py-3 px-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-primary shrink-0" />
+                Veículos Esperados
+              </CardTitle>
+              <Badge variant="secondary" className="text-[10px] h-5">
+                <CheckCircle2 className="h-3 w-3 mr-0.5" />
+                {totalConferidos}/{veiculos.length} conferidos
+              </Badge>
+            </div>
+            {!readOnly && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground self-end sm:self-auto" onClick={onClear} disabled={isClearing}>
+                <X className="h-3 w-3" /> Limpar lista
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground text-center">✅ Todos os veículos foram conferidos!</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
