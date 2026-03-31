@@ -25,7 +25,12 @@ export interface VeiculoEsperado {
 }
 
 export function useVeiculosEsperados(dataReferencia: string) {
-  // Show vehicles from selected date up to 3 days ahead
+  const dataInicio = (() => {
+    const d = new Date(dataReferencia + "T00:00:00");
+    d.setDate(d.getDate() - 3);
+    return d.toISOString().slice(0, 10);
+  })();
+
   const dataLimite = (() => {
     const d = new Date(dataReferencia + "T00:00:00");
     d.setDate(d.getDate() + 3);
@@ -33,12 +38,12 @@ export function useVeiculosEsperados(dataReferencia: string) {
   })();
 
   return useQuery({
-    queryKey: ["veiculos_esperados", dataReferencia, dataLimite],
+    queryKey: ["veiculos_esperados", dataInicio, dataLimite],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("veiculos_esperados" as any)
         .select("*")
-        .gte("data_referencia", dataReferencia)
+        .gte("data_referencia", dataInicio)
         .lte("data_referencia", dataLimite)
         .order("data_referencia", { ascending: true })
         .order("created_at", { ascending: true });
