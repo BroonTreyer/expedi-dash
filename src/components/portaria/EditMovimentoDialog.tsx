@@ -115,6 +115,19 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
                   onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
                   rows={2}
                 />
+              ) : f.type === "select" ? (
+                <Select value={values[f.key] ?? ""} onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {f.options?.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {f.key === "categoria" ? (CATEGORIAS.find((c) => c.value === opt)?.label || opt) : opt === "entrada" ? "Entrada" : "Retorno"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
                 <Input
                   type={f.type === "number" ? "number" : "text"}
