@@ -1,19 +1,37 @@
 
 
-# Aplicar Busca na Aba de Veículos Esperados
+# Permissões Granulares para Perfil Portaria
 
 ## Problema
 
-O campo de busca filtra apenas as abas Pátio e Histórico. A aba Esperados recebe `veiculos={veiculosEsperados}` sem nenhum filtro de busca aplicado.
+Atualmente `isReadOnly = role === "portaria"` bloqueia TUDO. O perfil portaria precisa:
+- **Registrar entrada/saída** (botão Registrar + registro de saída no pátio + registro a partir de esperados)
+- **NÃO pode**: Importar planilha, Exportar CSV
 
 ## Solução
 
-1. **`src/components/portaria/VeiculosEsperadosPanel.tsx`**: Adicionar prop `search?: string` na interface. Filtrar a lista internamente por placa, motorista, transportadora, destino e carga_id antes de renderizar.
+**`src/pages/Portaria.tsx`**:
 
-2. **`src/pages/Portaria.tsx`**: Passar `search={search}` para o `VeiculosEsperadosPanel`.
+1. Substituir `isReadOnly` por uma flag mais específica:
+```typescript
+const isPortaria = role === "portaria";
+```
+
+2. No bloco de botões do header (linha 235-247), separar os botões:
+   - Botão "Registrar" — visível para todos (remover guard)
+   - Botões "CSV" e "Importar" — escondidos para portaria (`!isPortaria`)
+
+3. Nas props `readOnly` passadas para `PatioAtualTab` e `VeiculosEsperadosPanel` — mudar para `false` (portaria pode registrar saída e registrar a partir de esperados)
+
+4. Manter `onClear` (limpar lista de esperados) bloqueado para portaria — só admin/logística
+
+5. Os dialogs `RegistroMovimentoDialog` e `ImportarPlanilhaDialog`:
+   - `RegistroMovimentoDialog` — renderizar sempre (portaria precisa)
+   - `ImportarPlanilhaDialog` — esconder para portaria
+
+6. Remover guard `isReadOnly` das funções `openRegistro` e `openRegistroFromVeiculoEsperado`
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Adicionar prop `search`, filtrar veículos por placa/motorista/transportadora/destino/carga_id |
-| `src/pages/Portaria.tsx` | Passar `search={search}` ao componente |
+| `src/pages/Portaria.tsx` | Substituir `isReadOnly` por controles granulares: portaria registra mas não importa/exporta/limpa |
 
