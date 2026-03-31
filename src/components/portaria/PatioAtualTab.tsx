@@ -178,6 +178,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         await updateMov.mutateAsync({
           id: entrada.id,
           etapa_terceirizado: "finalizado",
+          horario_real_saida: new Date().toISOString(),
         });
       }
       setSaidaRapidaId(null);
@@ -261,12 +262,19 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       {infoExtra}
                     </div>
                   )}
+                  {m.categoria === "terceirizado" && (
+                    <div className="col-span-2 text-[11px] text-muted-foreground flex flex-wrap gap-x-3">
+                      {m.horario_chegada && <span>Chegada: <strong className="text-foreground">{format(new Date(m.horario_chegada), "HH:mm")}</strong></span>}
+                      {m.horario_entrada && <span>Entrada: <strong className="text-foreground">{format(new Date(m.horario_entrada), "HH:mm")}</strong></span>}
+                      {m.horario_real_saida && <span>Saída: <strong className="text-foreground">{format(new Date(m.horario_real_saida), "HH:mm")}</strong></span>}
+                    </div>
+                  )}
                 </div>
                 {!readOnly && (
                 <div className="flex justify-end pt-1">
                   {m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
-                       <ArrowUpFromLine className="h-3 w-3" /> Retorno c/ KM
+                       <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
                     </Button>
                   ) : m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={liberandoId === m.id}>
@@ -280,12 +288,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       </Button>
                       <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleSaidaRapida(m)} disabled={isSaving}>
                         {isSaving ? <span className="animate-spin">⏳</span> : <ArrowUpFromLine className="h-3 w-3" />}
-                        Confirmar Retorno
+                        Confirmar Saída
                       </Button>
                     </div>
                   ) : (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => setSaidaRapidaId(m.id)}>
-                       <ArrowUpFromLine className="h-3 w-3" /> Retorno
+                       <ArrowUpFromLine className="h-3 w-3" /> Saída
                     </Button>
                   )}
                 </div>
@@ -347,14 +355,21 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </TableCell>
                 <TableCell className="font-mono font-medium">{m.placa || "—"}</TableCell>
                 <TableCell>{m.motorista || "—"}</TableCell>
-                <TableCell className="text-sm max-w-[200px] truncate">
-                  {infoExtra || m.empresa || m.destino_setor || "—"}
+                <TableCell className="text-sm max-w-[200px]">
+                  <div className="truncate">{infoExtra || m.empresa || m.destino_setor || "—"}</div>
+                  {m.categoria === "terceirizado" && (
+                    <div className="text-[11px] text-muted-foreground flex gap-x-2 mt-0.5">
+                      {m.horario_chegada && <span>Chegada: {format(new Date(m.horario_chegada), "HH:mm")}</span>}
+                      {m.horario_entrada && <span>Entrada: {format(new Date(m.horario_entrada), "HH:mm")}</span>}
+                      {m.horario_real_saida && <span>Saída: {format(new Date(m.horario_real_saida), "HH:mm")}</span>}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   {!readOnly && (
                   m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Retorno c/ KM
+                      <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
                     </Button>
                   ) : m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={liberandoId === m.id}>
@@ -374,7 +389,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   ) : (
                     <div className="flex items-center gap-1 justify-end">
                       <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => setSaidaRapidaId(m.id)}>
-                        <ArrowUpFromLine className="h-3 w-3" /> Retorno
+                        <ArrowUpFromLine className="h-3 w-3" /> Saída
                       </Button>
                     </div>
                   )

@@ -118,10 +118,10 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📥 Documento (Entrada)" });
   if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel", label: "📥 Painel KM (Entrada)" });
   if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📥 Nota Fiscal (Entrada)" });
-  if (s?.foto_placa_url) allPhotos.push({ url: s.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Retorno)", ocrText: s.texto_placa_lido, ocrConf: s.confianca_placa });
-  if (s?.foto_documento_url) allPhotos.push({ url: s.foto_documento_url, alt: "Documento", label: "📤 Documento (Retorno)" });
-  if (s?.foto_painel_url) allPhotos.push({ url: s.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Retorno)" });
-  if (s?.foto_nota_url) allPhotos.push({ url: s.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Retorno)" });
+  if (s?.foto_placa_url) allPhotos.push({ url: s.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Saída)", ocrText: s.texto_placa_lido, ocrConf: s.confianca_placa });
+  if (s?.foto_documento_url) allPhotos.push({ url: s.foto_documento_url, alt: "Documento", label: "📤 Documento (Saída)" });
+  if (s?.foto_painel_url) allPhotos.push({ url: s.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Saída)" });
+  if (s?.foto_nota_url) allPhotos.push({ url: s.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Saída)" });
   
   const hasFotos = allPhotos.length > 0;
 
@@ -148,7 +148,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               )}
               {(s || m.tipo_movimento === "saida") && (
                 <Badge variant="secondary" className="gap-1">
-                  <ArrowUpFromLine className="h-3 w-3" /> Retorno
+                  <ArrowUpFromLine className="h-3 w-3" /> Saída
                 </Badge>
               )}
               <Badge variant="outline">{getCategoriaLabel(m.categoria)}</Badge>
@@ -176,7 +176,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <>
                   <div className="flex items-center gap-2">
                     <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Retorno:</span>
+                    <span className="text-muted-foreground">Saída:</span>
                     <strong>{format(new Date(s.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
                   </div>
                   {m.tipo_movimento === "entrada" && (() => {
@@ -195,7 +195,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               {!s && m.tipo_movimento === "saida" && (
                 <div className="flex items-center gap-2">
                   <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">Retorno:</span>
+                  <span className="text-muted-foreground">Saída:</span>
                   <strong>{format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
                 </div>
               )}
@@ -217,7 +217,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Tem certeza que deseja excluir este registro (entrada + retorno)? Esta ação não pode ser desfeita.
+                        Tem certeza que deseja excluir este registro (entrada + saída)? Esta ação não pode ser desfeita.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -233,21 +233,21 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10">
-                        <Trash2 className="h-3 w-3" /> Excluir Retorno
+                        <Trash2 className="h-3 w-3" /> Excluir Saída
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir apenas o retorno?</AlertDialogTitle>
+                        <AlertDialogTitle>Excluir apenas a saída?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Isso remove apenas o registro de retorno. A entrada permanecerá e o veículo voltará ao pátio.
+                          Isso remove apenas o registro de saída. A entrada permanecerá e o veículo voltará ao pátio.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction onClick={async () => { await deleteMov.mutateAsync(s.id); onOpenChange(false); }} disabled={deleteMov.isPending}>
                           {deleteMov.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                          Excluir Retorno
+                          Excluir Saída
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -263,7 +263,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               <DetailRow label="Empresa" value={m.empresa} />
               <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
               {m.numero_lacre && <DetailRow label={s?.numero_lacre ? "Lacre (Entrada)" : "Nº Lacre"} value={m.numero_lacre} />}
-              {s?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Retorno)" : "Nº Lacre"} value={s.numero_lacre} />}
+              {s?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Saída)" : "Nº Lacre"} value={s.numero_lacre} />}
               {!m.numero_lacre && !s?.numero_lacre ? null : null}
               <DetailRow label="Carga" value={m.carga_id} />
             </div>
@@ -323,7 +323,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <DetailRow label="Responsável" value={m.responsavel_interno} />
                   <DetailRow label="Conferente (Entrada)" value={m.conferente} />
-                  {s?.conferente && <DetailRow label="Conferente (Retorno)" value={s.conferente} />}
+                  {s?.conferente && <DetailRow label="Conferente (Saída)" value={s.conferente} />}
                   {m.ocorrencia && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Ocorrência:</span>
@@ -332,7 +332,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                   )}
                   {s?.ocorrencia && (
                     <div className="col-span-2">
-                      <span className="text-muted-foreground">Ocorrência (Retorno):</span>
+                      <span className="text-muted-foreground">Ocorrência (Saída):</span>
                       <p className="mt-0.5">{s.ocorrencia}</p>
                     </div>
                   )}
@@ -351,7 +351,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 )}
                 {s?.observacoes && (
                   <div>
-                    <span className="text-muted-foreground">Observações (Retorno):</span>
+                    <span className="text-muted-foreground">Observações (Saída):</span>
                     <p className="mt-1">{s.observacoes}</p>
                   </div>
                 )}
