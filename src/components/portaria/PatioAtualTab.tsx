@@ -22,6 +22,8 @@ interface Props {
   onRegistrarSaida: (entrada: MovimentacaoPortaria) => void;
   isLoading?: boolean;
   readOnly?: boolean;
+  dateFromStr?: string;
+  dateToStr?: string;
 }
 
 const categoriaBadgeColor: Record<string, string> = {
@@ -57,7 +59,7 @@ function getInfoExtra(m: MovimentacaoPortaria): string | null {
   return null;
 }
 
-export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading, readOnly }: Props) {
+export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading, readOnly, dateFromStr, dateToStr }: Props) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
@@ -66,8 +68,18 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [savingId, setSavingId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
+  // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60_000);
+    setSaidaRapidaId(null);
+  }, [movimentacoes]);
+
+  // Timer with visibility awareness to avoid memory leak
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        setNow(new Date());
+      }
+    }, 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -189,7 +201,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div>
                     <span className="text-muted-foreground">Entrada: </span>
-                    <span className="font-medium">{format(new Date(m.data_hora), "HH:mm", { locale: ptBR })}</span>
+                    <span className="font-medium">{format(new Date(m.data_hora), dateFromStr !== dateToStr ? "dd/MM HH:mm" : "HH:mm", { locale: ptBR })}</span>
                   </div>
                   <div className={getTempoClass(minutos)}>
                     {minutos >= 480 && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}

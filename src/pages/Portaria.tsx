@@ -309,6 +309,8 @@ export default function Portaria() {
                   onRegistrarSaida={(entrada) => openRegistro(entrada)}
                   isLoading={isLoading}
                   readOnly={isReadOnly}
+                  dateFromStr={dateFromStr}
+                  dateToStr={dateToStr}
                 />
               </CardContent>
             </Card>
