@@ -186,6 +186,7 @@ export type Database = {
       motoristas: {
         Row: {
           ativo: boolean
+          cpf: string | null
           created_at: string
           foto_documento_url: string | null
           id: string
@@ -194,6 +195,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cpf?: string | null
           created_at?: string
           foto_documento_url?: string | null
           id?: string
@@ -202,6 +204,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cpf?: string | null
           created_at?: string
           foto_documento_url?: string | null
           id?: string
