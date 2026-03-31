@@ -30,7 +30,8 @@ export function ProtectedRoute({ children, allowedRoles }: Props) {
   if (!user) return <Navigate to="/auth" replace />;
 
   if (accessDenied) {
-    return <Navigate to="/" replace />;
+    const fallback = role === "portaria" ? "/portaria" : "/";
+    return <Navigate to={fallback} replace />;
   }
 
   return <>{children}</>;
