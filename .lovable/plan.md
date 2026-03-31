@@ -1,43 +1,54 @@
 
 
-# Atualizar Telefone do Motorista + Lacre Obrigatório na Saída
+# Foto do Lacre com OCR na Saída
 
 ## Problema
 
-1. Quando o motorista muda de telefone, não há como atualizar o cadastro a partir do autocomplete da portaria
-2. Ao dar saída em qualquer veículo (não só carga própria), o número do lacre deveria ser obrigatório
+Na saída de terceirizados/fornecedores, o usuário precisa tirar foto do lacre e o sistema deve ler automaticamente o número via OCR. Também precisa exibir conferente e observações.
 
 ## Solução
 
-### 1. Atualizar telefone do motorista no autocomplete
+### 1. Migration -- adicionar coluna `foto_lacre_url`
 
-No `MotoristaAutocomplete.tsx`, ao selecionar um motorista, exibir o telefone cadastrado e permitir editá-lo. Se o telefone for alterado, atualizar automaticamente na tabela `motoristas`.
+```sql
+ALTER TABLE movimentacoes_portaria ADD COLUMN foto_lacre_url text;
+```
 
-- Após selecionar motorista, mostrar um campo de telefone editável abaixo do input
-- Se o usuário mudar o telefone e sair do campo (onBlur), chamar `useUpdateMotorista` para atualizar o cadastro
-- Exibir um toast de confirmação "Telefone atualizado"
+### 2. `src/lib/portaria-fields-config.ts`
 
-**Alternativa mais simples**: No `onSelect` do `RegistroMovimentoDialog`, preencher o telefone no formulário. Se o usuário alterar manualmente, ao submeter o movimento, verificar se o telefone difere do cadastrado e oferecer atualização. Isso evita complexidade no autocomplete.
+- Adicionar novo campo `foto_lacre_url` no array `FIELDS` (tipo `photo`, bloco `evidencias`, label "Foto do Lacre")
+- No `VISIBILITY`: oculto para todas as categorias na entrada
+- No `VISIBILITY_SAIDA`: obrigatório para `carga_propria`, `terceirizado` e `fornecedor`; oculto para os demais
+- Garantir que `conferente` e `observacoes` estejam como `opcional` para `terceirizado` e `fornecedor` na saída (já estão para terceirizado, ajustar fornecedor)
 
-**Abordagem escolhida**: Adicionar no autocomplete um botão/link "Atualizar telefone" visível quando o motorista é selecionado, que abre um mini-input para editar e salvar o novo telefone direto no cadastro.
+### 3. `src/components/portaria/RegistroMovimentoDialog.tsx`
 
-### 2. Lacre obrigatório na saída (todas as categorias com veículo)
+- Adicionar `foto_lacre_url` no mapa `tipoFotoMap` (tipo "lacre")
+- Adicionar estados `ocrLacreLoading`, `textoLacreLido`, `confiancaLacre`
+- Quando `fieldKey === "foto_lacre_url"`, chamar OCR com tipo "km" (usa Gemini para leitura de texto genérico) ou criar novo tipo "lacre"
+- Exibir `OcrResultado` abaixo da foto do lacre, preenchendo `numero_lacre` automaticamente
+- Adicionar `foto_lacre_url` no `handleSave`
 
-No `VISIBILITY_SAIDA` em `portaria-fields-config.ts`, tornar `numero_lacre` obrigatório para as categorias que possuem veículo na saída.
+### 4. `src/hooks/useMovimentacoesPortaria.ts`
 
-Categorias afetadas:
-- `carga_propria` — já é obrigatório ✅
-- `terceirizado` — mudar de "oculto" para "obrigatório"
-- `fornecedor` — mudar de "oculto" para "obrigatório"
+- Adicionar `foto_lacre_url` na interface `MovimentacaoPortaria`
 
-Para terceirizados, o fluxo atual usa "saída rápida" (sem dialog). Precisamos mudar para abrir o dialog de saída com campo de lacre, em vez de confirmar direto.
+### 5. Edge Function `ocr-portaria` -- suporte ao tipo "lacre"
 
-**Mudanças no `PatioAtualTab.tsx`**: O botão "Saída" de terceirizados (etapa `no_patio`) precisa chamar `onRegistrarSaida(m)` em vez de usar saída rápida, para que o dialog com campo lacre apareça.
+- Adicionar handler `ocrLacreGemini` que usa Gemini para ler o número do lacre em uma foto
+- Prompt especializado: "Leia o número do lacre de segurança nesta imagem"
+
+### 6. `src/hooks/useRegistrosPortaria.ts`
+
+- `processarOCR` já aceita tipos, basta passar "lacre" como tipo
+
+## Detalhes Técnicos
 
 | Arquivo | Mudança |
 |---|---|
-| `src/lib/portaria-fields-config.ts` | `numero_lacre` obrigatório na saída para terceirizado e fornecedor |
-| `src/components/portaria/PatioAtualTab.tsx` | Terceirizados `no_patio` usam `onRegistrarSaida` em vez de saída rápida |
-| `src/components/portaria/MotoristaAutocomplete.tsx` | Adicionar opção de atualizar telefone ao selecionar motorista |
-| `src/hooks/useMotoristas.ts` | Sem mudança (já tem `useUpdateMotorista`) |
+| Migration SQL | Adicionar coluna `foto_lacre_url` |
+| `supabase/functions/ocr-portaria/index.ts` | Adicionar handler OCR para tipo "lacre" via Gemini |
+| `src/lib/portaria-fields-config.ts` | Novo campo foto_lacre_url, ajustar visibilidade saída (conferente e obs para fornecedor) |
+| `src/components/portaria/RegistroMovimentoDialog.tsx` | OCR do lacre ao tirar foto, estados de loading/resultado, salvar foto_lacre_url |
+| `src/hooks/useMovimentacoesPortaria.ts` | Adicionar `foto_lacre_url` na interface |
 
