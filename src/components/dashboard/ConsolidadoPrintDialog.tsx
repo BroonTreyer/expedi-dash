@@ -10,6 +10,7 @@ interface CargaSummary {
   placa: string | null;
   motorista: string | null;
   transportadora: string | null;
+  tipoFrete: string;
   status: string;
   pesoTotal: number;
   qtdPedidos: number;
@@ -127,6 +128,7 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
                 <th className="text-left py-1.5 pr-2 font-semibold">Placa</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Motorista</th>
                 <th className="text-left py-1.5 pr-2 font-semibold">Transportadora</th>
+                <th className="text-left py-1.5 pr-2 font-semibold">Frete</th>
                 <th className="text-right py-1.5 pr-2 font-semibold">Peso (kg)</th>
                 <th className="text-center py-1.5 pr-2 font-semibold">Pedidos</th>
                 <th className="text-center py-1.5 pr-2 font-semibold">Clientes</th>
@@ -142,6 +144,7 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
                   <td className="py-1 pr-2 font-mono">{g.placa ?? "—"}</td>
                   <td className="py-1 pr-2">{g.motorista ?? "—"}</td>
                   <td className="py-1 pr-2">{g.transportadora ?? "—"}</td>
+                  <td className="py-1 pr-2">{g.tipoFrete}</td>
                   <td className="py-1 pr-2 text-right font-mono">{g.pesoTotal.toLocaleString("pt-BR")}</td>
                   <td className="py-1 pr-2 text-center">{g.qtdPedidos}</td>
                   <td className="py-1 pr-2 text-center">{g.qtdClientes}</td>

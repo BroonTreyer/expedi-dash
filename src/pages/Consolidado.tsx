@@ -90,6 +90,7 @@ interface CargaGroup {
   placa: string | null;
   motorista: string | null;
   tipoCaminhao: string | null;
+  tipoFrete: string;
   pesoTotal: number;
   qtdPedidos: number;
   rupturaCount: number;
@@ -102,6 +103,7 @@ interface CargaGroup {
 
 function groupByCarga(data: Carregamento[]): CargaGroup[] {
   const map = new Map<string, CargaGroup>();
+  const freteMap = new Map<string, Set<string>>();
   for (const item of data) {
     if (!item.carga_id) continue;
     let g = map.get(item.carga_id);
@@ -112,6 +114,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         placa: item.placa,
         motorista: item.motorista,
         tipoCaminhao: item.tipo_caminhao,
+        tipoFrete: "",
         pesoTotal: 0,
         qtdPedidos: 0,
         rupturaCount: 0,
@@ -122,15 +125,19 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         items: [],
       };
       map.set(item.carga_id, g);
+      freteMap.set(item.carga_id, new Set());
     }
     g.pesoTotal += item.peso ?? 0;
     if (item.ruptura) g.rupturaCount += 1;
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
+    if (item.tipo_frete) freteMap.get(item.carga_id)!.add(item.tipo_frete);
     g.items.push(item);
   }
-  for (const g of map.values()) {
+  for (const [cargaId, g] of map.entries()) {
     g.qtdPedidos = g.items.length;
+    const fretes = freteMap.get(cargaId)!;
+    g.tipoFrete = fretes.size > 0 ? [...fretes].sort().join(" / ") : "—";
   }
   return Array.from(map.values());
 }
@@ -224,6 +231,7 @@ export default function Consolidado() {
     rupturaCount: (g) => g.rupturaCount,
     clientes: (g) => g.clientes.size,
     ufs: (g) => [...g.ufs].sort().join(", "),
+    tipoFrete: (g) => g.tipoFrete,
   }), []);
 
   const groups = useMemo(() => sortData(rawGroups, consolidadoAccessors), [rawGroups, sortData, consolidadoAccessors]);
@@ -251,6 +259,7 @@ export default function Consolidado() {
         placa: g.placa,
         motorista: g.motorista,
         transportadora: g.items[0]?.transportadora ?? null,
+        tipoFrete: g.tipoFrete,
         status: g.status,
         pesoTotal: g.pesoTotal,
         qtdPedidos: g.qtdPedidos,
@@ -412,6 +421,7 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Carga: </span><span className="truncate">{g.nomeCarga ?? "—"}</span></div>
                         <div><span className="text-muted-foreground">Peso: </span><span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span></div>
                         <div><span className="text-muted-foreground">Pedidos: </span>{g.qtdPedidos}</div>
+                        <div><span className="text-muted-foreground">Frete: </span>{g.tipoFrete}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
                       </div>
                     </div>
@@ -453,6 +463,7 @@ export default function Consolidado() {
                   <SortableTableHead sort={sort} sortKey="qtdPedidos" onSort={toggleSort} className="text-center">Pedidos</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="rupturaCount" onSort={toggleSort} className="text-center">Rupturas</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="clientes" onSort={toggleSort} className="text-center">Clientes</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="tipoFrete" onSort={toggleSort}>Frete</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="ufs" onSort={toggleSort}>UFs</SortableTableHead>
                 </TableRow>
               </TableHeader>
@@ -505,6 +516,7 @@ export default function Consolidado() {
                           )}
                         </TableCell>
                         <TableCell className="text-center text-xs">{g.clientes.size}</TableCell>
+                        <TableCell className="text-xs">{g.tipoFrete}</TableCell>
                         <TableCell className="text-xs">{[...g.ufs].sort().join(", ") || "—"}</TableCell>
                       </TableRow>
                       {isOpen && g.items.map((item) => (
@@ -519,8 +531,10 @@ export default function Consolidado() {
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.cliente ?? item.codigo_cliente ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
+                          <TableCell />
                           <TableCell className="text-right text-xs text-muted-foreground">{(item.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-center text-xs text-muted-foreground">{item.quantidade ?? "—"}</TableCell>
+                          <TableCell />
                           <TableCell />
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
                           <TableCell />
