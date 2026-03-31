@@ -28,7 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function Portaria() {
   const { role } = useAuth();
-  const isReadOnly = role === "portaria";
+  const isPortaria = role === "portaria";
 
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
@@ -76,14 +76,12 @@ export default function Portaria() {
   const pendentesEsperados = veiculosEsperados.filter((v) => !v.conferido).length;
 
   const openRegistro = (prefillData?: MovimentacaoPortaria) => {
-    if (isReadOnly) return;
     setPrefill(prefillData || null);
     setPrefillFromPlanilha(null);
     setDialogOpen(true);
   };
 
   const openRegistroFromVeiculoEsperado = (v: VeiculoEsperado) => {
-    if (isReadOnly) return;
     if (v.data_referencia > dateFromStr) {
       const dataFormatada = format(new Date(v.data_referencia + "T00:00:00"), "dd/MM");
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
@@ -232,11 +230,11 @@ export default function Portaria() {
                 </div>
               </PopoverContent>
             </Popover>
-            {!isReadOnly && (
+            <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
+              <Plus className="h-3.5 w-3.5" /> Registrar
+            </Button>
+            {!isPortaria && (
               <>
-                <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
-                  <Plus className="h-3.5 w-3.5" /> Registrar
-                </Button>
                 <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={exportCSV}>
                   <Download className="h-3.5 w-3.5" /> CSV
                 </Button>
@@ -308,7 +306,7 @@ export default function Portaria() {
                   categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
                   onRegistrarSaida={(entrada) => openRegistro(entrada)}
                   isLoading={isLoading}
-                  readOnly={isReadOnly}
+                    readOnly={false}
                   dateFromStr={dateFromStr}
                   dateToStr={dateToStr}
                 />
@@ -347,10 +345,10 @@ export default function Portaria() {
             <VeiculosEsperadosPanel
               veiculos={veiculosEsperados}
               onRegistrar={openRegistroFromVeiculoEsperado}
-              onClear={() => limparMutation.mutate(dateFromStr)}
+              onClear={isPortaria ? undefined : () => limparMutation.mutate(dateFromStr)}
               isClearing={limparMutation.isPending}
               dataFiltrada={dateFromStr}
-              readOnly={isReadOnly}
+              readOnly={false}
               search={search}
             />
             {veiculosEsperados.length === 0 && (
@@ -358,7 +356,7 @@ export default function Portaria() {
                 <CardContent className="py-12 text-center text-muted-foreground">
                   <ClipboardCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">Nenhum veículo esperado para este período</p>
-                  {!isReadOnly && (
+                  {!isPortaria && (
                     <p className="text-xs mt-1">Use o botão "Importar" para carregar a planilha</p>
                   )}
                 </CardContent>
@@ -368,17 +366,15 @@ export default function Portaria() {
         </Tabs>
       </div>
 
-      {!isReadOnly && (
-        <>
-          <RegistroMovimentoDialog
-            open={dialogOpen}
-            onOpenChange={handleDialogClose}
-            prefill={prefill}
-            prefillFromPlanilha={prefillFromPlanilha}
-            onCreated={handleMovimentacaoCreated}
-          />
-          <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />
-        </>
+      <RegistroMovimentoDialog
+        open={dialogOpen}
+        onOpenChange={handleDialogClose}
+        prefill={prefill}
+        prefillFromPlanilha={prefillFromPlanilha}
+        onCreated={handleMovimentacaoCreated}
+      />
+      {!isPortaria && (
+        <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />
       )}
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
     </Layout>
