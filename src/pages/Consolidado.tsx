@@ -231,6 +231,7 @@ export default function Consolidado() {
     rupturaCount: (g) => g.rupturaCount,
     clientes: (g) => g.clientes.size,
     ufs: (g) => [...g.ufs].sort().join(", "),
+    tipoFrete: (g) => g.tipoFrete,
   }), []);
 
   const groups = useMemo(() => sortData(rawGroups, consolidadoAccessors), [rawGroups, sortData, consolidadoAccessors]);
