@@ -1,21 +1,18 @@
 
 
-# Remover Bloco Vermelho do Painel de Veículos Esperados
+# Remover Scroll Fixo da Lista de Veículos Esperados
 
 ## Problema
 
-O `VeiculosEsperadosPanel` usa um `Card` com classes `border-primary/20 bg-primary/5`, que cria um grande bloco avermelhado ao redor de toda a tabela na aba Esperados. Isso polui visualmente a página.
+A tabela desktop tem `max-h-[250px]` e os cards mobile têm `max-h-[300px]`, criando barras de rolagem internas e deixando um grande espaço vazio abaixo. Como o conteúdo já está em uma aba dedicada, não precisa de scroll próprio — pode crescer naturalmente com a página.
 
 ## Solução
 
-Remover o fundo e borda coloridos do Card, deixando-o neutro (como o resto da página), ou remover o Card wrapper completamente já que o conteúdo está dentro de uma aba dedicada.
+Remover `max-h-[250px]` e `overflow-auto` do container desktop, e `max-h-[300px]` do container mobile. A lista cresce livremente e o scroll fica na página principal (já gerenciado pelo Layout).
 
-### Mudança em `VeiculosEsperadosPanel.tsx`
-
-- Trocar `border-primary/20 bg-primary/5` por classes neutras (sem fundo colorido, borda padrão)
-- O header e a tabela continuam iguais, só perde o "container vermelho"
+## Arquivo
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Remover `border-primary/20 bg-primary/5` do Card |
+| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Remover `max-h-[250px] overflow-auto` (desktop) e `max-h-[300px] overflow-auto` (mobile) |
 
