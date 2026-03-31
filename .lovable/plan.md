@@ -1,41 +1,74 @@
 
 
-# Adicionar Tipo de Caminhão no Cadastro de Terceirizado
+# Controle de Terceirizados em 3 Etapas
 
 ## Problema
 
-O cadastro de terceirizado na portaria não possui campo para informar o tipo de caminhão (Bitruck, Truck, Carreta, etc.).
+Terceirizados precisam de 3 etapas rastreadas: **Chegada** (caminhão chega na portaria), **Entrada** (liberado para entrar no pátio) e **Saída** (saiu do pátio). Hoje o sistema só registra "entrada" e "saída", sem distinção entre chegada e entrada efetiva.
 
 ## Solução
 
-A tabela `movimentacoes_portaria` não tem coluna `tipo_caminhao`. Precisamos adicionar a coluna no banco e o campo no formulário dinâmico. Os tipos serão puxados da tabela `tipos_caminhao` já existente (cadastro dinâmico), mas o campo será um select com as opções cadastradas.
+### 1. Migration — novos campos no banco
 
-### 1. Migration — adicionar coluna
-
+Adicionar à `movimentacoes_portaria`:
 ```sql
-ALTER TABLE movimentacoes_portaria ADD COLUMN tipo_caminhao text;
+ALTER TABLE movimentacoes_portaria 
+  ADD COLUMN horario_chegada timestamptz,
+  ADD COLUMN horario_entrada timestamptz,
+  ADD COLUMN etapa_terceirizado text; -- 'aguardando' | 'no_patio' | 'finalizado'
 ```
 
-### 2. `src/lib/portaria-fields-config.ts`
+Quando um terceirizado registra entrada:
+- `horario_chegada` = now() (hora que chegou)
+- `etapa_terceirizado` = `'aguardando'`
 
-- Adicionar campo `tipo_caminhao` no array `FIELDS` (bloco `veiculo`, tipo `text` — será tratado como select dinâmico no dialog)
-- Adicionar entrada na `VISIBILITY`: terceirizado → `"obrigatorio"`, carga_propria → `"oculto"`, demais → `"oculto"`
-- Adicionar entrada na `VISIBILITY_SAIDA`: todos `"oculto"`
+Quando o operador libera a entrada:
+- `horario_entrada` = now()
+- `etapa_terceirizado` = `'no_patio'`
 
-### 3. `src/components/portaria/RegistroMovimentoDialog.tsx`
+Quando registra saída:
+- Registro de saída vinculado normalmente
+- `etapa_terceirizado` do registro de entrada = `'finalizado'`
 
-- Importar `useTiposCaminhao` para buscar os tipos cadastrados
-- No render dos campos, quando `field.key === "tipo_caminhao"`, renderizar um `<Select>` com as opções vindas do hook ao invés de um input de texto
-- No `handleSave`, incluir `tipo_caminhao: values.tipo_caminhao || null`
+### 2. PatioAtualTab — incluir terceirizados com etapas
 
-### 4. `src/components/portaria/EditMovimentoDialog.tsx`
+Remover o filtro que exclui terceirizados (linha 94). Exibir terceirizados no pátio com badges de etapa:
+- 🟡 **Aguardando** — chegou mas não entrou
+- 🟢 **No Pátio** — liberado, dentro do pátio
+- Botões de ação: "Liberar Entrada" (aguardando → no_patio) e "Registrar Saída" (no_patio → finalizado)
 
-- Adicionar `tipo_caminhao` nos `EDITABLE_FIELDS` como select com opções dinâmicas (ou texto simples)
+### 3. RegistroMovimentoDialog — setar campos na criação
+
+Ao salvar entrada de terceirizado:
+- `horario_chegada` = new Date().toISOString()
+- `etapa_terceirizado` = "aguardando"
+
+### 4. Ação "Liberar Entrada" no PatioAtualTab
+
+Novo botão para terceirizados com `etapa_terceirizado = 'aguardando'`:
+- Chama `useUpdateMovimentacao` com `{ horario_entrada: now(), etapa_terceirizado: 'no_patio' }`
+
+### 5. Ação "Registrar Saída" para terceirizados
+
+Terceirizados com `etapa_terceirizado = 'no_patio'`:
+- Usa saída rápida (já existente) ou dialog de saída
+- Atualiza entrada com `etapa_terceirizado = 'finalizado'`
+
+### 6. Histórico e KPIs
+
+- `HistoricoTab`: exibir coluna com horários (chegada / entrada / saída) para terceirizados
+- `PortariaKpiCards`: contar terceirizados aguardando separadamente
+
+### 7. Interface do MovimentacaoPortaria (hook)
+
+Adicionar `horario_chegada`, `horario_entrada`, `etapa_terceirizado` na interface TypeScript.
 
 | Arquivo | Mudança |
 |---|---|
-| Migration SQL | Adicionar coluna `tipo_caminhao` em `movimentacoes_portaria` |
-| `src/lib/portaria-fields-config.ts` | Adicionar campo e visibilidade (obrigatório para terceirizado) |
-| `src/components/portaria/RegistroMovimentoDialog.tsx` | Renderizar select dinâmico com tipos da tabela `tipos_caminhao` |
-| `src/components/portaria/EditMovimentoDialog.tsx` | Incluir `tipo_caminhao` nos campos editáveis |
+| Migration SQL | Adicionar `horario_chegada`, `horario_entrada`, `etapa_terceirizado` |
+| `src/hooks/useMovimentacoesPortaria.ts` | Adicionar campos na interface |
+| `src/components/portaria/RegistroMovimentoDialog.tsx` | Setar `horario_chegada` e `etapa_terceirizado` ao criar entrada de terceirizado |
+| `src/components/portaria/PatioAtualTab.tsx` | Remover exclusão de terceirizados, adicionar botões "Liberar Entrada" e "Saída", badges de etapa |
+| `src/components/portaria/PortariaKpiCards.tsx` | Adicionar KPI "Aguardando" para terceirizados |
+| `src/pages/Portaria.tsx` | Ajustar contagem de pátio para incluir terceirizados |
 
