@@ -246,6 +246,20 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         {/* Transport fields */}
         <div className="border-t border-border pt-3">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Dados de Transporte</span>
+          {veiculosDisponiveis.length > 0 && (
+            <div className="space-y-1.5 mb-3">
+              <Label className="text-xs flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" /> Vincular a veículo</Label>
+              <Select value={veiculoVinculado} onValueChange={handleVincularVeiculo}>
+                <SelectTrigger><SelectValue placeholder="Preencher manualmente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Preencher manualmente</SelectItem>
+                  {veiculosDisponiveis.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Nome da Carga</Label>
