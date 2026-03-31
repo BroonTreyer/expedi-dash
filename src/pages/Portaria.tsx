@@ -246,6 +246,7 @@ export default function Portaria() {
           onRegistrar={openRegistroFromVeiculoEsperado}
           onClear={() => limparMutation.mutate(dateFromStr)}
           isClearing={limparMutation.isPending}
+          dataFiltrada={dateFromStr}
         />
 
         {/* Filters */}

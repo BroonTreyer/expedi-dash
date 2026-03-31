@@ -128,8 +128,9 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
             <TableBody>
               {veiculos.map((v) => {
                 const isConferido = v.conferido;
+                const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
                 return (
-                  <TableRow key={v.id} className={isConferido ? "opacity-50" : ""}>
+                  <TableRow key={v.id} className={`${isConferido ? "opacity-50" : ""} ${isFuturo && !isConferido ? "bg-amber-50/50 dark:bg-amber-950/20" : ""}`}>
                     <TableCell className="py-1.5">
                       {isConferido ? (
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -138,7 +139,10 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                       )}
                     </TableCell>
                     <TableCell className={`text-xs font-mono font-medium py-1.5 ${isConferido ? "line-through" : ""}`}>
-                      {v.placa}
+                      <div className="flex items-center gap-1.5">
+                        {v.placa}
+                        {isFuturo && !isConferido && <DataPrevistaBadge dataRef={v.data_referencia} />}
+                      </div>
                     </TableCell>
                     <TableCell className={`text-xs py-1.5 ${isConferido ? "line-through" : ""}`}>
                       {v.motorista || "—"}
