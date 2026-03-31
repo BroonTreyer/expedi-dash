@@ -142,12 +142,12 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">
                   {m.cpf && (
                     <span className="flex items-center gap-1">
-                      <FileText className="h-3 w-3" /> {m.cpf}
+                      <FileText className="h-3 w-3" /> {maskCPF(m.cpf)}
                     </span>
                   )}
                   {m.telefone && (
                     <span className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" /> {m.telefone}
+                      <Phone className="h-3 w-3" /> {maskPhone(m.telefone)}
                     </span>
                   )}
                 </span>
