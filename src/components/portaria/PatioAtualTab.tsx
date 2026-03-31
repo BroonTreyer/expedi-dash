@@ -66,8 +66,18 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [savingId, setSavingId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
+  // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60_000);
+    setSaidaRapidaId(null);
+  }, [movimentacoes]);
+
+  // Timer with visibility awareness to avoid memory leak
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        setNow(new Date());
+      }
+    }, 60_000);
     return () => clearInterval(interval);
   }, []);
 
