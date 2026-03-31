@@ -93,7 +93,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     );
     return movimentacoes
       .filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id))
-      .filter((m) => m.categoria !== "terceirizado")
+      .filter((m) => {
+        // Exclude finalized terceirizados
+        if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+        return true;
+      })
       .filter((m) => {
         if (categoriaFilter && m.categoria !== categoriaFilter) return false;
         if (!search) return true;
