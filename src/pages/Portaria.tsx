@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X } from "lucide-react";
+import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck } from "lucide-react";
 import { useMovimentacoes, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
@@ -24,8 +24,12 @@ import { VeiculosEsperadosPanel } from "@/components/portaria/VeiculosEsperadosP
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Portaria() {
+  const { role } = useAuth();
+  const isReadOnly = role === "portaria";
+
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : format(today, "yyyy-MM-dd");
@@ -69,14 +73,17 @@ export default function Portaria() {
     return { patio, historico: movimentacoes.length };
   }, [movimentacoes]);
 
+  const pendentesEsperados = veiculosEsperados.filter((v) => !v.conferido).length;
+
   const openRegistro = (prefillData?: MovimentacaoPortaria) => {
+    if (isReadOnly) return;
     setPrefill(prefillData || null);
     setPrefillFromPlanilha(null);
     setDialogOpen(true);
   };
 
   const openRegistroFromVeiculoEsperado = (v: VeiculoEsperado) => {
-    // Warn if vehicle's planned date is in the future
+    if (isReadOnly) return;
     if (v.data_referencia > dateFromStr) {
       const dataFormatada = format(new Date(v.data_referencia + "T00:00:00"), "dd/MM");
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
@@ -225,29 +232,24 @@ export default function Portaria() {
                 </div>
               </PopoverContent>
             </Popover>
-            <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
-              <Plus className="h-3.5 w-3.5" /> Registrar
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={exportCSV}>
-              <Download className="h-3.5 w-3.5" /> CSV
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={() => setImportDialogOpen(true)}>
-              <Upload className="h-3.5 w-3.5" /> Importar
-            </Button>
+            {!isReadOnly && (
+              <>
+                <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
+                  <Plus className="h-3.5 w-3.5" /> Registrar
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={exportCSV}>
+                  <Download className="h-3.5 w-3.5" /> CSV
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={() => setImportDialogOpen(true)}>
+                  <Upload className="h-3.5 w-3.5" /> Importar
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
         {/* KPIs */}
         <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} dateLabel={dateLabel} />
-
-        {/* Veículos Esperados */}
-        <VeiculosEsperadosPanel
-          veiculos={veiculosEsperados}
-          onRegistrar={openRegistroFromVeiculoEsperado}
-          onClear={() => limparMutation.mutate(dateFromStr)}
-          isClearing={limparMutation.isPending}
-          dataFiltrada={dateFromStr}
-        />
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
@@ -284,6 +286,12 @@ export default function Portaria() {
               <History className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Histórico
               {counts.historico > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">{counts.historico}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="esperados" className="gap-1 flex-1 sm:flex-initial text-xs sm:text-sm">
+              <ClipboardCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Esperados
+              {pendentesEsperados > 0 && (
+                <Badge variant="outline" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px] border-amber-300 text-amber-700 dark:text-amber-400">{pendentesEsperados}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
@@ -331,18 +339,44 @@ export default function Portaria() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="esperados">
+            <VeiculosEsperadosPanel
+              veiculos={veiculosEsperados}
+              onRegistrar={openRegistroFromVeiculoEsperado}
+              onClear={() => limparMutation.mutate(dateFromStr)}
+              isClearing={limparMutation.isPending}
+              dataFiltrada={dateFromStr}
+              readOnly={isReadOnly}
+            />
+            {veiculosEsperados.length === 0 && (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <ClipboardCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Nenhum veículo esperado para este período</p>
+                  {!isReadOnly && (
+                    <p className="text-xs mt-1">Use o botão "Importar" para carregar a planilha</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
 
-      <RegistroMovimentoDialog
-        open={dialogOpen}
-        onOpenChange={handleDialogClose}
-        prefill={prefill}
-        prefillFromPlanilha={prefillFromPlanilha}
-        onCreated={handleMovimentacaoCreated}
-      />
+      {!isReadOnly && (
+        <>
+          <RegistroMovimentoDialog
+            open={dialogOpen}
+            onOpenChange={handleDialogClose}
+            prefill={prefill}
+            prefillFromPlanilha={prefillFromPlanilha}
+            onCreated={handleMovimentacaoCreated}
+          />
+          <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />
+        </>
+      )}
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
-      <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />
     </Layout>
   );
 }
