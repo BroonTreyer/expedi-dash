@@ -1,25 +1,35 @@
 
 
-# Simplificar Campos da Saída — Apenas 4 Campos
+# Corrigir Acesso da Portaria ao Painel de Expedição
 
 ## Problema
 
-Na saída, estão aparecendo campos extras (KM Final, Foto Painel, Ocorrência, etc.). O usuário quer que a saída mostre **apenas**: Foto do Lacre → N° Lacre → Conferente → Observações.
+O usuário com role "portaria" está vendo o "Painel de Expedição" (página `/`) ao invés de ser redirecionado para `/portaria`. A causa provável é uma condição de corrida: quando o safety timer (6s) dispara antes do role carregar, `role` fica `null` e o fallback de redirecionamento retorna para `/` (a própria página), entrando em loop sem redirecionar corretamente.
 
 ## Solução
 
-Alterar `VISIBILITY_SAIDA` em `src/lib/portaria-fields-config.ts`:
+Duas camadas de proteção:
 
-1. Setar `km_final`, `foto_painel_url`, `ocorrencia` para `"oculto"` em todas as categorias
-2. Manter apenas estes 4 campos visíveis na saída:
-   - `foto_lacre_url` — obrigatório (carga_propria, terceirizado, fornecedor)
-   - `numero_lacre` — obrigatório (carga_propria, terceirizado, fornecedor)
-   - `conferente` — opcional (carga_propria, terceirizado, fornecedor)
-   - `observacoes` — opcional (carga_propria, terceirizado, fornecedor)
+### 1. `src/components/ProtectedRoute.tsx` — Melhorar fallback
 
-Garantir que a ordem no array `FIELDS` posicione `foto_lacre_url` antes de `numero_lacre`, que já está correto (foto_lacre_url está no bloco evidencias, numero_lacre no bloco operacao). Para forçar a ordem desejada, mover `foto_lacre_url` e `numero_lacre` para o bloco `controle`, logo antes de `conferente` e `observacoes`.
+Quando `role` é `null` e `accessDenied` é true, o fallback atual é `/` (loop). Mudar para redirecionar para `/auth` quando role é null (forçar re-login), e manter `/portaria` quando role é "portaria".
+
+```
+// Antes:
+const fallback = role === "portaria" ? "/portaria" : "/";
+
+// Depois:
+const fallback = role === "portaria" ? "/portaria" : role ? "/" : "/auth";
+```
+
+Quando `role` é null mas o usuário está logado, significa que a role não carregou — redirecionar para `/auth` força um reload limpo do estado de autenticação.
+
+### 2. `src/pages/Index.tsx` — Guard adicional
+
+Adicionar uma verificação no início do componente Index: se `role === "portaria"`, redirecionar para `/portaria` imediatamente. Isso funciona como segunda camada caso o ProtectedRoute falhe.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/lib/portaria-fields-config.ts` | Ocultar km_final/foto_painel/ocorrencia na saída; reordenar campos para foto_lacre → lacre → conferente → obs |
+| `src/components/ProtectedRoute.tsx` | Corrigir fallback para role null (redirecionar para /auth) |
+| `src/pages/Index.tsx` | Adicionar guard para redirecionar portaria users |
 
