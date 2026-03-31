@@ -1,60 +1,33 @@
 
 
-# Veículos Esperados em Aba Separada + Novo Nível "Portaria"
+# Usar Data da Planilha como Data de Referência de Cada Veículo
 
-## 1. Mover Veículos Esperados para uma aba dedicada
+## Problema
 
-Atualmente o painel de veículos esperados fica inline na página, acima dos filtros. Quando há muitos veículos, polui a tela.
+Hoje, ao importar a planilha, todos os veículos recebem a mesma `data_referencia` (a data do filtro da Portaria). A coluna `DATA` de cada linha da planilha é parseada mas ignorada na hora de salvar.
 
-**Solução**: Adicionar uma terceira aba nas Tabs existentes: **Pátio | Histórico | Esperados**
+## Solução
 
-- Mover o `VeiculosEsperadosPanel` para dentro de `<TabsContent value="esperados">`
-- Adicionar badge com contagem de pendentes na aba
-- Remover o painel inline da posição atual (entre KPIs e filtros)
+Usar o campo `r.data` (coluna DATA da planilha) como `data_referencia` individual de cada veículo. Se a linha não tiver data válida, usar a data do filtro como fallback.
 
-## 2. Criar nível "portaria" no sistema de usuários
+### Mudanças
 
-Novo role que **só acessa a Portaria** e com restrições:
-- **Não pode**: Registrar entrada/saída, exportar CSV, importar planilha
-- **Pode**: Visualizar pátio, histórico, veículos esperados, filtrar, buscar, ver detalhes
+**`src/hooks/useVeiculosEsperados.ts`**:
+- No `mutationFn`, usar `r.data` convertida para formato `yyyy-MM-dd` como `data_referencia` de cada insert
+- Parsear formatos comuns de data (dd/MM/yyyy, dd/MM, yyyy-MM-dd, número serial do Excel)
+- Fallback para `dataReferencia` (data do filtro) se `r.data` estiver vazio ou inválido
+- Ajustar o delete para limpar por todas as datas presentes nas rows (não só uma data fixa)
+- Invalidar queries de forma mais ampla no `onSuccess`
 
-### Mudanças necessárias
-
-**Migração SQL**:
-- Adicionar `'portaria'` ao enum `app_role`: `ALTER TYPE app_role ADD VALUE 'portaria'`
-
-**`src/hooks/useAuth.ts`**:
-- Adicionar `"portaria"` ao tipo `AppRole`
-
-**`src/components/AppSidebar.tsx`**:
-- Adicionar `"portaria"` ao array de roles do item `/portaria`
-
-**`src/App.tsx`**:
-- Adicionar `"portaria"` ao `allowedRoles` da rota `/portaria`
+**`src/components/portaria/ImportarPlanilhaDialog.tsx`**:
+- Sem mudança — `r.data` já é parseado e exibido no preview
 
 **`src/pages/Portaria.tsx`**:
-- Reestruturar tabs para incluir aba "Esperados"
-- Usar `useAuth()` para obter a role
-- Esconder botões "Registrar", "CSV" e "Importar" quando `role === "portaria"`
-- Esconder botão "Registrar Entrada" nos veículos esperados quando `role === "portaria"`
-- Esconder botão "Limpar lista" quando `role === "portaria"`
-- Esconder botão de registrar saída no PatioAtualTab quando `role === "portaria"`
-
-**`src/components/portaria/VeiculosEsperadosPanel.tsx`**:
-- Adicionar prop `readOnly?: boolean` para esconder botões de ação
-
-**`src/pages/Usuarios.tsx`**:
-- Adicionar opção "Portaria" no select de roles
+- Sem mudança — continua passando `dataReferencia` como fallback
 
 ## Arquivos
 
-| Arquivo | Ação |
+| Arquivo | Mudança |
 |---|---|
-| Migração SQL | Adicionar valor `portaria` ao enum `app_role` |
-| `src/hooks/useAuth.ts` | Atualizar tipo `AppRole` |
-| `src/components/AppSidebar.tsx` | Adicionar role `portaria` |
-| `src/App.tsx` | Adicionar role `portaria` na rota |
-| `src/pages/Portaria.tsx` | Aba "Esperados" + esconder ações para role portaria |
-| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Prop `readOnly` |
-| `src/pages/Usuarios.tsx` | Opção "Portaria" no select |
+| `src/hooks/useVeiculosEsperados.ts` | Usar `r.data` por linha como `data_referencia`, parsear formatos de data, ajustar delete |
 
