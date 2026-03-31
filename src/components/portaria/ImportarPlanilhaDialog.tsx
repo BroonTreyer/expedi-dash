@@ -142,7 +142,10 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
 
     const get = (key: string) => {
       const idx = colMap!.get(key);
-      return idx != null ? String(row[idx] ?? "").trim() : "";
+      if (idx == null) return "";
+      const cellVal = row[idx];
+      if (key === "DATA") return formatDateValue(cellVal);
+      return String(cellVal ?? "").trim();
     };
     const getNum = (key: string) => {
       const idx = colMap!.get(key);
@@ -152,7 +155,7 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
     const placa = get("PLACA").toUpperCase();
     if (placa === "PLACA") continue;
 
-    const dataVal = get("DATA");
+    const dataVal = get("DATA") || fallbackDate;
     const destino = get("DESTINO");
     const cargaId = get("CARGA");
     const peso = getNum("PESO");
