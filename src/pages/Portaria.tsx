@@ -82,7 +82,6 @@ export default function Portaria() {
   };
 
   const openRegistroFromVeiculoEsperado = (v: VeiculoEsperado) => {
-    if (isReadOnly) return;
     if (v.data_referencia > dateFromStr) {
       const dataFormatada = format(new Date(v.data_referencia + "T00:00:00"), "dd/MM");
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
