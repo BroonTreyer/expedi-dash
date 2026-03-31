@@ -100,6 +100,7 @@ export const VISIBILITY: VisibilityMatrix = {
   placa:              { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "opcional",    prestador: "obrigatorio", outros: "opcional" },
   motorista:          { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   apelido:            { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  tipo_caminhao:      { carga_propria: "oculto",      terceirizado: "obrigatorio", fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
 
   // Operação
   rota:               { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
