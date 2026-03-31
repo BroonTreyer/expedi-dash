@@ -127,6 +127,7 @@ export const VISIBILITY: VisibilityMatrix = {
   foto_documento_url: { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "obrigatorio", visitante: "obrigatorio", prestador: "obrigatorio", outros: "obrigatorio" },
   foto_painel_url:    { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  foto_lacre_url:     { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
 };
 
 // Exit visibility — only carga_propria has fields; others use quick exit
