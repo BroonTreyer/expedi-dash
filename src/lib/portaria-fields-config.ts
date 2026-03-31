@@ -71,7 +71,7 @@ export const FIELDS: FieldConfig[] = [
   { key: "nota_fiscal", label: "Nota Fiscal / Documento", placeholder: "Nº da NF", type: "text", block: "operacao" },
   { key: "doca_setor", label: "Doca / Setor Destino", placeholder: "Ex: Doca 3", type: "text", block: "operacao" },
   { key: "carga_id", label: "Ordem de Carga", placeholder: "Nº da ordem", type: "text", block: "operacao" },
-  { key: "numero_lacre", label: "N° Lacre", placeholder: "Nº do lacre", type: "text", block: "operacao" },
+  { key: "numero_lacre", label: "N° Lacre", placeholder: "Nº do lacre", type: "text", block: "controle" },
 
   // Bloco Controle
   { key: "responsavel_interno", label: "Responsável Interno", placeholder: "Nome do responsável", type: "text", block: "controle" },
