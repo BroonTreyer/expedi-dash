@@ -140,7 +140,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
         placa: values.placa?.trim().toUpperCase() || null,
         motorista: values.motorista?.trim() || null,
         empresa: values.empresa?.trim() || null,
-        destino_setor: values.doca_setor?.trim() || null,
+        destino_setor: values.destino_setor?.trim() || values.doca_setor?.trim() || null,
         motivo: null,
         carga_id: values.carga_id?.trim() || null,
         foto_placa_url: values.foto_placa_url || null,
