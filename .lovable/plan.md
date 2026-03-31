@@ -1,29 +1,58 @@
 
 
-# Corrigir Contagem do Histórico — Agrupar Entrada+Saída como 1
+# Linkar Carga Fechada com Veículo Esperado ou no Pátio
 
 ## Problema
 
-O badge "Histórico 2" conta cada registro individualmente (`movimentacoes.length`). Uma entrada + saída vinculada = 2 registros, mas visualmente aparecem agrupados como 1 movimento no `HistoricoTab`.
+Ao fechar uma carga no `FechamentoLoteDialog`, o usuário preenche placa, motorista e transportadora manualmente. Ele quer poder selecionar um veículo que já está na lista de "Esperados" ou "No Pátio" para preencher automaticamente esses campos.
 
 ## Solução
 
-Calcular a contagem de grupos em vez de registros brutos, usando a mesma lógica de agrupamento do `HistoricoTab`: saídas vinculadas a uma entrada são agrupadas juntas.
+Adicionar um seletor opcional no topo da seção "Dados de Transporte" do `FechamentoLoteDialog` que lista veículos esperados e veículos no pátio. Ao selecionar um, preenche automaticamente placa, motorista, transportadora e tipo de caminhão.
 
-### Mudança em `src/pages/Portaria.tsx` (linha 78)
+### Mudanças
 
-Contar movimentos agrupados: total de registros **menos** o número de saídas vinculadas (cada saída vinculada já é contada junto com sua entrada).
+**1. `src/components/dashboard/FechamentoLoteDialog.tsx`**
 
-```typescript
-// Antes:
-return { patio, historico: movimentacoes.length };
+- Importar `useVeiculosEsperados` e `useMovimentacoesPortaria` (somente leitura)
+- Criar lista combinada de veículos disponíveis:
+  - **Esperados**: veículos da tabela `veiculos_esperados` para a data do carregamento (não conferidos)
+  - **No Pátio**: entradas de `movimentacoes_portaria` sem saída vinculada (terceirizados e carga_propria)
+- Adicionar um `<Select>` com label "Vincular a veículo" antes dos campos de transporte
+  - Opções: `"manual"` (padrão) + lista de veículos (`[Esperado] PLACA - Motorista` / `[Pátio] PLACA - Motorista`)
+- Ao selecionar um veículo:
+  - Preencher `placa`, `motorista`, `transportadora`, `tipoCaminhao` automaticamente com os dados do veículo
+  - Para esperados: usar `placa`, `motorista`, `transportadora`, `tipo_veiculo`
+  - Para pátio: usar `placa`, `motorista`, `empresa` (transportadora), `tipo_caminhao`
+- Campos continuam editáveis após preenchimento automático
 
-// Depois:
-const historico = movimentacoes.length - saidasVinculadas.size;
-return { patio, historico };
+**2. `src/pages/Index.tsx`**
+
+- Sem mudanças estruturais necessárias. O `FechamentoLoteDialog` buscará os dados internamente via hooks.
+
+### Fluxo
+
+```text
+┌─────────────────────────────────────┐
+│ Fechar Carga                        │
+├─────────────────────────────────────┤
+│ [Resumo pedidos / mapa]             │
+│                                     │
+│ ── Dados de Transporte ──           │
+│ Vincular a veículo: [Selecione...▾] │
+│   ├ Preencher manualmente           │
+│   ├ [Esperado] ABC1D23 - João       │
+│   ├ [Pátio] XYZ9K87 - Carlos        │
+│                                     │
+│ Nome da Carga: [________]           │
+│ Tipo Caminhão: [________]  ← auto   │
+│ Placa: [________]          ← auto   │
+│ Motorista: [________]      ← auto   │
+│ Transportadora: [________] ← auto   │
+└─────────────────────────────────────┘
 ```
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/Portaria.tsx` | Subtrair saídas vinculadas da contagem do histórico |
+| `src/components/dashboard/FechamentoLoteDialog.tsx` | Adicionar Select para vincular veículo esperado/pátio, auto-preencher campos |
 
