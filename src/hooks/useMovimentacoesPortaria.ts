@@ -82,7 +82,7 @@ export function useMovimentacoes(dateFrom: string, dateTo?: string) {
         .from("movimentacoes_portaria")
         .select("*")
         .gte("data_hora", `${dateFrom}T00:00:00`)
-        .lt("data_hora", `${dateEnd}T23:59:59.999`)
+        .lte("data_hora", `${dateEnd}T23:59:59.999`)
         .order("data_hora", { ascending: false });
       if (error) throw error;
       return data as MovimentacaoPortaria[];

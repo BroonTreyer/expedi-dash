@@ -121,7 +121,11 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
 
       if (isSingleDay && dateFrom === todayStr) {
         // Today: also bring pending items from previous days
-        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},status.neq.Carregado)`);
+        // Limit pending items to last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
+        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
       } else if (isSingleDay) {
         q = q.eq("data", dateFrom);
       } else {

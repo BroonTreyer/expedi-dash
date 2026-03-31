@@ -10,7 +10,7 @@ import fricoLogo from "@/assets/frico-logo.png";
 import { toast } from "sonner";
 
 export default function Auth() {
-  const { user, loading, signIn } = useAuth();
+  const { user, role, loading, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);

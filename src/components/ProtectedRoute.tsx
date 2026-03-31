@@ -12,7 +12,8 @@ interface Props {
 export function ProtectedRoute({ children, allowedRoles }: Props) {
   const { user, role, loading } = useAuth();
 
-  const accessDenied = !loading && !!user && !!(allowedRoles && role && !allowedRoles.includes(role));
+  // If role is still null (loading/failed), don't grant access to restricted routes
+  const accessDenied = !loading && !!user && !!(allowedRoles && (!role || !allowedRoles.includes(role)));
 
   useEffect(() => {
     if (accessDenied) toast.error("Acesso não permitido para seu nível");

@@ -169,8 +169,8 @@ export function useLimparVeiculosEsperados() {
         .eq("data_referencia", dataReferencia);
       if (error) throw error;
     },
-    onSuccess: (_, dataReferencia) => {
-      qc.invalidateQueries({ queryKey: ["veiculos_esperados", dataReferencia] });
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       toast.success("Lista de veículos esperados limpa");
     },
     onError: () => {

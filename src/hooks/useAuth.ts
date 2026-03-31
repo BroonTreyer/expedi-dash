@@ -33,10 +33,10 @@ async function fetchRoleWithTimeout(userId: string): Promise<AppRole> {
       .maybeSingle();
 
     const { data } = await Promise.race([query, timeout]);
-    return (data?.role as AppRole) ?? "logistica";
+    return (data?.role as AppRole) ?? null;
   } catch {
-    console.warn("[Auth] Role fetch failed/timed out, using fallback");
-    return "logistica";
+    console.warn("[Auth] Role fetch failed/timed out");
+    return null;
   }
 }
 
