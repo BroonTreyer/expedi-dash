@@ -4,9 +4,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { CapturaFoto } from "./CapturaFoto";
-import { useMotoristas, useCreateMotorista, type Motorista } from "@/hooks/useMotoristas";
-import { Phone, FileText, Plus } from "lucide-react";
+import { useMotoristas, useCreateMotorista, useUpdateMotorista, type Motorista } from "@/hooks/useMotoristas";
+import { Phone, FileText, Plus, Pencil, Check } from "lucide-react";
 import { maskCPF, maskPhone } from "@/lib/masks";
+import { toast } from "sonner";
 
 interface Props {
   value: string;
