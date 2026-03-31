@@ -31,9 +31,9 @@ function MotoristaFormDialog({
   const handleSubmit = async () => {
     if (!nome.trim()) return;
     if (motorista) {
-      await updateMut.mutateAsync({ id: motorista.id, nome_completo: nome.trim(), telefone: telefone.trim(), fotoFile: fotoFile ?? undefined });
+      await updateMut.mutateAsync({ id: motorista.id, nome_completo: nome.trim(), cpf: cpf.trim(), telefone: telefone.trim(), fotoFile: fotoFile ?? undefined });
     } else {
-      await createMut.mutateAsync({ nome_completo: nome.trim(), telefone: telefone.trim(), fotoFile: fotoFile ?? undefined });
+      await createMut.mutateAsync({ nome_completo: nome.trim(), cpf: cpf.trim(), telefone: telefone.trim(), fotoFile: fotoFile ?? undefined });
     }
     onOpenChange(false);
   };
