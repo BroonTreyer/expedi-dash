@@ -23,6 +23,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Admin",
   logistica: "Logística",
   faturamento: "Faturamento",
+  portaria: "Portaria",
 };
 
 function RoleSelect({ value, onChange }: { value: AppRole; onChange: (v: AppRole) => void }) {
