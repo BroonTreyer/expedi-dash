@@ -207,7 +207,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Motorista *</Label>
-              <Input value={motorista} onChange={(e) => setMotorista(e.target.value)} />
+              <MotoristaAutocomplete value={motorista} onChange={setMotorista} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Transportadora</Label>
