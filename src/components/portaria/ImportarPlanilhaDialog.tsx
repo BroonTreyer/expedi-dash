@@ -30,8 +30,27 @@ interface Props {
 
 function parseNum(val: unknown): number | null {
   if (val == null || val === "") return null;
-  const n = Number(val);
+  const s = String(val).replace(",", ".");
+  const n = Number(s);
   return isNaN(n) ? null : n;
+}
+
+function formatDateValue(val: unknown): string {
+  if (val instanceof Date) {
+    const d = val.getDate().toString().padStart(2, "0");
+    const m = (val.getMonth() + 1).toString().padStart(2, "0");
+    const y = val.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  const num = Number(val);
+  if (!isNaN(num) && num > 40000 && num < 60000) {
+    const dt = new Date((num - 25569) * 86400000);
+    const d = dt.getUTCDate().toString().padStart(2, "0");
+    const m = (dt.getUTCMonth() + 1).toString().padStart(2, "0");
+    const y = dt.getUTCFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  return String(val ?? "").trim();
 }
 
 function buildColumnMap(row: unknown[]): Map<string, number> | null {
