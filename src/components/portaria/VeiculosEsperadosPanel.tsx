@@ -78,7 +78,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
       </CardHeader>
       <CardContent className="p-0">
         {/* Mobile: Cards */}
-        <div className="md:hidden overflow-auto max-h-[300px] space-y-2 p-3">
+        <div className="md:hidden space-y-2 p-3">
           {veiculos.map((v) => {
             const isConferido = v.conferido;
             const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
