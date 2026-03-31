@@ -69,7 +69,13 @@ export default function Portaria() {
         .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
         .map((m) => m.movimento_vinculado_id!)
     );
-    const patio = movimentacoes.filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id) && m.categoria !== "terceirizado").length;
+    const patio = movimentacoes.filter((m) => {
+      if (m.tipo_movimento !== "entrada") return false;
+      if (m.categoria === "terceirizado") {
+        return m.etapa_terceirizado === "aguardando" || m.etapa_terceirizado === "no_patio";
+      }
+      return !saidasVinculadas.has(m.id);
+    }).length;
     return { patio, historico: movimentacoes.length };
   }, [movimentacoes]);
 

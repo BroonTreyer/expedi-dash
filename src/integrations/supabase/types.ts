@@ -197,10 +197,13 @@ export type Database = {
           doca_setor: string | null
           documento: string | null
           empresa: string | null
+          etapa_terceirizado: string | null
           foto_documento_url: string | null
           foto_nota_url: string | null
           foto_painel_url: string | null
           foto_placa_url: string | null
+          horario_chegada: string | null
+          horario_entrada: string | null
           horario_previsto_saida: string | null
           horario_real_retorno: string | null
           horario_real_saida: string | null
@@ -247,10 +250,13 @@ export type Database = {
           doca_setor?: string | null
           documento?: string | null
           empresa?: string | null
+          etapa_terceirizado?: string | null
           foto_documento_url?: string | null
           foto_nota_url?: string | null
           foto_painel_url?: string | null
           foto_placa_url?: string | null
+          horario_chegada?: string | null
+          horario_entrada?: string | null
           horario_previsto_saida?: string | null
           horario_real_retorno?: string | null
           horario_real_saida?: string | null
@@ -297,10 +303,13 @@ export type Database = {
           doca_setor?: string | null
           documento?: string | null
           empresa?: string | null
+          etapa_terceirizado?: string | null
           foto_documento_url?: string | null
           foto_nota_url?: string | null
           foto_painel_url?: string | null
           foto_placa_url?: string | null
+          horario_chegada?: string | null
+          horario_entrada?: string | null
           horario_previsto_saida?: string | null
           horario_real_retorno?: string | null
           horario_real_saida?: string | null

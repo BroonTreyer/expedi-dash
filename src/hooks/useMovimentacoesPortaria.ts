@@ -52,6 +52,9 @@ export interface MovimentacaoPortaria {
   foto_painel_url: string | null;
   foto_nota_url: string | null;
   numero_lacre: string | null;
+  horario_chegada: string | null;
+  horario_entrada: string | null;
+  etapa_terceirizado: string | null;
 }
 
 export const CATEGORIAS = [

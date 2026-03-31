@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, Clock, AlertTriangle, ParkingCircle } from "lucide-react";
+import { ArrowUpFromLine, Clock, AlertTriangle, ParkingCircle, LogIn } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { CATEGORIAS, useCreateMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS, useCreateMovimentacao, useUpdateMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -63,9 +63,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
+  const updateMov = useUpdateMovimentacao();
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [liberandoId, setLiberandoId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
   // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
@@ -91,7 +93,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     );
     return movimentacoes
       .filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id))
-      .filter((m) => m.categoria !== "terceirizado")
+      .filter((m) => {
+        // Exclude finalized terceirizados
+        if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+        return true;
+      })
       .filter((m) => {
         if (categoriaFilter && m.categoria !== categoriaFilter) return false;
         if (!search) return true;
@@ -121,6 +127,20 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   }, [veiculosNoPatio, sortData, now]);
 
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
+
+  const handleLiberarEntrada = async (entrada: MovimentacaoPortaria) => {
+    setLiberandoId(entrada.id);
+    try {
+      await updateMov.mutateAsync({
+        id: entrada.id,
+        horario_entrada: new Date().toISOString(),
+        etapa_terceirizado: "no_patio",
+      });
+    } catch {
+    } finally {
+      setLiberandoId(null);
+    }
+  };
 
   const handleSaidaRapida = async (entrada: MovimentacaoPortaria) => {
     setSavingId(entrada.id);
@@ -153,6 +173,13 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         telefone: entrada.telefone || null,
         apelido: entrada.apelido || null,
       });
+      // Mark entrada as finalizado for terceirizados
+      if (entrada.categoria === "terceirizado") {
+        await updateMov.mutateAsync({
+          id: entrada.id,
+          etapa_terceirizado: "finalizado",
+        });
+      }
       setSaidaRapidaId(null);
     } catch {
     } finally {
@@ -194,9 +221,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
-                  <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[m.categoria] || ""}`}>
-                    {getCategoriaLabel(m.categoria)}
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    {m.categoria === "terceirizado" && m.etapa_terceirizado && (
+                      <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
+                        {m.etapa_terceirizado === "aguardando" ? "🟡 Aguardando" : "🟢 No Pátio"}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[m.categoria] || ""}`}>
+                      {getCategoriaLabel(m.categoria)}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div>
@@ -233,6 +267,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   {m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                        <ArrowUpFromLine className="h-3 w-3" /> Retorno c/ KM
+                    </Button>
+                  ) : m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando" ? (
+                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={liberandoId === m.id}>
+                      {liberandoId === m.id ? <span className="animate-spin">⏳</span> : <LogIn className="h-3 w-3" />}
+                      Liberar Entrada
                     </Button>
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-3 animate-in fade-in duration-200">
@@ -295,9 +334,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
-                    {getCategoriaLabel(m.categoria)}
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
+                      {getCategoriaLabel(m.categoria)}
+                    </Badge>
+                    {m.categoria === "terceirizado" && m.etapa_terceirizado && (
+                      <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
+                        {m.etapa_terceirizado === "aguardando" ? "Aguardando" : "No Pátio"}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="font-mono font-medium">{m.placa || "—"}</TableCell>
                 <TableCell>{m.motorista || "—"}</TableCell>
@@ -309,6 +355,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                       <ArrowUpFromLine className="h-3 w-3" /> Retorno c/ KM
+                    </Button>
+                  ) : m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando" ? (
+                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={liberandoId === m.id}>
+                      {liberandoId === m.id ? <span className="animate-spin">⏳</span> : <LogIn className="h-3 w-3" />}
+                      Liberar Entrada
                     </Button>
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-3 justify-end animate-in fade-in duration-200">

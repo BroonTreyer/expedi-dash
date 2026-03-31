@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowDownToLine, ArrowUpFromLine, ParkingCircle, Truck } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, ParkingCircle, Truck, Clock } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
 interface Props {
@@ -15,14 +15,22 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     const entradas = movimentacoes.filter((m) => m.tipo_movimento === "entrada");
     const saidas = movimentacoes.filter((m) => m.tipo_movimento === "saida");
 
-    const terceirizados = entradas.filter((m) => m.categoria === "terceirizado").length;
-    const entradasSemTerc = entradas.filter((m) => m.categoria !== "terceirizado");
     const saidasVinculadas = new Set(
       saidas.filter((m) => m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id!)
     );
-    const noPatio = entradasSemTerc.filter((e) => !saidasVinculadas.has(e.id)).length;
+    
+    // Terceirizados aguardando (arrived but not yet entered)
+    const tercAguardando = entradas.filter((m) => m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando").length;
+    
+    // All vehicles in yard (non-terceirizados without exit + terceirizados with etapa no_patio)
+    const noPatio = entradas.filter((e) => {
+      if (e.categoria === "terceirizado") {
+        return e.etapa_terceirizado === "no_patio";
+      }
+      return !saidasVinculadas.has(e.id);
+    }).length;
 
-    return { entradas: entradas.length, saidas: saidas.length, noPatio, terceirizados };
+    return { entradas: entradas.length, saidas: saidas.length, noPatio, tercAguardando };
   }, [movimentacoes]);
 
   const suffix = dateLabel || "Hoje";
@@ -31,7 +39,7 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     { label: `Entradas ${suffix}`, value: stats.entradas, icon: ArrowDownToLine, color: "text-accent" },
     { label: `Retornos ${suffix}`, value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
     { label: "No Pátio", value: stats.noPatio, icon: ParkingCircle, color: "text-destructive" },
-    ...(stats.terceirizados > 0 ? [{ label: `Terceirizados ${suffix}`, value: stats.terceirizados, icon: Truck, color: "text-blue-600 dark:text-blue-400" }] : []),
+    ...(stats.tercAguardando > 0 ? [{ label: "Aguardando Entrada", value: stats.tercAguardando, icon: Clock, color: "text-yellow-600 dark:text-yellow-400" }] : []),
   ];
 
   if (isLoading) {

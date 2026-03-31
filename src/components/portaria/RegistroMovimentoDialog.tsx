@@ -180,6 +180,11 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
         foto_painel_url: values.foto_painel_url || null,
         foto_nota_url: values.foto_nota_url || null,
         tipo_caminhao: values.tipo_caminhao?.trim() || null,
+        // Terceirizado 3-stage fields
+        ...(categoria === "terceirizado" && tipo === "entrada" ? {
+          horario_chegada: new Date().toISOString(),
+          etapa_terceirizado: "aguardando",
+        } : {}),
       } as any);
       const savedPlaca = values.placa?.trim().toUpperCase() || "";
       if (savedPlaca) onCreated?.(savedPlaca);
