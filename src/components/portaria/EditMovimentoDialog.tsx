@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useUpdateMovimentacao, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useUpdateMovimentacao, type MovimentacaoPortaria, CATEGORIAS } from "@/hooks/useMovimentacoesPortaria";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -13,16 +14,19 @@ interface Props {
   movimento: MovimentacaoPortaria | null;
 }
 
-const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "text" | "number" | "textarea" }[] = [
+const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "text" | "number" | "textarea" | "select"; options?: string[] }[] = [
   { key: "placa", label: "Placa", type: "text" },
   { key: "motorista", label: "Motorista", type: "text" },
   { key: "empresa", label: "Empresa", type: "text" },
+  { key: "categoria", label: "Categoria", type: "select", options: ["carga_propria", "terceirizado", "fornecedor", "visitante", "prestador", "outros"] },
+  { key: "tipo_movimento", label: "Tipo Movimento", type: "select", options: ["entrada", "saida"] },
   { key: "nome_completo", label: "Nome Completo", type: "text" },
   { key: "documento", label: "Documento", type: "text" },
   { key: "telefone", label: "Telefone", type: "text" },
   { key: "carga_id", label: "Carga ID", type: "text" },
   { key: "rota", label: "Rota", type: "text" },
   { key: "apelido", label: "Apelido", type: "text" },
+  { key: "destino_setor", label: "Setor/Destino", type: "text" },
   { key: "km_inicial", label: "KM Inicial", type: "number" },
   { key: "km_final", label: "KM Final", type: "number" },
   { key: "km_rota", label: "KM Rota", type: "number" },
@@ -58,6 +62,8 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
       const val = values[f.key];
       if (f.type === "number") {
         updates[f.key] = val !== "" && val !== undefined ? Number(val) : null;
+      } else if (f.type === "select") {
+        updates[f.key] = val || null;
       } else {
         updates[f.key] = val?.trim() || null;
       }
@@ -111,6 +117,19 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
                   onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
                   rows={2}
                 />
+              ) : f.type === "select" ? (
+                <Select value={values[f.key] ?? ""} onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {f.options?.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {f.key === "categoria" ? (CATEGORIAS.find((c) => c.value === opt)?.label || opt) : opt === "entrada" ? "Entrada" : "Retorno"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
                 <Input
                   type={f.type === "number" ? "number" : "text"}

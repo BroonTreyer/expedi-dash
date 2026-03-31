@@ -140,7 +140,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
         placa: values.placa?.trim().toUpperCase() || null,
         motorista: values.motorista?.trim() || null,
         empresa: values.empresa?.trim() || null,
-        destino_setor: values.doca_setor?.trim() || null,
+        destino_setor: values.destino_setor?.trim() || values.doca_setor?.trim() || null,
         motivo: null,
         carga_id: values.carga_id?.trim() || null,
         foto_placa_url: values.foto_placa_url || null,
@@ -267,7 +267,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                                 onAutofill={(d) => {
                                   if (d.motorista) set("motorista", d.motorista);
                                   if (d.empresa) set("empresa", d.empresa);
-                                  if (d.destino_setor) set("doca_setor", d.destino_setor);
+                                  if (d.destino_setor) set("destino_setor", d.destino_setor);
                                 }}
                                 disabled={saving || !!prefill}
                               />
