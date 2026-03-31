@@ -334,10 +334,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
-                    {getCategoriaLabel(m.categoria)}
-                  </Badge>
-                </TableCell>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
+                      {getCategoriaLabel(m.categoria)}
+                    </Badge>
+                    {m.categoria === "terceirizado" && m.etapa_terceirizado && (
+                      <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
+                        {m.etapa_terceirizado === "aguardando" ? "Aguardando" : "No Pátio"}
+                      </Badge>
+                    )}
+                  </div>
                 <TableCell className="font-mono font-medium">{m.placa || "—"}</TableCell>
                 <TableCell>{m.motorista || "—"}</TableCell>
                 <TableCell className="text-sm max-w-[200px] truncate">
