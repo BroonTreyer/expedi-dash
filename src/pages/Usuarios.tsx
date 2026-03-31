@@ -128,8 +128,7 @@ export default function Usuarios() {
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
     const { error } = await supabase
       .from("user_roles")
-      .update({ role: newRole })
-      .eq("user_id", userId);
+      .upsert({ user_id: userId, role: newRole }, { onConflict: "user_id" });
     if (error) {
       toast.error(error.message);
     } else {
