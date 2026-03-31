@@ -84,7 +84,11 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
   const [open, setOpen] = useState(false);
   const [debounced, setDebounced] = useState("");
   const [cadastroOpen, setCadastroOpen] = useState(false);
+  const [selectedMotorista, setSelectedMotorista] = useState<Motorista | null>(null);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [newPhone, setNewPhone] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const updateMot = useUpdateMotorista();
 
   useEffect(() => { setQuery(value); }, [value]);
 
@@ -110,8 +114,40 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
     onChange(m.nome_completo);
     setQuery(m.nome_completo);
     setOpen(false);
+    setSelectedMotorista(m);
+    setNewPhone(m.telefone ? maskPhone(m.telefone) : "");
+    setEditingPhone(false);
     onSelect?.({ nome_completo: m.nome_completo, telefone: m.telefone || undefined, cpf: m.cpf || undefined });
   };
+
+  const handleUpdatePhone = async () => {
+    if (!selectedMotorista) return;
+    const rawPhone = newPhone.replace(/\D/g, "");
+    if (rawPhone === (selectedMotorista.telefone?.replace(/\D/g, "") || "")) {
+      setEditingPhone(false);
+      return;
+    }
+    try {
+      await updateMot.mutateAsync({
+        id: selectedMotorista.id,
+        nome_completo: selectedMotorista.nome_completo,
+        telefone: rawPhone || undefined,
+      });
+      setSelectedMotorista({ ...selectedMotorista, telefone: rawPhone || null });
+      setEditingPhone(false);
+      toast.success("Telefone do motorista atualizado");
+      // Also propagate the new phone to the form
+      onSelect?.({ nome_completo: selectedMotorista.nome_completo, telefone: rawPhone || undefined, cpf: selectedMotorista.cpf || undefined });
+    } catch {}
+  };
+
+  // Clear selected motorista when user types a different name
+  useEffect(() => {
+    if (selectedMotorista && query !== selectedMotorista.nome_completo) {
+      setSelectedMotorista(null);
+      setEditingPhone(false);
+    }
+  }, [query, selectedMotorista]);
 
   return (
     <>
@@ -175,6 +211,32 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
           </div>
         )}
       </div>
+
+      {selectedMotorista && (
+        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+          <Phone className="h-3 w-3" />
+          {editingPhone ? (
+            <div className="flex items-center gap-1">
+              <Input
+                value={newPhone}
+                onChange={(e) => setNewPhone(maskPhone(e.target.value))}
+                placeholder="(00) 00000-0000"
+                className="h-7 text-xs w-40"
+              />
+              <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleUpdatePhone} disabled={updateMot.isPending}>
+                <Check className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span>{selectedMotorista.telefone ? maskPhone(selectedMotorista.telefone) : "Sem telefone"}</span>
+              <Button type="button" size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => setEditingPhone(true)}>
+                <Pencil className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <CadastroRapidoDialog
         open={cadastroOpen}
