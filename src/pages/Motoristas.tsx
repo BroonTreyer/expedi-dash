@@ -126,6 +126,7 @@ export default function Motoristas() {
                 motoristas.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell className="font-medium">{m.nome_completo}</TableCell>
+                    <TableCell>{m.cpf || "—"}</TableCell>
                     <TableCell>{m.telefone || "—"}</TableCell>
                     <TableCell>
                       {m.foto_documento_url ? (
