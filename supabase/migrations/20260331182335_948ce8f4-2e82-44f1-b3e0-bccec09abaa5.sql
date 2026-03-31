@@ -1,0 +1,1 @@
+ALTER TABLE public.motoristas ADD COLUMN cpf text;

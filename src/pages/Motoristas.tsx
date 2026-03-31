@@ -21,6 +21,7 @@ function MotoristaFormDialog({
   motorista?: Motorista | null;
 }) {
   const [nome, setNome] = useState(motorista?.nome_completo ?? "");
+  const [cpf, setCpf] = useState(motorista?.cpf ?? "");
   const [telefone, setTelefone] = useState(motorista?.telefone ?? "");
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const createMut = useCreateMotorista();
@@ -30,9 +31,9 @@ function MotoristaFormDialog({
   const handleSubmit = async () => {
     if (!nome.trim()) return;
     if (motorista) {
-      await updateMut.mutateAsync({ id: motorista.id, nome_completo: nome.trim(), telefone: telefone.trim(), fotoFile: fotoFile ?? undefined });
+      await updateMut.mutateAsync({ id: motorista.id, nome_completo: nome.trim(), cpf: cpf.trim(), telefone: telefone.trim(), fotoFile: fotoFile ?? undefined });
     } else {
-      await createMut.mutateAsync({ nome_completo: nome.trim(), telefone: telefone.trim(), fotoFile: fotoFile ?? undefined });
+      await createMut.mutateAsync({ nome_completo: nome.trim(), cpf: cpf.trim(), telefone: telefone.trim(), fotoFile: fotoFile ?? undefined });
     }
     onOpenChange(false);
   };
@@ -47,6 +48,10 @@ function MotoristaFormDialog({
           <div className="space-y-2">
             <Label>Nome Completo *</Label>
             <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo do motorista" />
+          </div>
+          <div className="space-y-2">
+            <Label>CPF</Label>
+            <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" />
           </div>
           <div className="space-y-2">
             <Label>Telefone</Label>
@@ -105,6 +110,7 @@ export default function Motoristas() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>CPF</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Documento</TableHead>
                 <TableHead>Cadastro</TableHead>
@@ -113,13 +119,14 @@ export default function Motoristas() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : motoristas.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum motorista encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum motorista encontrado</TableCell></TableRow>
               ) : (
                 motoristas.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell className="font-medium">{m.nome_completo}</TableCell>
+                    <TableCell>{m.cpf || "—"}</TableCell>
                     <TableCell>{m.telefone || "—"}</TableCell>
                     <TableCell>
                       {m.foto_documento_url ? (
