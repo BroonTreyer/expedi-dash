@@ -101,6 +101,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {isFuturo && !isConferido && <DataPrevistaBadge dataRef={v.data_referencia} />}
+                    {isPassado && !isConferido && <DataAtrasadaBadge dataRef={v.data_referencia} />}
                     <Badge
                       variant={isConferido ? "secondary" : "outline"}
                       className={`text-[10px] h-5 ${!isConferido ? "border-amber-300 text-amber-700 dark:text-amber-400" : ""}`}
