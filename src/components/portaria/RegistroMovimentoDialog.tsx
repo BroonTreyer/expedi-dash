@@ -339,6 +339,18 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                                   disabled={saving}
                                 />
                               )}
+                              {/* OCR result for lacre photo */}
+                              {field.key === "foto_lacre_url" && (ocrLacreLoading || textoLacreLido !== null) && (
+                                <OcrResultado
+                                  label="Leitura do Lacre"
+                                  textoLido={textoLacreLido}
+                                  confianca={confiancaLacre}
+                                  valorConfirmado={values.numero_lacre || ""}
+                                  onChange={(v) => set("numero_lacre", v)}
+                                  loading={ocrLacreLoading}
+                                  disabled={saving}
+                                />
+                              )}
                             </div>
                           );
                         }
