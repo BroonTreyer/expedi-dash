@@ -1,26 +1,21 @@
 
 
-# Corrigir: Veículos Atrasados Não Aparecem na Query
+# Remover Bloco Vermelho do Painel de Veículos Esperados
 
 ## Problema
 
-A query busca veículos com `data_referencia >= dataFiltrada` (para frente). Veículos com data passada (ex: carga do dia 30 quando o filtro é dia 31) nunca são carregados — por isso os badges de "Atrasado" nunca aparecem.
+O `VeiculosEsperadosPanel` usa um `Card` com classes `border-primary/20 bg-primary/5`, que cria um grande bloco avermelhado ao redor de toda a tabela na aba Esperados. Isso polui visualmente a página.
 
 ## Solução
 
-Expandir a janela da query para incluir também veículos **pendentes de dias anteriores** (não conferidos). Buscar de `dataFiltrada - 3 dias` até `dataFiltrada + 3 dias`.
+Remover o fundo e borda coloridos do Card, deixando-o neutro (como o resto da página), ou remover o Card wrapper completamente já que o conteúdo está dentro de uma aba dedicada.
 
-### Mudança em `src/hooks/useVeiculosEsperados.ts`
+### Mudança em `VeiculosEsperadosPanel.tsx`
 
-Na função `useVeiculosEsperados`:
-- Calcular `dataInicio` = `dataReferencia - 3 dias`
-- Manter `dataLimite` = `dataReferencia + 3 dias`
-- Alterar `.gte("data_referencia", dataReferencia)` para `.gte("data_referencia", dataInicio)`
-- Atualizar a `queryKey` para incluir `dataInicio`
-
-Assim, veículos com carga prevista para o dia 30 aparecerão quando o filtro estiver no dia 31, com o badge vermelho "Atrasado 30/03".
+- Trocar `border-primary/20 bg-primary/5` por classes neutras (sem fundo colorido, borda padrão)
+- O header e a tabela continuam iguais, só perde o "container vermelho"
 
 | Arquivo | Mudança |
 |---|---|
-| `src/hooks/useVeiculosEsperados.ts` | Expandir janela da query para `dataReferencia - 3 dias` até `dataReferencia + 3 dias` |
+| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Remover `border-primary/20 bg-primary/5` do Card |
 
