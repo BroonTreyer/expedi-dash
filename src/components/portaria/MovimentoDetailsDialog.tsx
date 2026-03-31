@@ -233,7 +233,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10">
-                        <Trash2 className="h-3 w-3" /> Excluir Retorno
+                        <Trash2 className="h-3 w-3" /> Excluir Saída
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
