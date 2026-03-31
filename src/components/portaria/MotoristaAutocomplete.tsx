@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { CapturaFoto } from "./CapturaFoto";
 import { useMotoristas, useCreateMotorista, type Motorista } from "@/hooks/useMotoristas";
 import { Phone, FileText, Plus } from "lucide-react";
+import { maskCPF, maskPhone } from "@/lib/masks";
 
 interface Props {
   value: string;
@@ -56,13 +57,13 @@ function CadastroRapidoDialog({
             <Label>Nome Completo *</Label>
             <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo" />
           </div>
-          <div className="space-y-2">
-            <Label>CPF</Label>
-            <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" />
-          </div>
-          <div className="space-y-2">
-            <Label>Telefone</Label>
-            <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(00) 00000-0000" />
+           <div className="space-y-2">
+             <Label>CPF</Label>
+             <Input value={cpf} onChange={(e) => setCpf(maskCPF(e.target.value))} placeholder="000.000.000-00" />
+           </div>
+           <div className="space-y-2">
+             <Label>Telefone</Label>
+             <Input value={telefone} onChange={(e) => setTelefone(maskPhone(e.target.value))} placeholder="(00) 00000-0000" />
           </div>
           <CapturaFoto label="Foto do Documento" onCapture={(f) => setFotoFile(f)} />
         </div>
@@ -141,12 +142,12 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">
                   {m.cpf && (
                     <span className="flex items-center gap-1">
-                      <FileText className="h-3 w-3" /> {m.cpf}
+                      <FileText className="h-3 w-3" /> {maskCPF(m.cpf)}
                     </span>
                   )}
                   {m.telefone && (
                     <span className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" /> {m.telefone}
+                      <Phone className="h-3 w-3" /> {maskPhone(m.telefone)}
                     </span>
                   )}
                 </span>

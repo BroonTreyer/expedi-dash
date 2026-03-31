@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { CapturaFoto } from "@/components/portaria/CapturaFoto";
 import { Plus, Search, Pencil, Trash2, Eye, User } from "lucide-react";
+import { maskCPF, maskPhone } from "@/lib/masks";
 import { format } from "date-fns";
 import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -53,11 +54,11 @@ function MotoristaFormDialog({
           </div>
           <div className="space-y-2">
             <Label>CPF</Label>
-            <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" />
+            <Input value={cpf} onChange={(e) => setCpf(maskCPF(e.target.value))} placeholder="000.000.000-00" />
           </div>
           <div className="space-y-2">
             <Label>Telefone</Label>
-            <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(00) 00000-0000" />
+            <Input value={telefone} onChange={(e) => setTelefone(maskPhone(e.target.value))} placeholder="(00) 00000-0000" />
           </div>
           <CapturaFoto
             label="Foto do Documento"
@@ -123,8 +124,8 @@ export default function Motoristas() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{m.nome_completo}</p>
-                      {m.cpf && <p className="text-xs text-muted-foreground">CPF: {m.cpf}</p>}
-                      {m.telefone && <p className="text-xs text-muted-foreground">Tel: {m.telefone}</p>}
+                      {m.cpf && <p className="text-xs text-muted-foreground">CPF: {maskCPF(m.cpf)}</p>}
+                      {m.telefone && <p className="text-xs text-muted-foreground">Tel: {maskPhone(m.telefone)}</p>}
                       <p className="text-xs text-muted-foreground">Cadastro: {format(new Date(m.created_at), "dd/MM/yyyy")}</p>
                     </div>
                     <div className="flex gap-1 shrink-0">
@@ -168,8 +169,8 @@ export default function Motoristas() {
                 ) : motoristas.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell className="font-medium">{m.nome_completo}</TableCell>
-                    <TableCell>{m.cpf || "—"}</TableCell>
-                    <TableCell>{m.telefone || "—"}</TableCell>
+                    <TableCell>{m.cpf ? maskCPF(m.cpf) : "—"}</TableCell>
+                    <TableCell>{m.telefone ? maskPhone(m.telefone) : "—"}</TableCell>
                     <TableCell>
                       {m.foto_documento_url ? (
                         <Button size="sm" variant="ghost" onClick={() => setPhotoUrl(m.foto_documento_url)}>
