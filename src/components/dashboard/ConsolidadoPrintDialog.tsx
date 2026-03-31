@@ -10,6 +10,7 @@ interface CargaSummary {
   placa: string | null;
   motorista: string | null;
   transportadora: string | null;
+  tipoFrete: string;
   status: string;
   pesoTotal: number;
   qtdPedidos: number;
