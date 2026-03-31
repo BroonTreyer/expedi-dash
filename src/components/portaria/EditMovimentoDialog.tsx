@@ -120,6 +120,17 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
                   onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
                   rows={2}
                 />
+              ) : f.key === "tipo_caminhao" ? (
+                <Select value={values[f.key] ?? ""} onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tiposCaminhao.map((t) => (
+                      <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : f.type === "select" ? (
                 <Select value={values[f.key] ?? ""} onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}>
                   <SelectTrigger>
