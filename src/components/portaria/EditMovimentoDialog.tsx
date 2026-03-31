@@ -37,6 +37,7 @@ const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "
   { key: "conferente", label: "Conferente", type: "text" },
   { key: "responsavel_interno", label: "Responsável Interno", type: "text" },
   { key: "doca_setor", label: "Doca/Setor", type: "text" },
+  { key: "tipo_caminhao", label: "Tipo de Caminhão", type: "text" },
   { key: "observacoes", label: "Observações", type: "textarea" },
   { key: "ocorrencia", label: "Ocorrência", type: "textarea" },
 ];
