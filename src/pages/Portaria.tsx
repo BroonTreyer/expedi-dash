@@ -76,7 +76,6 @@ export default function Portaria() {
   const pendentesEsperados = veiculosEsperados.filter((v) => !v.conferido).length;
 
   const openRegistro = (prefillData?: MovimentacaoPortaria) => {
-    if (isReadOnly) return;
     setPrefill(prefillData || null);
     setPrefillFromPlanilha(null);
     setDialogOpen(true);
