@@ -59,6 +59,18 @@ function PendingCell({ value }: { value: string | null }) {
   return <span className="text-xs text-muted-foreground/60 italic">Pendente</span>;
 }
 
+function formatDateCompact(val: string | null | undefined) {
+  if (!val) return "—";
+  try {
+    const d = new Date(val);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    return `${day}/${month}`;
+  } catch {
+    return "—";
+  }
+}
+
 function formatPesoAprox(peso: number | null, tipoCaminhao: string | null) {
   const ton = ((peso ?? 0) / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return tipoCaminhao ? `${ton} TON - ${tipoCaminhao}` : `${ton} TON`;
@@ -234,6 +246,14 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 <div><Badge variant="outline" className="text-[10px] font-mono">{c.nome_carga}</Badge></div>
               </>
             )}
+            {!isGrouped && (
+              <>
+                <div className="text-muted-foreground">Dt. Cadastro</div>
+                <div>{formatDateCompact(c.created_at)}</div>
+                <div className="text-muted-foreground">Dt. Pedido</div>
+                <div>{formatDateCompact(c.data)}</div>
+              </>
+            )}
           </>
         )}
       </div>
@@ -282,6 +302,8 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
     uf: (c) => c.uf ?? "",
     tipo_frete: (c) => c.tipo_frete ?? "",
     nome_carga: (c) => c.nome_carga ?? "",
+    created_at: (c) => c.created_at ?? "",
+    data: (c) => c.data ?? "",
   }), []);
 
   const sortedData = useMemo(() => sortData(data, sortAccessors), [data, sortData, sortAccessors]);
@@ -347,7 +369,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
     });
   };
 
-  const colCount = 11
+  const colCount = 13
     + (selectable ? 1 : 0)
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
@@ -386,6 +408,8 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               {!hideColumns.includes("nome_carga") && <SortableTableHead sort={sort} sortKey="nome_carga" onSort={toggleSort}>Carga</SortableTableHead>}
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
               <SortableTableHead sort={sort} sortKey="tipo_frete" onSort={toggleSort}>Frete</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="created_at" onSort={toggleSort}>Dt. Cadastro</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="data" onSort={toggleSort}>Dt. Pedido</SortableTableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>
@@ -471,6 +495,8 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{c.tipo_frete ?? "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.created_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.data)}</TableCell>
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
@@ -594,6 +620,8 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{first.tipo_frete ?? "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.created_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.data)}</TableCell>
                     {hasActions && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
@@ -663,6 +691,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       <TableCell />
                       {!hideColumns.includes("nome_carga") && <TableCell />}
                       {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
+                      <TableCell />
                       <TableCell />
                       {hasActions && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
