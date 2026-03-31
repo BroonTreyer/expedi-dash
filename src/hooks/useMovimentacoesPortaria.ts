@@ -82,7 +82,7 @@ export function useMovimentacoes(dateFrom: string, dateTo?: string) {
         .from("movimentacoes_portaria")
         .select("*")
         .gte("data_hora", `${dateFrom}T00:00:00`)
-        .lt("data_hora", `${dateEnd}T23:59:59.999`)
+        .lte("data_hora", `${dateEnd}T23:59:59.999`)
         .order("data_hora", { ascending: false });
       if (error) throw error;
       return data as MovimentacaoPortaria[];
@@ -114,10 +114,11 @@ export function useDeleteMovimentacao() {
   return useMutation({
     mutationFn: async (id: string) => {
       // Delete linked records first (retornos pointing to this entrada)
-      await supabase
+      const { error: linkedError } = await supabase
         .from("movimentacoes_portaria")
         .delete()
         .eq("movimento_vinculado_id", id);
+      if (linkedError) throw linkedError;
       // Then delete the record itself
       const { error } = await supabase
         .from("movimentacoes_portaria")

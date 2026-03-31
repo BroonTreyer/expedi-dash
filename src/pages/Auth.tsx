@@ -10,7 +10,7 @@ import fricoLogo from "@/assets/frico-logo.png";
 import { toast } from "sonner";
 
 export default function Auth() {
-  const { user, loading, signIn } = useAuth();
+  const { user, role, loading, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -24,7 +24,10 @@ export default function Auth() {
     );
   }
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) {
+    const dest = role === "portaria" ? "/portaria" : "/";
+    return <Navigate to={dest} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -15,8 +15,15 @@ export function useRealtimeStatus(): RealtimeStatus {
     const channels = supabase.getChannels();
     const existing = channels.find((c) => c.topic === "realtime:carregamentos-realtime");
     if (existing) {
-      // Piggyback on existing channel state
-      setStatus("connected");
+      // Check actual channel state instead of assuming connected
+      const state = (existing as any).state;
+      if (state === "joined" || state === "SUBSCRIBED") {
+        setStatus("connected");
+      } else if (state === "CHANNEL_ERROR" || state === "CLOSED") {
+        setStatus("disconnected");
+      } else {
+        setStatus("connecting");
+      }
       return;
     }
 

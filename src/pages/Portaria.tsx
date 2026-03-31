@@ -35,7 +35,7 @@ export default function Portaria() {
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : format(today, "yyyy-MM-dd");
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [search, setSearch] = useState("");
-  const [categoriaFilter, setCategoriaFilter] = useState("");
+  const [categoriaFilter, setCategoriaFilter] = useState("all");
   const [tipoFilter, setTipoFilter] = useState("");
 
   const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
