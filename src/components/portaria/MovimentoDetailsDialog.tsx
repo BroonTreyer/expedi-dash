@@ -238,9 +238,9 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir apenas o retorno?</AlertDialogTitle>
+                        <AlertDialogTitle>Excluir apenas a saída?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Isso remove apenas o registro de retorno. A entrada permanecerá e o veículo voltará ao pátio.
+                          Isso remove apenas o registro de saída. A entrada permanecerá e o veículo voltará ao pátio.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
