@@ -3,14 +3,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format, differenceInMinutes } from "date-fns";
+import { format, differenceInMinutes, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { CATEGORIAS, SETORES, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
 import { PhotoViewerDialog } from "./PhotoViewerDialog";
 import { EditMovimentoDialog } from "./EditMovimentoDialog";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   open: boolean;
