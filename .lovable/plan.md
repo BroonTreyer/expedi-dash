@@ -1,58 +1,41 @@
 
 
-# Ajustar Terceirizado na Portaria + Previsão Automática ao Fechar Carga
+# Adicionar Tipo de Caminhão no Cadastro de Terceirizado
 
-## Parte 1 — Simplificar Entrada do Terceirizado
+## Problema
 
-Remover `foto_painel_url` e `km_inicial` da entrada de terceirizado. Campos finais:
-- **empresa** (obrigatório)
-- **foto_placa_url** (obrigatório)
-- **placa** (obrigatório)
-- **motorista** (obrigatório)
+O cadastro de terceirizado na portaria não possui campo para informar o tipo de caminhão (Bitruck, Truck, Carreta, etc.).
 
-**`src/lib/portaria-fields-config.ts`** — VISIBILITY:
-- `foto_painel_url`: terceirizado → `"oculto"` (era `"obrigatorio"`)
-- `km_inicial`: terceirizado → `"oculto"` (era `"obrigatorio"`)
+## Solução
 
-VISIBILITY_SAIDA — também ocultar para terceirizado:
-- `km_final`: terceirizado → `"oculto"`
-- `foto_painel_url`: terceirizado → `"oculto"`
-- `numero_lacre`: manter ou ocultar (sem KM, lacre perde contexto) → `"oculto"`
-- `conferente`, `ocorrencia`, `observacoes`: manter `"opcional"` para registro de retorno
+A tabela `movimentacoes_portaria` não tem coluna `tipo_caminhao`. Precisamos adicionar a coluna no banco e o campo no formulário dinâmico. Os tipos serão puxados da tabela `tipos_caminhao` já existente (cadastro dinâmico), mas o campo será um select com as opções cadastradas.
 
-## Parte 2 — Cargas Fechadas criam Previsão de Terceirizado
+### 1. Migration — adicionar coluna
 
-Quando uma carga é fechada no `FechamentoLoteDialog` com campo `transportadora` preenchido, inserir automaticamente um registro em `veiculos_esperados` com `grupo = "TERCEIRIZADO"`.
-
-**`src/pages/Index.tsx`** — `handleLoteSubmit`:
-Após os updates, se `transportadora` estiver preenchido, inserir em `veiculos_esperados`:
-```
-{
-  data_referencia: dataCarregamento,
-  grupo: "TERCEIRIZADO",
-  placa,
-  motorista,
-  transportadora,
-  carga_id: cargaId,
-  destino: destinos resumidos,
-  peso: totalPeso,
-  qtd_entregas: totalPedidos,
-  criado_por: user?.id
-}
+```sql
+ALTER TABLE movimentacoes_portaria ADD COLUMN tipo_caminhao text;
 ```
 
-O problema é que `handleLoteSubmit` recebe apenas os updates individuais, sem acesso a `cargaId` ou `transportadora` como campos separados. Precisamos passar esses dados.
+### 2. `src/lib/portaria-fields-config.ts`
 
-**`src/components/dashboard/FechamentoLoteDialog.tsx`**:
-Alterar `onSubmit` para incluir metadados: `{ updates, meta: { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos } }`.
+- Adicionar campo `tipo_caminhao` no array `FIELDS` (bloco `veiculo`, tipo `text` — será tratado como select dinâmico no dialog)
+- Adicionar entrada na `VISIBILITY`: terceirizado → `"obrigatorio"`, carga_propria → `"oculto"`, demais → `"oculto"`
+- Adicionar entrada na `VISIBILITY_SAIDA`: todos `"oculto"`
 
-**`src/pages/Index.tsx`**:
-1. Atualizar tipo de `handleLoteSubmit` para receber os metadados
-2. Após salvar os updates, se `meta.transportadora` estiver preenchido, chamar `supabase.from("veiculos_esperados").insert(...)` com os dados da carga
+### 3. `src/components/portaria/RegistroMovimentoDialog.tsx`
+
+- Importar `useTiposCaminhao` para buscar os tipos cadastrados
+- No render dos campos, quando `field.key === "tipo_caminhao"`, renderizar um `<Select>` com as opções vindas do hook ao invés de um input de texto
+- No `handleSave`, incluir `tipo_caminhao: values.tipo_caminhao || null`
+
+### 4. `src/components/portaria/EditMovimentoDialog.tsx`
+
+- Adicionar `tipo_caminhao` nos `EDITABLE_FIELDS` como select com opções dinâmicas (ou texto simples)
 
 | Arquivo | Mudança |
 |---|---|
-| `src/lib/portaria-fields-config.ts` | Ocultar `foto_painel_url`, `km_inicial`, `km_final`, `numero_lacre` para terceirizado |
-| `src/components/dashboard/FechamentoLoteDialog.tsx` | Incluir metadados (cargaId, transportadora, etc.) no callback `onSubmit` |
-| `src/pages/Index.tsx` | Receber metadados do fechamento e inserir previsão em `veiculos_esperados` para terceirizados |
+| Migration SQL | Adicionar coluna `tipo_caminhao` em `movimentacoes_portaria` |
+| `src/lib/portaria-fields-config.ts` | Adicionar campo e visibilidade (obrigatório para terceirizado) |
+| `src/components/portaria/RegistroMovimentoDialog.tsx` | Renderizar select dinâmico com tipos da tabela `tipos_caminhao` |
+| `src/components/portaria/EditMovimentoDialog.tsx` | Incluir `tipo_caminhao` nos campos editáveis |
 
