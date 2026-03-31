@@ -55,7 +55,7 @@ export default function Portaria() {
   const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
   const dateLabel = isToday ? "Hoje" : "no Período";
 
-  const hasActiveFilters = search || categoriaFilter || tipoFilter;
+  const hasActiveFilters = search || (categoriaFilter && categoriaFilter !== "all") || (tipoFilter && tipoFilter !== "all");
 
   const clearFilters = () => {
     setSearch("");

@@ -16,7 +16,7 @@ interface UserRow {
   id: string;
   nome: string;
   email: string;
-  role: AppRole;
+  role: AppRole | null;
 }
 
 const ROLE_LABELS: Record<AppRole, string> = {
@@ -26,11 +26,11 @@ const ROLE_LABELS: Record<AppRole, string> = {
   portaria: "Portaria",
 };
 
-function RoleSelect({ value, onChange }: { value: AppRole; onChange: (v: AppRole) => void }) {
+function RoleSelect({ value, onChange }: { value: AppRole | null; onChange: (v: AppRole) => void }) {
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as AppRole)}>
+    <Select value={value ?? ""} onValueChange={(v) => onChange(v as AppRole)}>
       <SelectTrigger className="h-8 text-xs">
-        <SelectValue />
+        <SelectValue placeholder="Sem nível" />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="admin">Admin</SelectItem>
@@ -117,7 +117,7 @@ export default function Usuarios() {
         id: p.id,
         nome: p.nome,
         email: p.email,
-        role: (roleMap.get(p.id) as AppRole) ?? "logistica",
+        role: (roleMap.get(p.id) as AppRole) ?? null,
       }))
     );
     setLoading(false);
@@ -126,10 +126,11 @@ export default function Usuarios() {
   useEffect(() => { fetchUsers(); }, []);
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
+    // Delete existing role(s) then insert new one (no unique on user_id alone)
+    await supabase.from("user_roles").delete().eq("user_id", userId);
     const { error } = await supabase
       .from("user_roles")
-      .update({ role: newRole })
-      .eq("user_id", userId);
+      .insert({ user_id: userId, role: newRole });
     if (error) {
       toast.error(error.message);
     } else {
