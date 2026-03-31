@@ -55,6 +55,7 @@ export interface MovimentacaoPortaria {
   horario_chegada: string | null;
   horario_entrada: string | null;
   etapa_terceirizado: string | null;
+  tipo_caminhao: string | null;
 }
 
 export const CATEGORIAS = [

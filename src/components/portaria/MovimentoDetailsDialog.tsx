@@ -304,6 +304,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               <DetailRow label="Placa" value={m.placa ? m.placa : "—"} />
               <DetailRow label="Motorista" value={m.motorista} />
               <DetailRow label="Empresa" value={m.empresa} />
+              <DetailRow label="Tipo de Veículo" value={m.tipo_caminhao} />
               <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
               {m.numero_lacre && <DetailRow label={s?.numero_lacre ? "Lacre (Entrada)" : "Nº Lacre"} value={m.numero_lacre} />}
               {s?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Saída)" : "Nº Lacre"} value={s.numero_lacre} />}
