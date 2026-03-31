@@ -295,6 +295,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                               <MotoristaAutocomplete
                                 value={values.motorista || ""}
                                 onChange={(v) => set("motorista", v)}
+                                onSelect={(m) => {
+                                  if (m.telefone) set("telefone", m.telefone);
+                                }}
                                 disabled={saving || !!prefill}
                               />
                               {field.required && !values.motorista?.trim() && (

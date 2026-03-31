@@ -21,6 +21,7 @@ function MotoristaFormDialog({
   motorista?: Motorista | null;
 }) {
   const [nome, setNome] = useState(motorista?.nome_completo ?? "");
+  const [cpf, setCpf] = useState(motorista?.cpf ?? "");
   const [telefone, setTelefone] = useState(motorista?.telefone ?? "");
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const createMut = useCreateMotorista();
