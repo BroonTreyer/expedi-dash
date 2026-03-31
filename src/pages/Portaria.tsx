@@ -75,7 +75,8 @@ export default function Portaria() {
       if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
       return true;
     }).length;
-    return { patio, historico: movimentacoes.length };
+    const historico = movimentacoes.length - saidasVinculadas.size;
+    return { patio, historico };
   }, [movimentacoes]);
 
   const pendentesEsperados = veiculosEsperados.filter((v) => !v.conferido).length;
