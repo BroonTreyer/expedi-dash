@@ -224,14 +224,36 @@ export default function Index() {
     setUndoCargaId(null);
   }, [undoCargaId, queryClient]);
 
-  const handleLoteSubmit = useCallback(async (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string }[]) => {
+  const handleLoteSubmit = useCallback(async (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string }[], meta?: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string }) => {
     try {
       await Promise.all(updates.map(u => updateMut.mutateAsync(u)));
+
+      // Se tem transportadora, criar previsão de terceirizado na portaria
+      if (meta?.transportadora) {
+        try {
+          await supabase
+            .from("veiculos_esperados")
+            .insert({
+              data_referencia: meta.dataCarregamento,
+              grupo: "TERCEIRIZADO",
+              placa: meta.placa,
+              motorista: meta.motorista || null,
+              transportadora: meta.transportadora,
+              carga_id: meta.cargaId,
+              destino: meta.destinos || null,
+              peso: meta.totalPeso || null,
+              qtd_entregas: meta.totalPedidos || null,
+            });
+          queryClient.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+        } catch {
+          // Non-critical: don't block the main flow
+        }
+      }
     } catch {
       // errors handled by mutation's onError
     }
     setSelectedIds([]);
-  }, [updateMut]);
+  }, [updateMut, queryClient]);
 
   // When user unchecks groups inside FechamentoLoteDialog and closes it, remove those IDs from selection
   const handleLoteExcluded = useCallback((excludedItemIds: string[]) => {
