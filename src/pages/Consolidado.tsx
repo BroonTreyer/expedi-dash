@@ -90,6 +90,7 @@ interface CargaGroup {
   placa: string | null;
   motorista: string | null;
   tipoCaminhao: string | null;
+  tipoFrete: string;
   pesoTotal: number;
   qtdPedidos: number;
   rupturaCount: number;
