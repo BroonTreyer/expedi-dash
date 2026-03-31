@@ -76,6 +76,11 @@ export default function Portaria() {
   };
 
   const openRegistroFromVeiculoEsperado = (v: VeiculoEsperado) => {
+    // Warn if vehicle's planned date is in the future
+    if (v.data_referencia > dateFromStr) {
+      const dataFormatada = format(new Date(v.data_referencia + "T00:00:00"), "dd/MM");
+      toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
+    }
     setPrefill(null);
     const isTerceirizado = v.grupo === "FROTAS" || v.grupo === "INTERIOR";
     setPrefillFromPlanilha({
@@ -241,6 +246,7 @@ export default function Portaria() {
           onRegistrar={openRegistroFromVeiculoEsperado}
           onClear={() => limparMutation.mutate(dateFromStr)}
           isClearing={limparMutation.isPending}
+          dataFiltrada={dateFromStr}
         />
 
         {/* Filters */}
