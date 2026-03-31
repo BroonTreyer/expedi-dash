@@ -41,7 +41,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   // Fetch veículos esperados e no pátio
   const dataRef = dataCarregamento || selectedDate || new Date().toISOString().split("T")[0];
   const { data: veiculosEsperados = [] } = useVeiculosEsperados(dataRef);
-  const { movimentacoes = [] } = useMovimentacoes(dataRef);
+  const { data: movimentacoes = [] } = useMovimentacoes(dataRef);
 
   // Veículos no pátio (entradas sem saída vinculada)
   const veiculosPatio = useMemo(() => {
