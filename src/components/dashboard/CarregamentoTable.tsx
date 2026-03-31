@@ -246,6 +246,14 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 <div><Badge variant="outline" className="text-[10px] font-mono">{c.nome_carga}</Badge></div>
               </>
             )}
+            {!isGrouped && (
+              <>
+                <div className="text-muted-foreground">Dt. Cadastro</div>
+                <div>{formatDateCompact(c.created_at)}</div>
+                <div className="text-muted-foreground">Dt. Pedido</div>
+                <div>{formatDateCompact(c.data)}</div>
+              </>
+            )}
           </>
         )}
       </div>
