@@ -21,6 +21,7 @@ interface Props {
   categoriaFilter: string;
   onRegistrarSaida: (entrada: MovimentacaoPortaria) => void;
   isLoading?: boolean;
+  readOnly?: boolean;
 }
 
 const categoriaBadgeColor: Record<string, string> = {
@@ -56,7 +57,7 @@ function getInfoExtra(m: MovimentacaoPortaria): string | null {
   return null;
 }
 
-export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading }: Props) {
+export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading, readOnly }: Props) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
@@ -215,6 +216,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     </div>
                   )}
                 </div>
+                {!readOnly && (
                 <div className="flex justify-end pt-1">
                   {m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
@@ -236,6 +238,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     </Button>
                   )}
                 </div>
+                )}
               </CardContent>
             </Card>
           );
@@ -290,7 +293,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   {infoExtra || m.empresa || m.destino_setor || "—"}
                 </TableCell>
                 <TableCell className="text-right">
-                  {m.categoria === "carga_propria" ? (
+                  {!readOnly && (
+                  m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                       <ArrowUpFromLine className="h-3 w-3" /> Retorno c/ KM
                     </Button>
@@ -310,6 +314,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         <ArrowUpFromLine className="h-3 w-3" /> Retorno
                       </Button>
                     </div>
+                  )
                   )}
                 </TableCell>
               </TableRow>

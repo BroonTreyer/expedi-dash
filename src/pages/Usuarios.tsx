@@ -23,6 +23,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Admin",
   logistica: "Logística",
   faturamento: "Faturamento",
+  portaria: "Portaria",
 };
 
 function RoleSelect({ value, onChange }: { value: AppRole; onChange: (v: AppRole) => void }) {
@@ -35,6 +36,7 @@ function RoleSelect({ value, onChange }: { value: AppRole; onChange: (v: AppRole
         <SelectItem value="admin">Admin</SelectItem>
         <SelectItem value="logistica">Logística</SelectItem>
         <SelectItem value="faturamento">Faturamento</SelectItem>
+        <SelectItem value="portaria">Portaria</SelectItem>
       </SelectContent>
     </Select>
   );
@@ -204,6 +206,7 @@ export default function Usuarios() {
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="logistica">Logística</SelectItem>
                       <SelectItem value="faturamento">Faturamento</SelectItem>
+                      <SelectItem value="portaria">Portaria</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

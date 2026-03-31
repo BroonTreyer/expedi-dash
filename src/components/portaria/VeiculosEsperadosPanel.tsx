@@ -12,6 +12,7 @@ interface Props {
   onClear: () => void;
   isClearing?: boolean;
   dataFiltrada?: string; // yyyy-MM-dd
+  readOnly?: boolean;
 }
 
 function isDataFutura(dataRef: string, dataFiltrada?: string): boolean {
@@ -28,7 +29,7 @@ function DataPrevistaBadge({ dataRef }: { dataRef: string }) {
   );
 }
 
-export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada }: Props) {
+export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada, readOnly }: Props) {
   if (veiculos.length === 0) return null;
 
   const totalConferidos = veiculos.filter((v) => v.conferido).length;
@@ -54,9 +55,11 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
               )}
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground self-end sm:self-auto" onClick={onClear} disabled={isClearing}>
-            <X className="h-3 w-3" /> Limpar lista
-          </Button>
+          {!readOnly && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground self-end sm:self-auto" onClick={onClear} disabled={isClearing}>
+              <X className="h-3 w-3" /> Limpar lista
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -100,7 +103,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                   <div><span className="text-muted-foreground">Peso:</span> {v.peso ?? "—"}</div>
                   <div><span className="text-muted-foreground">Entregas:</span> {v.qtd_entregas ?? "—"}</div>
                 </div>
-                {!isConferido && (
+                {!isConferido && !readOnly && (
                   <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1" onClick={() => onRegistrar(v)}>
                     Registrar Entrada
                   </Button>
@@ -152,7 +155,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                     <TableCell className="text-xs py-1.5 text-right">{v.peso ?? "—"}</TableCell>
                     <TableCell className="text-xs py-1.5 text-right">{v.qtd_entregas ?? "—"}</TableCell>
                     <TableCell className="py-1.5">
-                      {!isConferido && (
+                      {!isConferido && !readOnly && (
                         <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1" onClick={() => onRegistrar(v)}>
                           Registrar Entrada
                         </Button>
