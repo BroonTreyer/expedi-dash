@@ -199,7 +199,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div>
                     <span className="text-muted-foreground">Entrada: </span>
-                    <span className="font-medium">{format(new Date(m.data_hora), "HH:mm", { locale: ptBR })}</span>
+                    <span className="font-medium">{format(new Date(m.data_hora), dateFromStr !== dateToStr ? "dd/MM HH:mm" : "HH:mm", { locale: ptBR })}</span>
                   </div>
                   <div className={getTempoClass(minutos)}>
                     {minutos >= 480 && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
