@@ -91,8 +91,9 @@ export async function uploadFotoPortaria(file: File, cargaId: string, tipo: stri
   const path = `${cargaId}/${tipo}_${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from("portaria").upload(path, file, { upsert: true });
   if (error) throw error;
-  const { data: urlData } = supabase.storage.from("portaria").getPublicUrl(path);
-  return urlData.publicUrl;
+  const { data: signedData, error: signError } = await supabase.storage.from("portaria").createSignedUrl(path, 60 * 60 * 24 * 365);
+  if (signError || !signedData?.signedUrl) throw signError || new Error("Failed to create signed URL");
+  return signedData.signedUrl;
 }
 
 export async function processarOCR(imageUrl: string, tipo: "placa" | "km"): Promise<{ texto: string; confianca: number }> {
