@@ -28,7 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function Portaria() {
   const { role } = useAuth();
-  const isReadOnly = role === "portaria";
+  const isPortaria = role === "portaria";
 
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
