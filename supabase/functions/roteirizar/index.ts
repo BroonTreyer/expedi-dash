@@ -409,6 +409,7 @@ Deno.serve(async (req) => {
               instructions: false,
               geometry_simplify: false,
               preference: "recommended",
+              radiuses: orsCoordinates.map(() => 5000),
             }),
             signal: AbortSignal.timeout(8000),
           }
