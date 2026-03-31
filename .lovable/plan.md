@@ -1,18 +1,25 @@
 
 
-# Corrigir Build Quebrado — bun.lock corrompido
+# Adicionar Coluna "Data Cadastro" na Tabela de Expedição
 
 ## Problema
 
-O `bun.lock` foi acidentalmente editado na mensagem anterior, causando falha no `bun install` por versões incompatíveis de `@supabase/auth-js` e `@supabase/storage-js`. Sem `node_modules`, nenhum módulo é encontrado.
+A tabela do painel de expedição não exibe a data em que os pedidos foram inseridos (`created_at`). Quando se visualiza vários dias ou pedidos pendentes de dias anteriores, não há como saber quando cada pedido foi cadastrado.
 
 ## Solução
 
-**`bun.lock`**: Reverter o arquivo para o estado anterior (antes da edição acidental). Isso restaurará as versões corretas das dependências e permitirá que o `bun install` funcione novamente.
+**`src/components/dashboard/CarregamentoTable.tsx`**:
+
+1. Adicionar coluna **"Dt. Cadastro"** após a coluna "Frete", exibindo `created_at` formatado como `dd/MM` (dia/mês, compacto)
+2. Adicionar coluna **"Dt. Pedido"** logo após, exibindo o campo `data` formatado como `dd/MM`
+3. Adicionar sort accessors para ambas (`created_at` e `data`)
+4. Atualizar `colCount` (+2)
+5. Adicionar as mesmas informações no `MobileCardItem` (seção de detalhes)
+6. Renderizar nas linhas de grupo expandido também
+
+As datas serão exibidas no formato compacto `dd/MM` para não ocupar espaço excessivo na tabela.
 
 | Arquivo | Mudança |
 |---|---|
-| `bun.lock` | Reverter para versão original (antes da edição) |
-
-**Nota**: Nenhuma mudança de código é necessária — apenas restaurar o lockfile.
+| `src/components/dashboard/CarregamentoTable.tsx` | Adicionar colunas "Dt. Cadastro" (created_at) e "Dt. Pedido" (data) na tabela desktop e mobile |
 
