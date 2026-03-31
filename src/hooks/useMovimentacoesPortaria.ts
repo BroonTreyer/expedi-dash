@@ -114,10 +114,11 @@ export function useDeleteMovimentacao() {
   return useMutation({
     mutationFn: async (id: string) => {
       // Delete linked records first (retornos pointing to this entrada)
-      await supabase
+      const { error: linkedError } = await supabase
         .from("movimentacoes_portaria")
         .delete()
         .eq("movimento_vinculado_id", id);
+      if (linkedError) throw linkedError;
       // Then delete the record itself
       const { error } = await supabase
         .from("movimentacoes_portaria")
