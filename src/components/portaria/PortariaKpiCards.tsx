@@ -39,7 +39,7 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     { label: `Entradas ${suffix}`, value: stats.entradas, icon: ArrowDownToLine, color: "text-accent" },
     { label: `Retornos ${suffix}`, value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
     { label: "No Pátio", value: stats.noPatio, icon: ParkingCircle, color: "text-destructive" },
-    ...(stats.terceirizados > 0 ? [{ label: `Terceirizados ${suffix}`, value: stats.terceirizados, icon: Truck, color: "text-blue-600 dark:text-blue-400" }] : []),
+    ...(stats.tercAguardando > 0 ? [{ label: "Aguardando Entrada", value: stats.tercAguardando, icon: Clock, color: "text-yellow-600 dark:text-yellow-400" }] : []),
   ];
 
   if (isLoading) {
