@@ -90,6 +90,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
     setOcrLoading(false);
     setTextoPlacaLido(null);
     setConfiancaPlaca(null);
+    setOcrLacreLoading(false);
+    setTextoLacreLido(null);
+    setConfiancaLacre(null);
   }, [open, prefill, prefillFromPlanilha]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, tipo), [categoria, tipo]);
