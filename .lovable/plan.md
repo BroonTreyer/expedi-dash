@@ -1,24 +1,18 @@
 
 
-# Corrigir: Veículo Esperado Não Sai da Lista Após Registro
+# Corrigir Build Quebrado — bun.lock corrompido
 
 ## Problema
 
-Em `Portaria.tsx` linha 121, ao marcar como conferido, o código usa `dateFromStr` (data do filtro) em vez de `match.data_referencia` (data real do veículo). Como a query de UPDATE filtra por `data_referencia` E `placa`, se as datas não coincidem, nenhuma linha é atualizada — o veículo permanece na lista.
+O `bun.lock` foi acidentalmente editado na mensagem anterior, causando falha no `bun install` por versões incompatíveis de `@supabase/auth-js` e `@supabase/storage-js`. Sem `node_modules`, nenhum módulo é encontrado.
 
 ## Solução
 
-**`src/pages/Portaria.tsx`** (linha 121): Trocar `dateFromStr` por `match.data_referencia`.
-
-```typescript
-// De:
-marcarConferidoMutation.mutate({ placa: match.placa, dataReferencia: dateFromStr });
-
-// Para:
-marcarConferidoMutation.mutate({ placa: match.placa, dataReferencia: match.data_referencia });
-```
+**`bun.lock`**: Reverter o arquivo para o estado anterior (antes da edição acidental). Isso restaurará as versões corretas das dependências e permitirá que o `bun install` funcione novamente.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/Portaria.tsx` | Usar `match.data_referencia` em vez de `dateFromStr` no `marcarConferido` |
+| `bun.lock` | Reverter para versão original (antes da edição) |
+
+**Nota**: Nenhuma mudança de código é necessária — apenas restaurar o lockfile.
 
