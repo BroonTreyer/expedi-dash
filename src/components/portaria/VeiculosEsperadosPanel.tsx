@@ -157,7 +157,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
               </TableRow>
             </TableHeader>
             <TableBody>
-              {veiculos.map((v) => {
+              {filtered.map((v) => {
                 const isConferido = v.conferido;
                 const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
                 const isPassado = isDataPassada(v.data_referencia, dataFiltrada);
