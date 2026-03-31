@@ -103,6 +103,7 @@ interface CargaGroup {
 
 function groupByCarga(data: Carregamento[]): CargaGroup[] {
   const map = new Map<string, CargaGroup>();
+  const freteMap = new Map<string, Set<string>>();
   for (const item of data) {
     if (!item.carga_id) continue;
     let g = map.get(item.carga_id);
@@ -113,6 +114,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         placa: item.placa,
         motorista: item.motorista,
         tipoCaminhao: item.tipo_caminhao,
+        tipoFrete: "",
         pesoTotal: 0,
         qtdPedidos: 0,
         rupturaCount: 0,
@@ -123,15 +125,19 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         items: [],
       };
       map.set(item.carga_id, g);
+      freteMap.set(item.carga_id, new Set());
     }
     g.pesoTotal += item.peso ?? 0;
     if (item.ruptura) g.rupturaCount += 1;
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
+    if (item.tipo_frete) freteMap.get(item.carga_id)!.add(item.tipo_frete);
     g.items.push(item);
   }
-  for (const g of map.values()) {
+  for (const [cargaId, g] of map.entries()) {
     g.qtdPedidos = g.items.length;
+    const fretes = freteMap.get(cargaId)!;
+    g.tipoFrete = fretes.size > 0 ? [...fretes].sort().join(" / ") : "—";
   }
   return Array.from(map.values());
 }
