@@ -12,6 +12,7 @@ interface Props {
   onClear: () => void;
   isClearing?: boolean;
   dataFiltrada?: string; // yyyy-MM-dd
+  readOnly?: boolean;
 }
 
 function isDataFutura(dataRef: string, dataFiltrada?: string): boolean {
