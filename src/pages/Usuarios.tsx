@@ -117,7 +117,7 @@ export default function Usuarios() {
         id: p.id,
         nome: p.nome,
         email: p.email,
-        role: (roleMap.get(p.id) as AppRole) ?? "logistica",
+        role: (roleMap.get(p.id) as AppRole) ?? null,
       }))
     );
     setLoading(false);
