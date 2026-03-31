@@ -37,6 +37,7 @@ interface Props {
 export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFromPlanilha, onCreated }: Props) {
   const { user } = useAuth();
   const createMov = useCreateMovimentacao();
+  const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const [step, setStep] = useState<"categoria" | "form">("categoria");
   const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
   const [categoria, setCategoria] = useState<Categoria>("carga_propria");
