@@ -238,12 +238,14 @@ export default function Index() {
     setSelectedIds((prev) => prev.filter((id) => !excludedItemIds.includes(id)));
   }, []);
 
-  const handleAdicionarCargaSubmit = useCallback((updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => {
-    for (const u of updates) {
-      updateMut.mutate(u);
+  const handleAdicionarCargaSubmit = useCallback(async (updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => {
+    try {
+      await Promise.all(updates.map(u => updateMut.mutateAsync(u)));
+      toast.success(`${updates.length} pedido(s) adicionado(s) à carga`);
+    } catch {
+      // errors handled by mutation's onError
     }
     setSelectedIds([]);
-    toast.success(`${updates.length} pedido(s) adicionado(s) à carga`);
   }, [updateMut]);
 
   const handlePrintCarga = useCallback((cargaId: string) => {
