@@ -25,13 +25,22 @@ export interface VeiculoEsperado {
 }
 
 export function useVeiculosEsperados(dataReferencia: string) {
+  // Show vehicles from selected date up to 3 days ahead
+  const dataLimite = (() => {
+    const d = new Date(dataReferencia + "T00:00:00");
+    d.setDate(d.getDate() + 3);
+    return d.toISOString().slice(0, 10);
+  })();
+
   return useQuery({
-    queryKey: ["veiculos_esperados", dataReferencia],
+    queryKey: ["veiculos_esperados", dataReferencia, dataLimite],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("veiculos_esperados" as any)
         .select("*")
-        .eq("data_referencia", dataReferencia)
+        .gte("data_referencia", dataReferencia)
+        .lte("data_referencia", dataLimite)
+        .order("data_referencia", { ascending: true })
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as VeiculoEsperado[];

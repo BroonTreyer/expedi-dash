@@ -14,7 +14,21 @@ interface Props {
   dataFiltrada?: string; // yyyy-MM-dd
 }
 
-export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing }: Props) {
+function isDataFutura(dataRef: string, dataFiltrada?: string): boolean {
+  if (!dataFiltrada) return false;
+  return dataRef > dataFiltrada;
+}
+
+function DataPrevistaBadge({ dataRef }: { dataRef: string }) {
+  return (
+    <Badge variant="outline" className="text-[10px] h-5 border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400 gap-0.5">
+      <CalendarClock className="h-3 w-3" />
+      Saída {format(parseISO(dataRef), "dd/MM")}
+    </Badge>
+  );
+}
+
+export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada }: Props) {
   if (veiculos.length === 0) return null;
 
   const totalConferidos = veiculos.filter((v) => v.conferido).length;
