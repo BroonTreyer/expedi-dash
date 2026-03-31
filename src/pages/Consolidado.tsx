@@ -515,6 +515,7 @@ export default function Consolidado() {
                           )}
                         </TableCell>
                         <TableCell className="text-center text-xs">{g.clientes.size}</TableCell>
+                        <TableCell className="text-xs">{g.tipoFrete}</TableCell>
                         <TableCell className="text-xs">{[...g.ufs].sort().join(", ") || "—"}</TableCell>
                       </TableRow>
                       {isOpen && g.items.map((item) => (
