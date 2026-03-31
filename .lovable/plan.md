@@ -1,46 +1,45 @@
 
 
-# Corrigir Divergência entre Contagem e Lista do Pátio
+# Corrigir KPI "No Pátio" e Unificar Lógicas de Contagem
 
 ## Problema
 
-O badge "Pátio 1" mostra 1 veículo, mas a lista está vazia. Isso acontece porque a **contagem** (em `Portaria.tsx`) e a **lista** (em `PatioAtualTab.tsx`) usam lógicas diferentes para determinar quais veículos estão no pátio:
+Existem **3 locais** com lógica de contagem de veículos no pátio, e estão divergentes:
 
-- **Contagem**: para terceirizados, verifica apenas `etapa_terceirizado` (aguardando/no_patio), ignorando se já tem saída vinculada
-- **Lista**: para TODOS os veículos (incluindo terceirizados), exige que NÃO tenha saída vinculada — e depois exclui finalizados
+1. **`PortariaKpiCards.tsx`** — Para terceirizados, conta apenas `etapa === "no_patio"` **sem verificar se já tem saída vinculada**. Isso faz o KPI mostrar "1" mesmo quando o veículo já saiu.
+2. **`Portaria.tsx` counts** (badge das tabs) — Recém corrigido, usa lógica correta.
+3. **`PatioAtualTab.tsx`** — Filtra corretamente (sem saída vinculada + não finalizado).
 
-Resultado: um terceirizado com `etapa === "aguardando"` que já tem uma saída vinculada aparece na contagem mas não na lista.
+O resultado: o KPI mostra "No Pátio: 1" mas a lista está vazia.
 
 ## Solução
 
-Unificar a lógica. Extrair a função de filtro para um utilitário compartilhado, ou simplesmente alinhar o cálculo do count em `Portaria.tsx` para usar a mesma lógica do `PatioAtualTab.tsx`.
+Alinhar a lógica do `PortariaKpiCards.tsx` com as demais — primeiro excluir entradas que já têm saída vinculada, depois excluir terceirizados finalizados.
 
-### Mudança em `src/pages/Portaria.tsx`
+### Mudança em `src/components/portaria/PortariaKpiCards.tsx`
 
-Alterar o cálculo de `counts.patio` para usar a mesma lógica do tab:
-1. Filtrar entradas sem saída vinculada (`!saidasVinculadas.has(m.id)`)
-2. Excluir terceirizados com `etapa_terceirizado === "finalizado"`
+Substituir o cálculo de `noPatio` (linhas 26-31):
 
-```ts
-// Antes (lógica divergente):
-const patio = movimentacoes.filter((m) => {
-  if (m.tipo_movimento !== "entrada") return false;
-  if (m.categoria === "terceirizado") {
-    return m.etapa_terceirizado === "aguardando" || m.etapa_terceirizado === "no_patio";
+```typescript
+// Antes (bugado):
+const noPatio = entradas.filter((e) => {
+  if (e.categoria === "terceirizado") {
+    return e.etapa_terceirizado === "no_patio";
   }
-  return !saidasVinculadas.has(m.id);
+  return !saidasVinculadas.has(e.id);
 }).length;
 
-// Depois (alinhado com PatioAtualTab):
-const patio = movimentacoes.filter((m) => {
-  if (m.tipo_movimento !== "entrada") return false;
-  if (saidasVinculadas.has(m.id)) return false;
-  if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+// Depois (unificado com PatioAtualTab):
+const noPatio = entradas.filter((e) => {
+  if (saidasVinculadas.has(e.id)) return false;
+  if (e.categoria === "terceirizado" && e.etapa_terceirizado === "finalizado") return false;
   return true;
 }).length;
 ```
 
+A mesma lógica do `PatioAtualTab` e do badge em `Portaria.tsx` — garantindo que os 3 locais estejam sincronizados.
+
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/Portaria.tsx` | Alinhar lógica de contagem do pátio com a lógica de exibição do `PatioAtualTab` |
+| `src/components/portaria/PortariaKpiCards.tsx` | Alinhar lógica de `noPatio` com PatioAtualTab (verificar saída vinculada antes de contar) |
 
