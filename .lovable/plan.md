@@ -1,54 +1,25 @@
 
 
-# Foto do Lacre com OCR na Saída
+# Simplificar Campos da Saída — Apenas 4 Campos
 
 ## Problema
 
-Na saída de terceirizados/fornecedores, o usuário precisa tirar foto do lacre e o sistema deve ler automaticamente o número via OCR. Também precisa exibir conferente e observações.
+Na saída, estão aparecendo campos extras (KM Final, Foto Painel, Ocorrência, etc.). O usuário quer que a saída mostre **apenas**: Foto do Lacre → N° Lacre → Conferente → Observações.
 
 ## Solução
 
-### 1. Migration -- adicionar coluna `foto_lacre_url`
+Alterar `VISIBILITY_SAIDA` em `src/lib/portaria-fields-config.ts`:
 
-```sql
-ALTER TABLE movimentacoes_portaria ADD COLUMN foto_lacre_url text;
-```
+1. Setar `km_final`, `foto_painel_url`, `ocorrencia` para `"oculto"` em todas as categorias
+2. Manter apenas estes 4 campos visíveis na saída:
+   - `foto_lacre_url` — obrigatório (carga_propria, terceirizado, fornecedor)
+   - `numero_lacre` — obrigatório (carga_propria, terceirizado, fornecedor)
+   - `conferente` — opcional (carga_propria, terceirizado, fornecedor)
+   - `observacoes` — opcional (carga_propria, terceirizado, fornecedor)
 
-### 2. `src/lib/portaria-fields-config.ts`
-
-- Adicionar novo campo `foto_lacre_url` no array `FIELDS` (tipo `photo`, bloco `evidencias`, label "Foto do Lacre")
-- No `VISIBILITY`: oculto para todas as categorias na entrada
-- No `VISIBILITY_SAIDA`: obrigatório para `carga_propria`, `terceirizado` e `fornecedor`; oculto para os demais
-- Garantir que `conferente` e `observacoes` estejam como `opcional` para `terceirizado` e `fornecedor` na saída (já estão para terceirizado, ajustar fornecedor)
-
-### 3. `src/components/portaria/RegistroMovimentoDialog.tsx`
-
-- Adicionar `foto_lacre_url` no mapa `tipoFotoMap` (tipo "lacre")
-- Adicionar estados `ocrLacreLoading`, `textoLacreLido`, `confiancaLacre`
-- Quando `fieldKey === "foto_lacre_url"`, chamar OCR com tipo "km" (usa Gemini para leitura de texto genérico) ou criar novo tipo "lacre"
-- Exibir `OcrResultado` abaixo da foto do lacre, preenchendo `numero_lacre` automaticamente
-- Adicionar `foto_lacre_url` no `handleSave`
-
-### 4. `src/hooks/useMovimentacoesPortaria.ts`
-
-- Adicionar `foto_lacre_url` na interface `MovimentacaoPortaria`
-
-### 5. Edge Function `ocr-portaria` -- suporte ao tipo "lacre"
-
-- Adicionar handler `ocrLacreGemini` que usa Gemini para ler o número do lacre em uma foto
-- Prompt especializado: "Leia o número do lacre de segurança nesta imagem"
-
-### 6. `src/hooks/useRegistrosPortaria.ts`
-
-- `processarOCR` já aceita tipos, basta passar "lacre" como tipo
-
-## Detalhes Técnicos
+Garantir que a ordem no array `FIELDS` posicione `foto_lacre_url` antes de `numero_lacre`, que já está correto (foto_lacre_url está no bloco evidencias, numero_lacre no bloco operacao). Para forçar a ordem desejada, mover `foto_lacre_url` e `numero_lacre` para o bloco `controle`, logo antes de `conferente` e `observacoes`.
 
 | Arquivo | Mudança |
 |---|---|
-| Migration SQL | Adicionar coluna `foto_lacre_url` |
-| `supabase/functions/ocr-portaria/index.ts` | Adicionar handler OCR para tipo "lacre" via Gemini |
-| `src/lib/portaria-fields-config.ts` | Novo campo foto_lacre_url, ajustar visibilidade saída (conferente e obs para fornecedor) |
-| `src/components/portaria/RegistroMovimentoDialog.tsx` | OCR do lacre ao tirar foto, estados de loading/resultado, salvar foto_lacre_url |
-| `src/hooks/useMovimentacoesPortaria.ts` | Adicionar `foto_lacre_url` na interface |
+| `src/lib/portaria-fields-config.ts` | Ocultar km_final/foto_painel/ocorrencia na saída; reordenar campos para foto_lacre → lacre → conferente → obs |
 
