@@ -263,7 +263,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               <DetailRow label="Empresa" value={m.empresa} />
               <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
               {m.numero_lacre && <DetailRow label={s?.numero_lacre ? "Lacre (Entrada)" : "Nº Lacre"} value={m.numero_lacre} />}
-              {s?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Retorno)" : "Nº Lacre"} value={s.numero_lacre} />}
+              {s?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Saída)" : "Nº Lacre"} value={s.numero_lacre} />}
               {!m.numero_lacre && !s?.numero_lacre ? null : null}
               <DetailRow label="Carga" value={m.carga_id} />
             </div>
