@@ -15,14 +15,22 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     const entradas = movimentacoes.filter((m) => m.tipo_movimento === "entrada");
     const saidas = movimentacoes.filter((m) => m.tipo_movimento === "saida");
 
-    const terceirizados = entradas.filter((m) => m.categoria === "terceirizado").length;
-    const entradasSemTerc = entradas.filter((m) => m.categoria !== "terceirizado");
     const saidasVinculadas = new Set(
       saidas.filter((m) => m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id!)
     );
-    const noPatio = entradasSemTerc.filter((e) => !saidasVinculadas.has(e.id)).length;
+    
+    // Terceirizados aguardando (arrived but not yet entered)
+    const tercAguardando = entradas.filter((m) => m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando").length;
+    
+    // All vehicles in yard (non-terceirizados without exit + terceirizados with etapa no_patio)
+    const noPatio = entradas.filter((e) => {
+      if (e.categoria === "terceirizado") {
+        return e.etapa_terceirizado === "no_patio";
+      }
+      return !saidasVinculadas.has(e.id);
+    }).length;
 
-    return { entradas: entradas.length, saidas: saidas.length, noPatio, terceirizados };
+    return { entradas: entradas.length, saidas: saidas.length, noPatio, tercAguardando };
   }, [movimentacoes]);
 
   const suffix = dateLabel || "Hoje";
