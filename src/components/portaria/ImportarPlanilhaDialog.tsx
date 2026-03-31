@@ -78,15 +78,22 @@ function buildColumnMap(row: unknown[]): Map<string, number> | null {
   return map;
 }
 
+function extractDateFromText(text: string): string {
+  const match = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (match) return `${match[1].padStart(2, "0")}/${match[2].padStart(2, "0")}/${match[3]}`;
+  return "";
+}
+
 function parseXlsx(data: ArrayBuffer): ParsedRow[] {
-  const wb = XLSX.read(data, { type: "array" });
+  const wb = XLSX.read(data, { type: "array", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws) return [];
 
-  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
   const rows: ParsedRow[] = [];
   let currentGrupo = "PRÓPRIA";
   let colMap: Map<string, number> | null = null;
+  let fallbackDate = "";
 
   for (const row of raw) {
     if (!row || row.length === 0) continue;
