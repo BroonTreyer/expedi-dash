@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CapturaFoto } from "./CapturaFoto";
 import { OcrResultado } from "./OcrResultado";
 import { PlacaInput } from "./PlacaInput";
+import { MotoristaAutocomplete } from "./MotoristaAutocomplete";
 import {
   useCreateMovimentacao,
   uploadFotoMovimentacao,
