@@ -216,6 +216,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     </div>
                   )}
                 </div>
+                {!readOnly && (
                 <div className="flex justify-end pt-1">
                   {m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
@@ -237,6 +238,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     </Button>
                   )}
                 </div>
+                )}
               </CardContent>
             </Card>
           );
