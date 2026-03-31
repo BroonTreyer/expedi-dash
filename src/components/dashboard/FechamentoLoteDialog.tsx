@@ -11,7 +11,7 @@ import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
 import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
 
-const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })));
+const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
 interface Props {
   open: boolean;

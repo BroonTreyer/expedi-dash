@@ -27,7 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
-const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })));
+const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
 export interface RoteirizacaoResult {
   groups: RotaGroup[];
