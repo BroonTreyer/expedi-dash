@@ -359,7 +359,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   <div className="truncate">{infoExtra || m.empresa || m.destino_setor || "—"}</div>
                   {m.categoria === "terceirizado" && (
                     <div className="text-[11px] text-muted-foreground flex gap-x-2 mt-0.5">
-                      {m.horario_chegada && <span>Chegada: {format(new Date(m.horario_chegada), "HH:mm")}</span>}
+                      <span>Chegada: {format(new Date(m.horario_chegada || m.data_hora), "HH:mm")}</span>
                       {m.horario_entrada && <span>Entrada: {format(new Date(m.horario_entrada), "HH:mm")}</span>}
                       {m.horario_real_saida && <span>Saída: {format(new Date(m.horario_real_saida), "HH:mm")}</span>}
                     </div>

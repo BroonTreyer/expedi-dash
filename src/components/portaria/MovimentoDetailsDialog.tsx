@@ -165,39 +165,82 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
 
             {/* Horários */}
             <div className="rounded-md bg-muted/50 p-2.5 text-sm space-y-1">
-              {m.tipo_movimento === "entrada" && (
-                <div className="flex items-center gap-2">
-                  <ArrowDownToLine className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-muted-foreground">Entrada:</span>
-                  <strong>{format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
-                </div>
-              )}
-              {s && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Saída:</span>
-                    <strong>{format(new Date(s.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
-                  </div>
-                  {m.tipo_movimento === "entrada" && (() => {
-                    const mins = differenceInMinutes(new Date(s.data_hora), new Date(m.data_hora));
-                    const h = Math.floor(mins / 60);
-                    const min = mins % 60;
-                    return (
-                      <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-                        <span className="text-muted-foreground">⏱ Tempo Gasto:</span>
-                        <strong>{h > 0 ? `${h}h ${min}min` : `${min}min`}</strong>
+              {m.categoria === "terceirizado" ? (
+                (() => {
+                  const chegada = m.horario_chegada || m.data_hora;
+                  const entrada = m.horario_entrada;
+                  const saida = m.horario_real_saida || (s ? s.data_hora : null);
+                  const fmtDate = (d: string) => format(new Date(d), "dd/MM/yyyy HH:mm", { locale: ptBR });
+                  const fmtDur = (mins: number) => { const h = Math.floor(mins / 60); const min = mins % 60; return h > 0 ? `${h}h ${min}min` : `${min}min`; };
+                  return (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-yellow-500">🟡</span>
+                        <span className="text-muted-foreground">Chegada:</span>
+                        <strong>{fmtDate(chegada)}</strong>
                       </div>
-                    );
-                  })()}
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-500">🟢</span>
+                        <span className="text-muted-foreground">Entrada Liberada:</span>
+                        <strong>{entrada ? fmtDate(entrada) : "—"}</strong>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">Saída:</span>
+                        <strong>{saida ? fmtDate(saida) : "—"}</strong>
+                      </div>
+                      {entrada && (
+                        <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                          <span className="text-muted-foreground">⏱ Espera (Chegada → Entrada):</span>
+                          <strong>{fmtDur(differenceInMinutes(new Date(entrada), new Date(chegada)))}</strong>
+                        </div>
+                      )}
+                      {saida && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">⏱ Tempo Total:</span>
+                          <strong>{fmtDur(differenceInMinutes(new Date(saida), new Date(chegada)))}</strong>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
+              ) : (
+                <>
+                  {m.tipo_movimento === "entrada" && (
+                    <div className="flex items-center gap-2">
+                      <ArrowDownToLine className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-muted-foreground">Entrada:</span>
+                      <strong>{format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
+                    </div>
+                  )}
+                  {s && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">Saída:</span>
+                        <strong>{format(new Date(s.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
+                      </div>
+                      {m.tipo_movimento === "entrada" && (() => {
+                        const mins = differenceInMinutes(new Date(s.data_hora), new Date(m.data_hora));
+                        const h = Math.floor(mins / 60);
+                        const min = mins % 60;
+                        return (
+                          <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                            <span className="text-muted-foreground">⏱ Tempo Gasto:</span>
+                            <strong>{h > 0 ? `${h}h ${min}min` : `${min}min`}</strong>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                  {!s && m.tipo_movimento === "saida" && (
+                    <div className="flex items-center gap-2">
+                      <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Saída:</span>
+                      <strong>{format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
+                    </div>
+                  )}
                 </>
-              )}
-              {!s && m.tipo_movimento === "saida" && (
-                <div className="flex items-center gap-2">
-                  <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">Saída:</span>
-                  <strong>{format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
-                </div>
               )}
             </div>
 
