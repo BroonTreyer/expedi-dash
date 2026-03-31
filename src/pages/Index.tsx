@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -315,6 +315,11 @@ export default function Index() {
     setPrintData(data);
     setPrintDialogOpen(true);
   }, []);
+
+  // Guard: portaria users should never see this page
+  if (role === "portaria") {
+    return <Navigate to="/portaria" replace />;
+  }
 
   return (
     <Layout>
