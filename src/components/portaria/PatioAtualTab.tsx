@@ -63,9 +63,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
+  const updateMov = useUpdateMovimentacao();
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [liberandoId, setLiberandoId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
   // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
