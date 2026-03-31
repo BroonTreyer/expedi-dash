@@ -90,12 +90,18 @@ Deno.serve(async (req) => {
     }
 
     // The trigger creates profile + default role (logistica).
-    // Update role if different.
+    // Always upsert the desired role to handle any race condition.
+    await serviceClient
+      .from("user_roles")
+      .upsert({ user_id: newUser.user.id, role }, { onConflict: "user_id,role" });
+
+    // If the desired role differs from the trigger default, remove the default
     if (role !== "logistica") {
       await serviceClient
         .from("user_roles")
-        .update({ role })
-        .eq("user_id", newUser.user.id);
+        .delete()
+        .eq("user_id", newUser.user.id)
+        .eq("role", "logistica");
     }
 
     return new Response(

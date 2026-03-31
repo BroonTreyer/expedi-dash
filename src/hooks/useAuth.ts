@@ -21,7 +21,7 @@ export const AuthProvider = AuthContext.Provider;
 const ROLE_TIMEOUT_MS = 5000;
 const SESSION_TIMEOUT_MS = 6000;
 
-async function fetchRoleWithTimeout(userId: string): Promise<AppRole> {
+async function fetchRoleWithTimeout(userId: string): Promise<AppRole | null> {
   try {
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("timeout")), ROLE_TIMEOUT_MS)
