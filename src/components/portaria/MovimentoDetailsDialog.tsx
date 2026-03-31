@@ -3,14 +3,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format, differenceInMinutes } from "date-fns";
+import { format, differenceInMinutes, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { CATEGORIAS, SETORES, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
 import { PhotoViewerDialog } from "./PhotoViewerDialog";
 import { EditMovimentoDialog } from "./EditMovimentoDialog";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   open: boolean;
@@ -51,9 +53,40 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const [editOpen, setEditOpen] = useState(false);
   const isAdmin = role === "admin";
 
+  const placaBusca = movimento?.placa?.trim().toUpperCase() || "";
+  const { data: veiculoEsperado } = useQuery({
+    queryKey: ["veiculo-esperado-detalhe", placaBusca],
+    queryFn: async () => {
+      if (!placaBusca) return null;
+      const { data } = await supabase
+        .from("veiculos_esperados")
+        .select("data_referencia")
+        .eq("placa", placaBusca)
+        .order("data_referencia", { ascending: false })
+        .limit(1);
+      return data?.[0] || null;
+    },
+    enabled: !!placaBusca && open,
+  });
+
   if (!movimento) return null;
   const m = movimento;
   const s = movimentoSaida;
+
+  // Compute date badge
+  let dataBadge: { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode } | null = null;
+  if (veiculoEsperado?.data_referencia && m.data_hora) {
+    const dataRef = startOfDay(parseISO(veiculoEsperado.data_referencia));
+    const dataEntrada = startOfDay(new Date(m.data_hora));
+    const formattedRef = format(dataRef, "dd/MM", { locale: ptBR });
+    if (dataEntrada.getTime() === dataRef.getTime()) {
+      dataBadge = { label: `No prazo ${formattedRef}`, variant: "default", icon: <CalendarCheck className="h-3 w-3" /> };
+    } else if (dataEntrada < dataRef) {
+      dataBadge = { label: `Antecipado ${formattedRef}`, variant: "outline", icon: <CalendarClock className="h-3 w-3" /> };
+    } else {
+      dataBadge = { label: `Atrasado ${formattedRef}`, variant: "destructive", icon: <AlertTriangle className="h-3 w-3" /> };
+    }
+  }
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
   const getSetorLabel = (val: string) => SETORES.find((ss) => ss.value === val)?.label || val;
 
@@ -109,6 +142,14 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               )}
               <Badge variant="outline">{getCategoriaLabel(m.categoria)}</Badge>
               {m.tipo_operacao && <Badge variant="outline" className="text-[11px]">{m.tipo_operacao}</Badge>}
+              {dataBadge && (
+                <Badge
+                  variant={dataBadge.variant}
+                  className={`gap-1 text-[11px] ${dataBadge.variant === "outline" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : ""} ${dataBadge.variant === "default" ? "bg-green-600 hover:bg-green-600/80 text-white" : ""}`}
+                >
+                  {dataBadge.icon} {dataBadge.label}
+                </Badge>
+              )}
             </div>
 
             {/* Horários */}
