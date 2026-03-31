@@ -1,28 +1,28 @@
 
 
-# Mostrar Badge de Data Prevista no Dialog de Detalhes do Movimento
+# Corrigir Badge de Data Prevista no Dialog de Detalhes
 
 ## Problema
 
-Ao abrir os detalhes de um movimento (entrada/retorno), não há indicação se o veículo foi carregado no dia previsto, antes ou depois da data de referência da planilha.
+O badge de data prevista não aparece no `MovimentoDetailsDialog` porque a busca na tabela `veiculos_esperados` provavelmente não encontra correspondência. Dois possíveis motivos:
+
+1. **Case sensitivity**: A placa na `veiculos_esperados` vem direto da planilha (pode ter casing diferente), mas a busca usa `.toUpperCase()`.
+2. **Sem `as any`**: Embora a tabela esteja nos types, pode haver incompatibilidade de tipagem causando falha silenciosa.
 
 ## Solução
 
-No `MovimentoDetailsDialog`, buscar na tabela `veiculos_esperados` se existe um registro com a mesma placa. Comparar a `data_referencia` (data prevista) com a data real da entrada (`data_hora` do movimento) e exibir um badge:
+### `src/components/portaria/MovimentoDetailsDialog.tsx`
 
-- **Verde** — "No prazo DD/MM" (entrada no mesmo dia da data prevista)
-- **Amarelo** — "Antecipado DD/MM" (entrada antes da data prevista)
-- **Vermelho** — "Atrasado DD/MM" (entrada depois da data prevista)
+1. Usar `.ilike("placa", placaBusca)` em vez de `.eq("placa", placaBusca)` para ignorar case
+2. Adicionar filtro de data razoável (últimos 7 dias) para pegar o registro mais relevante
+3. Adicionar tratamento de erro no `queryFn` para não falhar silenciosamente
 
-### Mudanças
+### `src/hooks/useVeiculosEsperados.ts` (importação)
 
-**`src/components/portaria/MovimentoDetailsDialog.tsx`**:
-1. Importar `useQuery` e `supabase` para buscar `veiculos_esperados` pela placa do movimento
-2. Comparar `data_referencia` do veículo esperado com a data do `data_hora` do movimento (só a parte date)
-3. Exibir o badge correspondente na seção de header badges (ao lado de "Entrada", "Carga Própria", etc.)
-4. Se não houver veículo esperado para aquela placa, não mostra nada
+4. Normalizar placa para uppercase no momento da importação (`r.placa.toUpperCase().trim()`) para consistência futura
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/MovimentoDetailsDialog.tsx` | Buscar `veiculos_esperados` pela placa, comparar datas, exibir badge colorido |
+| `src/components/portaria/MovimentoDetailsDialog.tsx` | Usar `ilike` para busca case-insensitive da placa + log de erro |
+| `src/hooks/useVeiculosEsperados.ts` | Normalizar placa para uppercase na importação |
 
