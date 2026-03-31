@@ -356,7 +356,7 @@ export default function Portaria() {
                 <CardContent className="py-12 text-center text-muted-foreground">
                   <ClipboardCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">Nenhum veículo esperado para este período</p>
-                  {!isReadOnly && (
+                  {!isPortaria && (
                     <p className="text-xs mt-1">Use o botão "Importar" para carregar a planilha</p>
                   )}
                 </CardContent>
