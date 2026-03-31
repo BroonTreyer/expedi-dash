@@ -522,6 +522,9 @@ export default function Consolidado() {
                       {isOpen && g.items.map((item) => (
                         <TableRow key={item.id} className="bg-muted/20">
                           <TableCell />
+                          <TableCell className="text-xs text-muted-foreground">
+                            {format(new Date(item.data + "T12:00:00"), "dd/MM")}
+                          </TableCell>
                           <TableCell />
                           <TableCell className="text-xs text-muted-foreground" colSpan={2}>
                             <span className="flex items-center gap-1.5">
@@ -531,13 +534,12 @@ export default function Consolidado() {
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.cliente ?? item.codigo_cliente ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
-                          <TableCell />
                           <TableCell className="text-right text-xs text-muted-foreground">{(item.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-center text-xs text-muted-foreground">{item.quantidade ?? "—"}</TableCell>
                           <TableCell />
                           <TableCell />
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
-                          <TableCell />
+                          <TableCell className="text-xs text-muted-foreground">{item.uf ?? "—"}</TableCell>
                         </TableRow>
                       ))}
                     </React.Fragment>
