@@ -1,31 +1,29 @@
 
 
-# Autocomplete de Motorista no Cadastro da Portaria
+# Exibir Horário de Chegada no Pátio e Detalhes (Terceirizados)
 
 ## Problema
 
-O campo "Motorista" no formulário de registro da Portaria é um input de texto livre. O usuário quer buscar motoristas cadastrados na tabela `motoristas` diretamente nesse campo, com autocomplete por nome.
+O código para exibir os 3 horários no `PatioAtualTab` já existe, mas o `MovimentoDetailsDialog` (tela de detalhes) não mostra os horários específicos de terceirizados (`horario_chegada`, `horario_entrada`, `horario_real_saida`). Além disso, registros antigos podem não ter `horario_chegada` preenchido.
 
-## Solução
+## Correções
 
-Substituir o `<Input>` do campo `motorista` no `RegistroMovimentoDialog.tsx` por um componente de autocomplete que:
+### 1. `MovimentoDetailsDialog.tsx` — Seção de horários para terceirizados
 
-1. Busca motoristas da tabela `motoristas` conforme o usuário digita (usando `useMotoristas(searchTerm)`)
-2. Exibe uma lista dropdown com os nomes encontrados
-3. Ao selecionar, preenche o campo motorista com o nome completo
-4. Permite também digitar um nome manualmente (caso o motorista não esteja cadastrado)
+Na seção "Horários" (linhas 166-202), quando `m.categoria === "terceirizado"`, substituir a exibição genérica por 3 linhas específicas:
 
-### Implementação
+- **🟡 Chegada:** `m.horario_chegada` ou `m.data_hora` como fallback
+- **🟢 Entrada Liberada:** `m.horario_entrada` ou "—"
+- **📤 Saída:** `m.horario_real_saida` ou `s.data_hora` ou "—"
+- **⏱ Tempo de Espera:** diferença entre chegada e entrada liberada
+- **⏱ Tempo Total:** diferença entre chegada e saída
 
-**`src/components/portaria/RegistroMovimentoDialog.tsx`**:
-- Importar `useMotoristas` 
-- No render do campo `motorista` (quando `field.key === "motorista"`), renderizar um componente customizado com:
-  - Input com debounce de 300ms para busca
-  - Popover/dropdown com resultados da busca (nome + telefone)
-  - Ao clicar num resultado, preencher `motorista` com `nome_completo`
-- Usar o componente `Command` (shadcn) ou um simples dropdown com lista filtrada
+### 2. `PatioAtualTab.tsx` — Fallback para `horario_chegada`
+
+Usar `m.data_hora` como fallback quando `horario_chegada` não estiver preenchido (registros antigos), para que sempre mostre algo na linha "Chegada".
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/RegistroMovimentoDialog.tsx` | Adicionar autocomplete no campo `motorista` usando dados da tabela `motoristas` |
+| `src/components/portaria/MovimentoDetailsDialog.tsx` | Exibir 3 horários distintos para terceirizados com cálculos de tempo |
+| `src/components/portaria/PatioAtualTab.tsx` | Usar `data_hora` como fallback para `horario_chegada` |
 
