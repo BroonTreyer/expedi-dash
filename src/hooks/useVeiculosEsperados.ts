@@ -152,8 +152,8 @@ export function useMarcarConferido() {
         .eq("placa", placa);
       if (error) throw error;
     },
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["veiculos_esperados", vars.dataReferencia] });
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
     },
   });
 }
