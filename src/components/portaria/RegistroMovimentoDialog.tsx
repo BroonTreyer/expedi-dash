@@ -14,6 +14,7 @@ import {
   type MovimentacaoPortaria,
 } from "@/hooks/useMovimentacoesPortaria";
 import { processarOCR } from "@/hooks/useRegistrosPortaria";
+import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
