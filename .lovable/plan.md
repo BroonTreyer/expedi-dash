@@ -1,66 +1,31 @@
 
 
-# Sistema de Cadastro e Busca de Motoristas
+# Autocomplete de Motorista no Cadastro da Portaria
 
-## Resumo
+## Problema
 
-Criar uma tabela `motoristas` no banco, uma página `/motoristas` para cadastro/busca, e integrar a busca de motoristas nos formulários da portaria (autocomplete por nome).
+O campo "Motorista" no formulário de registro da Portaria é um input de texto livre. O usuário quer buscar motoristas cadastrados na tabela `motoristas` diretamente nesse campo, com autocomplete por nome.
 
-## Estrutura
+## Solução
 
-### 1. Migration — tabela `motoristas`
+Substituir o `<Input>` do campo `motorista` no `RegistroMovimentoDialog.tsx` por um componente de autocomplete que:
 
-```sql
-CREATE TABLE motoristas (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  nome_completo text NOT NULL,
-  telefone text,
-  foto_documento_url text,
-  ativo boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+1. Busca motoristas da tabela `motoristas` conforme o usuário digita (usando `useMotoristas(searchTerm)`)
+2. Exibe uma lista dropdown com os nomes encontrados
+3. Ao selecionar, preenche o campo motorista com o nome completo
+4. Permite também digitar um nome manualmente (caso o motorista não esteja cadastrado)
 
-ALTER TABLE motoristas ENABLE ROW LEVEL SECURITY;
+### Implementação
 
--- Select: todos autenticados
--- Insert/Update: admin, logistica, portaria
--- Delete: admin
-```
-
-### 2. Nova página `/motoristas`
-
-- Lista de motoristas com busca por nome (input de pesquisa)
-- Botão "Novo Motorista" abre dialog com:
-  - **Nome Completo** (obrigatório)
-  - **Telefone**
-  - **Foto do Documento** (upload usando componente CapturaFoto existente, salva no bucket `portaria`)
-- Tabela com colunas: Nome, Telefone, Data Cadastro, Ações (editar/excluir)
-- Visualização da foto do documento ao clicar
-
-### 3. Hook `useMotoristas`
-
-- Query com busca por nome (`ilike`)
-- Mutations: create, update, delete
-- Upload de foto para bucket `portaria` (path: `motoristas/{id}/documento`)
-
-### 4. Sidebar — adicionar link "Motoristas"
-
-- Ícone: `Users` ou `Contact`
-- Roles: `admin`, `logistica`, `portaria`
-
-### 5. Rota no App.tsx
-
-- `/motoristas` com `allowedRoles={["admin", "logistica", "portaria"]}`
-
-### 6. Integração nos formulários da Portaria (futuro opcional)
-
-- Nos campos `motorista` do `RegistroMovimentoDialog`, permitir buscar motorista cadastrado por nome com autocomplete, preenchendo nome e telefone automaticamente.
+**`src/components/portaria/RegistroMovimentoDialog.tsx`**:
+- Importar `useMotoristas` 
+- No render do campo `motorista` (quando `field.key === "motorista"`), renderizar um componente customizado com:
+  - Input com debounce de 300ms para busca
+  - Popover/dropdown com resultados da busca (nome + telefone)
+  - Ao clicar num resultado, preencher `motorista` com `nome_completo`
+- Usar o componente `Command` (shadcn) ou um simples dropdown com lista filtrada
 
 | Arquivo | Mudança |
 |---|---|
-| Migration SQL | Criar tabela `motoristas` com RLS |
-| `src/hooks/useMotoristas.ts` | Hook CRUD + upload foto |
-| `src/pages/Motoristas.tsx` | Página com lista, busca e dialog de cadastro |
-| `src/App.tsx` | Adicionar rota `/motoristas` |
-| `src/components/AppSidebar.tsx` | Adicionar link "Motoristas" no menu |
+| `src/components/portaria/RegistroMovimentoDialog.tsx` | Adicionar autocomplete no campo `motorista` usando dados da tabela `motoristas` |
 
