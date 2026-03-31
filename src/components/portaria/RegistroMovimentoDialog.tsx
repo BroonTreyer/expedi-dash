@@ -309,6 +309,23 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                           );
                         }
 
+                        // Select fields — dynamic for tipo_caminhao
+                        if (field.key === "tipo_caminhao") {
+                          return (
+                            <div key={field.key} className="space-y-1.5">
+                              <Label>{field.label} {field.required && <span className="text-destructive">*</span>}</Label>
+                              <Select value={values[field.key] || ""} onValueChange={(v) => set(field.key, v)}>
+                                <SelectTrigger><SelectValue placeholder="Selecione o tipo..." /></SelectTrigger>
+                                <SelectContent>
+                                  {tiposCaminhao.map((t) => (
+                                    <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          );
+                        }
+
                         // Select fields
                         if (field.type === "select" && field.options) {
                           return (
