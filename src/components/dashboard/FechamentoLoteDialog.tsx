@@ -18,7 +18,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   items: Carregamento[];
   tiposCaminhao: { nome_tipo: string }[];
-  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string; nome_carga?: string }[]) => void;
+  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string; nome_carga?: string }[], meta: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string }) => void;
   onPrintReady?: (data: CargaPrintData) => void;
   selectedDate?: string;
   roteirizacao?: RoteirizacaoResult | null;
@@ -94,7 +94,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         nome_carga: nomeCargaFinal,
       }))
     );
-    onSubmit(updates);
+    const destinos = groups.filter(g => g.cidade).map(g => `${g.cidade}/${g.uf}`).join(", ");
+    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos });
     onOpenChange(false);
 
     if (onPrintReady) {
