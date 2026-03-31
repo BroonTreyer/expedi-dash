@@ -2,7 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { ClipboardCheck, Truck, X, CheckCircle2 } from "lucide-react";
+import { ClipboardCheck, Truck, X, CheckCircle2, CalendarClock } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 
 interface Props {
