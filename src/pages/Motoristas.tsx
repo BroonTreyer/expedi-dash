@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { CapturaFoto } from "@/components/portaria/CapturaFoto";
-import { Plus, Search, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, User } from "lucide-react";
 import { format } from "date-fns";
 import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function MotoristaFormDialog({
   open,
@@ -40,7 +42,7 @@ function MotoristaFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{motorista ? "Editar Motorista" : "Novo Motorista"}</DialogTitle>
         </DialogHeader>
@@ -63,7 +65,7 @@ function MotoristaFormDialog({
             previewUrl={motorista?.foto_documento_url}
           />
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={saving || !nome.trim()}>
             {saving ? "Salvando..." : "Salvar"}
@@ -81,49 +83,89 @@ export default function Motoristas() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Motorista | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="p-4 md:p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Motoristas</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Motoristas</h1>
             <p className="text-sm text-muted-foreground">Cadastro e consulta de motoristas</p>
           </div>
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> Novo Motorista
+          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }} className="w-full sm:w-auto text-xs sm:text-sm">
+            <Plus className="h-4 w-4 mr-1" /> Novo Motorista
           </Button>
         </div>
 
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome..."
+            placeholder="Buscar por nome ou CPF..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
           />
         </div>
 
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>CPF</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Documento</TableHead>
-                <TableHead>Cadastro</TableHead>
-                <TableHead className="w-[100px]">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : motoristas.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum motorista encontrado</TableCell></TableRow>
-              ) : (
-                motoristas.map((m) => (
+        {isMobile ? (
+          <div className="space-y-3 max-w-full">
+            {isLoading ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
+            ) : motoristas.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                <User className="h-8 w-8 opacity-40" />
+                <span className="text-sm">Nenhum motorista encontrado</span>
+              </div>
+            ) : motoristas.map((m) => (
+              <Card key={m.id}>
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{m.nome_completo}</p>
+                      {m.cpf && <p className="text-xs text-muted-foreground">CPF: {m.cpf}</p>}
+                      {m.telefone && <p className="text-xs text-muted-foreground">Tel: {m.telefone}</p>}
+                      <p className="text-xs text-muted-foreground">Cadastro: {format(new Date(m.created_at), "dd/MM/yyyy")}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditing(m); setFormOpen(true); }}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteMut.mutate(m.id)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                  {m.foto_documento_url && (
+                    <Button size="sm" variant="outline" className="w-full text-xs h-7" onClick={() => setPhotoUrl(m.foto_documento_url)}>
+                      <Eye className="h-3.5 w-3.5 mr-1" /> Ver Documento
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border bg-card overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead>Nome</TableHead>
+                  <TableHead>CPF</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Cadastro</TableHead>
+                  <TableHead className="w-[100px]">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                ) : motoristas.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2"><User className="h-8 w-8 text-muted-foreground/40" /><span>Nenhum motorista encontrado</span></div>
+                  </TableCell></TableRow>
+                ) : motoristas.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell className="font-medium">{m.nome_completo}</TableCell>
                     <TableCell>{m.cpf || "—"}</TableCell>
@@ -147,11 +189,11 @@ export default function Motoristas() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       <MotoristaFormDialog
