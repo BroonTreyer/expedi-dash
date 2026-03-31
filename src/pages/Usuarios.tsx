@@ -16,7 +16,7 @@ interface UserRow {
   id: string;
   nome: string;
   email: string;
-  role: AppRole;
+  role: AppRole | null;
 }
 
 const ROLE_LABELS: Record<AppRole, string> = {
