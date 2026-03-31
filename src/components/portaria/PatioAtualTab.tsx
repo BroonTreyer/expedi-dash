@@ -221,9 +221,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
-                  <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[m.categoria] || ""}`}>
-                    {getCategoriaLabel(m.categoria)}
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    {m.categoria === "terceirizado" && m.etapa_terceirizado && (
+                      <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
+                        {m.etapa_terceirizado === "aguardando" ? "🟡 Aguardando" : "🟢 No Pátio"}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[m.categoria] || ""}`}>
+                      {getCategoriaLabel(m.categoria)}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div>
