@@ -22,6 +22,8 @@ interface Props {
   onRegistrarSaida: (entrada: MovimentacaoPortaria) => void;
   isLoading?: boolean;
   readOnly?: boolean;
+  dateFromStr?: string;
+  dateToStr?: string;
 }
 
 const categoriaBadgeColor: Record<string, string> = {
