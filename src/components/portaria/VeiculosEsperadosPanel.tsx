@@ -103,7 +103,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                   <div><span className="text-muted-foreground">Peso:</span> {v.peso ?? "—"}</div>
                   <div><span className="text-muted-foreground">Entregas:</span> {v.qtd_entregas ?? "—"}</div>
                 </div>
-                {!isConferido && (
+                {!isConferido && !readOnly && (
                   <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1" onClick={() => onRegistrar(v)}>
                     Registrar Entrada
                   </Button>
