@@ -462,6 +462,7 @@ export default function Consolidado() {
                   <SortableTableHead sort={sort} sortKey="qtdPedidos" onSort={toggleSort} className="text-center">Pedidos</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="rupturaCount" onSort={toggleSort} className="text-center">Rupturas</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="clientes" onSort={toggleSort} className="text-center">Clientes</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="tipoFrete" onSort={toggleSort}>Frete</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="ufs" onSort={toggleSort}>UFs</SortableTableHead>
                 </TableRow>
               </TableHeader>
