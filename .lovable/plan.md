@@ -1,50 +1,66 @@
 
 
-# Registrar Horários das 3 Etapas + Renomear "Retorno" para "Saída"
+# Sistema de Cadastro e Busca de Motoristas
 
-## Problema
+## Resumo
 
-1. Os horários das 3 etapas de terceirizados (chegada, entrada liberada, saída) não são exibidos de forma clara no pátio
-2. O termo "Retorno" é usado em todo o sistema mas deveria ser "Saída"
+Criar uma tabela `motoristas` no banco, uma página `/motoristas` para cadastro/busca, e integrar a busca de motoristas nos formulários da portaria (autocomplete por nome).
 
-## Solução
+## Estrutura
 
-### Parte 1 — Renomear "Retorno" para "Saída" em toda a interface
+### 1. Migration — tabela `motoristas`
 
-Arquivos afetados e todas as ocorrências:
+```sql
+CREATE TABLE motoristas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome_completo text NOT NULL,
+  telefone text,
+  foto_documento_url text,
+  ativo boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
-- **`PatioAtualTab.tsx`**: "Retorno c/ KM" → "Saída c/ KM", "Confirmar Retorno" → "Confirmar Saída", "Retorno" → "Saída" (botões nas linhas 269, 283, 288, 357, 377)
-- **`HistoricoTab.tsx`**: "Retorno" → "Saída" nos badges (linhas 216, 289)
-- **`PortariaKpiCards.tsx`**: "Retornos" → "Saídas" no label do card (linha 40)
-- **`Portaria.tsx`**: "Retorno" → "Saída" no filtro select e no CSV export (linhas 166, 332)
-- **`EditMovimentoDialog.tsx`**: "Retorno" → "Saída" no select option (linha 142)
-- **`MovimentoDetailsDialog.tsx`**: "Retorno" → "Saída" nos labels de fotos e badge (linhas 121-124, 151)
+ALTER TABLE motoristas ENABLE ROW LEVEL SECURITY;
 
-### Parte 2 — Exibir horários das 3 etapas no pátio
-
-No `PatioAtualTab.tsx`, para terceirizados exibir os horários registrados:
-
-- **Chegada**: `horario_chegada` (já registrado na criação)
-- **Entrada Liberada**: `horario_entrada` (registrado ao clicar "Liberar Entrada")
-- **Saída**: mostrado quando finalizado (via registro de saída vinculado)
-
-Adicionar na grid de detalhes do card mobile e na tabela desktop uma sub-linha com os horários:
-```
-Chegada: 08:30 | Entrada: 09:15 | Saída: —
+-- Select: todos autenticados
+-- Insert/Update: admin, logistica, portaria
+-- Delete: admin
 ```
 
-Isso será exibido apenas para `categoria === "terceirizado"` como informação extra abaixo dos dados existentes.
+### 2. Nova página `/motoristas`
 
-### Parte 3 — Registrar `horario_real_saida` no registro de saída do terceirizado
+- Lista de motoristas com busca por nome (input de pesquisa)
+- Botão "Novo Motorista" abre dialog com:
+  - **Nome Completo** (obrigatório)
+  - **Telefone**
+  - **Foto do Documento** (upload usando componente CapturaFoto existente, salva no bucket `portaria`)
+- Tabela com colunas: Nome, Telefone, Data Cadastro, Ações (editar/excluir)
+- Visualização da foto do documento ao clicar
 
-Na `handleSaidaRapida`, ao marcar como "finalizado", também salvar `horario_real_saida` na entrada para ter o horário completo no mesmo registro.
+### 3. Hook `useMotoristas`
+
+- Query com busca por nome (`ilike`)
+- Mutations: create, update, delete
+- Upload de foto para bucket `portaria` (path: `motoristas/{id}/documento`)
+
+### 4. Sidebar — adicionar link "Motoristas"
+
+- Ícone: `Users` ou `Contact`
+- Roles: `admin`, `logistica`, `portaria`
+
+### 5. Rota no App.tsx
+
+- `/motoristas` com `allowedRoles={["admin", "logistica", "portaria"]}`
+
+### 6. Integração nos formulários da Portaria (futuro opcional)
+
+- Nos campos `motorista` do `RegistroMovimentoDialog`, permitir buscar motorista cadastrado por nome com autocomplete, preenchendo nome e telefone automaticamente.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/PatioAtualTab.tsx` | Renomear "Retorno" → "Saída", exibir horários das 3 etapas para terceirizados |
-| `src/components/portaria/HistoricoTab.tsx` | Renomear "Retorno" → "Saída" |
-| `src/components/portaria/PortariaKpiCards.tsx` | Renomear "Retornos" → "Saídas" |
-| `src/pages/Portaria.tsx` | Renomear "Retorno" → "Saída" no filtro e export |
-| `src/components/portaria/EditMovimentoDialog.tsx` | Renomear "Retorno" → "Saída" |
-| `src/components/portaria/MovimentoDetailsDialog.tsx` | Renomear "Retorno" → "Saída" |
+| Migration SQL | Criar tabela `motoristas` com RLS |
+| `src/hooks/useMotoristas.ts` | Hook CRUD + upload foto |
+| `src/pages/Motoristas.tsx` | Página com lista, busca e dialog de cadastro |
+| `src/App.tsx` | Adicionar rota `/motoristas` |
+| `src/components/AppSidebar.tsx` | Adicionar link "Motoristas" no menu |
 
