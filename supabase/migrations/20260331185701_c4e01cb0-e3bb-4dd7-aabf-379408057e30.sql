@@ -1,0 +1,1 @@
+ALTER TABLE public.movimentacoes_portaria ADD COLUMN foto_lacre_url text;

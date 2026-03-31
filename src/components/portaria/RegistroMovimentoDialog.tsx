@@ -47,6 +47,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
   const [ocrLoading, setOcrLoading] = useState(false);
   const [textoPlacaLido, setTextoPlacaLido] = useState<string | null>(null);
   const [confiancaPlaca, setConfiancaPlaca] = useState<number | null>(null);
+  const [ocrLacreLoading, setOcrLacreLoading] = useState(false);
+  const [textoLacreLido, setTextoLacreLido] = useState<string | null>(null);
+  const [confiancaLacre, setConfiancaLacre] = useState<number | null>(null);
 
   const set = useCallback((key: string, val: any) => {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -87,6 +90,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
     setOcrLoading(false);
     setTextoPlacaLido(null);
     setConfiancaPlaca(null);
+    setOcrLacreLoading(false);
+    setTextoLacreLido(null);
+    setConfiancaLacre(null);
   }, [open, prefill, prefillFromPlanilha]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, tipo), [categoria, tipo]);
@@ -99,7 +105,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
   };
 
   const handleFotoCapture = async (fieldKey: string, file: File) => {
-    const tipoFotoMap: Record<string, string> = { foto_placa_url: "placa", foto_painel_url: "painel", foto_nota_url: "nota", foto_documento_url: "doc" };
+    const tipoFotoMap: Record<string, string> = { foto_placa_url: "placa", foto_painel_url: "painel", foto_nota_url: "nota", foto_documento_url: "doc", foto_lacre_url: "lacre" };
     const tipoFoto = (tipoFotoMap[fieldKey] || "doc") as "placa" | "doc" | "painel" | "nota";
     try {
       const publicUrl = await uploadFotoMovimentacao(file, tipoFoto);
@@ -180,6 +186,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
         doca_setor: values.doca_setor?.trim() || null,
         foto_painel_url: values.foto_painel_url || null,
         foto_nota_url: values.foto_nota_url || null,
+        foto_lacre_url: values.foto_lacre_url || null,
         tipo_caminhao: values.tipo_caminhao?.trim() || null,
         // Terceirizado 3-stage fields
         ...(categoria === "terceirizado" && tipo === "entrada" ? {
@@ -332,6 +339,18 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                                   disabled={saving}
                                 />
                               )}
+                              {/* OCR result for lacre photo */}
+                              {field.key === "foto_lacre_url" && (ocrLacreLoading || textoLacreLido !== null) && (
+                                <OcrResultado
+                                  label="Leitura do Lacre"
+                                  textoLido={textoLacreLido}
+                                  confianca={confiancaLacre}
+                                  valorConfirmado={values.numero_lacre || ""}
+                                  onChange={(v) => set("numero_lacre", v)}
+                                  loading={ocrLacreLoading}
+                                  disabled={saving}
+                                />
+                              )}
                             </div>
                           );
                         }
@@ -430,7 +449,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                 <p className="text-[11px] text-destructive mr-auto">Preencha todos os campos obrigatórios (*)</p>
               )}
               <Button variant="outline" onClick={handleClose} disabled={saving}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading}>
+              <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading || ocrLacreLoading}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                 Registrar {tipo === "entrada" ? "Entrada" : "Retorno"}
               </Button>
