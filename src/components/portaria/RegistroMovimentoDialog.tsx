@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CapturaFoto } from "./CapturaFoto";
 import { OcrResultado } from "./OcrResultado";
 import { PlacaInput } from "./PlacaInput";
+import { MotoristaAutocomplete } from "./MotoristaAutocomplete";
 import {
   useCreateMovimentacao,
   uploadFotoMovimentacao,
@@ -280,6 +281,23 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                                 disabled={saving || !!prefill}
                               />
                               {field.required && !values.placa?.trim() && (
+                                <p className="text-[11px] text-destructive">* Obrigatório</p>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Motorista autocomplete
+                        if (field.key === "motorista") {
+                          return (
+                            <div key={field.key} className="space-y-1.5">
+                              <Label>{field.label} {field.required && <span className="text-destructive">*</span>}</Label>
+                              <MotoristaAutocomplete
+                                value={values.motorista || ""}
+                                onChange={(v) => set("motorista", v)}
+                                disabled={saving || !!prefill}
+                              />
+                              {field.required && !values.motorista?.trim() && (
                                 <p className="text-[11px] text-destructive">* Obrigatório</p>
                               )}
                             </div>
