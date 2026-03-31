@@ -1,0 +1,1 @@
+ALTER TABLE movimentacoes_portaria ADD COLUMN tipo_caminhao text;
