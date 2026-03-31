@@ -1,41 +1,58 @@
 
 
-# Igualar Cadastro Terceirizado ao Carga Própria
+# Ajustar Terceirizado na Portaria + Previsão Automática ao Fechar Carga
 
-## Resumo
+## Parte 1 — Simplificar Entrada do Terceirizado
 
-Atualizar a matriz de visibilidade em `portaria-fields-config.ts` para que "Terceirizado" tenha os mesmos campos de "Carga Própria", com duas diferenças:
-- **Remover**: `rota` e `carga_id` (Ordem de Carga)
-- **Manter**: `empresa` (Transportadora) — que já existe no terceirizado
+Remover `foto_painel_url` e `km_inicial` da entrada de terceirizado. Campos finais:
+- **empresa** (obrigatório)
+- **foto_placa_url** (obrigatório)
+- **placa** (obrigatório)
+- **motorista** (obrigatório)
 
-## Mudanças na matriz VISIBILITY (entrada)
+**`src/lib/portaria-fields-config.ts`** — VISIBILITY:
+- `foto_painel_url`: terceirizado → `"oculto"` (era `"obrigatorio"`)
+- `km_inicial`: terceirizado → `"oculto"` (era `"obrigatorio"`)
 
-| Campo | Carga Própria (ref) | Terceirizado atual | Terceirizado novo |
-|-------|--------------------|--------------------|-------------------|
-| tipo_operacao | oculto | obrigatorio | **oculto** |
-| empresa | oculto | obrigatorio | **obrigatorio** (mantém) |
-| documento | oculto | obrigatorio | **oculto** |
-| placa | obrigatorio | obrigatorio | obrigatorio ✓ |
-| motorista | obrigatorio | obrigatorio | obrigatorio ✓ |
-| foto_placa_url | obrigatorio | obrigatorio | obrigatorio ✓ |
-| foto_painel_url | obrigatorio | oculto | **obrigatorio** |
-| km_inicial | obrigatorio | oculto | **obrigatorio** |
-| rota | obrigatorio | oculto | **oculto** (remove) |
-| carga_id | opcional | opcional | **oculto** (remove) |
-| nota_fiscal | oculto | opcional | **oculto** |
-| responsavel_interno | oculto | opcional | **oculto** |
-| observacoes | oculto | opcional | **oculto** |
-| foto_documento_url | oculto | obrigatorio | **oculto** |
+VISIBILITY_SAIDA — também ocultar para terceirizado:
+- `km_final`: terceirizado → `"oculto"`
+- `foto_painel_url`: terceirizado → `"oculto"`
+- `numero_lacre`: manter ou ocultar (sem KM, lacre perde contexto) → `"oculto"`
+- `conferente`, `ocorrencia`, `observacoes`: manter `"opcional"` para registro de retorno
 
-## Mudanças na matriz VISIBILITY_SAIDA (retorno)
+## Parte 2 — Cargas Fechadas criam Previsão de Terceirizado
 
-Copiar os valores de carga_propria para terceirizado (km_final, numero_lacre, conferente, ocorrencia, observacoes, foto_painel_url — todos os campos de retorno).
+Quando uma carga é fechada no `FechamentoLoteDialog` com campo `transportadora` preenchido, inserir automaticamente um registro em `veiculos_esperados` com `grupo = "TERCEIRIZADO"`.
 
-## Atualizar `needsExitDialog`
+**`src/pages/Index.tsx`** — `handleLoteSubmit`:
+Após os updates, se `transportadora` estiver preenchido, inserir em `veiculos_esperados`:
+```
+{
+  data_referencia: dataCarregamento,
+  grupo: "TERCEIRIZADO",
+  placa,
+  motorista,
+  transportadora,
+  carga_id: cargaId,
+  destino: destinos resumidos,
+  peso: totalPeso,
+  qtd_entregas: totalPedidos,
+  criado_por: user?.id
+}
+```
 
-Com os campos de saída preenchidos para terceirizado, `needsExitDialog("terceirizado")` passará a retornar `true` automaticamente.
+O problema é que `handleLoteSubmit` recebe apenas os updates individuais, sem acesso a `cargaId` ou `transportadora` como campos separados. Precisamos passar esses dados.
+
+**`src/components/dashboard/FechamentoLoteDialog.tsx`**:
+Alterar `onSubmit` para incluir metadados: `{ updates, meta: { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos } }`.
+
+**`src/pages/Index.tsx`**:
+1. Atualizar tipo de `handleLoteSubmit` para receber os metadados
+2. Após salvar os updates, se `meta.transportadora` estiver preenchido, chamar `supabase.from("veiculos_esperados").insert(...)` com os dados da carga
 
 | Arquivo | Mudança |
 |---|---|
-| `src/lib/portaria-fields-config.ts` | Atualizar VISIBILITY e VISIBILITY_SAIDA do terceirizado para espelhar carga_propria (sem rota/carga_id, com transportadora) |
+| `src/lib/portaria-fields-config.ts` | Ocultar `foto_painel_url`, `km_inicial`, `km_final`, `numero_lacre` para terceirizado |
+| `src/components/dashboard/FechamentoLoteDialog.tsx` | Incluir metadados (cargaId, transportadora, etc.) no callback `onSubmit` |
+| `src/pages/Index.tsx` | Receber metadados do fechamento e inserir previsão em `veiculos_esperados` para terceirizados |
 
