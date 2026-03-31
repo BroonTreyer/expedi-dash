@@ -162,11 +162,12 @@ export function useLimparVeiculosEsperados() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (dataReferencia: string) => {
+    mutationFn: async ({ dataInicio, dataFim }: { dataInicio: string; dataFim: string }) => {
       const { error } = await supabase
         .from("veiculos_esperados" as any)
         .delete()
-        .eq("data_referencia", dataReferencia);
+        .gte("data_referencia", dataInicio)
+        .lte("data_referencia", dataFim);
       if (error) throw error;
     },
     onSuccess: () => {

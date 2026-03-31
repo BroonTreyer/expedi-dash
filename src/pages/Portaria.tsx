@@ -345,7 +345,12 @@ export default function Portaria() {
             <VeiculosEsperadosPanel
               veiculos={veiculosEsperados}
               onRegistrar={openRegistroFromVeiculoEsperado}
-              onClear={isPortaria ? undefined : () => limparMutation.mutate(dateFromStr)}
+              onClear={isPortaria ? undefined : () => {
+                const d = new Date(dateFromStr + "T00:00:00");
+                const di = new Date(d); di.setDate(di.getDate() - 3);
+                const df = new Date(d); df.setDate(df.getDate() + 3);
+                limparMutation.mutate({ dataInicio: di.toISOString().slice(0, 10), dataFim: df.toISOString().slice(0, 10) });
+              }}
               isClearing={limparMutation.isPending}
               dataFiltrada={dateFromStr}
               readOnly={false}
