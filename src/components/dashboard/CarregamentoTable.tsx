@@ -495,7 +495,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{c.tipo_frete ?? "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.created_at)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.data)}</TableCell>
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
