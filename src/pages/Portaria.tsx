@@ -351,6 +351,7 @@ export default function Portaria() {
               isClearing={limparMutation.isPending}
               dataFiltrada={dateFromStr}
               readOnly={isReadOnly}
+              search={search}
             />
             {veiculosEsperados.length === 0 && (
               <Card>

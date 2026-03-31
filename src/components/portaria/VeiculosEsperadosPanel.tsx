@@ -14,6 +14,7 @@ interface Props {
   isClearing?: boolean;
   dataFiltrada?: string; // yyyy-MM-dd
   readOnly?: boolean;
+  search?: string;
 }
 
 function isDataFutura(dataRef: string, dataFiltrada?: string): boolean {
@@ -46,8 +47,16 @@ const DataAtrasadaBadge = React.forwardRef<HTMLDivElement, { dataRef: string }>(
 );
 DataAtrasadaBadge.displayName = "DataAtrasadaBadge";
 
-export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada, readOnly }: Props) {
+export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada, readOnly, search }: Props) {
   if (veiculos.length === 0) return null;
+
+  const filtered = search
+    ? veiculos.filter((v) => {
+        const s = search.toLowerCase();
+        return [v.placa, v.motorista, v.transportadora, v.destino, v.carga_id]
+          .some((field) => field?.toLowerCase().includes(s));
+      })
+    : veiculos;
 
   const totalConferidos = veiculos.filter((v) => v.conferido).length;
   const pendentes = veiculos.length - totalConferidos;
@@ -82,7 +91,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
       <CardContent className="p-0">
         {/* Mobile: Cards */}
         <div className="md:hidden space-y-2 p-3">
-          {veiculos.map((v) => {
+          {filtered.map((v) => {
             const isConferido = v.conferido;
             const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
             const isPassado = isDataPassada(v.data_referencia, dataFiltrada);
@@ -148,7 +157,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
               </TableRow>
             </TableHeader>
             <TableBody>
-              {veiculos.map((v) => {
+              {filtered.map((v) => {
                 const isConferido = v.conferido;
                 const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
                 const isPassado = isDataPassada(v.data_referencia, dataFiltrada);
