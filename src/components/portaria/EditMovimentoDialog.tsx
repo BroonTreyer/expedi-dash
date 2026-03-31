@@ -62,6 +62,8 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
       const val = values[f.key];
       if (f.type === "number") {
         updates[f.key] = val !== "" && val !== undefined ? Number(val) : null;
+      } else if (f.type === "select") {
+        updates[f.key] = val || null;
       } else {
         updates[f.key] = val?.trim() || null;
       }
