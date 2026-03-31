@@ -10,6 +10,7 @@ interface Props {
   onRegistrar: (veiculo: VeiculoEsperado) => void;
   onClear: () => void;
   isClearing?: boolean;
+  dataFiltrada?: string; // yyyy-MM-dd
 }
 
 export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing }: Props) {
