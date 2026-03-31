@@ -71,18 +71,17 @@ export const FIELDS: FieldConfig[] = [
   { key: "nota_fiscal", label: "Nota Fiscal / Documento", placeholder: "Nº da NF", type: "text", block: "operacao" },
   { key: "doca_setor", label: "Doca / Setor Destino", placeholder: "Ex: Doca 3", type: "text", block: "operacao" },
   { key: "carga_id", label: "Ordem de Carga", placeholder: "Nº da ordem", type: "text", block: "operacao" },
-  { key: "numero_lacre", label: "N° Lacre", placeholder: "Nº do lacre", type: "text", block: "operacao" },
-
   // Bloco Controle
-  { key: "responsavel_interno", label: "Responsável Interno", placeholder: "Nome do responsável", type: "text", block: "controle" },
+  { key: "foto_lacre_url", label: "📷 Foto do Lacre", type: "photo", block: "controle" },
+  { key: "numero_lacre", label: "N° Lacre", placeholder: "Nº do lacre", type: "text", block: "controle" },
   { key: "conferente", label: "Conferente", placeholder: "Nome do conferente", type: "text", block: "controle" },
-  { key: "ocorrencia", label: "Ocorrência", placeholder: "Descreva a ocorrência", type: "textarea", block: "controle" },
   { key: "observacoes", label: "Observações", placeholder: "Observações adicionais...", type: "textarea", block: "controle" },
+  { key: "responsavel_interno", label: "Responsável Interno", placeholder: "Nome do responsável", type: "text", block: "controle" },
+  { key: "ocorrencia", label: "Ocorrência", placeholder: "Descreva a ocorrência", type: "textarea", block: "controle" },
 
   // Bloco Evidências
   { key: "foto_documento_url", label: "📷 Foto de Documento", type: "photo", block: "evidencias" },
   { key: "foto_nota_url", label: "📷 Foto da Nota Fiscal", type: "photo", block: "evidencias" },
-  { key: "foto_lacre_url", label: "📷 Foto do Lacre", type: "photo", block: "evidencias" },
 ];
 
 export const VISIBILITY: VisibilityMatrix = {
@@ -151,7 +150,7 @@ export const VISIBILITY_SAIDA: VisibilityMatrix = {
   qtd_entregas:       { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   km_rota:            { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   km_inicial:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  km_final:           { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  km_final:           { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   tipo_carga:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   nota_fiscal:        { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   doca_setor:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
@@ -159,11 +158,11 @@ export const VISIBILITY_SAIDA: VisibilityMatrix = {
   numero_lacre:       { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   responsavel_interno:{ carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   conferente:         { carga_propria: "opcional",    terceirizado: "opcional",    fornecedor: "opcional", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  ocorrencia:         { carga_propria: "opcional",    terceirizado: "opcional",    fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  ocorrencia:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   observacoes:        { carga_propria: "opcional",    terceirizado: "opcional",    fornecedor: "opcional", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   foto_placa_url:     { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   foto_documento_url: { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  foto_painel_url:    { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_painel_url:    { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   foto_lacre_url:     { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto", prestador: "oculto", outros: "oculto" },
 };
