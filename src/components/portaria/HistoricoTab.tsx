@@ -213,7 +213,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                     )}
                      {g.saida && (
                       <Badge variant="secondary" className="gap-1 text-[11px]">
-                        <ArrowUpFromLine className="h-3 w-3" /> Retorno{" "}
+                        <ArrowUpFromLine className="h-3 w-3" /> Saída{" "}
                         {format(new Date(g.saida.data_hora), dateFmt, { locale: ptBR })}
                       </Badge>
                     )}
