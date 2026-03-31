@@ -53,8 +53,12 @@ function formatDateValue(val: unknown): string {
   return String(val ?? "").trim();
 }
 
+function cleanHeader(s: string): string {
+  return s.replace(/[^\w\sÁÉÍÓÚÃÕÊ°]/g, "").trim();
+}
+
 function buildColumnMap(row: unknown[]): Map<string, number> | null {
-  const headerStr = row.map((c) => String(c ?? "").trim().toUpperCase());
+  const headerStr = row.map((c) => cleanHeader(String(c ?? "").trim().toUpperCase()));
   const hasPlaca = headerStr.some((s) => s === "PLACA");
   const hasDestino = headerStr.some((s) => s.includes("DESTINO"));
   if (!hasPlaca || !hasDestino) return null;
@@ -69,7 +73,7 @@ function buildColumnMap(row: unknown[]): Map<string, number> | null {
     else if (s.includes("ENTREG")) map.set("ENTREGAS", i);
     else if (s.includes("MOTORISTA")) map.set("MOTORISTA", i);
     else if (s.includes("TRANSP") || s.includes("AJUDANTE")) map.set("TRANSP", i);
-    else if (s.includes("VEICULO") || s.includes("VEÍCULO")) map.set("VEICULO", i);
+    else if (s.includes("VEICULO") || s.includes("VEICULO")) map.set("VEICULO", i);
   });
   return map;
 }
