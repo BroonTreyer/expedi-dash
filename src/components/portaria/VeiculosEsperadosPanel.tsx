@@ -47,8 +47,16 @@ const DataAtrasadaBadge = React.forwardRef<HTMLDivElement, { dataRef: string }>(
 );
 DataAtrasadaBadge.displayName = "DataAtrasadaBadge";
 
-export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada, readOnly }: Props) {
+export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada, readOnly, search }: Props) {
   if (veiculos.length === 0) return null;
+
+  const filtered = search
+    ? veiculos.filter((v) => {
+        const s = search.toLowerCase();
+        return [v.placa, v.motorista, v.transportadora, v.destino, v.carga_id]
+          .some((field) => field?.toLowerCase().includes(s));
+      })
+    : veiculos;
 
   const totalConferidos = veiculos.filter((v) => v.conferido).length;
   const pendentes = veiculos.length - totalConferidos;
