@@ -82,7 +82,7 @@ export const FIELDS: FieldConfig[] = [
   // Bloco Evidências
   { key: "foto_documento_url", label: "📷 Foto de Documento", type: "photo", block: "evidencias" },
   { key: "foto_nota_url", label: "📷 Foto da Nota Fiscal", type: "photo", block: "evidencias" },
-  { key: "foto_lacre_url", label: "📷 Foto do Lacre", type: "photo", block: "evidencias" },
+  { key: "foto_lacre_url", label: "📷 Foto do Lacre", type: "photo", block: "controle" },
 ];
 
 export const VISIBILITY: VisibilityMatrix = {
