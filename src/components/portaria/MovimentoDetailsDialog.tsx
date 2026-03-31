@@ -176,7 +176,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <>
                   <div className="flex items-center gap-2">
                     <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Retorno:</span>
+                    <span className="text-muted-foreground">Saída:</span>
                     <strong>{format(new Date(s.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
                   </div>
                   {m.tipo_movimento === "entrada" && (() => {
