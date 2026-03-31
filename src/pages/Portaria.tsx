@@ -345,10 +345,10 @@ export default function Portaria() {
             <VeiculosEsperadosPanel
               veiculos={veiculosEsperados}
               onRegistrar={openRegistroFromVeiculoEsperado}
-              onClear={() => limparMutation.mutate(dateFromStr)}
+              onClear={isPortaria ? undefined : () => limparMutation.mutate(dateFromStr)}
               isClearing={limparMutation.isPending}
               dataFiltrada={dateFromStr}
-              readOnly={isReadOnly}
+              readOnly={false}
               search={search}
             />
             {veiculosEsperados.length === 0 && (
