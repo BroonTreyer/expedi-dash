@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUpdateMovimentacao, type MovimentacaoPortaria, CATEGORIAS } from "@/hooks/useMovimentacoesPortaria";
+import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { Loader2 } from "lucide-react";
 
 interface Props {
