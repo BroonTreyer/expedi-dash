@@ -126,9 +126,11 @@ export default function Usuarios() {
   useEffect(() => { fetchUsers(); }, []);
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
+    // Delete existing role(s) then insert new one (no unique on user_id alone)
+    await supabase.from("user_roles").delete().eq("user_id", userId);
     const { error } = await supabase
       .from("user_roles")
-      .upsert({ user_id: userId, role: newRole }, { onConflict: "user_id" });
+      .insert({ user_id: userId, role: newRole });
     if (error) {
       toast.error(error.message);
     } else {
