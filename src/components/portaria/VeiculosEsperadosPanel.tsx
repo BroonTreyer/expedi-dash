@@ -82,6 +82,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
           {veiculos.map((v) => {
             const isConferido = v.conferido;
             const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
+            const isPassado = isDataPassada(v.data_referencia, dataFiltrada);
             return (
               <div
                 key={v.id}
