@@ -53,9 +53,40 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const [editOpen, setEditOpen] = useState(false);
   const isAdmin = role === "admin";
 
+  const placaBusca = movimento?.placa?.trim().toUpperCase() || "";
+  const { data: veiculoEsperado } = useQuery({
+    queryKey: ["veiculo-esperado-detalhe", placaBusca],
+    queryFn: async () => {
+      if (!placaBusca) return null;
+      const { data } = await supabase
+        .from("veiculos_esperados")
+        .select("data_referencia")
+        .eq("placa", placaBusca)
+        .order("data_referencia", { ascending: false })
+        .limit(1);
+      return data?.[0] || null;
+    },
+    enabled: !!placaBusca && open,
+  });
+
   if (!movimento) return null;
   const m = movimento;
   const s = movimentoSaida;
+
+  // Compute date badge
+  let dataBadge: { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode } | null = null;
+  if (veiculoEsperado?.data_referencia && m.data_hora) {
+    const dataRef = startOfDay(parseISO(veiculoEsperado.data_referencia));
+    const dataEntrada = startOfDay(new Date(m.data_hora));
+    const formattedRef = format(dataRef, "dd/MM", { locale: ptBR });
+    if (dataEntrada.getTime() === dataRef.getTime()) {
+      dataBadge = { label: `No prazo ${formattedRef}`, variant: "default", icon: <CalendarCheck className="h-3 w-3" /> };
+    } else if (dataEntrada < dataRef) {
+      dataBadge = { label: `Antecipado ${formattedRef}`, variant: "outline", icon: <CalendarClock className="h-3 w-3" /> };
+    } else {
+      dataBadge = { label: `Atrasado ${formattedRef}`, variant: "destructive", icon: <AlertTriangle className="h-3 w-3" /> };
+    }
+  }
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
   const getSetorLabel = (val: string) => SETORES.find((ss) => ss.value === val)?.label || val;
 
