@@ -29,7 +29,7 @@ function DataPrevistaBadge({ dataRef }: { dataRef: string }) {
   );
 }
 
-export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada }: Props) {
+export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada, readOnly }: Props) {
   if (veiculos.length === 0) return null;
 
   const totalConferidos = veiculos.filter((v) => v.conferido).length;
