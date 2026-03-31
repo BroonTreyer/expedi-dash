@@ -1,27 +1,29 @@
 
 
-# Corrigir Responsividade da Página Motoristas
+# Adicionar Máscaras de CPF e Telefone
 
 ## Problema
-
-No mobile, a tabela de motoristas transborda horizontalmente — colunas "Documento", "Cadastro" e "Ações" ficam cortadas. Falta padding no container e a página não segue o padrão de cards usado nas outras páginas (ex: TiposCaminhao).
+Os campos CPF e Telefone são exibidos e digitados sem formatação. O usuário quer máscaras: `000.000.000-00` para CPF e `(00) 00000-0000` para Telefone.
 
 ## Solução
 
-Refatorar `src/pages/Motoristas.tsx` seguindo o padrão de `TiposCaminhao.tsx`:
+Criar funções utilitárias de máscara e aplicá-las nos inputs e na exibição.
 
-1. **Adicionar padding** ao container (`p-4 md:p-6`)
-2. **Usar `useIsMobile()`** para alternar entre visualizações
-3. **Mobile — Cards**: Cada motorista renderizado como `<Card>` com:
-   - Nome (título)
-   - CPF e Telefone em texto menor
-   - Botão "Ver Documento" (se houver foto)
-   - Data de cadastro
-   - Botões Editar/Excluir
-4. **Desktop — Tabela**: Manter a tabela atual com `rounded-lg border bg-card`
-5. **Header responsivo**: `flex-col sm:flex-row` para título + botão
+### 1. `src/lib/masks.ts` (novo)
+- `maskCPF(value)` — formata para `000.000.000-00`
+- `maskPhone(value)` — formata para `(00) 00000-0000`
+
+### 2. Aplicar nos formulários de entrada
+- `src/pages/Motoristas.tsx` — campos CPF e Telefone no `MotoristaFormDialog` + exibição na tabela/cards
+- `src/components/portaria/MotoristaAutocomplete.tsx` — campo CPF no `CadastroRapidoDialog` + exibição nas sugestões
+
+### 3. Aplicar na exibição
+- Tabela/cards de motoristas: formatar CPF e Telefone ao exibir
+- Dropdown do autocomplete: formatar CPF e Telefone nas sugestões
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/Motoristas.tsx` | Adicionar `useIsMobile`, card view no mobile, padding, header responsivo |
+| `src/lib/masks.ts` | Criar funções `maskCPF` e `maskPhone` |
+| `src/pages/Motoristas.tsx` | Aplicar máscaras nos inputs e na exibição |
+| `src/components/portaria/MotoristaAutocomplete.tsx` | Aplicar máscaras nos inputs e nas sugestões |
 
