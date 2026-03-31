@@ -128,6 +128,20 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
 
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
 
+  const handleLiberarEntrada = async (entrada: MovimentacaoPortaria) => {
+    setLiberandoId(entrada.id);
+    try {
+      await updateMov.mutateAsync({
+        id: entrada.id,
+        horario_entrada: new Date().toISOString(),
+        etapa_terceirizado: "no_patio",
+      });
+    } catch {
+    } finally {
+      setLiberandoId(null);
+    }
+  };
+
   const handleSaidaRapida = async (entrada: MovimentacaoPortaria) => {
     setSavingId(entrada.id);
     try {
