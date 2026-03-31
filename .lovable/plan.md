@@ -1,33 +1,38 @@
 
 
-# Usar Data da Planilha como Data de Referência de Cada Veículo
+# Corrigir Parser da Planilha de Carregamento
 
 ## Problema
 
-Hoje, ao importar a planilha, todos os veículos recebem a mesma `data_referencia` (a data do filtro da Portaria). A coluna `DATA` de cada linha da planilha é parseada mas ignorada na hora de salvar.
+O parser atual tem problemas ao ler a planilha real:
+
+1. **Datas lidas como números seriais do Excel** — A coluna DATA (ex: "30/03/2026") é armazenada pelo Excel como um número serial (ex: 46111). O `xlsx.js` retorna esse número, não a string formatada. O `get("DATA")` converte para `"46111"`, que aparece errado no preview e pode falhar no `parseDataReferencia`.
+
+2. **PESO com separador decimal vírgula** — Valores como "890,21" e "1163,4" podem ser lidos incorretamente dependendo de como o Excel armazena.
+
+3. **Cabeçalhos com filtros do Excel (INTERIOR)** — A seção INTERIOR tem setas de filtro (▼) nos headers, que podem adicionar caracteres invisíveis e impedir o match das colunas.
 
 ## Solução
 
-Usar o campo `r.data` (coluna DATA da planilha) como `data_referencia` individual de cada veículo. Se a linha não tiver data válida, usar a data do filtro como fallback.
+Ajustar o `parseXlsx` em `ImportarPlanilhaDialog.tsx`:
 
-### Mudanças
+### 1. Ler datas corretamente
+- Passar `{ cellDates: true }` no `XLSX.read` para que xlsx.js converta datas automaticamente para objetos `Date`
+- No `get("DATA")`, detectar se o valor é um `Date` e formatar como `dd/MM/yyyy`
+- Manter fallback para números seriais do Excel (converter manualmente)
 
-**`src/hooks/useVeiculosEsperados.ts`**:
-- No `mutationFn`, usar `r.data` convertida para formato `yyyy-MM-dd` como `data_referencia` de cada insert
-- Parsear formatos comuns de data (dd/MM/yyyy, dd/MM, yyyy-MM-dd, número serial do Excel)
-- Fallback para `dataReferencia` (data do filtro) se `r.data` estiver vazio ou inválido
-- Ajustar o delete para limpar por todas as datas presentes nas rows (não só uma data fixa)
-- Invalidar queries de forma mais ampla no `onSuccess`
+### 2. Limpar caracteres invisíveis dos headers
+- No `buildColumnMap`, aplicar regex para remover caracteres não-ASCII/não-alfanuméricos antes do match (já faz `.toUpperCase()`, adicionar `.replace(/[^\w\sÁÉÍÓÚÃÕÊ°]/g, "")`)
 
-**`src/components/portaria/ImportarPlanilhaDialog.tsx`**:
-- Sem mudança — `r.data` já é parseado e exibido no preview
+### 3. Tratar PESO com vírgula
+- Na função `parseNum`, converter vírgula para ponto antes de `Number()`
 
-**`src/pages/Portaria.tsx`**:
-- Sem mudança — continua passando `dataReferencia` como fallback
+### 4. Extrair DT. ENTREGA do cabeçalho como fallback
+- Ao encontrar uma linha com "DT. ENTREGA" ou "DT.ENTREGA", extrair a data e usar como fallback quando a linha de dados não tem data preenchida
 
 ## Arquivos
 
 | Arquivo | Mudança |
 |---|---|
-| `src/hooks/useVeiculosEsperados.ts` | Usar `r.data` por linha como `data_referencia`, parsear formatos de data, ajustar delete |
+| `src/components/portaria/ImportarPlanilhaDialog.tsx` | `cellDates: true`, formatar Date objects, limpar headers, tratar vírgula no PESO, extrair DT.ENTREGA |
 
