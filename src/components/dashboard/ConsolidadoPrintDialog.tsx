@@ -144,6 +144,7 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
                   <td className="py-1 pr-2 font-mono">{g.placa ?? "—"}</td>
                   <td className="py-1 pr-2">{g.motorista ?? "—"}</td>
                   <td className="py-1 pr-2">{g.transportadora ?? "—"}</td>
+                  <td className="py-1 pr-2">{g.tipoFrete}</td>
                   <td className="py-1 pr-2 text-right font-mono">{g.pesoTotal.toLocaleString("pt-BR")}</td>
                   <td className="py-1 pr-2 text-center">{g.qtdPedidos}</td>
                   <td className="py-1 pr-2 text-center">{g.qtdClientes}</td>

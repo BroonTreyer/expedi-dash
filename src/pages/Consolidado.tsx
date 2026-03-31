@@ -259,6 +259,7 @@ export default function Consolidado() {
         placa: g.placa,
         motorista: g.motorista,
         transportadora: g.items[0]?.transportadora ?? null,
+        tipoFrete: g.tipoFrete,
         status: g.status,
         pesoTotal: g.pesoTotal,
         qtdPedidos: g.qtdPedidos,
