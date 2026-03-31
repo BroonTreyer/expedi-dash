@@ -47,7 +47,6 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl }: Props) {
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={handleChange}
         disabled={disabled}

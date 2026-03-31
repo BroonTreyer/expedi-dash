@@ -28,11 +28,11 @@ interface Props {
 
 const categoriaBadgeColor: Record<string, string> = {
   carga_propria: "bg-primary/10 text-primary border-primary/20",
-  terceirizado: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+  terceirizado: "bg-secondary text-secondary-foreground border-secondary/50",
   fornecedor: "bg-accent/10 text-accent border-accent/20",
-  visitante: "bg-secondary text-secondary-foreground",
-  prestador: "bg-muted text-muted-foreground",
-  outros: "bg-muted text-muted-foreground",
+  visitante: "bg-muted text-muted-foreground border-muted",
+  prestador: "bg-muted/80 text-muted-foreground border-border",
+  outros: "bg-muted/60 text-muted-foreground border-border",
 };
 
 function formatTempo(minutos: number): string {

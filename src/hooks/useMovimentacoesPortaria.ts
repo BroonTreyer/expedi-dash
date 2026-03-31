@@ -206,21 +206,23 @@ export function usePlacaAutocomplete(placa: string) {
     queryKey: ["placa_autocomplete", debouncedPlaca],
     queryFn: async () => {
       if (!debouncedPlaca) return null;
-      const { data, error } = await supabase
-        .from("movimentacoes_portaria")
-        .select("motorista, empresa, categoria, placa, destino_setor")
-        .eq("placa", debouncedPlaca)
-        .order("data_hora", { ascending: false })
-        .limit(1);
-      if (error) throw error;
+      // Single query: fetch latest record + count via head in parallel
+      const [latestRes, countRes] = await Promise.all([
+        supabase
+          .from("movimentacoes_portaria")
+          .select("motorista, empresa, categoria, placa, destino_setor")
+          .eq("placa", debouncedPlaca)
+          .order("data_hora", { ascending: false })
+          .limit(1),
+        supabase
+          .from("movimentacoes_portaria")
+          .select("id", { count: "exact", head: true })
+          .eq("placa", debouncedPlaca),
+      ]);
+      if (latestRes.error) throw latestRes.error;
 
-      const { count } = await supabase
-        .from("movimentacoes_portaria")
-        .select("id", { count: "exact", head: true })
-        .eq("placa", debouncedPlaca);
-
-      if (data && data.length > 0) {
-        return { ...data[0], totalRegistros: count || 0 };
+      if (latestRes.data && latestRes.data.length > 0) {
+        return { ...latestRes.data[0], totalRegistros: countRes.count || 0 };
       }
       return null;
     },
