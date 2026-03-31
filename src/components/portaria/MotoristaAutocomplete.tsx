@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { CapturaFoto } from "./CapturaFoto";
 import { useMotoristas, useCreateMotorista, type Motorista } from "@/hooks/useMotoristas";
 import { Phone, FileText, Plus } from "lucide-react";
+import { maskCPF, maskPhone } from "@/lib/masks";
 
 interface Props {
   value: string;

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { CapturaFoto } from "@/components/portaria/CapturaFoto";
 import { Plus, Search, Pencil, Trash2, Eye, User } from "lucide-react";
+import { maskCPF, maskPhone } from "@/lib/masks";
 import { format } from "date-fns";
 import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
