@@ -229,6 +229,7 @@ export type Database = {
           empresa: string | null
           etapa_terceirizado: string | null
           foto_documento_url: string | null
+          foto_lacre_url: string | null
           foto_nota_url: string | null
           foto_painel_url: string | null
           foto_placa_url: string | null
@@ -282,6 +283,7 @@ export type Database = {
           empresa?: string | null
           etapa_terceirizado?: string | null
           foto_documento_url?: string | null
+          foto_lacre_url?: string | null
           foto_nota_url?: string | null
           foto_painel_url?: string | null
           foto_placa_url?: string | null
@@ -335,6 +337,7 @@ export type Database = {
           empresa?: string | null
           etapa_terceirizado?: string | null
           foto_documento_url?: string | null
+          foto_lacre_url?: string | null
           foto_nota_url?: string | null
           foto_painel_url?: string | null
           foto_placa_url?: string | null
