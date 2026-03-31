@@ -50,7 +50,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
   const pendentes = veiculos.length - totalConferidos;
 
   return (
-    <Card className="border-primary/20 bg-primary/5">
+    <Card>
       <CardHeader className="py-3 px-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
