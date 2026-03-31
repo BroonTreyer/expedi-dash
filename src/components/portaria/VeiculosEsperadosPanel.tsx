@@ -85,7 +85,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
             return (
               <div
                 key={v.id}
-                className={`rounded-lg border bg-card p-3 space-y-2 ${isConferido ? "opacity-50" : ""} ${isFuturo && !isConferido ? "border-amber-300 dark:border-amber-700" : ""}`}
+                className={`rounded-lg border bg-card p-3 space-y-2 ${isConferido ? "opacity-50" : ""} ${isFuturo && !isConferido ? "border-amber-300 dark:border-amber-700" : ""} ${isPassado && !isConferido ? "border-destructive/50" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
