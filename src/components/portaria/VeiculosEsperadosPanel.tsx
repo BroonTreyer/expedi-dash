@@ -20,11 +20,25 @@ function isDataFutura(dataRef: string, dataFiltrada?: string): boolean {
   return dataRef > dataFiltrada;
 }
 
+function isDataPassada(dataRef: string, dataFiltrada?: string): boolean {
+  if (!dataFiltrada) return false;
+  return dataRef < dataFiltrada;
+}
+
 function DataPrevistaBadge({ dataRef }: { dataRef: string }) {
   return (
     <Badge variant="outline" className="text-[10px] h-5 border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400 gap-0.5">
       <CalendarClock className="h-3 w-3" />
       Saída {format(parseISO(dataRef), "dd/MM")}
+    </Badge>
+  );
+}
+
+function DataAtrasadaBadge({ dataRef }: { dataRef: string }) {
+  return (
+    <Badge variant="outline" className="text-[10px] h-5 border-destructive bg-destructive/10 text-destructive gap-0.5">
+      <CalendarClock className="h-3 w-3" />
+      Atrasado {format(parseISO(dataRef), "dd/MM")}
     </Badge>
   );
 }
