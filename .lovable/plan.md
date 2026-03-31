@@ -1,24 +1,24 @@
 
 
-# Ocultar Veículos Conferidos da Lista de Esperados
+# Corrigir: Veículo Esperado Não Sai da Lista Após Registro
 
 ## Problema
 
-Quando o usuário registra entrada de um veículo esperado, o sistema marca como `conferido` mas continua mostrando o veículo na lista (com opacidade reduzida). O usuário quer que ele desapareça.
+Em `Portaria.tsx` linha 121, ao marcar como conferido, o código usa `dateFromStr` (data do filtro) em vez de `match.data_referencia` (data real do veículo). Como a query de UPDATE filtra por `data_referencia` E `placa`, se as datas não coincidem, nenhuma linha é atualizada — o veículo permanece na lista.
 
 ## Solução
 
-**`src/components/portaria/VeiculosEsperadosPanel.tsx`**: Filtrar os veículos conferidos antes de renderizar. Mostrar apenas veículos pendentes na lista principal, e atualizar os contadores para refletir isso.
+**`src/pages/Portaria.tsx`** (linha 121): Trocar `dateFromStr` por `match.data_referencia`.
 
-- Após o filtro de busca, adicionar `.filter(v => !v.conferido)` para excluir conferidos
-- Manter o badge "X/Y conferidos" usando a lista completa para referência
-- Se todos foram conferidos e a lista filtrada está vazia, mostrar mensagem de "Todos conferidos"
+```typescript
+// De:
+marcarConferidoMutation.mutate({ placa: match.placa, dataReferencia: dateFromStr });
 
-## Correção adicional: Runtime error `isReadOnly`
-
-O erro `isReadOnly is not defined` vem de um build cacheado. O código atual já não usa essa variável. Um rebuild deve resolver, mas não há mudança de código necessária.
+// Para:
+marcarConferidoMutation.mutate({ placa: match.placa, dataReferencia: match.data_referencia });
+```
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Filtrar veículos conferidos da lista visível, mostrar apenas pendentes |
+| `src/pages/Portaria.tsx` | Usar `match.data_referencia` em vez de `dateFromStr` no `marcarConferido` |
 
