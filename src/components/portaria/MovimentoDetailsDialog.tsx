@@ -351,7 +351,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 )}
                 {s?.observacoes && (
                   <div>
-                    <span className="text-muted-foreground">Observações (Retorno):</span>
+                    <span className="text-muted-foreground">Observações (Saída):</span>
                     <p className="mt-1">{s.observacoes}</p>
                   </div>
                 )}

@@ -327,10 +327,10 @@ export default function Portaria() {
                 <Select value={tipoFilter} onValueChange={setTipoFilter}>
                   <SelectTrigger className="w-[120px] sm:w-[140px] h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
                   <SelectContent>
-                     <SelectItem value="all">Todos</SelectItem>
-                     <SelectItem value="entrada">Entradas</SelectItem>
-                     <SelectItem value="saida">Retornos</SelectItem>
-                  </SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="entrada">Entradas</SelectItem>
+                      <SelectItem value="saida">Saídas</SelectItem>
+                   </SelectContent>
                 </Select>
               </CardHeader>
               <CardContent className="p-0">

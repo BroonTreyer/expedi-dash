@@ -139,7 +139,7 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
                   <SelectContent>
                     {f.options?.map((opt) => (
                       <SelectItem key={opt} value={opt}>
-                        {f.key === "categoria" ? (CATEGORIAS.find((c) => c.value === opt)?.label || opt) : opt === "entrada" ? "Entrada" : "Retorno"}
+                        {f.key === "categoria" ? (CATEGORIAS.find((c) => c.value === opt)?.label || opt) : opt === "entrada" ? "Entrada" : "Saída"}
                       </SelectItem>
                     ))}
                   </SelectContent>

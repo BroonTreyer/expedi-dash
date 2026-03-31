@@ -286,7 +286,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                       )}
                       {g.saida && (
                         <Badge variant="secondary" className="gap-1 text-xs">
-                          <ArrowUpFromLine className="h-3 w-3" /> Retorno
+                          <ArrowUpFromLine className="h-3 w-3" /> Saída
                         </Badge>
                       )}
                     </div>

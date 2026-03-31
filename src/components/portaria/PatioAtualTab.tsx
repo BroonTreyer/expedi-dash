@@ -178,6 +178,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         await updateMov.mutateAsync({
           id: entrada.id,
           etapa_terceirizado: "finalizado",
+          horario_real_saida: new Date().toISOString(),
         });
       }
       setSaidaRapidaId(null);
