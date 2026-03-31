@@ -110,6 +110,7 @@ export default function Motoristas() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>CPF</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Documento</TableHead>
                 <TableHead>Cadastro</TableHead>
