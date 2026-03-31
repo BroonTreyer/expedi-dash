@@ -224,9 +224,11 @@ export default function Index() {
     setUndoCargaId(null);
   }, [undoCargaId, queryClient]);
 
-  const handleLoteSubmit = useCallback((updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string }[]) => {
-    for (const u of updates) {
-      updateMut.mutate(u);
+  const handleLoteSubmit = useCallback(async (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string }[]) => {
+    try {
+      await Promise.all(updates.map(u => updateMut.mutateAsync(u)));
+    } catch {
+      // errors handled by mutation's onError
     }
     setSelectedIds([]);
   }, [updateMut]);
