@@ -122,6 +122,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setTransportadora("");
       setHorarioPrevisto("");
       setNomeCarga("");
+      setVeiculoVinculado("manual");
       setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
     }
   }, [open, selectedDate]);
