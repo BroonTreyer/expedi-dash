@@ -163,7 +163,7 @@ export default function Portaria() {
     }
     const rows = filtered.map((m) => [
       format(new Date(m.data_hora), "dd/MM/yyyy HH:mm"),
-      m.tipo_movimento === "entrada" ? "Entrada" : "Retorno",
+      m.tipo_movimento === "entrada" ? "Entrada" : "Saída",
       CATEGORIAS.find((c) => c.value === m.categoria)?.label || m.categoria,
       m.placa || "",
       m.motorista || m.nome_completo || "",
