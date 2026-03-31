@@ -1,45 +1,29 @@
 
 
-# Corrigir KPI "No Pátio" e Unificar Lógicas de Contagem
+# Corrigir Contagem do Histórico — Agrupar Entrada+Saída como 1
 
 ## Problema
 
-Existem **3 locais** com lógica de contagem de veículos no pátio, e estão divergentes:
-
-1. **`PortariaKpiCards.tsx`** — Para terceirizados, conta apenas `etapa === "no_patio"` **sem verificar se já tem saída vinculada**. Isso faz o KPI mostrar "1" mesmo quando o veículo já saiu.
-2. **`Portaria.tsx` counts** (badge das tabs) — Recém corrigido, usa lógica correta.
-3. **`PatioAtualTab.tsx`** — Filtra corretamente (sem saída vinculada + não finalizado).
-
-O resultado: o KPI mostra "No Pátio: 1" mas a lista está vazia.
+O badge "Histórico 2" conta cada registro individualmente (`movimentacoes.length`). Uma entrada + saída vinculada = 2 registros, mas visualmente aparecem agrupados como 1 movimento no `HistoricoTab`.
 
 ## Solução
 
-Alinhar a lógica do `PortariaKpiCards.tsx` com as demais — primeiro excluir entradas que já têm saída vinculada, depois excluir terceirizados finalizados.
+Calcular a contagem de grupos em vez de registros brutos, usando a mesma lógica de agrupamento do `HistoricoTab`: saídas vinculadas a uma entrada são agrupadas juntas.
 
-### Mudança em `src/components/portaria/PortariaKpiCards.tsx`
+### Mudança em `src/pages/Portaria.tsx` (linha 78)
 
-Substituir o cálculo de `noPatio` (linhas 26-31):
+Contar movimentos agrupados: total de registros **menos** o número de saídas vinculadas (cada saída vinculada já é contada junto com sua entrada).
 
 ```typescript
-// Antes (bugado):
-const noPatio = entradas.filter((e) => {
-  if (e.categoria === "terceirizado") {
-    return e.etapa_terceirizado === "no_patio";
-  }
-  return !saidasVinculadas.has(e.id);
-}).length;
+// Antes:
+return { patio, historico: movimentacoes.length };
 
-// Depois (unificado com PatioAtualTab):
-const noPatio = entradas.filter((e) => {
-  if (saidasVinculadas.has(e.id)) return false;
-  if (e.categoria === "terceirizado" && e.etapa_terceirizado === "finalizado") return false;
-  return true;
-}).length;
+// Depois:
+const historico = movimentacoes.length - saidasVinculadas.size;
+return { patio, historico };
 ```
-
-A mesma lógica do `PatioAtualTab` e do badge em `Portaria.tsx` — garantindo que os 3 locais estejam sincronizados.
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/PortariaKpiCards.tsx` | Alinhar lógica de `noPatio` com PatioAtualTab (verificar saída vinculada antes de contar) |
+| `src/pages/Portaria.tsx` | Subtrair saídas vinculadas da contagem do histórico |
 
