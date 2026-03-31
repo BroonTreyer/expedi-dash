@@ -36,7 +36,9 @@ function getInitialDate() {
 
 function useConsolidado(dateFrom: string, dateTo?: string) {
   const dateEnd = dateTo || dateFrom;
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ["consolidado", dateFrom, dateEnd],
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
@@ -58,8 +60,28 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
       if (error) throw error;
       return data as Carregamento[];
     },
-    staleTime: 30_000,
+    staleTime: 15_000,
   });
+
+  // Realtime: listen for changes and invalidate
+  useEffect(() => {
+    const channel = supabase
+      .channel(`consolidado-${dateFrom}-${dateEnd}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "carregamentos_dia" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["consolidado", dateFrom, dateEnd] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dateFrom, dateEnd, queryClient]);
+
+  return query;
 }
 
 interface CargaGroup {
