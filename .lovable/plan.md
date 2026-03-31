@@ -1,23 +1,26 @@
 
 
-# Adicionar Badge para Veículos com Data Passada (Atrasados)
+# Corrigir: Veículos Atrasados Não Aparecem na Query
 
 ## Problema
 
-Hoje existe apenas o badge amarelo "Saída DD/MM" para veículos com data futura (`dataRef > dataFiltrada`). Não há indicação visual quando um veículo já passou da data prevista e ainda está pendente.
+A query busca veículos com `data_referencia >= dataFiltrada` (para frente). Veículos com data passada (ex: carga do dia 30 quando o filtro é dia 31) nunca são carregados — por isso os badges de "Atrasado" nunca aparecem.
 
 ## Solução
 
-Adicionar uma função `isDataPassada` e um componente `DataAtrasadaBadge` (vermelho) para veículos onde `dataRef < dataFiltrada` e que ainda não foram conferidos.
+Expandir a janela da query para incluir também veículos **pendentes de dias anteriores** (não conferidos). Buscar de `dataFiltrada - 3 dias` até `dataFiltrada + 3 dias`.
 
-### Mudanças em `VeiculosEsperadosPanel.tsx`
+### Mudança em `src/hooks/useVeiculosEsperados.ts`
 
-1. Criar `isDataPassada(dataRef, dataFiltrada)` — retorna `true` quando `dataRef < dataFiltrada`
-2. Criar `DataAtrasadaBadge` — badge vermelho com ícone e texto "Atrasado DD/MM"
-3. Nos cards mobile e na tabela desktop, exibir o badge vermelho quando `isDataPassada && !isConferido`
-4. Adicionar destaque visual na linha/card (borda ou fundo vermelho suave)
+Na função `useVeiculosEsperados`:
+- Calcular `dataInicio` = `dataReferencia - 3 dias`
+- Manter `dataLimite` = `dataReferencia + 3 dias`
+- Alterar `.gte("data_referencia", dataReferencia)` para `.gte("data_referencia", dataInicio)`
+- Atualizar a `queryKey` para incluir `dataInicio`
+
+Assim, veículos com carga prevista para o dia 30 aparecerão quando o filtro estiver no dia 31, com o badge vermelho "Atrasado 30/03".
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Adicionar `isDataPassada`, `DataAtrasadaBadge`, exibir nos cards e tabela |
+| `src/hooks/useVeiculosEsperados.ts` | Expandir janela da query para `dataReferencia - 3 dias` até `dataReferencia + 3 dias` |
 
