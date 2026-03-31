@@ -24,10 +24,9 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     
     // All vehicles in yard (non-terceirizados without exit + terceirizados with etapa no_patio)
     const noPatio = entradas.filter((e) => {
-      if (e.categoria === "terceirizado") {
-        return e.etapa_terceirizado === "no_patio";
-      }
-      return !saidasVinculadas.has(e.id);
+      if (saidasVinculadas.has(e.id)) return false;
+      if (e.categoria === "terceirizado" && e.etapa_terceirizado === "finalizado") return false;
+      return true;
     }).length;
 
     return { entradas: entradas.length, saidas: saidas.length, noPatio, tercAguardando };
