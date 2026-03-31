@@ -124,8 +124,8 @@ export default function Motoristas() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{m.nome_completo}</p>
-                      {m.cpf && <p className="text-xs text-muted-foreground">CPF: {m.cpf}</p>}
-                      {m.telefone && <p className="text-xs text-muted-foreground">Tel: {m.telefone}</p>}
+                      {m.cpf && <p className="text-xs text-muted-foreground">CPF: {maskCPF(m.cpf)}</p>}
+                      {m.telefone && <p className="text-xs text-muted-foreground">Tel: {maskPhone(m.telefone)}</p>}
                       <p className="text-xs text-muted-foreground">Cadastro: {format(new Date(m.created_at), "dd/MM/yyyy")}</p>
                     </div>
                     <div className="flex gap-1 shrink-0">
