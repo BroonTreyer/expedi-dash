@@ -1,28 +1,30 @@
 
 
-# Corrigir Badge de Data Prevista no Dialog de Detalhes
+# Corrigir: Não Consegue Apagar Lista de Veículos Esperados
 
 ## Problema
 
-O badge de data prevista não aparece no `MovimentoDetailsDialog` porque a busca na tabela `veiculos_esperados` provavelmente não encontra correspondência. Dois possíveis motivos:
+A tabela `veiculos_esperados` tem RLS de DELETE restrito apenas a `admin` (`has_role(auth.uid(), 'admin'::app_role)`). Quando um usuário não-admin clica "Limpar", o Supabase retorna 204 (sem erro), mas não deleta nenhuma linha. O código mostra o toast de sucesso sem verificar se realmente deletou algo.
 
-1. **Case sensitivity**: A placa na `veiculos_esperados` vem direto da planilha (pode ter casing diferente), mas a busca usa `.toUpperCase()`.
-2. **Sem `as any`**: Embora a tabela esteja nos types, pode haver incompatibilidade de tipagem causando falha silenciosa.
+O mesmo problema afeta a importação, que faz `delete` dos registros antigos antes de inserir os novos.
 
 ## Solução
 
-### `src/components/portaria/MovimentoDetailsDialog.tsx`
+Criar uma migração SQL para alterar a policy de DELETE da tabela `veiculos_esperados`, permitindo que qualquer usuário autenticado possa deletar (assim como já podem INSERT e UPDATE).
 
-1. Usar `.ilike("placa", placaBusca)` em vez de `.eq("placa", placaBusca)` para ignorar case
-2. Adicionar filtro de data razoável (últimos 7 dias) para pegar o registro mais relevante
-3. Adicionar tratamento de erro no `queryFn` para não falhar silenciosamente
+### Migração SQL
 
-### `src/hooks/useVeiculosEsperados.ts` (importação)
+```sql
+DROP POLICY "Admin delete veiculos_esperados" ON public.veiculos_esperados;
 
-4. Normalizar placa para uppercase no momento da importação (`r.placa.toUpperCase().trim()`) para consistência futura
+CREATE POLICY "Authenticated delete veiculos_esperados"
+ON public.veiculos_esperados
+FOR DELETE
+TO authenticated
+USING (true);
+```
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/portaria/MovimentoDetailsDialog.tsx` | Usar `ilike` para busca case-insensitive da placa + log de erro |
-| `src/hooks/useVeiculosEsperados.ts` | Normalizar placa para uppercase na importação |
+| Migração SQL | Trocar policy de DELETE de admin-only para authenticated |
 
