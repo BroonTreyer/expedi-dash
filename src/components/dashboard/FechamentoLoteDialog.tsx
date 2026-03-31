@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Truck, MapPin, Package } from "lucide-react";
+import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
 import { cn } from "@/lib/utils";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
