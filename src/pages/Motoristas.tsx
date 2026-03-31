@@ -50,6 +50,10 @@ function MotoristaFormDialog({
             <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo do motorista" />
           </div>
           <div className="space-y-2">
+            <Label>CPF</Label>
+            <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" />
+          </div>
+          <div className="space-y-2">
             <Label>Telefone</Label>
             <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(00) 00000-0000" />
           </div>
