@@ -183,6 +183,33 @@ export type Database = {
         }
         Relationships: []
       }
+      motoristas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          foto_documento_url: string | null
+          id: string
+          nome_completo: string
+          telefone: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          foto_documento_url?: string | null
+          id?: string
+          nome_completo: string
+          telefone?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          foto_documento_url?: string | null
+          id?: string
+          nome_completo?: string
+          telefone?: string | null
+        }
+        Relationships: []
+      }
       movimentacoes_portaria: {
         Row: {
           apelido: string | null
