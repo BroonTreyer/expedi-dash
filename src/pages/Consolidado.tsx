@@ -420,6 +420,7 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Carga: </span><span className="truncate">{g.nomeCarga ?? "—"}</span></div>
                         <div><span className="text-muted-foreground">Peso: </span><span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span></div>
                         <div><span className="text-muted-foreground">Pedidos: </span>{g.qtdPedidos}</div>
+                        <div><span className="text-muted-foreground">Frete: </span>{g.tipoFrete}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
                       </div>
                     </div>
