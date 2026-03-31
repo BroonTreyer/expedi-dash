@@ -230,11 +230,11 @@ export default function Portaria() {
                 </div>
               </PopoverContent>
             </Popover>
-            {!isReadOnly && (
+            <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
+              <Plus className="h-3.5 w-3.5" /> Registrar
+            </Button>
+            {!isPortaria && (
               <>
-                <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
-                  <Plus className="h-3.5 w-3.5" /> Registrar
-                </Button>
                 <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={exportCSV}>
                   <Download className="h-3.5 w-3.5" /> CSV
                 </Button>
