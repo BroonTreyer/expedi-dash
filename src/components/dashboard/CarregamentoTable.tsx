@@ -301,7 +301,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
     tipo_frete: (c) => c.tipo_frete ?? "",
     nome_carga: (c) => c.nome_carga ?? "",
     created_at: (c) => c.created_at ?? "",
-    data: (c) => c.data ?? "",
   }), []);
 
   const sortedData = useMemo(() => sortData(data, sortAccessors), [data, sortData, sortAccessors]);
