@@ -250,8 +250,6 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
               <>
                 <div className="text-muted-foreground">Dt. Cadastro</div>
                 <div>{formatDateCompact(c.created_at)}</div>
-                <div className="text-muted-foreground">Dt. Pedido</div>
-                <div>{formatDateCompact(c.data)}</div>
               </>
             )}
           </>
