@@ -14,6 +14,7 @@ interface Props {
   isClearing?: boolean;
   dataFiltrada?: string; // yyyy-MM-dd
   readOnly?: boolean;
+  search?: string;
 }
 
 function isDataFutura(dataRef: string, dataFiltrada?: string): boolean {
