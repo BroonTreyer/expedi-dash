@@ -36,6 +36,7 @@ function RoleSelect({ value, onChange }: { value: AppRole; onChange: (v: AppRole
         <SelectItem value="admin">Admin</SelectItem>
         <SelectItem value="logistica">Logística</SelectItem>
         <SelectItem value="faturamento">Faturamento</SelectItem>
+        <SelectItem value="portaria">Portaria</SelectItem>
       </SelectContent>
     </Select>
   );
