@@ -287,6 +287,23 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                           );
                         }
 
+                        // Motorista autocomplete
+                        if (field.key === "motorista") {
+                          return (
+                            <div key={field.key} className="space-y-1.5">
+                              <Label>{field.label} {field.required && <span className="text-destructive">*</span>}</Label>
+                              <MotoristaAutocomplete
+                                value={values.motorista || ""}
+                                onChange={(v) => set("motorista", v)}
+                                disabled={saving || !!prefill}
+                              />
+                              {field.required && !values.motorista?.trim() && (
+                                <p className="text-[11px] text-destructive">* Obrigatório</p>
+                              )}
+                            </div>
+                          );
+                        }
+
                         // Photo fields
                         if (field.type === "photo") {
                           return (
