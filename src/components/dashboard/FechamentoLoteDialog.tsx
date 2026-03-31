@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Truck, MapPin, Package } from "lucide-react";
+import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
 import { cn } from "@/lib/utils";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
@@ -206,7 +207,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Motorista *</Label>
-              <Input value={motorista} onChange={(e) => setMotorista(e.target.value)} />
+              <MotoristaAutocomplete value={motorista} onChange={setMotorista} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Transportadora</Label>
