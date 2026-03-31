@@ -118,7 +118,7 @@ export default function Portaria() {
       const norm = placa.replace(/[^A-Z0-9]/gi, "").toUpperCase();
       const match = veiculosEsperados.find((v) => !v.conferido && v.placa.replace(/[^A-Z0-9]/gi, "").toUpperCase() === norm);
       if (match) {
-        marcarConferidoMutation.mutate({ placa: match.placa, dataReferencia: dateFromStr });
+        marcarConferidoMutation.mutate({ placa: match.placa, dataReferencia: match.data_referencia });
       }
     }
   };
