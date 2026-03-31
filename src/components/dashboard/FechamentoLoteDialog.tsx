@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package } from "lucide-react";
+import { Truck, MapPin, Package, Link2 } from "lucide-react";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
 import { cn } from "@/lib/utils";
+import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
+import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
 import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
@@ -29,12 +31,70 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
-  // FIX: estabilizar objeto origem — evitar nova referência a cada render
   const origemEstavel = useMemo(() => ({ cidade: "Goiânia", uf: "GO" }), []);
   const [transportadora, setTransportadora] = useState("");
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
+  const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
+
+  // Fetch veículos esperados e no pátio
+  const dataRef = dataCarregamento || selectedDate || new Date().toISOString().split("T")[0];
+  const { data: veiculosEsperados = [] } = useVeiculosEsperados(dataRef);
+  const { data: movimentacoes = [] } = useMovimentacoes(dataRef);
+
+  // Veículos no pátio (entradas sem saída vinculada)
+  const veiculosPatio = useMemo(() => {
+    const saidasVinculadas = new Set(
+      movimentacoes.filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id)
+    );
+    return movimentacoes.filter((m) => {
+      if (m.tipo_movimento !== "entrada") return false;
+      if (saidasVinculadas.has(m.id)) return false;
+      if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+      return true;
+    });
+  }, [movimentacoes]);
+
+  // Lista combinada de opções
+  const veiculosDisponiveis = useMemo(() => {
+    const opcoes: { id: string; label: string; tipo: "esperado" | "patio"; placa: string; motorista: string; transportadora: string; tipoCaminhao: string }[] = [];
+    veiculosEsperados.filter((v) => !v.conferido).forEach((v) => {
+      opcoes.push({
+        id: `esp-${v.id}`,
+        label: `[Esperado] ${v.placa}${v.motorista ? ` - ${v.motorista}` : ""}`,
+        tipo: "esperado",
+        placa: v.placa,
+        motorista: v.motorista || "",
+        transportadora: v.transportadora || "",
+        tipoCaminhao: v.tipo_veiculo || "",
+      });
+    });
+    veiculosPatio.forEach((v) => {
+      opcoes.push({
+        id: `pat-${v.id}`,
+        label: `[Pátio] ${v.placa || "S/P"}${v.motorista ? ` - ${v.motorista}` : ""}`,
+        tipo: "patio",
+        placa: v.placa || "",
+        motorista: v.motorista || "",
+        transportadora: v.empresa || "",
+        tipoCaminhao: v.tipo_caminhao || "",
+      });
+    });
+    return opcoes;
+  }, [veiculosEsperados, veiculosPatio]);
+
+  const handleVincularVeiculo = (val: string) => {
+    setVeiculoVinculado(val);
+    if (val === "manual") return;
+    const veiculo = veiculosDisponiveis.find((v) => v.id === val);
+    if (veiculo) {
+      setPlaca(veiculo.placa);
+      setMotorista(veiculo.motorista);
+      setTransportadora(veiculo.transportadora);
+      if (veiculo.tipoCaminhao) setTipoCaminhao(veiculo.tipoCaminhao);
+    }
+  };
 
   // Use groups from roteirizacao if available, otherwise build from items
   const groups: RotaGroup[] = useMemo(() => {
@@ -62,6 +122,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setTransportadora("");
       setHorarioPrevisto("");
       setNomeCarga("");
+      setVeiculoVinculado("manual");
       setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
     }
   }, [open, selectedDate]);
@@ -185,6 +246,20 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         {/* Transport fields */}
         <div className="border-t border-border pt-3">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Dados de Transporte</span>
+          {veiculosDisponiveis.length > 0 && (
+            <div className="space-y-1.5 mb-3">
+              <Label className="text-xs flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" /> Vincular a veículo</Label>
+              <Select value={veiculoVinculado} onValueChange={handleVincularVeiculo}>
+                <SelectTrigger><SelectValue placeholder="Preencher manualmente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Preencher manualmente</SelectItem>
+                  {veiculosDisponiveis.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Nome da Carga</Label>
