@@ -280,7 +280,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       </Button>
                       <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleSaidaRapida(m)} disabled={isSaving}>
                         {isSaving ? <span className="animate-spin">⏳</span> : <ArrowUpFromLine className="h-3 w-3" />}
-                        Confirmar Retorno
+                        Confirmar Saída
                       </Button>
                     </div>
                   ) : (
