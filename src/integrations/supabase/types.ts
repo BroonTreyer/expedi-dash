@@ -590,7 +590,7 @@ export type Database = {
       next_numero_pedido: { Args: { _data: string }; Returns: number }
     }
     Enums: {
-      app_role: "admin" | "logistica" | "faturamento"
+      app_role: "admin" | "logistica" | "faturamento" | "portaria"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -718,7 +718,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "logistica", "faturamento"],
+      app_role: ["admin", "logistica", "faturamento", "portaria"],
     },
   },
 } as const
