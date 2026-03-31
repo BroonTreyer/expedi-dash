@@ -57,6 +57,7 @@ export const FIELDS: FieldConfig[] = [
   { key: "placa", label: "Placa", placeholder: "ABC1D23", type: "text", block: "veiculo" },
   { key: "motorista", label: "Motorista", placeholder: "Nome do motorista", type: "text", block: "veiculo" },
   { key: "apelido", label: "Apelido do Veículo", placeholder: "Ex: Truck Azul", type: "text", block: "veiculo" },
+  { key: "tipo_caminhao", label: "Tipo de Caminhão", type: "select", block: "veiculo" },
 
   // Bloco Operação
   { key: "foto_painel_url", label: "📷 Foto do Painel (KM)", type: "photo", block: "operacao" },
@@ -99,6 +100,7 @@ export const VISIBILITY: VisibilityMatrix = {
   placa:              { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "opcional",    prestador: "obrigatorio", outros: "opcional" },
   motorista:          { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
   apelido:            { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
+  tipo_caminhao:      { carga_propria: "oculto",      terceirizado: "obrigatorio", fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
 
   // Operação
   rota:               { carga_propria: "obrigatorio", terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
@@ -141,6 +143,7 @@ export const VISIBILITY_SAIDA: VisibilityMatrix = {
   placa:              { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   motorista:          { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   apelido:            { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  tipo_caminhao:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   rota:               { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   peso:               { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   qtd_entregas:       { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },

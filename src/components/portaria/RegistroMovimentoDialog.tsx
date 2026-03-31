@@ -14,6 +14,7 @@ import {
   type MovimentacaoPortaria,
 } from "@/hooks/useMovimentacoesPortaria";
 import { processarOCR } from "@/hooks/useRegistrosPortaria";
+import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +37,7 @@ interface Props {
 export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFromPlanilha, onCreated }: Props) {
   const { user } = useAuth();
   const createMov = useCreateMovimentacao();
+  const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const [step, setStep] = useState<"categoria" | "form">("categoria");
   const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
   const [categoria, setCategoria] = useState<Categoria>("carga_propria");
@@ -177,6 +179,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
         doca_setor: values.doca_setor?.trim() || null,
         foto_painel_url: values.foto_painel_url || null,
         foto_nota_url: values.foto_nota_url || null,
+        tipo_caminhao: values.tipo_caminhao?.trim() || null,
       } as any);
       const savedPlaca = values.placa?.trim().toUpperCase() || "";
       if (savedPlaca) onCreated?.(savedPlaca);
@@ -303,6 +306,23 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                                   disabled={saving}
                                 />
                               )}
+                            </div>
+                          );
+                        }
+
+                        // Select fields — dynamic for tipo_caminhao
+                        if (field.key === "tipo_caminhao") {
+                          return (
+                            <div key={field.key} className="space-y-1.5">
+                              <Label>{field.label} {field.required && <span className="text-destructive">*</span>}</Label>
+                              <Select value={values[field.key] || ""} onValueChange={(v) => set(field.key, v)}>
+                                <SelectTrigger><SelectValue placeholder="Selecione o tipo..." /></SelectTrigger>
+                                <SelectContent>
+                                  {tiposCaminhao.map((t) => (
+                                    <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           );
                         }

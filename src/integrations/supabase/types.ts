@@ -228,6 +228,7 @@ export type Database = {
           servico_executar: string | null
           telefone: string | null
           texto_placa_lido: string | null
+          tipo_caminhao: string | null
           tipo_carga: string | null
           tipo_movimento: string
           tipo_operacao: string | null
@@ -277,6 +278,7 @@ export type Database = {
           servico_executar?: string | null
           telefone?: string | null
           texto_placa_lido?: string | null
+          tipo_caminhao?: string | null
           tipo_carga?: string | null
           tipo_movimento: string
           tipo_operacao?: string | null
@@ -326,6 +328,7 @@ export type Database = {
           servico_executar?: string | null
           telefone?: string | null
           texto_placa_lido?: string | null
+          tipo_caminhao?: string | null
           tipo_carga?: string | null
           tipo_movimento?: string
           tipo_operacao?: string | null

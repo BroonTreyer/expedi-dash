@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUpdateMovimentacao, type MovimentacaoPortaria, CATEGORIAS } from "@/hooks/useMovimentacoesPortaria";
+import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
   movimento: MovimentacaoPortaria | null;
 }
 
-const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "text" | "number" | "textarea" | "select"; options?: string[] }[] = [
+const EDITABLE_FIELDS: { key: string; label: string; type: "text" | "number" | "textarea" | "select"; options?: string[] }[] = [
   { key: "placa", label: "Placa", type: "text" },
   { key: "motorista", label: "Motorista", type: "text" },
   { key: "empresa", label: "Empresa", type: "text" },
@@ -36,12 +37,14 @@ const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "
   { key: "conferente", label: "Conferente", type: "text" },
   { key: "responsavel_interno", label: "Responsável Interno", type: "text" },
   { key: "doca_setor", label: "Doca/Setor", type: "text" },
+  { key: "tipo_caminhao", label: "Tipo de Caminhão", type: "text" },
   { key: "observacoes", label: "Observações", type: "textarea" },
   { key: "ocorrencia", label: "Ocorrência", type: "textarea" },
 ];
 
 export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
   const updateMov = useUpdateMovimentacao();
+  const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const [values, setValues] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -117,6 +120,17 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
                   onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
                   rows={2}
                 />
+              ) : f.key === "tipo_caminhao" ? (
+                <Select value={values[f.key] ?? ""} onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tiposCaminhao.map((t) => (
+                      <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : f.type === "select" ? (
                 <Select value={values[f.key] ?? ""} onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}>
                   <SelectTrigger>
