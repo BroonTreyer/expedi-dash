@@ -158,6 +158,8 @@ serve(async (req) => {
 
     if (tipo === "placa") {
       result = await ocrPlacaPlateRecognizer(imageUrl);
+    } else if (tipo === "lacre") {
+      result = await ocrLacreGemini(imageUrl);
     } else {
       result = await ocrKmGemini(imageUrl);
     }
