@@ -18,7 +18,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   items: Carregamento[];
   tiposCaminhao: { nome_tipo: string }[];
-  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string; nome_carga?: string }[]) => void;
+  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string; nome_carga?: string }[], meta: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string }) => void;
   onPrintReady?: (data: CargaPrintData) => void;
   selectedDate?: string;
   roteirizacao?: RoteirizacaoResult | null;
