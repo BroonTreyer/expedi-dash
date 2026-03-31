@@ -262,6 +262,13 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       {infoExtra}
                     </div>
                   )}
+                  {m.categoria === "terceirizado" && (
+                    <div className="col-span-2 text-[11px] text-muted-foreground flex flex-wrap gap-x-3">
+                      {m.horario_chegada && <span>Chegada: <strong className="text-foreground">{format(new Date(m.horario_chegada), "HH:mm")}</strong></span>}
+                      {m.horario_entrada && <span>Entrada: <strong className="text-foreground">{format(new Date(m.horario_entrada), "HH:mm")}</strong></span>}
+                      {m.horario_real_saida && <span>Saída: <strong className="text-foreground">{format(new Date(m.horario_real_saida), "HH:mm")}</strong></span>}
+                    </div>
+                  )}
                 </div>
                 {!readOnly && (
                 <div className="flex justify-end pt-1">
