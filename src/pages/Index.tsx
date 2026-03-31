@@ -34,6 +34,11 @@ function getToday() {
 export default function Index() {
   const { role } = useAuth();
   const navigate = useNavigate();
+
+  // Guard: portaria users should never see this page
+  if (role === "portaria") {
+    return <Navigate to="/portaria" replace />;
+  }
   const queryClient = useQueryClient();
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
