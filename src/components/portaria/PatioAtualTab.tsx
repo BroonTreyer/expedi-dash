@@ -344,6 +344,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       </Badge>
                     )}
                   </div>
+                </TableCell>
                 <TableCell className="font-mono font-medium">{m.placa || "—"}</TableCell>
                 <TableCell>{m.motorista || "—"}</TableCell>
                 <TableCell className="text-sm max-w-[200px] truncate">
