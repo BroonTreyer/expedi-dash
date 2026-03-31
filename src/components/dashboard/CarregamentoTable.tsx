@@ -684,6 +684,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       {!hideColumns.includes("nome_carga") && <TableCell />}
                       {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                       <TableCell />
+                      <TableCell />
                       {hasActions && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
