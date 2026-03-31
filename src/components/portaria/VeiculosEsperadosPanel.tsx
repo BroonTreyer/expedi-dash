@@ -130,7 +130,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
         </div>
 
         {/* Desktop: Table */}
-        <div className="hidden md:block overflow-auto max-h-[250px]">
+        <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
