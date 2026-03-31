@@ -173,6 +173,13 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         telefone: entrada.telefone || null,
         apelido: entrada.apelido || null,
       });
+      // Mark entrada as finalizado for terceirizados
+      if (entrada.categoria === "terceirizado") {
+        await updateMov.mutateAsync({
+          id: entrada.id,
+          etapa_terceirizado: "finalizado",
+        });
+      }
       setSaidaRapidaId(null);
     } catch {
     } finally {
