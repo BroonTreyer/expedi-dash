@@ -306,7 +306,7 @@ export default function Portaria() {
                   categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
                   onRegistrarSaida={(entrada) => openRegistro(entrada)}
                   isLoading={isLoading}
-                  readOnly={isReadOnly}
+                    readOnly={false}
                   dateFromStr={dateFromStr}
                   dateToStr={dateToStr}
                 />
