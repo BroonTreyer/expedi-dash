@@ -99,7 +99,7 @@ export function useImportarVeiculosEsperados() {
         return {
           data_referencia: dr,
           grupo: r.grupo,
-          placa: r.placa,
+          placa: r.placa.toUpperCase().trim(),
           destino: r.destino || null,
           carga_id: r.carga_id || null,
           peso: r.peso,
