@@ -31,12 +31,70 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
-  // FIX: estabilizar objeto origem — evitar nova referência a cada render
   const origemEstavel = useMemo(() => ({ cidade: "Goiânia", uf: "GO" }), []);
   const [transportadora, setTransportadora] = useState("");
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
+  const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
+
+  // Fetch veículos esperados e no pátio
+  const dataRef = dataCarregamento || selectedDate || new Date().toISOString().split("T")[0];
+  const { data: veiculosEsperados = [] } = useVeiculosEsperados(dataRef);
+  const { movimentacoes = [] } = useMovimentacoes(dataRef);
+
+  // Veículos no pátio (entradas sem saída vinculada)
+  const veiculosPatio = useMemo(() => {
+    const saidasVinculadas = new Set(
+      movimentacoes.filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id)
+    );
+    return movimentacoes.filter((m) => {
+      if (m.tipo_movimento !== "entrada") return false;
+      if (saidasVinculadas.has(m.id)) return false;
+      if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+      return true;
+    });
+  }, [movimentacoes]);
+
+  // Lista combinada de opções
+  const veiculosDisponiveis = useMemo(() => {
+    const opcoes: { id: string; label: string; tipo: "esperado" | "patio"; placa: string; motorista: string; transportadora: string; tipoCaminhao: string }[] = [];
+    veiculosEsperados.filter((v) => !v.conferido).forEach((v) => {
+      opcoes.push({
+        id: `esp-${v.id}`,
+        label: `[Esperado] ${v.placa}${v.motorista ? ` - ${v.motorista}` : ""}`,
+        tipo: "esperado",
+        placa: v.placa,
+        motorista: v.motorista || "",
+        transportadora: v.transportadora || "",
+        tipoCaminhao: v.tipo_veiculo || "",
+      });
+    });
+    veiculosPatio.forEach((v) => {
+      opcoes.push({
+        id: `pat-${v.id}`,
+        label: `[Pátio] ${v.placa || "S/P"}${v.motorista ? ` - ${v.motorista}` : ""}`,
+        tipo: "patio",
+        placa: v.placa || "",
+        motorista: v.motorista || "",
+        transportadora: v.empresa || "",
+        tipoCaminhao: v.tipo_caminhao || "",
+      });
+    });
+    return opcoes;
+  }, [veiculosEsperados, veiculosPatio]);
+
+  const handleVincularVeiculo = (val: string) => {
+    setVeiculoVinculado(val);
+    if (val === "manual") return;
+    const veiculo = veiculosDisponiveis.find((v) => v.id === val);
+    if (veiculo) {
+      setPlaca(veiculo.placa);
+      setMotorista(veiculo.motorista);
+      setTransportadora(veiculo.transportadora);
+      if (veiculo.tipoCaminhao) setTipoCaminhao(veiculo.tipoCaminhao);
+    }
+  };
 
   // Use groups from roteirizacao if available, otherwise build from items
   const groups: RotaGroup[] = useMemo(() => {
