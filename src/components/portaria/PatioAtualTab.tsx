@@ -57,7 +57,7 @@ function getInfoExtra(m: MovimentacaoPortaria): string | null {
   return null;
 }
 
-export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading }: Props) {
+export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading, readOnly }: Props) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
