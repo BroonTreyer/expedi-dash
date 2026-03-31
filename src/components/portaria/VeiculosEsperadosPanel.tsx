@@ -10,7 +10,7 @@ import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 interface Props {
   veiculos: VeiculoEsperado[];
   onRegistrar: (veiculo: VeiculoEsperado) => void;
-  onClear: () => void;
+  onClear?: () => void;
   isClearing?: boolean;
   dataFiltrada?: string; // yyyy-MM-dd
   readOnly?: boolean;
