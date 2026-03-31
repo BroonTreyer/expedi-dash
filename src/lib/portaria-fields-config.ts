@@ -57,6 +57,7 @@ export const FIELDS: FieldConfig[] = [
   { key: "placa", label: "Placa", placeholder: "ABC1D23", type: "text", block: "veiculo" },
   { key: "motorista", label: "Motorista", placeholder: "Nome do motorista", type: "text", block: "veiculo" },
   { key: "apelido", label: "Apelido do Veículo", placeholder: "Ex: Truck Azul", type: "text", block: "veiculo" },
+  { key: "tipo_caminhao", label: "Tipo de Caminhão", type: "select", block: "veiculo" },
 
   // Bloco Operação
   { key: "foto_painel_url", label: "📷 Foto do Painel (KM)", type: "photo", block: "operacao" },
