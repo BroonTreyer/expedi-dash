@@ -142,6 +142,14 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               )}
               <Badge variant="outline">{getCategoriaLabel(m.categoria)}</Badge>
               {m.tipo_operacao && <Badge variant="outline" className="text-[11px]">{m.tipo_operacao}</Badge>}
+              {dataBadge && (
+                <Badge
+                  variant={dataBadge.variant}
+                  className={`gap-1 text-[11px] ${dataBadge.variant === "outline" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : ""} ${dataBadge.variant === "default" ? "bg-green-600 hover:bg-green-600/80 text-white" : ""}`}
+                >
+                  {dataBadge.icon} {dataBadge.label}
+                </Badge>
+              )}
             </div>
 
             {/* Horários */}
