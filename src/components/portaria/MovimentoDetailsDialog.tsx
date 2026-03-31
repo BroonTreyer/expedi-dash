@@ -217,7 +217,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Tem certeza que deseja excluir este registro (entrada + retorno)? Esta ação não pode ser desfeita.
+                        Tem certeza que deseja excluir este registro (entrada + saída)? Esta ação não pode ser desfeita.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
