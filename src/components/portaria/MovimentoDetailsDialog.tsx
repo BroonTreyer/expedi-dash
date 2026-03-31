@@ -247,7 +247,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction onClick={async () => { await deleteMov.mutateAsync(s.id); onOpenChange(false); }} disabled={deleteMov.isPending}>
                           {deleteMov.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                          Excluir Retorno
+                          Excluir Saída
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
