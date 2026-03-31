@@ -155,7 +155,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                     <TableCell className="text-xs py-1.5 text-right">{v.peso ?? "—"}</TableCell>
                     <TableCell className="text-xs py-1.5 text-right">{v.qtd_entregas ?? "—"}</TableCell>
                     <TableCell className="py-1.5">
-                      {!isConferido && (
+                      {!isConferido && !readOnly && (
                         <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1" onClick={() => onRegistrar(v)}>
                           Registrar Entrada
                         </Button>
