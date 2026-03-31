@@ -30,12 +30,35 @@ interface Props {
 
 function parseNum(val: unknown): number | null {
   if (val == null || val === "") return null;
-  const n = Number(val);
+  const s = String(val).replace(",", ".");
+  const n = Number(s);
   return isNaN(n) ? null : n;
 }
 
+function formatDateValue(val: unknown): string {
+  if (val instanceof Date) {
+    const d = val.getDate().toString().padStart(2, "0");
+    const m = (val.getMonth() + 1).toString().padStart(2, "0");
+    const y = val.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  const num = Number(val);
+  if (!isNaN(num) && num > 40000 && num < 60000) {
+    const dt = new Date((num - 25569) * 86400000);
+    const d = dt.getUTCDate().toString().padStart(2, "0");
+    const m = (dt.getUTCMonth() + 1).toString().padStart(2, "0");
+    const y = dt.getUTCFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  return String(val ?? "").trim();
+}
+
+function cleanHeader(s: string): string {
+  return s.replace(/[^\w\sÁÉÍÓÚÃÕÊ°]/g, "").trim();
+}
+
 function buildColumnMap(row: unknown[]): Map<string, number> | null {
-  const headerStr = row.map((c) => String(c ?? "").trim().toUpperCase());
+  const headerStr = row.map((c) => cleanHeader(String(c ?? "").trim().toUpperCase()));
   const hasPlaca = headerStr.some((s) => s === "PLACA");
   const hasDestino = headerStr.some((s) => s.includes("DESTINO"));
   if (!hasPlaca || !hasDestino) return null;
@@ -50,20 +73,27 @@ function buildColumnMap(row: unknown[]): Map<string, number> | null {
     else if (s.includes("ENTREG")) map.set("ENTREGAS", i);
     else if (s.includes("MOTORISTA")) map.set("MOTORISTA", i);
     else if (s.includes("TRANSP") || s.includes("AJUDANTE")) map.set("TRANSP", i);
-    else if (s.includes("VEICULO") || s.includes("VEÍCULO")) map.set("VEICULO", i);
+    else if (s.includes("VEICULO") || s.includes("VEICULO")) map.set("VEICULO", i);
   });
   return map;
 }
 
+function extractDateFromText(text: string): string {
+  const match = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (match) return `${match[1].padStart(2, "0")}/${match[2].padStart(2, "0")}/${match[3]}`;
+  return "";
+}
+
 function parseXlsx(data: ArrayBuffer): ParsedRow[] {
-  const wb = XLSX.read(data, { type: "array" });
+  const wb = XLSX.read(data, { type: "array", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws) return [];
 
-  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
   const rows: ParsedRow[] = [];
   let currentGrupo = "PRÓPRIA";
   let colMap: Map<string, number> | null = null;
+  let fallbackDate = "";
 
   for (const row of raw) {
     if (!row || row.length === 0) continue;
@@ -71,6 +101,19 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
 
     if (first.includes("TOTAL")) continue;
     if (first === "" && row.every((c) => !c)) continue;
+
+    if (first.includes("DT") && first.includes("ENTREG")) {
+      const extracted = extractDateFromText(String(row.find((c) => {
+        const v = c instanceof Date ? "date" : String(c ?? "");
+        return c instanceof Date || /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(v);
+      }) ?? ""));
+      if (!extracted && row.some((c) => c instanceof Date)) {
+        const dateCell = row.find((c) => c instanceof Date) as Date;
+        fallbackDate = formatDateValue(dateCell);
+      } else if (extracted) {
+        fallbackDate = extracted;
+      }
+    }
 
     if (first === "FROTAS" || first === "INTERIOR") {
       currentGrupo = first;
@@ -99,7 +142,10 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
 
     const get = (key: string) => {
       const idx = colMap!.get(key);
-      return idx != null ? String(row[idx] ?? "").trim() : "";
+      if (idx == null) return "";
+      const cellVal = row[idx];
+      if (key === "DATA") return formatDateValue(cellVal);
+      return String(cellVal ?? "").trim();
     };
     const getNum = (key: string) => {
       const idx = colMap!.get(key);
@@ -109,7 +155,7 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
     const placa = get("PLACA").toUpperCase();
     if (placa === "PLACA") continue;
 
-    const dataVal = get("DATA");
+    const dataVal = get("DATA") || fallbackDate;
     const destino = get("DESTINO");
     const cargaId = get("CARGA");
     const peso = getNum("PESO");
