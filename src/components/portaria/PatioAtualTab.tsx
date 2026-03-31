@@ -355,8 +355,15 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </TableCell>
                 <TableCell className="font-mono font-medium">{m.placa || "—"}</TableCell>
                 <TableCell>{m.motorista || "—"}</TableCell>
-                <TableCell className="text-sm max-w-[200px] truncate">
-                  {infoExtra || m.empresa || m.destino_setor || "—"}
+                <TableCell className="text-sm max-w-[200px]">
+                  <div className="truncate">{infoExtra || m.empresa || m.destino_setor || "—"}</div>
+                  {m.categoria === "terceirizado" && (
+                    <div className="text-[11px] text-muted-foreground flex gap-x-2 mt-0.5">
+                      {m.horario_chegada && <span>Chegada: {format(new Date(m.horario_chegada), "HH:mm")}</span>}
+                      {m.horario_entrada && <span>Entrada: {format(new Date(m.horario_entrada), "HH:mm")}</span>}
+                      {m.horario_real_saida && <span>Saída: {format(new Date(m.horario_real_saida), "HH:mm")}</span>}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   {!readOnly && (
