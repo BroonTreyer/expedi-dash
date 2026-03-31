@@ -59,6 +59,18 @@ function PendingCell({ value }: { value: string | null }) {
   return <span className="text-xs text-muted-foreground/60 italic">Pendente</span>;
 }
 
+function formatDateCompact(val: string | null | undefined) {
+  if (!val) return "—";
+  try {
+    const d = new Date(val);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    return `${day}/${month}`;
+  } catch {
+    return "—";
+  }
+}
+
 function formatPesoAprox(peso: number | null, tipoCaminhao: string | null) {
   const ton = ((peso ?? 0) / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return tipoCaminhao ? `${ton} TON - ${tipoCaminhao}` : `${ton} TON`;
