@@ -71,10 +71,9 @@ export default function Portaria() {
     );
     const patio = movimentacoes.filter((m) => {
       if (m.tipo_movimento !== "entrada") return false;
-      if (m.categoria === "terceirizado") {
-        return m.etapa_terceirizado === "aguardando" || m.etapa_terceirizado === "no_patio";
-      }
-      return !saidasVinculadas.has(m.id);
+      if (saidasVinculadas.has(m.id)) return false;
+      if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+      return true;
     }).length;
     return { patio, historico: movimentacoes.length };
   }, [movimentacoes]);
