@@ -15,7 +15,7 @@ interface Props {
   movimento: MovimentacaoPortaria | null;
 }
 
-const EDITABLE_FIELDS: { key: keyof MovimentacaoPortaria; label: string; type: "text" | "number" | "textarea" | "select"; options?: string[] }[] = [
+const EDITABLE_FIELDS: { key: string; label: string; type: "text" | "number" | "textarea" | "select"; options?: string[] }[] = [
   { key: "placa", label: "Placa", type: "text" },
   { key: "motorista", label: "Motorista", type: "text" },
   { key: "empresa", label: "Empresa", type: "text" },
