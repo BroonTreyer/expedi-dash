@@ -94,7 +94,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         nome_carga: nomeCargaFinal,
       }))
     );
-    onSubmit(updates);
+    const destinos = groups.filter(g => g.cidade).map(g => `${g.cidade}/${g.uf}`).join(", ");
+    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos });
     onOpenChange(false);
 
     if (onPrintReady) {
