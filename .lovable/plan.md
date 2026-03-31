@@ -1,36 +1,60 @@
 
 
-# Regra de Data Prevista nos Veículos Esperados
+# Veículos Esperados em Aba Separada + Novo Nível "Portaria"
 
-## Resumo
+## 1. Mover Veículos Esperados para uma aba dedicada
 
-Tudo permanece liberado (entrada e conferido), mas quando o conferente tenta dar baixa **antes** da data prevista (`data_referencia`), o sistema mostra um **aviso visual** (badge amarelo) no card/linha do veículo e exibe um **toast de alerta** ao confirmar, sem bloquear a ação.
+Atualmente o painel de veículos esperados fica inline na página, acima dos filtros. Quando há muitos veículos, polui a tela.
 
-## Mudanças
+**Solução**: Adicionar uma terceira aba nas Tabs existentes: **Pátio | Histórico | Esperados**
 
-### 1. `VeiculosEsperadosPanel.tsx`
+- Mover o `VeiculosEsperadosPanel` para dentro de `<TabsContent value="esperados">`
+- Adicionar badge com contagem de pendentes na aba
+- Remover o painel inline da posição atual (entre KPIs e filtros)
 
-- Receber a data atual filtrada como prop
-- Comparar `v.data_referencia` com a data atual
-- Se `data_referencia > hoje`: mostrar badge amarelo "Saída prevista DD/MM" no card e na linha da tabela
-- O botão "Registrar Entrada" continua habilitado, mas ao clicar em veículo cuja data ainda não chegou, passa flag `antecipado` para o callback
+## 2. Criar nível "portaria" no sistema de usuários
 
-### 2. `Portaria.tsx`
+Novo role que **só acessa a Portaria** e com restrições:
+- **Não pode**: Registrar entrada/saída, exportar CSV, importar planilha
+- **Pode**: Visualizar pátio, histórico, veículos esperados, filtrar, buscar, ver detalhes
 
-- Na função `openRegistroFromVeiculoEsperado`, verificar se a data de referência do veículo é futura
-- Se for, exibir `toast.warning("Atenção: este veículo tem saída prevista para DD/MM")` antes de abrir o dialog
-- Na query `useVeiculosEsperados`, buscar veículos de **hoje e datas futuras** (não só `eq`, usar `gte`) para que veículos do dia 30 apareçam quando o filtro está no dia 29
+### Mudanças necessárias
 
-### 3. `useVeiculosEsperados.ts`
+**Migração SQL**:
+- Adicionar `'portaria'` ao enum `app_role`: `ALTER TYPE app_role ADD VALUE 'portaria'`
 
-- Alterar a query para usar `.gte("data_referencia", dataReferencia)` em vez de `.eq(...)` — assim veículos de datas futuras próximas aparecem na lista
-- Adicionar filtro de limite (ex: próximos 3 dias) para não trazer tudo: `.lte("data_referencia", dataReferencia + 3 dias)`
+**`src/hooks/useAuth.ts`**:
+- Adicionar `"portaria"` ao tipo `AppRole`
+
+**`src/components/AppSidebar.tsx`**:
+- Adicionar `"portaria"` ao array de roles do item `/portaria`
+
+**`src/App.tsx`**:
+- Adicionar `"portaria"` ao `allowedRoles` da rota `/portaria`
+
+**`src/pages/Portaria.tsx`**:
+- Reestruturar tabs para incluir aba "Esperados"
+- Usar `useAuth()` para obter a role
+- Esconder botões "Registrar", "CSV" e "Importar" quando `role === "portaria"`
+- Esconder botão "Registrar Entrada" nos veículos esperados quando `role === "portaria"`
+- Esconder botão "Limpar lista" quando `role === "portaria"`
+- Esconder botão de registrar saída no PatioAtualTab quando `role === "portaria"`
+
+**`src/components/portaria/VeiculosEsperadosPanel.tsx`**:
+- Adicionar prop `readOnly?: boolean` para esconder botões de ação
+
+**`src/pages/Usuarios.tsx`**:
+- Adicionar opção "Portaria" no select de roles
 
 ## Arquivos
 
-| Arquivo | Mudança |
+| Arquivo | Ação |
 |---|---|
-| `src/hooks/useVeiculosEsperados.ts` | Query com `gte` + `lte` (janela de 3 dias) |
-| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Badge "Saída prevista DD/MM" para veículos com data futura |
-| `src/pages/Portaria.tsx` | Toast de aviso ao registrar veículo antecipado |
+| Migração SQL | Adicionar valor `portaria` ao enum `app_role` |
+| `src/hooks/useAuth.ts` | Atualizar tipo `AppRole` |
+| `src/components/AppSidebar.tsx` | Adicionar role `portaria` |
+| `src/App.tsx` | Adicionar role `portaria` na rota |
+| `src/pages/Portaria.tsx` | Aba "Esperados" + esconder ações para role portaria |
+| `src/components/portaria/VeiculosEsperadosPanel.tsx` | Prop `readOnly` |
+| `src/pages/Usuarios.tsx` | Opção "Portaria" no select |
 
