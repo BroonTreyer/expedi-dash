@@ -64,10 +64,11 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
         <div className="md:hidden overflow-auto max-h-[300px] space-y-2 p-3">
           {veiculos.map((v) => {
             const isConferido = v.conferido;
+            const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
             return (
               <div
                 key={v.id}
-                className={`rounded-lg border bg-card p-3 space-y-2 ${isConferido ? "opacity-50" : ""}`}
+                className={`rounded-lg border bg-card p-3 space-y-2 ${isConferido ? "opacity-50" : ""} ${isFuturo && !isConferido ? "border-amber-300 dark:border-amber-700" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -80,12 +81,15 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                       {v.placa}
                     </span>
                   </div>
-                  <Badge
-                    variant={isConferido ? "secondary" : "outline"}
-                    className={`text-[10px] h-5 ${!isConferido ? "border-amber-300 text-amber-700 dark:text-amber-400" : ""}`}
-                  >
-                    {isConferido ? "Conferido" : "Pendente"}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1">
+                    {isFuturo && !isConferido && <DataPrevistaBadge dataRef={v.data_referencia} />}
+                    <Badge
+                      variant={isConferido ? "secondary" : "outline"}
+                      className={`text-[10px] h-5 ${!isConferido ? "border-amber-300 text-amber-700 dark:text-amber-400" : ""}`}
+                    >
+                      {isConferido ? "Conferido" : "Pendente"}
+                    </Badge>
+                  </div>
                 </div>
                 <div className={`text-xs ${isConferido ? "line-through" : ""}`}>
                   <span className="text-muted-foreground">Motorista:</span> {v.motorista || "—"}
