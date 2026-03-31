@@ -9,7 +9,7 @@ import { Truck, MapPin, Package, Link2 } from "lucide-react";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
 import { cn } from "@/lib/utils";
 import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
-import { useMovimentacoesPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
 import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
