@@ -58,12 +58,16 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
     queryKey: ["veiculo-esperado-detalhe", placaBusca],
     queryFn: async () => {
       if (!placaBusca) return null;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("veiculos_esperados")
         .select("data_referencia")
-        .eq("placa", placaBusca)
+        .ilike("placa", placaBusca)
         .order("data_referencia", { ascending: false })
         .limit(1);
+      if (error) {
+        console.error("Erro ao buscar veículo esperado:", error);
+        return null;
+      }
       return data?.[0] || null;
     },
     enabled: !!placaBusca && open,
