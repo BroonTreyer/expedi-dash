@@ -59,8 +59,8 @@ export default function Portaria() {
 
   const clearFilters = () => {
     setSearch("");
-    setCategoriaFilter("");
-    setTipoFilter("");
+    setCategoriaFilter("all");
+    setTipoFilter("all");
   };
 
   const counts = useMemo(() => {

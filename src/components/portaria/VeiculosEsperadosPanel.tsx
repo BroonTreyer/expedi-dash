@@ -112,7 +112,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
               )}
             </div>
           </div>
-          {!readOnly && (
+          {!readOnly && onClear && (
             <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground self-end sm:self-auto" onClick={onClear} disabled={isClearing}>
               <X className="h-3 w-3" /> Limpar lista
             </Button>

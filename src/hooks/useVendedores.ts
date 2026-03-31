@@ -6,9 +6,22 @@ export function useVendedores() {
   return useQuery({
     queryKey: ["vendedores"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("vendedores").select("*").order("nome_vendedor");
-      if (error) throw error;
-      return data;
+      let allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("vendedores")
+          .select("*")
+          .order("nome_vendedor")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < pageSize) break;
+        from += data.length;
+      }
+      return allData;
     },
     staleTime: 5 * 60 * 1000,
   });

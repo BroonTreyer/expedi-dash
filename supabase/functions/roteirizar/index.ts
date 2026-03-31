@@ -290,11 +290,31 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { destinos, origemCidade, origemUf } = (await req.json()) as {
-      destinos: Destino[];
-      origemCidade?: string;
-      origemUf?: string;
-    };
+    // Validate JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const anonClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claims, error: claimsError } = await anonClient.auth.getClaims(authHeader.replace("Bearer ", ""));
+    if (claimsError || !claims?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json();
+    const destinos = body?.destinos as Destino[] | undefined;
+    const origemCidade = body?.origemCidade as string | undefined;
+    const origemUf = body?.origemUf as string | undefined;
 
     if (!destinos || destinos.length === 0) {
       return new Response(
