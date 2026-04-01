@@ -1,40 +1,45 @@
 
 
-# Melhorar Dinamismo e Legibilidade dos Gráficos
+# Cadastro de Caminhões com Vínculo a Motorista
+
+## O que será feito
+
+Criar um cadastro completo de caminhões (veículos) com tipo, placa, RENAVAM e motorista vinculado. Quando o usuário selecionar um caminhão nos fluxos de fechamento de carga ou portaria, o sistema puxará automaticamente o motorista e seus dados.
 
 ## Mudanças
 
-### 1. Tooltips ricos e consistentes
-- Substituir o tooltip genérico por tooltips customizados com formatação visual: ícone de cor, valores formatados em negrito, labels claros
-- Adicionar tooltip nos gráficos Pie/Donut com formatação rica
+### 1. Nova tabela `caminhoes` no banco
+- Campos: `id`, `tipo_caminhao` (text), `placa` (text, unique), `renavam` (text), `motorista_id` (uuid, referência à tabela `motoristas`, nullable), `ativo` (boolean), `created_at`
+- RLS: leitura para authenticated, escrita para admin/logistica/portaria, exclusão para admin
 
-### 2. Animações nos gráficos
-- Adicionar `animationDuration={800}` e `animationEasing="ease-out"` em todas as `<Area>`, `<Bar>`, `<Line>`, `<Pie>`
-- Adicionar `activeDot` com tamanho maior e borda nos LineCharts para feedback visual ao hover
+### 2. Hook `useCaminhoes.ts`
+- CRUD completo (query com join em `motoristas` para trazer nome/telefone/cpf)
+- Busca por placa ou tipo
 
-### 3. Melhorar legibilidade dos eixos
-- Formatar eixo Y com unidades claras (ex: "1.2t" em vez de números longos)
-- Rotacionar labels do eixo X em 45° quando houver muitas datas para evitar sobreposição
-- Aumentar padding e espaçamento dos eixos
+### 3. Página `src/pages/Caminhoes.tsx`
+- Tabela com: Placa, RENAVAM, Tipo, Motorista vinculado, Ações
+- Dialog de criação/edição com:
+  - Select de tipo (usando `tipos_caminhao` existente)
+  - Input de placa (uppercase automático)
+  - Input de RENAVAM
+  - `MotoristaAutocomplete` para vincular motorista
+- Versão mobile em cards
+- Busca por placa
 
-### 4. Interatividade visual
-- Adicionar `cursor` com estilo nos BarCharts (highlight ao hover na barra)
-- Bars com `activeBar` prop para highlight na barra sob o mouse
-- Pie com `activeShape` para expandir o segmento ao hover
+### 4. Rota e Sidebar
+- Nova rota `/caminhoes` em `App.tsx` (roles: admin, logistica)
+- Item no sidebar "Caminhões" com ícone `Truck`
 
-### 5. Gradientes e cores melhoradas
-- Adicionar gradientes mais visíveis nas áreas
-- Barras horizontais com gradiente da esquerda para direita
-- Donut de status com sombra interna e label centralizado (total no meio)
+### 5. Autocomplete de Caminhão (`CaminhaoAutocomplete.tsx`)
+- Componente similar ao `MotoristaAutocomplete`
+- Busca por placa, mostra tipo e motorista vinculado
+- Ao selecionar, preenche automaticamente: placa, tipo_caminhao, motorista, e dados do motorista (telefone, CPF)
+- Botão de cadastro rápido quando não encontrar
 
-### 6. Responsividade dos gráficos
-- Usar `tick={{ angle: -45, textAnchor: 'end' }}` quando período > 15 dias
-- Reduzir `fontSize` e `dot` size em telas menores
-
-### 7. Heatmap melhorado
-- Adicionar tooltip ao hover de cada célula (em vez de apenas `title`)
-- Melhorar escala de cores (verde → amarelo → vermelho)
-- Adicionar legenda de intensidade
+### 6. Integração no `FechamentoLoteDialog`
+- Substituir campo de placa simples pelo `CaminhaoAutocomplete`
+- Ao selecionar caminhão: preencher placa, tipo_caminhao, motorista automaticamente
+- Manter opção de preenchimento manual
 
 ---
 
@@ -42,7 +47,11 @@
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/Analytics.tsx` | Reescrever `ChartTooltip` com layout rico; adicionar animações, `activeDot`, `activeBar`, `activeShape` em Pie; melhorar heatmap com tooltip e escala de cores; labels dinâmicos nos eixos; donut com label central |
-
-Nenhuma mudança no hook ou banco — apenas visual/UX.
+| Migration SQL | Criar tabela `caminhoes` com RLS |
+| `src/hooks/useCaminhoes.ts` | Novo — CRUD com join em motoristas |
+| `src/pages/Caminhoes.tsx` | Nova página de cadastro |
+| `src/components/portaria/CaminhaoAutocomplete.tsx` | Novo componente de busca |
+| `src/components/dashboard/FechamentoLoteDialog.tsx` | Integrar CaminhaoAutocomplete |
+| `src/App.tsx` | Adicionar rota `/caminhoes` |
+| `src/components/AppSidebar.tsx` | Adicionar item "Caminhões" |
 
