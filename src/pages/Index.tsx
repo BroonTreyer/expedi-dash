@@ -417,7 +417,7 @@ export default function Index() {
           onChange={setFilters}
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
-          clientes={clientes}
+          clientes={clientesFromData}
           userRole={role}
           carregamentos={carregamentos}
         />
