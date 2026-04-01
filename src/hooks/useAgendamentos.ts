@@ -51,8 +51,8 @@ export function useAgendamentos(date: string) {
 export function useCreateAgendamento() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: Record<string, any>) => {
-      const { data, error } = await supabase.from("agendamentos").insert([values]).select().single();
+    mutationFn: async (values: { doca: string; horario_inicio: string; horario_fim: string; [key: string]: any }) => {
+      const { data, error } = await supabase.from("agendamentos").insert(values).select().single();
       if (error) throw error;
       return data;
     },
