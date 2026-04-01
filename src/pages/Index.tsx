@@ -14,11 +14,10 @@ import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialo
 import { RoteirizacaoDialog, type RoteirizacaoResult } from "@/components/dashboard/RoteirizacaoDialog";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
-import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
+import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchCreateCarregamento, useBatchUpdateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
-import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus, Route } from "lucide-react";
