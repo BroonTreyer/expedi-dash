@@ -29,11 +29,10 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Revoke previous local URL before creating new one
     if (localPreview) URL.revokeObjectURL(localPreview);
+    setIsPdf(file.type === "application/pdf");
     setLocalPreview(URL.createObjectURL(file));
     onCapture(file);
-    // reset input so same file can be re-selected
     e.target.value = "";
   };
 
