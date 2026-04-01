@@ -188,3 +188,9 @@ export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   return ctx ?? defaultAuth;
 }
+
+/** Lightweight hook that returns only the session — use in data hooks for gating queries */
+export function useSession() {
+  const { session } = useAuth();
+  return session;
+}
