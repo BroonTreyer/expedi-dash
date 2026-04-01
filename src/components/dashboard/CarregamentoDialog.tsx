@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -59,9 +60,12 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
 };
 
 export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura }: Props) {
+  const session = useSession();
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
   const [codigoClienteInput, setCodigoClienteInput] = useState("");
+  const [debouncedClienteCode, setDebouncedClienteCode] = useState("");
+  const clienteDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
 
   useEffect(() => {
@@ -96,15 +100,28 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
   };
 
+  // Debounce client code lookup (300ms)
+  useEffect(() => {
+    if (clienteDebounceRef.current) clearTimeout(clienteDebounceRef.current);
+    if (codigoClienteInput.length >= 1) {
+      clienteDebounceRef.current = setTimeout(() => {
+        setDebouncedClienteCode(codigoClienteInput.trim());
+      }, 300);
+    } else {
+      setDebouncedClienteCode("");
+    }
+    return () => { if (clienteDebounceRef.current) clearTimeout(clienteDebounceRef.current); };
+  }, [codigoClienteInput]);
+
   // On-demand client lookup by code — avoids loading 5000+ clients
   const { data: lookedUpCliente } = useQuery({
-    queryKey: ["cliente-lookup", codigoClienteInput],
-    enabled: codigoClienteInput.length >= 1,
+    queryKey: ["cliente-lookup", debouncedClienteCode],
+    enabled: debouncedClienteCode.length >= 1 && !!session,
     queryFn: async () => {
       const { data } = await supabase
         .from("clientes")
         .select("codigo_cliente, nome_cliente, cidade, uf")
-        .eq("codigo_cliente", codigoClienteInput.trim())
+        .eq("codigo_cliente", debouncedClienteCode)
         .maybeSingle();
       return data;
     },

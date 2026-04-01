@@ -184,13 +184,25 @@ export default function Index() {
 
   const handleSubmit = useCallback((values: Record<string, any>) => {
     if (values.id) {
-      updateMut.mutate(values);
+      updateMut.mutate(values, {
+        onError: (e: any) => {
+          if (e?.message?.includes("foreign key constraint")) {
+            toast.error("Código de produto ou cliente inválido. Verifique se estão cadastrados.");
+          }
+        },
+      });
     } else {
-      // Check if it's an array of items (batch)
+      const onFkError = {
+        onError: (e: any) => {
+          if (e?.message?.includes("foreign key constraint")) {
+            toast.error("Código de produto ou cliente inválido. Verifique se estão cadastrados.");
+          }
+        },
+      };
       if (Array.isArray(values._batch)) {
-        batchCreateMut.mutate(values._batch);
+        batchCreateMut.mutate(values._batch, onFkError);
       } else {
-        createMut.mutate(values);
+        createMut.mutate(values, onFkError);
       }
     }
   }, [updateMut, createMut, batchCreateMut]);

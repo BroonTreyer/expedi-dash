@@ -59,16 +59,10 @@ export function useAuthState(): AuthState {
   useEffect(() => {
     let cancelled = false;
 
-    const safetyTimer = setTimeout(async () => {
+    const safetyTimer = setTimeout(() => {
       if (!cancelled && loading) {
         console.warn("[Auth] Safety timeout reached, forcing loading=false");
-        // If we have a user but no role, session is broken — force sign out
-        if (user && !role) {
-          console.warn("[Auth] User exists but role is null after timeout — signing out");
-          intentionalSignOut.current = true;
-          await supabase.auth.signOut();
-          toast.error("Sua sessão expirou. Faça login novamente.");
-        }
+        // Don't force sign out — just unblock loading with whatever role we have
         setLoading(false);
       }
     }, SESSION_TIMEOUT_MS);
@@ -98,6 +92,12 @@ export function useAuthState(): AuthState {
 
         setSession(newSession);
         setUser(newSession?.user ?? null);
+
+        // If token was just refreshed and we already have a role, skip re-fetching
+        if (event === "TOKEN_REFRESHED" && role) {
+          setLoading(false);
+          return;
+        }
 
         if (newSession?.user) {
           const uid = newSession.user.id;
