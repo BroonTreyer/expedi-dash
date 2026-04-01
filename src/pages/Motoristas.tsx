@@ -64,6 +64,7 @@ function MotoristaFormDialog({
             label="Foto do Documento"
             onCapture={(f) => setFotoFile(f)}
             previewUrl={motorista?.foto_documento_url}
+            accept="image/*,.pdf,application/pdf"
           />
         </div>
         <DialogFooter className="flex-col-reverse sm:flex-row gap-2">

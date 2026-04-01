@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Camera, RotateCcw, Check } from "lucide-react";
+import { Camera, RotateCcw, Check, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -8,13 +8,16 @@ interface Props {
   onCapture: (file: File) => void;
   disabled?: boolean;
   previewUrl?: string | null;
+  accept?: string;
 }
 
-export function CapturaFoto({ label, onCapture, disabled, previewUrl }: Props) {
+export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*" }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [isPdf, setIsPdf] = useState(false);
 
   const preview = previewUrl || localPreview;
+  const showAsPdf = isPdf || (previewUrl && (previewUrl.includes('.pdf') || previewUrl.includes('application/pdf')));
 
   // Cleanup ObjectURL on unmount or when localPreview changes
   useEffect(() => {
@@ -26,17 +29,17 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl }: Props) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Revoke previous local URL before creating new one
     if (localPreview) URL.revokeObjectURL(localPreview);
+    setIsPdf(file.type === "application/pdf");
     setLocalPreview(URL.createObjectURL(file));
     onCapture(file);
-    // reset input so same file can be re-selected
     e.target.value = "";
   };
 
   const handleRetake = () => {
     if (localPreview) URL.revokeObjectURL(localPreview);
     setLocalPreview(null);
+    setIsPdf(false);
     inputRef.current?.click();
   };
 
@@ -46,14 +49,21 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={accept}
         className="hidden"
         onChange={handleChange}
         disabled={disabled}
       />
       {preview ? (
         <div className="relative rounded-lg overflow-hidden border border-border">
-          <img src={preview} alt={label} className="w-full h-48 object-cover" />
+          {showAsPdf ? (
+            <div className="w-full h-48 flex flex-col items-center justify-center gap-2 bg-muted/30">
+              <FileText className="h-12 w-12 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">Documento PDF</span>
+            </div>
+          ) : (
+            <img src={preview} alt={label} className="w-full h-48 object-cover" />
+          )}
           <div className="absolute bottom-2 right-2 flex gap-1">
             <Button size="sm" variant="secondary" onClick={handleRetake} disabled={disabled}>
               <RotateCcw className="h-3 w-3 mr-1" /> Refazer
