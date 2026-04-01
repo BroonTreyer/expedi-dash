@@ -39,6 +39,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
   const handleRetake = () => {
     if (localPreview) URL.revokeObjectURL(localPreview);
     setLocalPreview(null);
+    setIsPdf(false);
     inputRef.current?.click();
   };
 
