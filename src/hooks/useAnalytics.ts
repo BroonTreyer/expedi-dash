@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
+import { useSession } from "@/hooks/useAuth";
 import { format, subDays, differenceInDays, getDay, getISOWeek } from "date-fns";
 
 export interface AnalyticsFilters {
