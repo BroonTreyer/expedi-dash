@@ -17,6 +17,7 @@ import Portaria from "./pages/Portaria";
 import Motoristas from "./pages/Motoristas";
 import Analytics from "./pages/Analytics";
 import Agendamentos from "./pages/Agendamentos";
+import Relatorios from "./pages/Relatorios";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -49,6 +50,7 @@ function AppRoutes() {
         <Route path="/motoristas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Motoristas /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Analytics /></ProtectedRoute>} />
         <Route path="/agendamentos" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><Agendamentos /></ProtectedRoute>} />
+        <Route path="/relatorios" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Relatorios /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>
