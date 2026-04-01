@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle, RotateCcw, Loader2, Truck } from "lucide-react";
 import { usePlacaAutocomplete } from "@/hooks/useMovimentacoesPortaria";
 import { useCaminhoes } from "@/hooks/useCaminhoes";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface Props {
   value: string;
