@@ -823,7 +823,7 @@ export default function Analytics() {
                             <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
                               <div
                                 className="h-full rounded-full transition-all duration-700 ease-out"
-                                style={{ width: `${pct}%`, backgroundColor: BRAND_RED, opacity: Math.max(0.3, 1 - i * 0.08) }}
+                                style={{ width: `${pct}%`, backgroundColor: NAVY, opacity: Math.max(0.3, 1 - i * 0.08) }}
                               />
                             </div>
                           </div>
