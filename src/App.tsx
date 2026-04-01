@@ -15,6 +15,7 @@ import Clientes from "./pages/Clientes";
 import Consolidado from "./pages/Consolidado";
 import Portaria from "./pages/Portaria";
 import Motoristas from "./pages/Motoristas";
+import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
