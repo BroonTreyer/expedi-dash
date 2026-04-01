@@ -109,12 +109,14 @@ export function useAnalytics(filters: AnalyticsFilters) {
           .select("data, peso, status, vendedor_id, ruptura, uf, tipo_caminhao, nome_produto, vendedores(nome_vendedor)")
           .gte("data", filters.dateFrom)
           .lte("data", filters.dateTo)
-          .order("data", { ascending: true }),
+          .order("data", { ascending: true })
+          .limit(5000),
         supabase
           .from("carregamentos_dia")
           .select("data, peso, status, ruptura")
           .gte("data", prevFrom)
-          .lte("data", prevTo),
+          .lte("data", prevTo)
+          .limit(5000),
       ]);
       if (currentRes.error) throw currentRes.error;
       if (prevRes.error) throw prevRes.error;
