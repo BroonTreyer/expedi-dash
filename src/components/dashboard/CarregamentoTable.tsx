@@ -8,8 +8,9 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { AuditTimeline } from "./AuditTimeline";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -201,6 +202,16 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
+            <AuditTimeline
+              entityType="carregamento"
+              entityId={c.id}
+              title={`Histórico - Pedido ${c.numero_pedido ?? ""}`}
+              trigger={
+                <Button variant="ghost" size="icon" className="h-7 w-7" title="Histórico">
+                  <History className="h-3.5 w-3.5" />
+                </Button>
+              }
+            />
           </div>
         )}
       </div>
@@ -520,6 +531,16 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          <AuditTimeline
+                            entityType="carregamento"
+                            entityId={c.id}
+                            title={`Histórico - Pedido ${c.numero_pedido ?? ""}`}
+                            trigger={
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Histórico">
+                                <History className="h-3.5 w-3.5" />
+                              </Button>
+                            }
+                          />
                         </div>
                       </TableCell>
                     )}
@@ -704,6 +725,16 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             )}
+                            <AuditTimeline
+                              entityType="carregamento"
+                              entityId={c.id}
+                              title={`Histórico - Pedido ${c.numero_pedido ?? ""}`}
+                              trigger={
+                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Histórico">
+                                  <History className="h-3.5 w-3.5" />
+                                </Button>
+                              }
+                            />
                           </div>
                         </TableCell>
                       )}

@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          changes: Json
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changes?: Json
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changes?: Json
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       carregamentos_dia: {
         Row: {
           carga_id: string | null
@@ -667,6 +700,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      log_audit: {
+        Args: {
+          _action: string
+          _changes?: Json
+          _entity_id: string
+          _entity_type: string
+        }
+        Returns: undefined
       }
       next_numero_pedido: { Args: { _data: string }; Returns: number }
       notify_role: {
