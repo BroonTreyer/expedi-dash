@@ -247,7 +247,7 @@ export default function Index() {
 
   const handleLoteSubmit = useCallback(async (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string }[], meta?: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string }) => {
     try {
-      await Promise.all(updates.map(u => updateMut.mutateAsync(u)));
+      batchUpdateMut.mutate(updates);
 
       // Se tem transportadora, criar previsão de terceirizado na portaria
       if (meta?.transportadora) {
