@@ -11,11 +11,13 @@ interface Props {
   accept?: string;
 }
 
-export function CapturaFoto({ label, onCapture, disabled, previewUrl }: Props) {
+export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*" }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [isPdf, setIsPdf] = useState(false);
 
   const preview = previewUrl || localPreview;
+  const showAsPdf = isPdf || (previewUrl && (previewUrl.includes('.pdf') || previewUrl.includes('application/pdf')));
 
   // Cleanup ObjectURL on unmount or when localPreview changes
   useEffect(() => {
