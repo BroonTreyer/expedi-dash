@@ -36,10 +36,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <NotificationBell />
         </header>
         {/* Desktop toggle */}
-        <header className="hidden md:flex items-center h-10 border-b border-border px-2">
+        <header className="hidden md:flex items-center justify-between h-10 border-b border-border px-2">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(c => !c)}>
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
+          <NotificationBell />
         </header>
         <main className="flex-1 overflow-auto">
           {children}
