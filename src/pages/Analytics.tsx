@@ -295,7 +295,9 @@ function StatusMiniCards({ data }: { data: { status: string; count: number; peso
               <p className="text-xs text-muted-foreground font-medium">{d.status}</p>
               <p className="text-lg font-bold tabular-nums">{d.count}</p>
               <div className="flex items-center gap-2 mt-1">
-                <Progress value={pct} className="h-1.5 flex-1" />
+                <div className="h-1.5 flex-1 rounded-full bg-muted/50 overflow-hidden">
+                  <div className={cn("h-full rounded-full transition-all", STATUS_PROGRESS_COLOR[d.status] || "bg-slate-400")} style={{ width: `${pct}%` }} />
+                </div>
                 <span className="text-[10px] text-muted-foreground tabular-nums">{pct}%</span>
               </div>
             </div>
