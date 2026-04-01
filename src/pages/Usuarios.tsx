@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UserRow {
   id: string;
