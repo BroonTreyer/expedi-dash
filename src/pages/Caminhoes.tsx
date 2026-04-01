@@ -217,7 +217,7 @@ export default function Caminhoes() {
                         <Button size="icon" variant="ghost" onClick={() => { setEditing(c); setFormOpen(true); }}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => deleteMut.mutate(c.id)}>
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(c.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
