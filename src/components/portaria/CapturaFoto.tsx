@@ -119,7 +119,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
           )}
         >
           <Camera className="h-8 w-8 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Toque para fotografar</span>
+          <span className="text-sm text-muted-foreground">Toque para fotografar ou cole (Ctrl+V)</span>
         </button>
       )}
       <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={preview} alt={label} />
