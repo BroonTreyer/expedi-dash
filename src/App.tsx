@@ -1,5 +1,4 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -31,17 +30,10 @@ const queryClient = new QueryClient({
       gcTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
       retry: (failureCount, error: any) => {
-        // Don't retry auth errors — force re-login instead
         const msg = error?.message?.toLowerCase?.() ?? "";
         const status = error?.status ?? error?.code;
         if (status === 401 || status === 403 || msg.includes("jwt") || msg.includes("refresh_token")) {
-          // Try to refresh session once
-          if (failureCount === 0) {
-            supabase.auth.refreshSession().catch(() => {
-              supabase.auth.signOut();
-            });
-            return true; // retry once after refresh attempt
-          }
+          // Don't retry auth errors aggressively — just fail and let auth handler redirect
           return false;
         }
         return failureCount < 2;

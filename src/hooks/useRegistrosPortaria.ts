@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSession } from "@/hooks/useAuth";
 
 export interface RegistroPortaria {
   id: string;
@@ -25,8 +26,10 @@ export interface RegistroPortaria {
 }
 
 export function useRegistrosPortaria(data?: string) {
+  const session = useSession();
   return useQuery({
     queryKey: ["registros_portaria", data],
+    enabled: !!session,
     queryFn: async () => {
       let query = supabase
         .from("registros_portaria" as any)

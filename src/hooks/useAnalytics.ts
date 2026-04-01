@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
+import { useSession } from "@/hooks/useAuth";
 import { format, subDays, differenceInDays, getDay, getISOWeek } from "date-fns";
 
 export interface AnalyticsFilters {
@@ -94,6 +95,7 @@ function calcVar(current: number, previous: number): number | null {
 }
 
 export function useAnalytics(filters: AnalyticsFilters) {
+  const session = useSession();
   // Calculate previous period range
   const daysDiff = differenceInDays(new Date(filters.dateTo), new Date(filters.dateFrom));
   const prevTo = format(subDays(new Date(filters.dateFrom), 1), "yyyy-MM-dd");
@@ -101,6 +103,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
 
   const query = useQuery({
     queryKey: ["analytics-v3", filters.dateFrom, filters.dateTo],
+    enabled: !!session,
     queryFn: async () => {
       // Fetch current + previous period in parallel
       const [currentRes, prevRes] = await Promise.all([

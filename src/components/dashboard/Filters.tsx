@@ -37,7 +37,7 @@ interface Props {
   onChange: (f: Props["filters"]) => void;
   vendedores: { id: string; nome_vendedor: string }[];
   tiposCaminhao: { id: string; nome_tipo: string }[];
-  clientes?: { id: string; codigo_cliente: string; nome_cliente: string }[];
+  clientes?: { codigo_cliente: string; nome_cliente: string }[];
   userRole?: AppRole | null;
   /** Raw data for dynamic filter options */
   carregamentos?: CarregamentoData[];

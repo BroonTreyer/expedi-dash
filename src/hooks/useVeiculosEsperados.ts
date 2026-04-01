@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useSession } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { ParsedRow } from "@/components/portaria/ImportarPlanilhaDialog";
 
@@ -37,8 +37,11 @@ export function useVeiculosEsperados(dataReferencia: string) {
     return d.toISOString().slice(0, 10);
   })();
 
+  const session = useSession();
+
   return useQuery({
     queryKey: ["veiculos_esperados", dataInicio, dataLimite],
+    enabled: !!session,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("veiculos_esperados" as any)

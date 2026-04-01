@@ -14,11 +14,10 @@ import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialo
 import { RoteirizacaoDialog, type RoteirizacaoResult } from "@/components/dashboard/RoteirizacaoDialog";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
-import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
+import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchCreateCarregamento, useBatchUpdateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
-import { useClientes } from "@/hooks/useClientes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus, Route } from "lucide-react";
@@ -76,10 +75,27 @@ export default function Index() {
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
-  const { data: clientes = [] } = useClientes();
   const createMut = useCreateCarregamento();
+  const batchCreateMut = useBatchCreateCarregamento();
   const updateMut = useUpdateCarregamento();
+  const batchUpdateMut = useBatchUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
+
+  // Derive unique clients from loaded carregamentos — no heavy fetch needed
+  const clientesFromData = useMemo(() => {
+    const map = new Map<string, { codigo_cliente: string; nome_cliente: string; cidade?: string | null; uf?: string | null }>();
+    for (const c of carregamentos) {
+      if (c.codigo_cliente && !map.has(c.codigo_cliente)) {
+        map.set(c.codigo_cliente, {
+          codigo_cliente: c.codigo_cliente,
+          nome_cliente: c.cliente ?? c.codigo_cliente,
+          cidade: c.cidade,
+          uf: c.uf,
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [carregamentos]);
 
   // Count finalized (hidden) items
   const finalizadosCount = useMemo(() => {
@@ -170,9 +186,14 @@ export default function Index() {
     if (values.id) {
       updateMut.mutate(values);
     } else {
-      createMut.mutate(values);
+      // Check if it's an array of items (batch)
+      if (Array.isArray(values._batch)) {
+        batchCreateMut.mutate(values._batch);
+      } else {
+        createMut.mutate(values);
+      }
     }
-  }, [updateMut, createMut]);
+  }, [updateMut, createMut, batchCreateMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
     if (!canEdit) return;
@@ -226,7 +247,7 @@ export default function Index() {
 
   const handleLoteSubmit = useCallback(async (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string }[], meta?: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string }) => {
     try {
-      await Promise.all(updates.map(u => updateMut.mutateAsync(u)));
+      batchUpdateMut.mutate(updates);
 
       // Se tem transportadora, criar previsão de terceirizado na portaria
       if (meta?.transportadora) {
@@ -262,7 +283,7 @@ export default function Index() {
 
   const handleAdicionarCargaSubmit = useCallback(async (updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => {
     try {
-      await Promise.all(updates.map(u => updateMut.mutateAsync(u)));
+      batchUpdateMut.mutate(updates);
       toast.success(`${updates.length} pedido(s) adicionado(s) à carga`);
     } catch {
       // errors handled by mutation's onError
@@ -396,7 +417,7 @@ export default function Index() {
           onChange={setFilters}
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
-          clientes={clientes}
+          clientes={clientesFromData}
           userRole={role}
           carregamentos={carregamentos}
         />
@@ -464,7 +485,7 @@ export default function Index() {
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
-          clientes={clientes}
+          clientes={clientesFromData}
           selectedDate={dateFromStr}
         />
 
