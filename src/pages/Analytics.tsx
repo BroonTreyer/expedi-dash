@@ -729,7 +729,7 @@ export default function Analytics() {
                           />
                           <Line
                             type="monotone" dataKey="rupturas" name="Rupturas"
-                            stroke={SLATE_400} strokeWidth={1.5} strokeDasharray="5 5"
+                            stroke={SLATE_SOLID} strokeWidth={1.5} strokeDasharray="5 5"
                             dot={false}
                             activeDot={{ r: 4, strokeWidth: 2, stroke: "hsl(var(--background))" }}
                             animationDuration={1000}
