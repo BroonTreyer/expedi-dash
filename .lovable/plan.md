@@ -1,44 +1,22 @@
 
 
-# Suporte a Ctrl+V (colar imagem) no CapturaFoto
+# Remover produtos do Romaneio de Carga na impressão
+
+## Problema
+O romaneio mostra linhas individuais de produto (ex: "Sem produto — 1.500 kg") dentro de cada grupo de cliente. O usuário quer ver apenas o cliente com o peso total, sem a tabela de itens.
 
 ## Mudança
 
-Adicionar um listener de `paste` no componente `CapturaFoto` que captura imagens coladas da área de transferência (print screen) e as trata como upload.
+### `src/components/dashboard/CargaPrintDialog.tsx`
+- Remover a `<table>` de itens (linhas 142-153) dentro de cada grupo de cliente
+- Manter o cabeçalho do cliente com número de ordem, código, nome e peso total
 
-## Implementação
-
-### `src/components/portaria/CapturaFoto.tsx`
-
-1. Adicionar um `ref` no container div e um `onPaste` handler
-2. No handler, extrair o primeiro item de `clipboardData` que seja imagem, converter para `File`, e chamar `onCapture`
-3. Tornar a área de drop/paste focável (`tabIndex={0}`) para receber eventos de teclado
-4. Atualizar o texto de instrução para incluir "ou cole (Ctrl+V)"
-5. Também adicionar um listener global `paste` no `useEffect` para funcionar mesmo sem foco direto no componente (mais prático para o usuário)
-
-```typescript
-// No useEffect:
-const handlePaste = (e: ClipboardEvent) => {
-  const items = e.clipboardData?.items;
-  if (!items) return;
-  for (const item of items) {
-    if (item.type.startsWith("image/")) {
-      e.preventDefault();
-      const file = item.getAsFile();
-      if (!file) continue;
-      if (localPreview) URL.revokeObjectURL(localPreview);
-      setIsPdf(false);
-      setLocalPreview(URL.createObjectURL(file));
-      onCapture(file);
-      break;
-    }
-  }
-};
-document.addEventListener("paste", handlePaste);
-return () => document.removeEventListener("paste", handlePaste);
+O resultado será cada bloco mostrando apenas:
+```text
+1. 30988 – JORGE BATISTA E CIA LTDA          9.304,6 kg
+2. 16112 – JORGE BATISTA E CIA LTDA          6.730 kg
+3. 19480 – CENTRAL DE FRIOS PIAUÍ LTDA       2.098,4 kg
 ```
 
-| Arquivo | Mudança |
-|---|---|
-| `CapturaFoto.tsx` | Adicionar listener de paste global + texto "ou cole (Ctrl+V)" |
+Sem as linhas de "Sem produto" abaixo de cada cliente.
 
