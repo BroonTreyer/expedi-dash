@@ -485,7 +485,7 @@ export default function Index() {
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
           produtos={produtos}
-          clientes={clientes}
+          clientes={clientesFromData}
           selectedDate={dateFromStr}
         />
 
