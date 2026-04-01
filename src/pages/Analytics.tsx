@@ -376,8 +376,8 @@ function PremiumTableRow({ cells, progressValue, maxProgress }: {
         <TableCell key={i} className={cn(i === 0 ? "font-medium" : "text-right tabular-nums", "py-2.5")}>
           {i === 1 && progressValue ? (
             <div className="flex items-center gap-2 justify-end">
-              <div className="w-16 h-1.5 rounded-full bg-muted/50 overflow-hidden hidden sm:block">
-                <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
+                <div className="w-16 h-1.5 rounded-full bg-muted/50 overflow-hidden hidden sm:block">
+                <div className="h-full rounded-full bg-slate-400/60" style={{ width: `${pct}%` }} />
               </div>
               <span>{typeof cell === "number" ? cell.toLocaleString("pt-BR") : cell}</span>
             </div>
