@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Truck, MapPin, Package, Link2 } from "lucide-react";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
+import { CaminhaoAutocomplete } from "@/components/portaria/CaminhaoAutocomplete";
 import { cn } from "@/lib/utils";
 import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
