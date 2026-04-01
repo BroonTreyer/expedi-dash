@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { format, subDays, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, subDays, subMonths, startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Weight, Package, AlertTriangle, TrendingUp, TrendingDown, Calendar, BarChart3,
   Download, ArrowUpRight, ArrowDownRight, Minus, Eye, Truck, Users, MapPin, XCircle,
@@ -16,7 +17,7 @@ import {
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area,
-  Treemap,
+  Treemap, Sector,
 } from "recharts";
 import { useAnalytics, type AnalyticsFilters } from "@/hooks/useAnalytics";
 
@@ -66,6 +67,11 @@ function fmtDate(dateStr: string) {
 
 function fmtKg(v: number) { return `${v.toLocaleString("pt-BR")} kg`; }
 function fmtTon(v: number) { return `${(v / 1000).toFixed(1)}t`; }
+function fmtYAxis(v: number) {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}t`;
+  return `${v}`;
+}
 
 function exportCsv(headers: string[], rows: (string | number)[][], filename: string) {
   const csv = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
@@ -104,7 +110,7 @@ function KpiCard({ label, value, icon: Icon, color, variation, loading }: {
     </Card>
   );
   return (
-    <Card className="border-border/60 hover:shadow-md transition-shadow">
+    <Card className="border-border/60 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
       <CardContent className="p-3 sm:p-4 flex flex-col gap-1">
         <div className="flex items-center justify-between">
           <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
@@ -119,18 +125,79 @@ function KpiCard({ label, value, icon: Icon, color, variation, loading }: {
   );
 }
 
-// ── Tooltips ──
-function ChartTooltip({ active, payload, label, suffix = "kg" }: any) {
+// ── Rich Tooltip ──
+function RichTooltip({ active, payload, label, suffix = "kg", formatLabel }: any) {
   if (!active || !payload?.length) return null;
+  const displayLabel = formatLabel ? formatLabel(label) : fmtDate(label);
   return (
-    <div className="bg-popover border border-border rounded-lg shadow-lg p-3 text-xs">
-      <p className="font-medium mb-1">{fmtDate(label)}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color }}>
-          {p.name}: {typeof p.value === "number" ? p.value.toLocaleString("pt-BR") : p.value} {suffix}
-        </p>
-      ))}
+    <div className="bg-popover/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-3 text-xs min-w-[160px]">
+      <p className="font-semibold text-foreground mb-2 pb-1.5 border-b border-border/50">{displayLabel}</p>
+      <div className="space-y-1.5">
+        {payload.map((p: any) => (
+          <div key={p.name} className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+              <span className="text-muted-foreground">{p.name}</span>
+            </div>
+            <span className="font-bold text-foreground tabular-nums">
+              {typeof p.value === "number" ? p.value.toLocaleString("pt-BR") : p.value}
+              {suffix && <span className="text-muted-foreground font-normal ml-0.5">{suffix}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
+  );
+}
+
+// ── Pie Tooltip ──
+function PieTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const item = payload[0];
+  return (
+    <div className="bg-popover/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-3 text-xs min-w-[140px]">
+      <div className="flex items-center gap-2 mb-1">
+        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.payload.fill }} />
+        <span className="font-semibold text-foreground">{item.name}</span>
+      </div>
+      <div className="flex justify-between gap-4 mt-1.5">
+        <span className="text-muted-foreground">Quantidade</span>
+        <span className="font-bold tabular-nums">{item.value.toLocaleString("pt-BR")}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Active Pie Shape ──
+function renderActiveShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+  return (
+    <g>
+      <Sector
+        cx={cx} cy={cy}
+        innerRadius={innerRadius - 3}
+        outerRadius={outerRadius + 6}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={0.95}
+      />
+      <Sector
+        cx={cx} cy={cy}
+        innerRadius={outerRadius + 8}
+        outerRadius={outerRadius + 12}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={0.4}
+      />
+      <text x={cx} y={cy - 8} textAnchor="middle" fill="hsl(var(--foreground))" fontSize={14} fontWeight={700}>
+        {payload.status}
+      </text>
+      <text x={cx} y={cy + 10} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={11}>
+        {value} ({(percent * 100).toFixed(0)}%)
+      </text>
+    </g>
   );
 }
 
@@ -180,7 +247,7 @@ function TreemapContent(props: any) {
   if (width < 40 || height < 25) return null;
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} fill={CHART_COLORS[index % CHART_COLORS.length]} rx={4} opacity={0.85} stroke="hsl(var(--background))" strokeWidth={2} />
+      <rect x={x} y={y} width={width} height={height} fill={CHART_COLORS[index % CHART_COLORS.length]} rx={6} opacity={0.88} stroke="hsl(var(--background))" strokeWidth={2} />
       <text x={x + width / 2} y={y + height / 2 - 6} textAnchor="middle" fill="#fff" fontSize={width > 60 ? 12 : 10} fontWeight={600}>
         {name}
       </text>
@@ -193,6 +260,10 @@ function TreemapContent(props: any) {
   );
 }
 
+// ── Shared axis config ──
+const AXIS_STYLE = { fill: "hsl(var(--muted-foreground))", fontSize: 10 };
+const GRID_STYLE = "stroke-border/30";
+
 // ══════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════
@@ -201,8 +272,12 @@ export default function Analytics() {
   const [filterVendedores, setFilterVendedores] = useState<string[]>([]);
   const [filterTipos, setFilterTipos] = useState<string[]>([]);
   const [filterUfs, setFilterUfs] = useState<string[]>([]);
+  const [activePieIndex, setActivePieIndex] = useState(0);
 
   const range = useMemo(() => getDateRange(period), [period]);
+  const periodDays = useMemo(() => differenceInDays(new Date(range.to), new Date(range.from)), [range]);
+  const manyDays = periodDays > 15;
+
   const filters: AnalyticsFilters = useMemo(() => ({
     dateFrom: range.from,
     dateTo: range.to,
@@ -222,6 +297,12 @@ export default function Analytics() {
   };
 
   const hasData = (a?.dailyWeight?.length ?? 0) > 0;
+
+  // X axis tick props (rotate when many days)
+  const xTickProps = manyDays
+    ? { angle: -45, textAnchor: "end" as const, ...AXIS_STYLE }
+    : AXIS_STYLE;
+  const xAxisHeight = manyDays ? 50 : 30;
 
   const kpiCards = [
     { label: "Peso Total", value: fmtKg(kpis.totalPeso), icon: Weight, color: "text-foreground", variation: kpis.varPeso },
@@ -288,24 +369,29 @@ export default function Analytics() {
                   <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Peso Acumulado no Período</CardTitle></CardHeader>
                   <CardContent className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={a?.dailyWeight ?? []} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                      <AreaChart data={a?.dailyWeight ?? []} margin={{ top: 5, right: 10, left: 0, bottom: xAxisHeight - 25 }}>
                         <defs>
                           <linearGradient id="gradAcum" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
-                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                        <XAxis dataKey="date" tickFormatter={fmtDate} className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                        <YAxis className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => fmtTon(v)} />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Area type="monotone" dataKey="acumulado" name="Acumulado" stroke="hsl(var(--primary))" fill="url(#gradAcum)" strokeWidth={2.5} />
+                        <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} vertical={false} />
+                        <XAxis dataKey="date" tickFormatter={fmtDate} tick={xTickProps} height={xAxisHeight} />
+                        <YAxis tick={AXIS_STYLE} tickFormatter={fmtYAxis} width={45} />
+                        <Tooltip content={<RichTooltip />} />
+                        <Area
+                          type="monotone" dataKey="acumulado" name="Acumulado"
+                          stroke="hsl(var(--primary))" fill="url(#gradAcum)" strokeWidth={2.5}
+                          animationDuration={800} animationEasing="ease-out"
+                          activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                        />
                       </AreaChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
 
-                {/* Status donut */}
+                {/* Status donut with active shape */}
                 <Card>
                   <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Distribuição por Status</CardTitle></CardHeader>
                   <CardContent className="h-72">
@@ -317,16 +403,19 @@ export default function Analytics() {
                             dataKey="count"
                             nameKey="status"
                             cx="50%" cy="50%"
-                            innerRadius={55} outerRadius={90}
-                            paddingAngle={3}
-                            label={({ status, percent }) => `${status} ${(percent * 100).toFixed(0)}%`}
-                            labelLine={{ strokeWidth: 1 }}
+                            innerRadius={50} outerRadius={85}
+                            paddingAngle={4}
+                            activeIndex={activePieIndex}
+                            activeShape={renderActiveShape}
+                            onMouseEnter={(_, index) => setActivePieIndex(index)}
+                            animationDuration={800}
+                            animationEasing="ease-out"
                           >
                             {a!.statusBreakdown.map((s) => (
                               <Cell key={s.status} fill={STATUS_COLORS[s.status] || "hsl(0,0%,55%)"} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(v: number, name: string) => [v, name]} />
+                          <Tooltip content={<PieTooltip />} />
                         </PieChart>
                       </ResponsiveContainer>
                     )}
@@ -346,24 +435,34 @@ export default function Analytics() {
                     <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Peso Expedido por Dia</CardTitle></CardHeader>
                     <CardContent className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={a?.dailyWeight ?? []} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                        <AreaChart data={a?.dailyWeight ?? []} margin={{ top: 5, right: 10, left: 0, bottom: xAxisHeight - 25 }}>
                           <defs>
                             <linearGradient id="gradPeso" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                             </linearGradient>
                             <linearGradient id="gradCarr" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="hsl(122, 39%, 49%)" stopOpacity={0.2} />
-                              <stop offset="95%" stopColor="hsl(122, 39%, 49%)" stopOpacity={0} />
+                              <stop offset="0%" stopColor="hsl(122, 39%, 49%)" stopOpacity={0.3} />
+                              <stop offset="100%" stopColor="hsl(122, 39%, 49%)" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                          <XAxis dataKey="date" tickFormatter={fmtDate} className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                          <YAxis className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => fmtTon(v)} />
-                          <Tooltip content={<ChartTooltip />} />
-                          <Legend wrapperStyle={{ fontSize: "11px" }} />
-                          <Area type="monotone" dataKey="peso" name="Peso Total" stroke="hsl(var(--primary))" fill="url(#gradPeso)" strokeWidth={2} />
-                          <Area type="monotone" dataKey="carregado" name="Carregado" stroke="hsl(122, 39%, 49%)" fill="url(#gradCarr)" strokeWidth={2} />
+                          <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} vertical={false} />
+                          <XAxis dataKey="date" tickFormatter={fmtDate} tick={xTickProps} height={xAxisHeight} />
+                          <YAxis tick={AXIS_STYLE} tickFormatter={fmtYAxis} width={45} />
+                          <Tooltip content={<RichTooltip />} />
+                          <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                          <Area
+                            type="monotone" dataKey="peso" name="Peso Total"
+                            stroke="hsl(var(--primary))" fill="url(#gradPeso)" strokeWidth={2}
+                            animationDuration={800} animationEasing="ease-out"
+                            activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                          />
+                          <Area
+                            type="monotone" dataKey="carregado" name="Carregado"
+                            stroke="hsl(122, 39%, 49%)" fill="url(#gradCarr)" strokeWidth={2}
+                            animationDuration={1000} animationEasing="ease-out"
+                            activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                          />
                         </AreaChart>
                       </ResponsiveContainer>
                     </CardContent>
@@ -375,14 +474,19 @@ export default function Analytics() {
                     <CardContent className="h-72">
                       {(a?.tipoKeys?.length ?? 0) === 0 ? <EmptyState /> : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={a?.dailyByTipo ?? []} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                            <XAxis dataKey="date" tickFormatter={fmtDate} className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                            <YAxis className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => fmtTon(v)} />
-                            <Tooltip content={<ChartTooltip />} />
-                            <Legend wrapperStyle={{ fontSize: "11px" }} />
+                          <BarChart data={a?.dailyByTipo ?? []} margin={{ top: 5, right: 10, left: 0, bottom: xAxisHeight - 25 }}>
+                            <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} vertical={false} />
+                            <XAxis dataKey="date" tickFormatter={fmtDate} tick={xTickProps} height={xAxisHeight} />
+                            <YAxis tick={AXIS_STYLE} tickFormatter={fmtYAxis} width={45} />
+                            <Tooltip content={<RichTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }} />
+                            <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
                             {a!.tipoKeys.map((tipo, i) => (
-                              <Bar key={tipo} dataKey={tipo} stackId="a" fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              <Bar
+                                key={tipo} dataKey={tipo} stackId="a"
+                                fill={CHART_COLORS[i % CHART_COLORS.length]}
+                                radius={i === a!.tipoKeys.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+                                animationDuration={800} animationEasing="ease-out"
+                              />
                             ))}
                           </BarChart>
                         </ResponsiveContainer>
@@ -419,8 +523,8 @@ export default function Analytics() {
                         {(a?.tipoCaminhaoBreakdown ?? []).map((t) => (
                           <TableRow key={t.tipo}>
                             <TableCell className="font-medium">{t.tipo}</TableCell>
-                            <TableCell className="text-right">{t.peso.toLocaleString("pt-BR")}</TableCell>
-                            <TableCell className="text-right">{t.pedidos}</TableCell>
+                            <TableCell className="text-right tabular-nums">{t.peso.toLocaleString("pt-BR")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{t.pedidos}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -442,11 +546,20 @@ export default function Analytics() {
                     <CardContent className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={a?.vendedorRanking?.slice(0, 10) ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                          <XAxis type="number" className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => fmtTon(v)} />
-                          <YAxis type="category" dataKey="nome" className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} width={100} />
-                          <Tooltip formatter={(v: number) => [fmtKg(v), "Peso"]} />
-                          <Bar dataKey="peso" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          <defs>
+                            <linearGradient id="gradBar" x1="0" y1="0" x2="1" y2="0">
+                              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.7} />
+                              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={1} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
+                          <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
+                          <YAxis type="category" dataKey="nome" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={100} />
+                          <Tooltip content={<RichTooltip formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.2 }} />
+                          <Bar
+                            dataKey="peso" name="Peso" fill="url(#gradBar)" radius={[0, 6, 6, 0]}
+                            animationDuration={800} animationEasing="ease-out"
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </CardContent>
@@ -463,6 +576,8 @@ export default function Analytics() {
                             dataKey="size"
                             aspectRatio={4 / 3}
                             content={<TreemapContent />}
+                            animationDuration={600}
+                            animationEasing="ease-out"
                           />
                         </ResponsiveContainer>
                       )}
@@ -500,10 +615,10 @@ export default function Analytics() {
                         {(a?.vendedorRanking ?? []).map((v) => (
                           <TableRow key={v.nome}>
                             <TableCell className="font-medium">{v.nome}</TableCell>
-                            <TableCell className="text-right">{v.peso.toLocaleString("pt-BR")}</TableCell>
-                            <TableCell className="text-right">{v.pedidos}</TableCell>
-                            <TableCell className="text-right">{v.participacao}%</TableCell>
-                            <TableCell className="text-right">{v.mediaPorPedido.toLocaleString("pt-BR")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{v.peso.toLocaleString("pt-BR")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{v.pedidos}</TableCell>
+                            <TableCell className="text-right tabular-nums">{v.participacao}%</TableCell>
+                            <TableCell className="text-right tabular-nums">{v.mediaPorPedido.toLocaleString("pt-BR")}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -548,14 +663,32 @@ export default function Analytics() {
                     <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Taxa de Ruptura Diária (%)</CardTitle></CardHeader>
                     <CardContent className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={a?.rupturaDaily ?? []} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                          <XAxis dataKey="date" tickFormatter={fmtDate} className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                          <YAxis className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} unit="%" />
-                          <Tooltip content={<ChartTooltip suffix="%" />} />
-                          <Legend wrapperStyle={{ fontSize: "11px" }} />
-                          <Line type="monotone" dataKey="taxa" name="Taxa %" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ r: 3 }} />
-                          <Line type="monotone" dataKey="rupturas" name="Rupturas" stroke="hsl(45, 93%, 47%)" strokeWidth={1.5} strokeDasharray="5 5" />
+                        <LineChart data={a?.rupturaDaily ?? []} margin={{ top: 5, right: 10, left: 0, bottom: xAxisHeight - 25 }}>
+                          <defs>
+                            <linearGradient id="gradRupt" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="hsl(var(--destructive))" stopOpacity={0.15} />
+                              <stop offset="100%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} vertical={false} />
+                          <XAxis dataKey="date" tickFormatter={fmtDate} tick={xTickProps} height={xAxisHeight} />
+                          <YAxis tick={AXIS_STYLE} unit="%" width={40} />
+                          <Tooltip content={<RichTooltip suffix="%" />} />
+                          <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                          <Line
+                            type="monotone" dataKey="taxa" name="Taxa %"
+                            stroke="hsl(var(--destructive))" strokeWidth={2.5}
+                            dot={{ r: 3, fill: "hsl(var(--destructive))" }}
+                            activeDot={{ r: 7, strokeWidth: 2, stroke: "hsl(var(--background))", fill: "hsl(var(--destructive))" }}
+                            animationDuration={800} animationEasing="ease-out"
+                          />
+                          <Line
+                            type="monotone" dataKey="rupturas" name="Rupturas"
+                            stroke="hsl(45, 93%, 47%)" strokeWidth={1.5} strokeDasharray="5 5"
+                            dot={false}
+                            activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                            animationDuration={1000} animationEasing="ease-out"
+                          />
                         </LineChart>
                       </ResponsiveContainer>
                     </CardContent>
@@ -568,11 +701,20 @@ export default function Analytics() {
                       {(a?.produtoRupturas?.length ?? 0) === 0 ? <EmptyState message="Nenhuma ruptura no período" /> : (
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={a?.produtoRupturas ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                            <XAxis type="number" className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                            <YAxis type="category" dataKey="produto" className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} width={120} />
-                            <Tooltip formatter={(v: number) => [v, "Rupturas"]} />
-                            <Bar dataKey="rupturas" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
+                            <defs>
+                              <linearGradient id="gradRuptBar" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="hsl(var(--destructive))" stopOpacity={0.6} />
+                                <stop offset="100%" stopColor="hsl(var(--destructive))" stopOpacity={1} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
+                            <XAxis type="number" tick={AXIS_STYLE} />
+                            <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
+                            <Tooltip content={<RichTooltip suffix="" formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.2 }} />
+                            <Bar
+                              dataKey="rupturas" name="Rupturas" fill="url(#gradRuptBar)" radius={[0, 6, 6, 0]}
+                              animationDuration={800} animationEasing="ease-out"
+                            />
                           </BarChart>
                         </ResponsiveContainer>
                       )}
@@ -607,6 +749,8 @@ export default function Analytics() {
                             dataKey="size"
                             aspectRatio={4 / 3}
                             content={<TreemapContent />}
+                            animationDuration={600}
+                            animationEasing="ease-out"
                           />
                         </ResponsiveContainer>
                       )}
@@ -619,11 +763,20 @@ export default function Analytics() {
                     <CardContent className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={a?.ufDistribution?.slice(0, 10) ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                          <XAxis type="number" className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => fmtTon(v)} />
-                          <YAxis type="category" dataKey="uf" className="text-[10px]" tick={{ fill: "hsl(var(--muted-foreground))" }} width={40} />
-                          <Tooltip formatter={(v: number) => [fmtKg(v), "Peso"]} />
-                          <Bar dataKey="peso" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          <defs>
+                            <linearGradient id="gradUfBar" x1="0" y1="0" x2="1" y2="0">
+                              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.6} />
+                              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={1} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
+                          <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
+                          <YAxis type="category" dataKey="uf" tick={AXIS_STYLE} width={40} />
+                          <Tooltip content={<RichTooltip suffix="kg" formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.2 }} />
+                          <Bar
+                            dataKey="peso" name="Peso" fill="url(#gradUfBar)" radius={[0, 6, 6, 0]}
+                            animationDuration={800} animationEasing="ease-out"
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </CardContent>
@@ -659,9 +812,9 @@ export default function Analytics() {
                         {(a?.ufDistribution ?? []).map((u) => (
                           <TableRow key={u.uf}>
                             <TableCell className="font-medium">{u.uf}</TableCell>
-                            <TableCell className="text-right">{u.peso.toLocaleString("pt-BR")}</TableCell>
-                            <TableCell className="text-right">{u.pedidos}</TableCell>
-                            <TableCell className="text-right">{u.participacao}%</TableCell>
+                            <TableCell className="text-right tabular-nums">{u.peso.toLocaleString("pt-BR")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{u.pedidos}</TableCell>
+                            <TableCell className="text-right tabular-nums">{u.participacao}%</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -677,9 +830,10 @@ export default function Analytics() {
   );
 }
 
-// ── Heatmap Grid Component ──
-function HeatmapGrid({ data }: { data: { week: number; dayOfWeek: number; date: string; taxa: number; rupturas: number }[] }) {
+// ── Heatmap Grid Component (improved) ──
+function HeatmapGrid({ data }: { data: { week: number; dayOfWeek: number; date: string; taxa: number; rupturas: number; total: number }[] }) {
   const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const [hoveredCell, setHoveredCell] = useState<{ week: number; day: number } | null>(null);
 
   if (data.length === 0) return <EmptyState message="Sem dados de ruptura para heatmap" />;
 
@@ -688,37 +842,69 @@ function HeatmapGrid({ data }: { data: { week: number; dayOfWeek: number; date: 
 
   const getCell = (week: number, day: number) => data.find((d) => d.week === week && d.dayOfWeek === day);
 
+  // Green → Yellow → Red color scale
+  function heatColor(intensity: number): string {
+    if (intensity === 0) return "hsl(var(--muted)/0.2)";
+    if (intensity < 0.33) return `hsl(122, ${30 + intensity * 60}%, ${85 - intensity * 30}%)`;
+    if (intensity < 0.66) return `hsl(${45 - (intensity - 0.33) * 80}, 80%, ${75 - intensity * 20}%)`;
+    return `hsl(${0}, ${50 + intensity * 30}%, ${80 - intensity * 35}%)`;
+  }
+
   return (
-    <div className="overflow-x-auto">
-      <div className="inline-grid gap-1" style={{ gridTemplateColumns: `40px repeat(${weeks.length}, 28px)` }}>
-        {/* Header */}
-        <div />
-        {weeks.map((w) => (
-          <div key={w} className="text-[9px] text-center text-muted-foreground">S{w}</div>
+    <div className="space-y-3">
+      <div className="overflow-x-auto">
+        <TooltipProvider delayDuration={100}>
+          <div className="inline-grid gap-1" style={{ gridTemplateColumns: `40px repeat(${weeks.length}, 32px)` }}>
+            {/* Header */}
+            <div />
+            {weeks.map((w) => (
+              <div key={w} className="text-[9px] text-center text-muted-foreground font-medium">S{w}</div>
+            ))}
+            {/* Rows */}
+            {dayLabels.map((label, dayIdx) => (
+              <div key={`row-${dayIdx}`} className="contents">
+                <div className="text-[10px] text-muted-foreground flex items-center font-medium">{label}</div>
+                {weeks.map((w) => {
+                  const cell = getCell(w, dayIdx);
+                  const intensity = cell ? cell.taxa / maxTaxa : 0;
+                  const isHovered = hoveredCell?.week === w && hoveredCell?.day === dayIdx;
+                  return (
+                    <UITooltip key={`${w}-${dayIdx}`}>
+                      <TooltipTrigger asChild>
+                        <div
+                          className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-semibold cursor-default transition-all duration-150 ${isHovered ? "ring-2 ring-foreground/30 scale-110 z-10" : ""}`}
+                          style={{
+                            backgroundColor: heatColor(intensity),
+                            color: intensity > 0.5 ? "hsl(0, 60%, 25%)" : intensity > 0 ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+                          }}
+                          onMouseEnter={() => setHoveredCell({ week: w, day: dayIdx })}
+                          onMouseLeave={() => setHoveredCell(null)}
+                        >
+                          {cell?.rupturas || ""}
+                        </div>
+                      </TooltipTrigger>
+                      {cell && (
+                        <TooltipContent side="top" className="text-xs">
+                          <p className="font-semibold">{fmtDate(cell.date)}</p>
+                          <p>{cell.rupturas} rupturas de {cell.total} pedidos</p>
+                          <p className="font-bold text-red-500">Taxa: {cell.taxa}%</p>
+                        </TooltipContent>
+                      )}
+                    </UITooltip>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </TooltipProvider>
+      </div>
+      {/* Legend */}
+      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+        <span>Menos</span>
+        {[0, 0.2, 0.4, 0.6, 0.8, 1].map((i) => (
+          <div key={i} className="w-4 h-4 rounded-sm" style={{ backgroundColor: heatColor(i) }} />
         ))}
-        {/* Rows */}
-        {dayLabels.map((label, dayIdx) => (
-          <>
-            <div key={`label-${dayIdx}`} className="text-[10px] text-muted-foreground flex items-center">{label}</div>
-            {weeks.map((w) => {
-              const cell = getCell(w, dayIdx);
-              const intensity = cell ? cell.taxa / maxTaxa : 0;
-              return (
-                <div
-                  key={`${w}-${dayIdx}`}
-                  className="w-6 h-6 rounded-sm border border-border/30 flex items-center justify-center text-[8px] font-medium"
-                  style={{
-                    backgroundColor: cell ? `hsl(0, ${Math.round(intensity * 70)}%, ${90 - Math.round(intensity * 40)}%)` : "hsl(var(--muted)/0.3)",
-                    color: intensity > 0.5 ? "hsl(0, 60%, 30%)" : "hsl(var(--muted-foreground))",
-                  }}
-                  title={cell ? `${fmtDate(cell.date)}: ${cell.rupturas} rupturas (${cell.taxa}%)` : ""}
-                >
-                  {cell?.rupturas || ""}
-                </div>
-              );
-            })}
-          </>
-        ))}
+        <span>Mais</span>
       </div>
     </div>
   );
