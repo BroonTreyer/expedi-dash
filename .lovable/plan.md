@@ -1,28 +1,31 @@
 
 
-# Corrigir erro de build (esbuild version mismatch)
+# Preview de PDFs e Fotos Upados
 
 ## Problema
-O servidor de desenvolvimento não inicia por causa de um conflito de versão do esbuild: "Host version 0.21.5 does not match binary version 0.25.12". Isso faz o preview ficar branco.
+Atualmente, quando um PDF é enviado, o `PhotoViewerDialog` tenta renderizá-lo como `<img>`, o que não funciona para PDFs. O `CapturaFoto` já detecta PDFs e mostra um ícone, mas ao clicar para ampliar, não há preview real do conteúdo.
 
-Este é um problema de ambiente, não de código. O binário compilado do esbuild no cache está desatualizado em relação ao pacote instalado.
+## Solução
 
-Sobre o código "33007" do cliente: a foreign key de `codigo_cliente` já foi removida da tabela `carregamentos_dia` (confirmado no schema atual), então esse erro específico não deve mais ocorrer. O sistema de lookup por código de cliente (com debounce de 300ms) está funcionando corretamente no código.
+### 1. `src/components/portaria/PhotoViewerDialog.tsx`
+- Detectar se a URL é de um PDF (`.pdf` ou `application/pdf` na URL)
+- Para PDFs: renderizar um `<iframe>` apontando para a URL com fallback para link de download
+- Para imagens: manter o `<img>` atual
+- Adicionar botão "Abrir em nova aba" para ambos os tipos
 
-## Correção
+### 2. `src/components/portaria/CapturaFoto.tsx`
+- Ao clicar no preview de PDF (ícone FileText), abrir o `PhotoViewerDialog` para preview real
+- Adicionar estado para controlar o viewer
 
-### 1. Limpar cache do esbuild e reinstalar
-- Remover `node_modules/.cache` e o binário desatualizado do esbuild
-- Reinstalar o esbuild para que host e binary fiquem na mesma versão
-- Reiniciar o servidor de desenvolvimento
+### 3. `src/components/portaria/MovimentoDetailsDialog.tsx` — `ClickablePhoto`
+- Detectar URLs de PDF e renderizar ícone clicável em vez de `<img>` quebrada
+- O clique abre o `PhotoViewerDialog` que agora suporta PDFs
 
-### 2. Validação
-- Confirmar que o preview carrega normalmente
-- O fluxo de criar pedido com código de cliente deve funcionar sem erro de FK
+## Detalhes Técnicos
 
-| Ação | Detalhe |
+| Arquivo | Mudança |
 |---|---|
-| Limpar cache | `rm -rf node_modules/.cache` |
-| Reinstalar esbuild | `bun install esbuild --force` |
-| Reiniciar dev server | Automático após correção |
+| `PhotoViewerDialog.tsx` | Detectar PDF na URL → renderizar `<iframe>` em vez de `<img>`. Adicionar botão "Abrir em nova aba" |
+| `CapturaFoto.tsx` | Integrar `PhotoViewerDialog` para preview ao clicar no thumbnail |
+| `MovimentoDetailsDialog.tsx` | `ClickablePhoto` detecta PDF e mostra ícone em vez de img quebrada |
 
