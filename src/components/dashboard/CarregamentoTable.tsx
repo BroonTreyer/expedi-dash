@@ -513,6 +513,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               <Printer className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          {(isAdmin || isLogistica) && c.carga_id && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Gerar Link Portal" disabled={portalMut.isPending} onClick={() => portalMut.mutate({ carga_id: c.carga_id!, nome_carga: c.nome_carga || undefined, placa: c.placa || undefined, motorista: c.motorista || undefined, transportadora: c.transportadora || undefined })}>
+                              <Link2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {(isAdmin || isLogistica) && c.carga_id && onUndoCarga && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Desfazer Carga" onClick={() => onUndoCarga(c.carga_id!)}>
                               <Undo2 className="h-3.5 w-3.5" />
