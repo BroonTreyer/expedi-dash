@@ -26,8 +26,10 @@ export interface RegistroPortaria {
 }
 
 export function useRegistrosPortaria(data?: string) {
+  const session = useSession();
   return useQuery({
     queryKey: ["registros_portaria", data],
+    enabled: !!session,
     queryFn: async () => {
       let query = supabase
         .from("registros_portaria" as any)

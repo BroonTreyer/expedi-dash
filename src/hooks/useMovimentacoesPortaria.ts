@@ -80,9 +80,11 @@ export const SETORES = [
 export function useMovimentacoes(dateFrom: string, dateTo?: string) {
   const dateEnd = dateTo || dateFrom;
   const queryClient = useQueryClient();
+  const session = useSession();
 
   const query = useQuery({
     queryKey: ["movimentacoes_portaria", dateFrom, dateEnd],
+    enabled: !!session,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("movimentacoes_portaria")

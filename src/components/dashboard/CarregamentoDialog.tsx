@@ -96,7 +96,23 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
   };
 
-  const handleCodigoCliente = (codigo: string) => {
+  // On-demand client lookup by code — avoids loading 5000+ clients
+  const { data: lookedUpCliente } = useQuery({
+    queryKey: ["cliente-lookup", codigoClienteInput],
+    enabled: codigoClienteInput.length >= 1,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("clientes")
+        .select("codigo_cliente, nome_cliente, cidade, uf")
+        .eq("codigo_cliente", codigoClienteInput.trim())
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleCodigoCliente = useCallback((codigo: string) => {
+    // Also check the provided clientes list (from carregamentos data)
     const found = clientes.find((c) => c.codigo_cliente.toLowerCase() === codigo.toLowerCase());
     if (found) {
       set("cliente", found.nome_cliente);
@@ -104,7 +120,17 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       set("cidade", found.cidade ?? "");
       set("uf", found.uf ?? "");
     }
-  };
+  }, [clientes]);
+
+  // When lookup returns data, auto-fill
+  useEffect(() => {
+    if (lookedUpCliente && codigoClienteInput) {
+      set("cliente", lookedUpCliente.nome_cliente);
+      set("codigo_cliente", lookedUpCliente.codigo_cliente);
+      set("cidade", lookedUpCliente.cidade ?? "");
+      set("uf", lookedUpCliente.uf ?? "");
+    }
+  }, [lookedUpCliente]);
 
   const updateItem = (index: number, updates: Partial<ProductItem>) => {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
