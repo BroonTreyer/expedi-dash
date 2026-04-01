@@ -55,8 +55,13 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "carregamentos_dia" },
-        (payload) => {
-          queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+        () => {
+          // Debounce INSERT invalidations to avoid refetch storms during batch operations
+          if (insertDebounceTimer) clearTimeout(insertDebounceTimer);
+          insertDebounceTimer = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+            insertDebounceTimer = null;
+          }, 1500);
         }
       )
       .on(
