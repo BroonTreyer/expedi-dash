@@ -15,14 +15,16 @@ import {
   gerarTempoMedioPatio,
 } from "@/hooks/useRelatorios";
 
-const today = new Date();
-const presets = [
-  { label: "Últimos 7 dias", start: format(subDays(today, 7), "yyyy-MM-dd"), end: format(today, "yyyy-MM-dd") },
-  { label: "Últimos 15 dias", start: format(subDays(today, 15), "yyyy-MM-dd"), end: format(today, "yyyy-MM-dd") },
-  { label: "Últimos 30 dias", start: format(subDays(today, 30), "yyyy-MM-dd"), end: format(today, "yyyy-MM-dd") },
-  { label: "Mês atual", start: format(startOfMonth(today), "yyyy-MM-dd"), end: format(endOfMonth(today), "yyyy-MM-dd") },
-  { label: "Mês anterior", start: format(startOfMonth(subMonths(today, 1)), "yyyy-MM-dd"), end: format(endOfMonth(subMonths(today, 1)), "yyyy-MM-dd") },
-];
+function getPresets() {
+  const today = new Date();
+  return [
+    { label: "Últimos 7 dias", start: format(subDays(today, 7), "yyyy-MM-dd"), end: format(today, "yyyy-MM-dd") },
+    { label: "Últimos 15 dias", start: format(subDays(today, 15), "yyyy-MM-dd"), end: format(today, "yyyy-MM-dd") },
+    { label: "Últimos 30 dias", start: format(subDays(today, 30), "yyyy-MM-dd"), end: format(today, "yyyy-MM-dd") },
+    { label: "Mês atual", start: format(startOfMonth(today), "yyyy-MM-dd"), end: format(endOfMonth(today), "yyyy-MM-dd") },
+    { label: "Mês anterior", start: format(startOfMonth(subMonths(today, 1)), "yyyy-MM-dd"), end: format(endOfMonth(subMonths(today, 1)), "yyyy-MM-dd") },
+  ];
+}
 
 interface ReportCard {
   id: string;
