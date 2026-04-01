@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
@@ -15,6 +16,13 @@ export interface Notification {
   created_at: string;
 }
 
+type NotificationChannelEntry = {
+  channel: RealtimeChannel;
+  subscribers: number;
+};
+
+const notificationChannels = new Map<string, NotificationChannelEntry>();
+
 export function useNotifications() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -22,8 +30,36 @@ export function useNotifications() {
   // Realtime subscription
   useEffect(() => {
     if (!user?.id) return;
+
+    const channelName = `notifications-${user.id}`;
+    const channelTopic = `realtime:${channelName}`;
+
+    const releaseChannel = () => {
+      const entry = notificationChannels.get(user.id);
+      if (!entry) return;
+
+      entry.subscribers -= 1;
+      if (entry.subscribers <= 0) {
+        supabase.removeChannel(entry.channel);
+        notificationChannels.delete(user.id);
+      }
+    };
+
+    const existingEntry = notificationChannels.get(user.id);
+    if (existingEntry) {
+      existingEntry.subscribers += 1;
+      return releaseChannel;
+    }
+
+    supabase
+      .getChannels()
+      .filter((channel) => channel.topic === channelTopic)
+      .forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+
     const channel = supabase
-      .channel(`notifications-${user.id}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
@@ -53,7 +89,9 @@ export function useNotifications() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    notificationChannels.set(user.id, { channel, subscribers: 1 });
+
+    return releaseChannel;
   }, [user?.id, queryClient]);
 
   const query = useQuery({
