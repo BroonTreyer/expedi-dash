@@ -324,9 +324,9 @@ function VendorRanking({ data, maxPeso }: { data: { nome: string; peso: number; 
                 className="h-full rounded-full transition-all duration-700 ease-out"
                 style={{
                   width: `${pct}%`,
-                  backgroundColor: BRAND_RED,
-                  opacity,
+                  backgroundColor: NAVY,
                 }}
+              />
               />
             </div>
           </div>
