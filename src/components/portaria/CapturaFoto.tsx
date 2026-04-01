@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Camera, RotateCcw, Check } from "lucide-react";
+import { Camera, RotateCcw, Check, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ interface Props {
   onCapture: (file: File) => void;
   disabled?: boolean;
   previewUrl?: string | null;
+  accept?: string;
 }
 
 export function CapturaFoto({ label, onCapture, disabled, previewUrl }: Props) {
