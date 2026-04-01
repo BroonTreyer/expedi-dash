@@ -26,11 +26,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className={cn("flex-1 flex flex-col h-screen overflow-auto transition-all duration-200", collapsed ? "md:ml-14" : "md:ml-60")}>
         {/* Mobile header */}
-        <header className="flex items-center h-12 border-b border-border px-3 md:hidden">
-          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
-            <Menu className="h-5 w-5" />
-          </Button>
-          <span className="ml-2 text-sm font-semibold">Expedição</span>
+        <header className="flex items-center justify-between h-12 border-b border-border px-3 md:hidden">
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
+              <Menu className="h-5 w-5" />
+            </Button>
+            <span className="ml-2 text-sm font-semibold">Expedição</span>
+          </div>
+          <NotificationBell />
         </header>
         {/* Desktop toggle */}
         <header className="hidden md:flex items-center h-10 border-b border-border px-2">
