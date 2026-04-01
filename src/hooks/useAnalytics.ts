@@ -106,7 +106,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
       const [currentRes, prevRes] = await Promise.all([
         supabase
           .from("carregamentos_dia")
-          .select("data, peso, status, vendedor_id, ruptura, uf, tipo_caminhao, nome_produto, vendedores(nome_vendedor)")
+          .select("data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, vendedores(nome_vendedor)")
           .gte("data", filters.dateFrom)
           .lte("data", filters.dateTo)
           .order("data", { ascending: true })
