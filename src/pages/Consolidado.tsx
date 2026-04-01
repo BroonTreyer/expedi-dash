@@ -49,7 +49,10 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
 
       const isSingleDay = dateFrom === dateEnd;
       if (isSingleDay && dateFrom === todayStr) {
-        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},status.neq.Carregado)`);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
+        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
       } else if (isSingleDay) {
         q = q.eq("data", dateFrom);
       } else {

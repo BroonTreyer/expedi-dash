@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useCaminhoes, useCreateCaminhao, useUpdateCaminhao, useDeleteCaminhao, type Caminhao } from "@/hooks/useCaminhoes";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
+import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,11 +25,22 @@ function CaminhaoFormDialog({
   onOpenChange: (o: boolean) => void;
   caminhao?: Caminhao | null;
 }) {
-  const [placa, setPlaca] = useState(caminhao?.placa ?? "");
-  const [renavam, setRenavam] = useState(caminhao?.renavam ?? "");
-  const [tipoCaminhao, setTipoCaminhao] = useState(caminhao?.tipo_caminhao ?? "");
-  const [motoristaNome, setMotoristaNome] = useState(caminhao?.motorista?.nome_completo ?? "");
-  const [motoristaId, setMotoristaId] = useState<string | null>(caminhao?.motorista_id ?? null);
+  const [placa, setPlaca] = useState("");
+  const [renavam, setRenavam] = useState("");
+  const [tipoCaminhao, setTipoCaminhao] = useState("");
+  const [motoristaNome, setMotoristaNome] = useState("");
+  const [motoristaId, setMotoristaId] = useState<string | null>(null);
+
+  // Reset fields when dialog opens
+  useEffect(() => {
+    if (open) {
+      setPlaca(caminhao?.placa ?? "");
+      setRenavam(caminhao?.renavam ?? "");
+      setTipoCaminhao(caminhao?.tipo_caminhao ?? "");
+      setMotoristaNome(caminhao?.motorista?.nome_completo ?? "");
+      setMotoristaId(caminhao?.motorista_id ?? null);
+    }
+  }, [open, caminhao]);
 
   const { data: tipos = [] } = useTiposCaminhao();
   const createMut = useCreateCaminhao();
@@ -113,6 +125,7 @@ export default function Caminhoes() {
   const deleteMut = useDeleteCaminhao();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Caminhao | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   return (
@@ -161,7 +174,7 @@ export default function Caminhoes() {
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditing(c); setFormOpen(true); }}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteMut.mutate(c.id)}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeleteTarget(c.id)}>
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
                     </div>
@@ -204,7 +217,7 @@ export default function Caminhoes() {
                         <Button size="icon" variant="ghost" onClick={() => { setEditing(c); setFormOpen(true); }}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => deleteMut.mutate(c.id)}>
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(c.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -222,6 +235,14 @@ export default function Caminhoes() {
         open={formOpen}
         onOpenChange={setFormOpen}
         caminhao={editing}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onConfirm={() => { if (deleteTarget) { deleteMut.mutate(deleteTarget); setDeleteTarget(null); } }}
+        title="Excluir caminhão"
+        description="Tem certeza que deseja excluir este caminhão? Esta ação não pode ser desfeita."
       />
     </Layout>
   );

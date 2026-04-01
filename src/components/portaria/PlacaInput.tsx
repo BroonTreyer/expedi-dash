@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle, RotateCcw, Loader2, Truck } from "lucide-react";
 import { usePlacaAutocomplete } from "@/hooks/useMovimentacoesPortaria";
 import { useCaminhoes } from "@/hooks/useCaminhoes";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface Props {
   value: string;
@@ -24,6 +24,8 @@ export function PlacaInput({ value, onChange, onAutofill, disabled }: Props) {
   const { data: caminhoes = [] } = useCaminhoes(value.length >= 3 ? value : "");
   const lastAutofillRef = useRef<string>("");
   const lastCaminhaoRef = useRef<string>("");
+  const onAutofillRef = useRef(onAutofill);
+  onAutofillRef.current = onAutofill;
   const isValid = PLACA_REGEX.test(value);
   const showValidation = value.length >= 4;
 
@@ -32,29 +34,29 @@ export function PlacaInput({ value, onChange, onAutofill, disabled }: Props) {
 
   // Auto-fill from caminhoes table (priority over movimentacoes history)
   useEffect(() => {
-    if (caminhaoMatch && caminhaoMatch.placa !== lastCaminhaoRef.current && onAutofill) {
+    if (caminhaoMatch && caminhaoMatch.placa !== lastCaminhaoRef.current && onAutofillRef.current) {
       lastCaminhaoRef.current = caminhaoMatch.placa;
-      lastAutofillRef.current = caminhaoMatch.placa; // prevent movimentacoes overwrite
-      onAutofill({
+      lastAutofillRef.current = caminhaoMatch.placa;
+      onAutofillRef.current({
         motorista: caminhaoMatch.motorista?.nome_completo || undefined,
         tipo_caminhao: caminhaoMatch.tipo_caminhao || undefined,
         telefone: caminhaoMatch.motorista?.telefone || undefined,
       });
     }
-  }, [caminhaoMatch, onAutofill]);
+  }, [caminhaoMatch]);
 
   // Auto-fill from movimentacoes history (fallback)
   useEffect(() => {
-    if (autocomplete && autocomplete.placa && autocomplete.placa !== lastAutofillRef.current && onAutofill && !caminhaoMatch) {
+    if (autocomplete && autocomplete.placa && autocomplete.placa !== lastAutofillRef.current && onAutofillRef.current && !caminhaoMatch) {
       lastAutofillRef.current = autocomplete.placa;
-      onAutofill({
+      onAutofillRef.current({
         motorista: autocomplete.motorista || undefined,
         empresa: autocomplete.empresa || undefined,
         categoria: autocomplete.categoria || undefined,
         destino_setor: autocomplete.destino_setor || undefined,
       });
     }
-  }, [autocomplete, onAutofill, caminhaoMatch]);
+  }, [autocomplete, caminhaoMatch]);
 
   return (
     <div className="space-y-1.5">

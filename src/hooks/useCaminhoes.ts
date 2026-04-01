@@ -26,7 +26,8 @@ export function useCaminhoes(search?: string) {
         .from("caminhoes")
         .select("*, motoristas(id, nome_completo, telefone, cpf)")
         .eq("ativo", true)
-        .order("placa");
+        .order("placa")
+        .limit(50);
       if (search && search.trim().length >= 2) {
         q = q.ilike("placa", `%${search.trim()}%`);
       }
