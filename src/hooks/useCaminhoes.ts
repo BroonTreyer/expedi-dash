@@ -20,8 +20,10 @@ export interface Caminhao {
 }
 
 export function useCaminhoes(search?: string) {
+  const session = useSession();
   return useQuery({
     queryKey: ["caminhoes", search],
+    enabled: !!session,
     queryFn: async () => {
       let q = supabase
         .from("caminhoes")

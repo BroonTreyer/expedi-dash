@@ -14,8 +14,10 @@ export interface Motorista {
 }
 
 export function useMotoristas(search?: string) {
+  const session = useSession();
   return useQuery({
     queryKey: ["motoristas", search],
+    enabled: !!session,
     queryFn: async () => {
       let q = supabase
         .from("motoristas")

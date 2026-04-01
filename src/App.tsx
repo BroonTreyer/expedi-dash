@@ -29,6 +29,22 @@ const queryClient = new QueryClient({
       staleTime: 10_000,
       gcTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
+      retry: (failureCount, error: any) => {
+        // Don't retry auth errors — force re-login instead
+        const msg = error?.message?.toLowerCase?.() ?? "";
+        const status = error?.status ?? error?.code;
+        if (status === 401 || status === 403 || msg.includes("jwt") || msg.includes("refresh_token")) {
+          // Try to refresh session once
+          if (failureCount === 0) {
+            supabase.auth.refreshSession().catch(() => {
+              supabase.auth.signOut();
+            });
+            return true; // retry once after refresh attempt
+          }
+          return false;
+        }
+        return failureCount < 2;
+      },
     },
   },
 });

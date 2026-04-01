@@ -4,8 +4,10 @@ import { toast } from "sonner";
 import { useSession } from "@/hooks/useAuth";
 
 export function useVendedores() {
+  const session = useSession();
   return useQuery({
     queryKey: ["vendedores"],
+    enabled: !!session,
     queryFn: async () => {
       let allData: any[] = [];
       let from = 0;

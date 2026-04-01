@@ -113,6 +113,7 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
 
   const query = useQuery({
     queryKey: ["carregamentos", dateFrom, dateEnd],
+    enabled: !!session,
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
       let q = supabase

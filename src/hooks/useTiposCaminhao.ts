@@ -4,8 +4,10 @@ import { toast } from "sonner";
 import { useSession } from "@/hooks/useAuth";
 
 export function useTiposCaminhao() {
+  const session = useSession();
   return useQuery({
     queryKey: ["tipos_caminhao"],
+    enabled: !!session,
     queryFn: async () => {
       const { data, error } = await supabase.from("tipos_caminhao").select("*").order("nome_tipo");
       if (error) throw error;
