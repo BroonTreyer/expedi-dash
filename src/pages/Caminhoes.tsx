@@ -125,6 +125,7 @@ export default function Caminhoes() {
   const deleteMut = useDeleteCaminhao();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Caminhao | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   return (
