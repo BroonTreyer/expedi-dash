@@ -42,6 +42,7 @@ export type RealtimeStatus = "connecting" | "connected" | "disconnected";
 export function useCarregamentos(dateFrom: string, dateTo?: string) {
   const dateEnd = dateTo || dateFrom;
   const queryClient = useQueryClient();
+  const session = useSession();
   const realtimeStatusRef = useRef<RealtimeStatus>("connecting");
   const statusCallbackRef = useRef<((s: RealtimeStatus) => void) | null>(null);
 
