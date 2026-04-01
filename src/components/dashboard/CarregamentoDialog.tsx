@@ -100,15 +100,28 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
   };
 
+  // Debounce client code lookup (300ms)
+  useEffect(() => {
+    if (clienteDebounceRef.current) clearTimeout(clienteDebounceRef.current);
+    if (codigoClienteInput.length >= 1) {
+      clienteDebounceRef.current = setTimeout(() => {
+        setDebouncedClienteCode(codigoClienteInput.trim());
+      }, 300);
+    } else {
+      setDebouncedClienteCode("");
+    }
+    return () => { if (clienteDebounceRef.current) clearTimeout(clienteDebounceRef.current); };
+  }, [codigoClienteInput]);
+
   // On-demand client lookup by code — avoids loading 5000+ clients
   const { data: lookedUpCliente } = useQuery({
-    queryKey: ["cliente-lookup", codigoClienteInput],
-    enabled: codigoClienteInput.length >= 1,
+    queryKey: ["cliente-lookup", debouncedClienteCode],
+    enabled: debouncedClienteCode.length >= 1 && !!session,
     queryFn: async () => {
       const { data } = await supabase
         .from("clientes")
         .select("codigo_cliente, nome_cliente, cidade, uf")
-        .eq("codigo_cliente", codigoClienteInput.trim())
+        .eq("codigo_cliente", debouncedClienteCode)
         .maybeSingle();
       return data;
     },
