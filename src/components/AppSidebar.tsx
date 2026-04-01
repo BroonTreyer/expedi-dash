@@ -12,7 +12,7 @@ const allNavItems = [
   { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
   { to: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/agendamentos", label: "Agendamento", icon: CalendarClock, roles: ["admin", "logistica"] },
+  
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "logistica", "faturamento"] },
   { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "faturamento"] },
   { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "faturamento"] },
