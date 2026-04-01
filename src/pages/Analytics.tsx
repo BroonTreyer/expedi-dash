@@ -34,23 +34,24 @@ const PERIOD_OPTIONS = [
   { value: "90d", label: "Últimos 90 dias" },
 ];
 
-// ── Monochromatic palette based on Fricó red ──
-const BRAND_RED = "hsl(358, 76%, 48%)";
-const BRAND_RED_LIGHT = "hsl(358, 60%, 65%)";
-const SLATE_500 = "hsl(215, 16%, 47%)";
-const SLATE_400 = "hsl(215, 16%, 57%)";
-const EMERALD = "hsl(152, 55%, 41%)";
-const AMBER = "hsl(38, 92%, 50%)";
+// ── Clean solid palette ──
+const BRAND_RED = "#D42027";
+const NAVY = "#1E40AF";
+const EMERALD = "#059669";
+const AMBER_SOLID = "#D97706";
+const SLATE_SOLID = "#64748B";
+const VIOLET = "#7C3AED";
+const CYAN_SOLID = "#0891B2";
 
-const CHART_MONO = [
-  "hsl(358, 76%, 48%)",
-  "hsl(358, 60%, 58%)",
-  "hsl(358, 45%, 68%)",
-  "hsl(358, 30%, 78%)",
-  "hsl(215, 16%, 47%)",
-  "hsl(215, 16%, 62%)",
-  "hsl(215, 16%, 77%)",
-  "hsl(0, 0%, 65%)",
+const CHART_COLORS = [
+  "#1E40AF",  // Navy
+  "#059669",  // Emerald
+  "#D97706",  // Amber
+  "#64748B",  // Slate
+  "#7C3AED",  // Violet
+  "#0891B2",  // Cyan
+  "#D42027",  // Red
+  "#0369A1",  // Sky
 ];
 
 const STATUS_ICONS: Record<string, any> = {
@@ -323,8 +324,7 @@ function VendorRanking({ data, maxPeso }: { data: { nome: string; peso: number; 
                 className="h-full rounded-full transition-all duration-700 ease-out"
                 style={{
                   width: `${pct}%`,
-                  backgroundColor: BRAND_RED,
-                  opacity,
+                  backgroundColor: NAVY,
                 }}
               />
             </div>
@@ -520,23 +520,13 @@ export default function Analytics() {
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={a?.dailyWeight ?? []} margin={{ top: 5, right: 10, left: 0, bottom: xAxisHeight - 25 }}>
-                          <defs>
-                            <linearGradient id="gradPesoDiario" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={BRAND_RED} stopOpacity={0.85} />
-                              <stop offset="100%" stopColor={BRAND_RED_LIGHT} stopOpacity={0.6} />
-                            </linearGradient>
-                            <linearGradient id="gradCarrDiario" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={EMERALD} stopOpacity={0.85} />
-                              <stop offset="100%" stopColor={EMERALD} stopOpacity={0.5} />
-                            </linearGradient>
-                          </defs>
                           <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} vertical={false} />
                           <XAxis dataKey="date" tickFormatter={fmtDate} tick={xTickProps} height={xAxisHeight} />
                           <YAxis tick={AXIS_STYLE} tickFormatter={fmtYAxis} width={45} />
                           <Tooltip content={<RichTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.2 }} />
                           <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-                          <Bar dataKey="peso" name="Peso Total" fill="url(#gradPesoDiario)" radius={[4, 4, 0, 0]} animationDuration={800} />
-                          <Bar dataKey="carregado" name="Carregado" fill="url(#gradCarrDiario)" radius={[4, 4, 0, 0]} animationDuration={1000} />
+                          <Bar dataKey="peso" name="Peso Total" fill={NAVY} radius={[4, 4, 0, 0]} animationDuration={800} />
+                          <Bar dataKey="carregado" name="Carregado" fill={EMERALD} radius={[4, 4, 0, 0]} animationDuration={1000} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -565,7 +555,7 @@ export default function Analytics() {
                             {a!.tipoKeys.map((tipo, i) => (
                               <Bar
                                 key={tipo} dataKey={tipo} stackId="a"
-                                fill={CHART_MONO[i % CHART_MONO.length]}
+                                fill={CHART_COLORS[i % CHART_COLORS.length]}
                                 radius={i === a!.tipoKeys.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
                                 animationDuration={800}
                               />
@@ -629,17 +619,11 @@ export default function Analytics() {
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={a?.vendedorRanking?.slice(0, 10) ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                          <defs>
-                            <linearGradient id="gradBar" x1="0" y1="0" x2="1" y2="0">
-                              <stop offset="0%" stopColor={BRAND_RED_LIGHT} stopOpacity={0.5} />
-                              <stop offset="100%" stopColor={BRAND_RED} stopOpacity={0.9} />
-                            </linearGradient>
-                          </defs>
                           <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                           <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
                           <YAxis type="category" dataKey="nome" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={100} />
                           <Tooltip content={<RichTooltip formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
-                          <Bar dataKey="peso" name="Peso" fill="url(#gradBar)" radius={[0, 5, 5, 0]} animationDuration={800} />
+                          <Bar dataKey="peso" name="Peso" fill={NAVY} radius={[0, 5, 5, 0]} animationDuration={800} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -745,7 +729,7 @@ export default function Analytics() {
                           />
                           <Line
                             type="monotone" dataKey="rupturas" name="Rupturas"
-                            stroke={SLATE_400} strokeWidth={1.5} strokeDasharray="5 5"
+                            stroke={SLATE_SOLID} strokeWidth={1.5} strokeDasharray="5 5"
                             dot={false}
                             activeDot={{ r: 4, strokeWidth: 2, stroke: "hsl(var(--background))" }}
                             animationDuration={1000}
@@ -761,17 +745,11 @@ export default function Analytics() {
                       {(a?.produtoRupturas?.length ?? 0) === 0 ? <EmptyState message="Nenhuma ruptura no período" /> : (
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={a?.produtoRupturas ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                            <defs>
-                              <linearGradient id="gradRuptBar" x1="0" y1="0" x2="1" y2="0">
-                                <stop offset="0%" stopColor={BRAND_RED_LIGHT} stopOpacity={0.4} />
-                                <stop offset="100%" stopColor={BRAND_RED} stopOpacity={0.85} />
-                              </linearGradient>
-                            </defs>
                             <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                             <XAxis type="number" tick={AXIS_STYLE} />
                             <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
                             <Tooltip content={<RichTooltip suffix="" formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
-                            <Bar dataKey="rupturas" name="Rupturas" fill="url(#gradRuptBar)" radius={[0, 5, 5, 0]} animationDuration={800} />
+                            <Bar dataKey="rupturas" name="Rupturas" fill={BRAND_RED} radius={[0, 5, 5, 0]} animationDuration={800} />
                           </BarChart>
                         </ResponsiveContainer>
                       )}
@@ -797,17 +775,11 @@ export default function Analytics() {
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={a?.ufDistribution?.slice(0, 10) ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                          <defs>
-                            <linearGradient id="gradUfBar" x1="0" y1="0" x2="1" y2="0">
-                              <stop offset="0%" stopColor={BRAND_RED_LIGHT} stopOpacity={0.4} />
-                              <stop offset="100%" stopColor={BRAND_RED} stopOpacity={0.85} />
-                            </linearGradient>
-                          </defs>
                           <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                           <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
                           <YAxis type="category" dataKey="uf" tick={AXIS_STYLE} width={40} />
                           <Tooltip content={<RichTooltip suffix="kg" formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
-                          <Bar dataKey="peso" name="Peso" fill="url(#gradUfBar)" radius={[0, 5, 5, 0]} animationDuration={800} />
+                          <Bar dataKey="peso" name="Peso" fill={NAVY} radius={[0, 5, 5, 0]} animationDuration={800} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
