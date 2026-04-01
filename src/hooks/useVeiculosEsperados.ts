@@ -42,6 +42,7 @@ export function useVeiculosEsperados(dataReferencia: string) {
   return useQuery({
     queryKey: ["veiculos_esperados", dataInicio, dataLimite],
     enabled: !!session,
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("veiculos_esperados" as any)
         .select("*")
