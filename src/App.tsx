@@ -16,7 +16,7 @@ import Consolidado from "./pages/Consolidado";
 import Portaria from "./pages/Portaria";
 import Motoristas from "./pages/Motoristas";
 import Analytics from "./pages/Analytics";
-import Agendamentos from "./pages/Agendamentos";
+
 import Relatorios from "./pages/Relatorios";
 import PortalMotorista from "./pages/PortalMotorista";
 import Auth from "./pages/Auth";
