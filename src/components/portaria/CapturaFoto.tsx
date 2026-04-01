@@ -49,7 +49,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={accept}
         className="hidden"
         onChange={handleChange}
         disabled={disabled}
