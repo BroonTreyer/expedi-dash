@@ -19,6 +19,7 @@ const allNavItems = [
   { to: "/clientes", label: "Clientes", icon: Building2, roles: ["admin", "faturamento"] },
   { to: "/portaria", label: "Portaria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
   { to: "/motoristas", label: "Motoristas", icon: Contact, roles: ["admin", "logistica", "portaria"] },
+  { to: "/caminhoes", label: "Caminhões", icon: Truck, roles: ["admin", "logistica"] },
   { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck, roles: ["admin", "logistica"] },
   { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
 ];
