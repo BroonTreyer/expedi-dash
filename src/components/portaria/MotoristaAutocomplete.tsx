@@ -164,30 +164,32 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
           disabled={disabled}
         />
         {open && filtered.length > 0 && (
-          <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md max-h-48 overflow-y-auto">
+          <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md max-h-40 overflow-y-auto">
             {filtered.map((m) => (
               <button
                 key={m.id}
                 type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-accent flex items-center justify-between gap-2"
+                className="w-full px-2 py-1.5 text-left hover:bg-accent flex flex-col gap-0.5"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleSelect(m);
                 }}
               >
-                <span className="font-medium text-foreground">{m.nome_completo}</span>
-                <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {m.cpf && (
-                    <span className="flex items-center gap-1">
-                      <FileText className="h-3 w-3" /> {maskCPF(m.cpf)}
-                    </span>
-                  )}
-                  {m.telefone && (
-                    <span className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" /> {maskPhone(m.telefone)}
-                    </span>
-                  )}
-                </span>
+                <span className="text-xs font-medium text-foreground">{m.nome_completo}</span>
+                {(m.cpf || m.telefone) && (
+                  <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    {m.cpf && (
+                      <span className="flex items-center gap-0.5">
+                        <FileText className="h-2.5 w-2.5" /> {maskCPF(m.cpf)}
+                      </span>
+                    )}
+                    {m.telefone && (
+                      <span className="flex items-center gap-0.5">
+                        <Phone className="h-2.5 w-2.5" /> {maskPhone(m.telefone)}
+                      </span>
+                    )}
+                  </span>
+                )}
               </button>
             ))}
           </div>
