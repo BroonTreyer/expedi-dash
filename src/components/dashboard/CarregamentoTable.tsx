@@ -204,11 +204,6 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
-            {(isAdmin || isLogistica) && c.carga_id && (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Link Portal" disabled={portalMut.isPending} onClick={() => portalMut.mutate({ carga_id: c.carga_id!, nome_carga: c.nome_carga || undefined, placa: c.placa || undefined, motorista: c.motorista || undefined, transportadora: c.transportadora || undefined })}>
-                <Link2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
             <AuditTimeline
               entityType="carregamento"
               entityId={c.id}
