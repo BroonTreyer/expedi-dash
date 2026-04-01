@@ -107,6 +107,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   const canDelete = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
+  const portalMut = useCreatePortalToken();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => buildGroups(data), [data]);
