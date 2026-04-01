@@ -746,17 +746,11 @@ export default function Analytics() {
                       {(a?.produtoRupturas?.length ?? 0) === 0 ? <EmptyState message="Nenhuma ruptura no período" /> : (
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={a?.produtoRupturas ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                            <defs>
-                              <linearGradient id="gradRuptBar" x1="0" y1="0" x2="1" y2="0">
-                                <stop offset="0%" stopColor={BRAND_RED_LIGHT} stopOpacity={0.4} />
-                                <stop offset="100%" stopColor={BRAND_RED} stopOpacity={0.85} />
-                              </linearGradient>
-                            </defs>
                             <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                             <XAxis type="number" tick={AXIS_STYLE} />
                             <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
                             <Tooltip content={<RichTooltip suffix="" formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
-                            <Bar dataKey="rupturas" name="Rupturas" fill="url(#gradRuptBar)" radius={[0, 5, 5, 0]} animationDuration={800} />
+                            <Bar dataKey="rupturas" name="Rupturas" fill={BRAND_RED} radius={[0, 5, 5, 0]} animationDuration={800} />
                           </BarChart>
                         </ResponsiveContainer>
                       )}
