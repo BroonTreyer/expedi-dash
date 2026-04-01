@@ -39,6 +39,7 @@ function AppRoutes() {
     <AuthProvider value={auth}>
       <Routes>
         <Route path="/auth" element={<Auth />} />
+        <Route path="/portal/:token" element={<PortalMotorista />} />
         <Route path="/" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Index /></ProtectedRoute>} />
         <Route path="/produtos" element={<ProtectedRoute allowedRoles={["admin", "faturamento"]}><Produtos /></ProtectedRoute>} />
         <Route path="/vendedores" element={<ProtectedRoute allowedRoles={["admin", "faturamento"]}><Vendedores /></ProtectedRoute>} />

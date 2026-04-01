@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, History, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AuditTimeline } from "./AuditTimeline";
+import { useCreatePortalToken } from "@/hooks/usePortalToken";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
