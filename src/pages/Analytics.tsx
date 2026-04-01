@@ -767,7 +767,7 @@ export default function Analytics() {
                             <XAxis type="number" tick={AXIS_STYLE} />
                             <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
                             <Tooltip content={<RichTooltip suffix="" formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
-                            <Bar dataKey="rupturas" name="Rupturas" fill={BRAND_RED} radius={[0, 5, 5, 0]} animationDuration={800} />
+                            <Bar dataKey="rupturas" name="Rupturas" fill="#EF5350" radius={[0, 5, 5, 0]} animationDuration={800} />
                           </BarChart>
                         </ResponsiveContainer>
                       )}
