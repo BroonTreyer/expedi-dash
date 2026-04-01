@@ -280,10 +280,11 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                               <PlacaInput
                                 value={values.placa || ""}
                                 onChange={(v) => set("placa", v)}
-                                onAutofill={(d) => {
+                              onAutofill={(d) => {
                                   if (d.motorista) set("motorista", d.motorista);
                                   if (d.empresa) set("empresa", d.empresa);
                                   if (d.destino_setor) set("destino_setor", d.destino_setor);
+                                  if (d.tipo_caminhao) set("tipo_caminhao", d.tipo_caminhao);
                                 }}
                                 disabled={saving || !!prefill}
                               />
