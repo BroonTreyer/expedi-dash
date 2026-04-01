@@ -202,6 +202,16 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
+            <AuditTimeline
+              entityType="carregamento"
+              entityId={c.id}
+              title={`Histórico - Pedido ${c.numero_pedido ?? ""}`}
+              trigger={
+                <Button variant="ghost" size="icon" className="h-7 w-7" title="Histórico">
+                  <History className="h-3.5 w-3.5" />
+                </Button>
+              }
+            />
           </div>
         )}
       </div>
