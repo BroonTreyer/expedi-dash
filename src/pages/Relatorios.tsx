@@ -71,6 +71,7 @@ const reports: ReportCard[] = [
 ];
 
 export default function Relatorios() {
+  const presets = useMemo(() => getPresets(), []);
   const [dataInicio, setDataInicio] = useState(presets[0].start);
   const [dataFim, setDataFim] = useState(presets[0].end);
   const [loading, setLoading] = useState<string | null>(null);
