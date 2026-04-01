@@ -620,17 +620,11 @@ export default function Analytics() {
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={a?.vendedorRanking?.slice(0, 10) ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                          <defs>
-                            <linearGradient id="gradBar" x1="0" y1="0" x2="1" y2="0">
-                              <stop offset="0%" stopColor={BRAND_RED_LIGHT} stopOpacity={0.5} />
-                              <stop offset="100%" stopColor={BRAND_RED} stopOpacity={0.9} />
-                            </linearGradient>
-                          </defs>
                           <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                           <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
                           <YAxis type="category" dataKey="nome" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={100} />
                           <Tooltip content={<RichTooltip formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
-                          <Bar dataKey="peso" name="Peso" fill="url(#gradBar)" radius={[0, 5, 5, 0]} animationDuration={800} />
+                          <Bar dataKey="peso" name="Peso" fill={NAVY} radius={[0, 5, 5, 0]} animationDuration={800} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
