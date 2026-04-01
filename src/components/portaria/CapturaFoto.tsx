@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { Camera, RotateCcw, Check, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PhotoViewerDialog } from "./PhotoViewerDialog";
 
 interface Props {
   label: string;
@@ -15,11 +16,11 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
   const inputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const preview = previewUrl || localPreview;
   const showAsPdf = isPdf || (previewUrl && (previewUrl.includes('.pdf') || previewUrl.includes('application/pdf')));
 
-  // Cleanup ObjectURL on unmount or when localPreview changes
   useEffect(() => {
     return () => {
       if (localPreview) URL.revokeObjectURL(localPreview);
@@ -57,12 +58,21 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
       {preview ? (
         <div className="relative rounded-lg overflow-hidden border border-border">
           {showAsPdf ? (
-            <div className="w-full h-48 flex flex-col items-center justify-center gap-2 bg-muted/30">
+            <div
+              className="w-full h-48 flex flex-col items-center justify-center gap-2 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setViewerOpen(true)}
+            >
               <FileText className="h-12 w-12 text-muted-foreground" />
               <span className="text-xs text-muted-foreground font-medium">Documento PDF</span>
+              <span className="text-[10px] text-primary">Clique para visualizar</span>
             </div>
           ) : (
-            <img src={preview} alt={label} className="w-full h-48 object-cover" />
+            <img
+              src={preview}
+              alt={label}
+              className="w-full h-48 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => setViewerOpen(true)}
+            />
           )}
           <div className="absolute bottom-2 right-2 flex gap-1">
             <Button size="sm" variant="secondary" onClick={handleRetake} disabled={disabled}>
@@ -90,6 +100,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
           <span className="text-sm text-muted-foreground">Toque para fotografar</span>
         </button>
       )}
+      <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={preview} alt={label} />
     </div>
   );
 }
