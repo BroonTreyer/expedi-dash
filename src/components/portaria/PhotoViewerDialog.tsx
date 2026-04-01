@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { X, ExternalLink, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,19 +17,22 @@ function isPdfUrl(url: string) {
 
 export function PhotoViewerDialog({ open, onOpenChange, url, alt }: Props) {
   const isPdf = url ? isPdfUrl(url) : false;
+  const [imgError, setImgError] = useState(false);
+
+  const showIframe = isPdf || imgError;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) setImgError(false); onOpenChange(v); }}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 sm:p-4">
         <DialogTitle className="sr-only">{alt || "Foto"}</DialogTitle>
         <div className="flex flex-col items-center justify-center w-full h-full gap-2">
           {url ? (
-            isPdf ? (
+            showIframe ? (
               <div className="w-full flex flex-col items-center gap-3">
                 <iframe
                   src={url}
                   className="w-full h-[75vh] rounded-md border border-border"
-                  title={alt || "Documento PDF"}
+                  title={alt || "Documento"}
                 />
                 <a href={url} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs">
@@ -42,6 +46,7 @@ export function PhotoViewerDialog({ open, onOpenChange, url, alt }: Props) {
                   src={url}
                   alt={alt || "Foto"}
                   className="max-w-full max-h-[80vh] object-contain rounded-md"
+                  onError={() => setImgError(true)}
                 />
                 <a href={url} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs">
