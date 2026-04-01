@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { forwardRef } from "react";
-import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, CalendarClock, FileBarChart } from "lucide-react";
+import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo.png";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,7 +12,7 @@ const allNavItems = [
   { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
   { to: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/agendamentos", label: "Agendamento", icon: CalendarClock, roles: ["admin", "logistica"] },
+  
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "logistica", "faturamento"] },
   { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "faturamento"] },
   { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "faturamento"] },
