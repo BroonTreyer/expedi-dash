@@ -25,11 +25,22 @@ function CaminhaoFormDialog({
   onOpenChange: (o: boolean) => void;
   caminhao?: Caminhao | null;
 }) {
-  const [placa, setPlaca] = useState(caminhao?.placa ?? "");
-  const [renavam, setRenavam] = useState(caminhao?.renavam ?? "");
-  const [tipoCaminhao, setTipoCaminhao] = useState(caminhao?.tipo_caminhao ?? "");
-  const [motoristaNome, setMotoristaNome] = useState(caminhao?.motorista?.nome_completo ?? "");
-  const [motoristaId, setMotoristaId] = useState<string | null>(caminhao?.motorista_id ?? null);
+  const [placa, setPlaca] = useState("");
+  const [renavam, setRenavam] = useState("");
+  const [tipoCaminhao, setTipoCaminhao] = useState("");
+  const [motoristaNome, setMotoristaNome] = useState("");
+  const [motoristaId, setMotoristaId] = useState<string | null>(null);
+
+  // Reset fields when dialog opens
+  useEffect(() => {
+    if (open) {
+      setPlaca(caminhao?.placa ?? "");
+      setRenavam(caminhao?.renavam ?? "");
+      setTipoCaminhao(caminhao?.tipo_caminhao ?? "");
+      setMotoristaNome(caminhao?.motorista?.nome_completo ?? "");
+      setMotoristaId(caminhao?.motorista_id ?? null);
+    }
+  }, [open, caminhao]);
 
   const { data: tipos = [] } = useTiposCaminhao();
   const createMut = useCreateCaminhao();
