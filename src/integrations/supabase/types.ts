@@ -14,57 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      agendamentos: {
-        Row: {
-          carga_id: string | null
-          created_at: string
-          criado_por: string | null
-          data: string
-          doca: string
-          horario_fim: string
-          horario_inicio: string
-          id: string
-          motorista: string | null
-          nome_carga: string | null
-          observacoes: string | null
-          placa: string | null
-          status: string
-          transportadora: string | null
-        }
-        Insert: {
-          carga_id?: string | null
-          created_at?: string
-          criado_por?: string | null
-          data?: string
-          doca: string
-          horario_fim: string
-          horario_inicio: string
-          id?: string
-          motorista?: string | null
-          nome_carga?: string | null
-          observacoes?: string | null
-          placa?: string | null
-          status?: string
-          transportadora?: string | null
-        }
-        Update: {
-          carga_id?: string | null
-          created_at?: string
-          criado_por?: string | null
-          data?: string
-          doca?: string
-          horario_fim?: string
-          horario_inicio?: string
-          id?: string
-          motorista?: string | null
-          nome_carga?: string | null
-          observacoes?: string | null
-          placa?: string | null
-          status?: string
-          transportadora?: string | null
-        }
-        Relationships: []
-      }
       audit_log: {
         Row: {
           action: string
