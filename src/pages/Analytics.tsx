@@ -34,23 +34,24 @@ const PERIOD_OPTIONS = [
   { value: "90d", label: "Últimos 90 dias" },
 ];
 
-// ── Monochromatic palette based on Fricó red ──
-const BRAND_RED = "hsl(358, 76%, 48%)";
-const BRAND_RED_LIGHT = "hsl(358, 60%, 65%)";
-const SLATE_500 = "hsl(215, 16%, 47%)";
-const SLATE_400 = "hsl(215, 16%, 57%)";
-const EMERALD = "hsl(152, 55%, 41%)";
-const AMBER = "hsl(38, 92%, 50%)";
+// ── Clean solid palette ──
+const BRAND_RED = "#D42027";
+const NAVY = "#1E40AF";
+const EMERALD = "#059669";
+const AMBER_SOLID = "#D97706";
+const SLATE_SOLID = "#64748B";
+const VIOLET = "#7C3AED";
+const CYAN_SOLID = "#0891B2";
 
-const CHART_MONO = [
-  "hsl(358, 76%, 48%)",
-  "hsl(358, 60%, 58%)",
-  "hsl(358, 45%, 68%)",
-  "hsl(358, 30%, 78%)",
-  "hsl(215, 16%, 47%)",
-  "hsl(215, 16%, 62%)",
-  "hsl(215, 16%, 77%)",
-  "hsl(0, 0%, 65%)",
+const CHART_COLORS = [
+  "#1E40AF",  // Navy
+  "#059669",  // Emerald
+  "#D97706",  // Amber
+  "#64748B",  // Slate
+  "#7C3AED",  // Violet
+  "#0891B2",  // Cyan
+  "#D42027",  // Red
+  "#0369A1",  // Sky
 ];
 
 const STATUS_ICONS: Record<string, any> = {
