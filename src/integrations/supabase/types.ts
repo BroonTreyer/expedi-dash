@@ -506,6 +506,45 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_tokens: {
+        Row: {
+          carga_id: string
+          created_at: string
+          criado_por: string | null
+          expires_at: string
+          id: string
+          motorista: string | null
+          nome_carga: string | null
+          placa: string | null
+          token: string
+          transportadora: string | null
+        }
+        Insert: {
+          carga_id: string
+          created_at?: string
+          criado_por?: string | null
+          expires_at?: string
+          id?: string
+          motorista?: string | null
+          nome_carga?: string | null
+          placa?: string | null
+          token: string
+          transportadora?: string | null
+        }
+        Update: {
+          carga_id?: string
+          created_at?: string
+          criado_por?: string | null
+          expires_at?: string
+          id?: string
+          motorista?: string | null
+          nome_carga?: string | null
+          placa?: string | null
+          token?: string
+          transportadora?: string | null
+        }
+        Relationships: []
+      }
       produtos: {
         Row: {
           ativo: boolean

@@ -8,9 +8,10 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, History } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, History, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AuditTimeline } from "./AuditTimeline";
+import { useCreatePortalToken } from "@/hooks/usePortalToken";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -106,6 +107,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
   const canDelete = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
+  const portalMut = useCreatePortalToken();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => buildGroups(data), [data]);
@@ -280,6 +282,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
 
 export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, onDelete, onComplete, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
   const isMobile = useIsMobile();
+  const portalMut = useCreatePortalToken();
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const isFaturamento = userRole === "faturamento";
@@ -511,6 +514,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               <Printer className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          {(isAdmin || isLogistica) && c.carga_id && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Gerar Link Portal" disabled={portalMut.isPending} onClick={() => portalMut.mutate({ carga_id: c.carga_id!, nome_carga: c.nome_carga || undefined, placa: c.placa || undefined, motorista: c.motorista || undefined, transportadora: c.transportadora || undefined })}>
+                              <Link2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {(isAdmin || isLogistica) && c.carga_id && onUndoCarga && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Desfazer Carga" onClick={() => onUndoCarga(c.carga_id!)}>
                               <Undo2 className="h-3.5 w-3.5" />
@@ -643,6 +651,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                           {(isAdmin || isLogistica) && first.carga_id && onPrintCarga && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Imprimir Romaneio" onClick={() => onPrintCarga(first.carga_id!)}>
                               <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {(isAdmin || isLogistica) && first.carga_id && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Gerar Link Portal" disabled={portalMut.isPending} onClick={() => portalMut.mutate({ carga_id: first.carga_id!, nome_carga: first.nome_carga || undefined, placa: first.placa || undefined, motorista: first.motorista || undefined, transportadora: first.transportadora || undefined })}>
+                              <Link2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {(isAdmin || isLogistica) && first.carga_id && onUndoCarga && (
