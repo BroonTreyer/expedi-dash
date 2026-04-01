@@ -24,6 +24,8 @@ export function PlacaInput({ value, onChange, onAutofill, disabled }: Props) {
   const { data: caminhoes = [] } = useCaminhoes(value.length >= 3 ? value : "");
   const lastAutofillRef = useRef<string>("");
   const lastCaminhaoRef = useRef<string>("");
+  const onAutofillRef = useRef(onAutofill);
+  onAutofillRef.current = onAutofill;
   const isValid = PLACA_REGEX.test(value);
   const showValidation = value.length >= 4;
 
