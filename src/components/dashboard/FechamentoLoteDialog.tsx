@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Truck, MapPin, Package, Link2 } from "lucide-react";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
+import { CaminhaoAutocomplete } from "@/components/portaria/CaminhaoAutocomplete";
 import { cn } from "@/lib/utils";
 import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
@@ -277,8 +278,16 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Placa *</Label>
-              <Input value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} placeholder="ABC1D23" />
+              <Label className="text-xs">Placa * (busca caminhão cadastrado)</Label>
+              <CaminhaoAutocomplete
+                value={placa}
+                onChange={setPlaca}
+                onSelect={(c) => {
+                  setPlaca(c.placa);
+                  if (c.tipo_caminhao) setTipoCaminhao(c.tipo_caminhao);
+                  if (c.motorista) setMotorista(c.motorista);
+                }}
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Motorista *</Label>

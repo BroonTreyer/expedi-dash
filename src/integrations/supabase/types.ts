@@ -47,6 +47,44 @@ export type Database = {
         }
         Relationships: []
       }
+      caminhoes: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          motorista_id: string | null
+          placa: string
+          renavam: string | null
+          tipo_caminhao: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          motorista_id?: string | null
+          placa: string
+          renavam?: string | null
+          tipo_caminhao?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          motorista_id?: string | null
+          placa?: string
+          renavam?: string | null
+          tipo_caminhao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caminhoes_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "motoristas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carregamentos_dia: {
         Row: {
           carga_id: string | null

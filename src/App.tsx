@@ -15,6 +15,7 @@ import Clientes from "./pages/Clientes";
 import Consolidado from "./pages/Consolidado";
 import Portaria from "./pages/Portaria";
 import Motoristas from "./pages/Motoristas";
+import Caminhoes from "./pages/Caminhoes";
 import Analytics from "./pages/Analytics";
 
 import Relatorios from "./pages/Relatorios";
@@ -50,6 +51,7 @@ function AppRoutes() {
         <Route path="/consolidado" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Consolidado /></ProtectedRoute>} />
         <Route path="/portaria" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Portaria /></ProtectedRoute>} />
         <Route path="/motoristas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Motoristas /></ProtectedRoute>} />
+        <Route path="/caminhoes" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><Caminhoes /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Analytics /></ProtectedRoute>} />
         
         <Route path="/relatorios" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Relatorios /></ProtectedRoute>} />
