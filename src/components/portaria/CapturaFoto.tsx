@@ -56,7 +56,14 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
       />
       {preview ? (
         <div className="relative rounded-lg overflow-hidden border border-border">
-          <img src={preview} alt={label} className="w-full h-48 object-cover" />
+          {showAsPdf ? (
+            <div className="w-full h-48 flex flex-col items-center justify-center gap-2 bg-muted/30">
+              <FileText className="h-12 w-12 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">Documento PDF</span>
+            </div>
+          ) : (
+            <img src={preview} alt={label} className="w-full h-48 object-cover" />
+          )}
           <div className="absolute bottom-2 right-2 flex gap-1">
             <Button size="sm" variant="secondary" onClick={handleRetake} disabled={disabled}>
               <RotateCcw className="h-3 w-3 mr-1" /> Refazer
