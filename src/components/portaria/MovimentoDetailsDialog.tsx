@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, differenceInMinutes, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle } from "lucide-react";
+import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle, FileText } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { CATEGORIAS, SETORES, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,15 +33,26 @@ function DetailRow({ label, value }: { label: string; value: string | number | n
 
 function ClickablePhoto({ url, alt, label }: { url: string; alt: string; label: string }) {
   const [viewerOpen, setViewerOpen] = useState(false);
+  const isPdf = url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('application/pdf');
   return (
     <div>
       <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-      <img
-        src={url}
-        alt={alt}
-        className="rounded-md w-full h-32 object-cover cursor-pointer hover:opacity-80 transition-opacity ring-1 ring-border"
-        onClick={() => setViewerOpen(true)}
-      />
+      {isPdf ? (
+        <div
+          className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1.5 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors ring-1 ring-border"
+          onClick={() => setViewerOpen(true)}
+        >
+          <FileText className="h-8 w-8 text-muted-foreground" />
+          <span className="text-[10px] text-primary">Clique para visualizar</span>
+        </div>
+      ) : (
+        <img
+          src={url}
+          alt={alt}
+          className="rounded-md w-full h-32 object-cover cursor-pointer hover:opacity-80 transition-opacity ring-1 ring-border"
+          onClick={() => setViewerOpen(true)}
+        />
+      )}
       <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={url} alt={label} />
     </div>
   );
