@@ -327,7 +327,6 @@ function VendorRanking({ data, maxPeso }: { data: { nome: string; peso: number; 
                   backgroundColor: NAVY,
                 }}
               />
-              />
             </div>
           </div>
         );
