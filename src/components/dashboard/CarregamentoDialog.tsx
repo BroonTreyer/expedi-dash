@@ -60,9 +60,12 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
 };
 
 export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura }: Props) {
+  const session = useSession();
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
   const [codigoClienteInput, setCodigoClienteInput] = useState("");
+  const [debouncedClienteCode, setDebouncedClienteCode] = useState("");
+  const clienteDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
 
   useEffect(() => {
