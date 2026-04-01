@@ -27,6 +27,28 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
     };
   }, [localPreview]);
 
+  useEffect(() => {
+    if (disabled) return;
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) continue;
+          if (localPreview) URL.revokeObjectURL(localPreview);
+          setIsPdf(false);
+          setLocalPreview(URL.createObjectURL(file));
+          onCapture(file);
+          break;
+        }
+      }
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [disabled, onCapture, localPreview]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -97,7 +119,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
           )}
         >
           <Camera className="h-8 w-8 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Toque para fotografar</span>
+          <span className="text-sm text-muted-foreground">Toque para fotografar ou cole (Ctrl+V)</span>
         </button>
       )}
       <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={preview} alt={label} />
