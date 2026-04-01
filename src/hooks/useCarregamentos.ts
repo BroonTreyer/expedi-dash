@@ -169,6 +169,70 @@ export function useCreateCarregamento() {
   });
 }
 
+/** Batch insert — creates multiple carregamentos in a single request */
+export function useBatchCreateCarregamento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (rows: Record<string, any>[]) => {
+      if (rows.length === 0) return [];
+      const { data, error } = await supabase.from("carregamentos_dia").insert(rows).select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success(`${data?.length ?? 0} pedido(s) criado(s)`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+/** Batch update — updates multiple carregamentos in a single request */
+export function useBatchUpdateCarregamento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (updates: { id: string;[key: string]: any }[]) => {
+      if (updates.length === 0) return [];
+      // Use Promise.all but with a single connection context
+      const results = await Promise.all(
+        updates.map(({ id, ...values }) =>
+          supabase.from("carregamentos_dia").update(values).eq("id", id).select().single()
+        )
+      );
+      const firstError = results.find(r => r.error);
+      if (firstError?.error) throw firstError.error;
+      return results.map(r => r.data);
+    },
+    onMutate: async (updates) => {
+      await qc.cancelQueries({ queryKey: ["carregamentos"] });
+      const previousQueries = qc.getQueriesData<Carregamento[]>({ queryKey: ["carregamentos"] });
+      qc.setQueriesData<Carregamento[]>(
+        { queryKey: ["carregamentos"] },
+        (old) => {
+          if (!old) return old;
+          const updateMap = new Map(updates.map(u => [u.id, u]));
+          return old.map((item) => {
+            const upd = updateMap.get(item.id);
+            return upd ? { ...item, ...upd } : item;
+          });
+        }
+      );
+      return { previousQueries };
+    },
+    onError: (e: any, _vars, context) => {
+      if (context?.previousQueries) {
+        for (const [key, data] of context.previousQueries) {
+          qc.setQueryData(key, data);
+        }
+      }
+      toast.error(e.message);
+    },
+    onSettled: () => {
+      // Let realtime handle ongoing sync
+    },
+  });
+}
+
 export function useUpdateCarregamento() {
   const qc = useQueryClient();
   return useMutation({
