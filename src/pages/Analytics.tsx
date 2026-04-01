@@ -556,7 +556,7 @@ export default function Analytics() {
                             {a!.tipoKeys.map((tipo, i) => (
                               <Bar
                                 key={tipo} dataKey={tipo} stackId="a"
-                                fill={CHART_MONO[i % CHART_MONO.length]}
+                                fill={CHART_COLORS[i % CHART_COLORS.length]}
                                 radius={i === a!.tipoKeys.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
                                 animationDuration={800}
                               />
