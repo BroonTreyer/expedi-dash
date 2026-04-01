@@ -1,27 +1,20 @@
 
 
-# Aceitar PDF no Upload de Documento do Motorista
+# Vincular Caminhão Cadastrado no Fechamento de Carga
 
 ## Problema
-O componente `CapturaFoto` aceita apenas `image/*`. Para documentos de motorista, PDFs também são válidos.
 
-## Mudanças
+O select "Vincular a veículo" no FechamentoLoteDialog mostra veículos esperados e veículos no pátio. O usuário quer que mostre os **caminhões cadastrados** (tabela `caminhoes`), pois os veículos esperados já estão associados a cargas fechadas.
 
-### 1. `src/components/portaria/CapturaFoto.tsx`
-- Adicionar prop opcional `accept` com default `"image/*"`
-- Quando o arquivo for PDF, mostrar um preview genérico (ícone de PDF) em vez de `<img>`
-- Ajustar a lógica de preview para detectar tipo de arquivo
+## Mudança
 
-### 2. `src/pages/Motoristas.tsx`
-- Passar `accept="image/*,.pdf,application/pdf"` no `CapturaFoto` do documento do motorista
+### `src/components/dashboard/FechamentoLoteDialog.tsx`
 
-### 3. `src/hooks/useMotoristas.ts`
-- Nenhuma mudança necessária — o upload para storage já aceita qualquer tipo de arquivo
+1. **Remover** imports e uso de `useVeiculosEsperados` e `useMovimentacoes`
+2. **Remover** toda a lógica de `veiculosPatio` e `veiculosEsperados`
+3. **Importar** `useCaminhoes` e usar os caminhões cadastrados como opções do select
+4. **Atualizar** o select para listar caminhões cadastrados com formato: `Placa - Motorista (Tipo)`
+5. Ao selecionar, preencher placa, motorista, tipo_caminhao e demais campos vindos do cadastro
 
-## Detalhes Tecnicos
-
-| Arquivo | Mudança |
-|---|---|
-| `src/components/portaria/CapturaFoto.tsx` | Nova prop `accept?: string`, detectar PDF no preview e mostrar ícone em vez de imagem |
-| `src/pages/Motoristas.tsx` | Passar `accept="image/*,.pdf,application/pdf"` |
+O campo `CaminhaoAutocomplete` de placa já existe abaixo — o select "Vincular" passa a ser um atalho rápido para selecionar um caminhão cadastrado completo (com motorista já vinculado).
 
