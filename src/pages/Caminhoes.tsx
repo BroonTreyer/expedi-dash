@@ -236,6 +236,14 @@ export default function Caminhoes() {
         onOpenChange={setFormOpen}
         caminhao={editing}
       />
+
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onConfirm={() => { if (deleteTarget) { deleteMut.mutate(deleteTarget); setDeleteTarget(null); } }}
+        title="Excluir caminhão"
+        description="Tem certeza que deseja excluir este caminhão? Esta ação não pode ser desfeita."
+      />
     </Layout>
   );
 }
