@@ -288,6 +288,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
     const totalPeso = filtered.reduce((s, r) => s + (r.peso ?? 0), 0);
     const totalPedidos = filtered.length;
     const totalRupturas = filtered.filter((r) => r.ruptura).length;
+    const totalSinalizadas = filtered.filter((r) => r.ruptura_sinalizada).length;
     const totalCarregado = filtered.filter((r) => r.status === "Carregado").reduce((s, r) => s + (r.peso ?? 0), 0);
     const diasUnicos = new Set(filtered.map((r) => r.data)).size;
     const mediaDiaria = diasUnicos > 0 ? Math.round(totalPeso / diasUnicos) : 0;
