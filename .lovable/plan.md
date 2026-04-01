@@ -1,26 +1,44 @@
 
 
-# Corrigir Preview de Documentos (PDF e Fotos)
+# Suporte a Ctrl+V (colar imagem) no CapturaFoto
 
-## Problema Raiz
+## Mudança
 
-O upload de documentos em `useMotoristas.ts` salva o arquivo sem extensão (`motoristas/${id}/documento`). A URL assinada resultante não contém `.pdf`, então `isPdfUrl()` nunca detecta como PDF. O `<img>` tenta renderizar um PDF e quebra, mostrando o ícone de imagem quebrada da screenshot.
+Adicionar um listener de `paste` no componente `CapturaFoto` que captura imagens coladas da área de transferência (print screen) e as trata como upload.
 
-## Solução
+## Implementação
 
-### 1. `src/hooks/useMotoristas.ts` — Preservar extensão no upload
-- Mudar o path de `motoristas/${id}/documento` para `motoristas/${id}/documento.${ext}` (extraindo a extensão do arquivo original)
-- Isso garante que novos uploads tenham a extensão correta na URL
+### `src/components/portaria/CapturaFoto.tsx`
 
-### 2. `src/components/portaria/PhotoViewerDialog.tsx` — Fallback inteligente para imagens quebradas
-- Adicionar `onError` no `<img>` que detecta falha de carregamento e mostra automaticamente um fallback com iframe (tentativa de PDF) + botão "Abrir em nova aba"
-- Isso resolve tanto URLs antigas (sem extensão) quanto novos PDFs
+1. Adicionar um `ref` no container div e um `onPaste` handler
+2. No handler, extrair o primeiro item de `clipboardData` que seja imagem, converter para `File`, e chamar `onCapture`
+3. Tornar a área de drop/paste focável (`tabIndex={0}`) para receber eventos de teclado
+4. Atualizar o texto de instrução para incluir "ou cole (Ctrl+V)"
+5. Também adicionar um listener global `paste` no `useEffect` para funcionar mesmo sem foco direto no componente (mais prático para o usuário)
 
-### 3. `src/hooks/useRegistrosPortaria.ts` e `src/hooks/useMovimentacoesPortaria.ts` — Verificar uploads similares
-- Esses já preservam a extensão (`${tipo}_${Date.now()}.${ext}`), então estão OK
+```typescript
+// No useEffect:
+const handlePaste = (e: ClipboardEvent) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (!file) continue;
+      if (localPreview) URL.revokeObjectURL(localPreview);
+      setIsPdf(false);
+      setLocalPreview(URL.createObjectURL(file));
+      onCapture(file);
+      break;
+    }
+  }
+};
+document.addEventListener("paste", handlePaste);
+return () => document.removeEventListener("paste", handlePaste);
+```
 
 | Arquivo | Mudança |
 |---|---|
-| `useMotoristas.ts` | Adicionar extensão ao path de upload (create e update) |
-| `PhotoViewerDialog.tsx` | Adicionar estado `imgError` + fallback automático quando `<img>` falha |
+| `CapturaFoto.tsx` | Adicionar listener de paste global + texto "ou cole (Ctrl+V)" |
 
