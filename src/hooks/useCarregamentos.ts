@@ -4,6 +4,9 @@ import { toast } from "sonner";
 import { useEffect, useCallback, useRef } from "react";
 import { useSession } from "@/hooks/useAuth";
 
+// Debounce timer for realtime INSERT invalidation
+let insertDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 export type Carregamento = {
   id: string;
   data: string;
