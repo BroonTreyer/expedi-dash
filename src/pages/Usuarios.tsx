@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UserRow {
   id: string;
@@ -170,6 +171,12 @@ export default function Usuarios() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
+        <Alert variant="default" className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
+            Cada pessoa deve ter seu próprio login. Compartilhar credenciais entre dispositivos causa conflitos de sessão e erros no sistema.
+          </AlertDescription>
+        </Alert>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Gerenciar Usuários</h1>

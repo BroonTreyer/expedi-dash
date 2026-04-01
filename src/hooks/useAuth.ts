@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 export type AppRole = "admin" | "logistica" | "faturamento" | "portaria";
 
@@ -19,25 +20,32 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 export const AuthProvider = AuthContext.Provider;
 
 const ROLE_TIMEOUT_MS = 5000;
-const SESSION_TIMEOUT_MS = 6000;
+const SESSION_TIMEOUT_MS = 8000;
 
-async function fetchRoleWithTimeout(userId: string): Promise<AppRole | null> {
-  try {
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("timeout")), ROLE_TIMEOUT_MS)
-    );
-    const query = supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .maybeSingle();
+async function fetchRoleWithRetry(userId: string): Promise<AppRole | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), ROLE_TIMEOUT_MS)
+      );
+      const query = supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-    const { data } = await Promise.race([query, timeout]);
-    return (data?.role as AppRole) ?? null;
-  } catch {
-    console.warn("[Auth] Role fetch failed/timed out");
-    return null;
+      const { data } = await Promise.race([query, timeout]);
+      return (data?.role as AppRole) ?? null;
+    } catch {
+      if (attempt === 0) {
+        console.warn("[Auth] Role fetch failed, retrying in 1s...");
+        await new Promise((r) => setTimeout(r, 1000));
+      } else {
+        console.warn("[Auth] Role fetch failed after retry");
+      }
+    }
   }
+  return null;
 }
 
 export function useAuthState(): AuthState {
@@ -46,11 +54,11 @@ export function useAuthState(): AuthState {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const bootstrapped = useRef(false);
+  const intentionalSignOut = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    // 1) Safety net: if nothing resolves in SESSION_TIMEOUT_MS, force loading off
     const safetyTimer = setTimeout(() => {
       if (!cancelled && loading) {
         console.warn("[Auth] Safety timeout reached, forcing loading=false");
@@ -58,20 +66,37 @@ export function useAuthState(): AuthState {
       }
     }, SESSION_TIMEOUT_MS);
 
-    // 2) Auth state change listener — 100% synchronous, no await inside
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
         if (cancelled) return;
+
+        // Handle unexpected sign out (session conflict from another device)
+        if (event === "SIGNED_OUT" && !intentionalSignOut.current) {
+          setSession(null);
+          setUser(null);
+          setRole(null);
+          setLoading(false);
+          toast.error("Sua sessão expirou. Faça login novamente.");
+          return;
+        }
+
+        if (event === "SIGNED_OUT") {
+          setSession(null);
+          setUser(null);
+          setRole(null);
+          setLoading(false);
+          intentionalSignOut.current = false;
+          return;
+        }
 
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
         if (newSession?.user) {
-          // Fire-and-forget role resolution (outside callback via setTimeout)
           const uid = newSession.user.id;
           setTimeout(() => {
             if (cancelled) return;
-            fetchRoleWithTimeout(uid).then((r) => {
+            fetchRoleWithRetry(uid).then((r) => {
               if (!cancelled) {
                 setRole(r);
                 setLoading(false);
@@ -85,13 +110,11 @@ export function useAuthState(): AuthState {
       }
     );
 
-    // 3) Bootstrap: get existing session
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
       if (cancelled || bootstrapped.current) return;
       bootstrapped.current = true;
 
       if (!existingSession) {
-        // No session — stop loading immediately
         setSession(null);
         setUser(null);
         setRole(null);
@@ -99,11 +122,10 @@ export function useAuthState(): AuthState {
         return;
       }
 
-      // Session exists — sync state and resolve role
       setSession(existingSession);
       setUser(existingSession.user);
 
-      fetchRoleWithTimeout(existingSession.user.id).then((r) => {
+      fetchRoleWithRetry(existingSession.user.id).then((r) => {
         if (!cancelled) {
           setRole(r);
           setLoading(false);
@@ -138,6 +160,7 @@ export function useAuthState(): AuthState {
   }, []);
 
   const signOut = useCallback(async () => {
+    intentionalSignOut.current = true;
     await supabase.auth.signOut();
   }, []);
 
