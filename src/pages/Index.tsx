@@ -186,9 +186,14 @@ export default function Index() {
     if (values.id) {
       updateMut.mutate(values);
     } else {
-      createMut.mutate(values);
+      // Check if it's an array of items (batch)
+      if (Array.isArray(values._batch)) {
+        batchCreateMut.mutate(values._batch);
+      } else {
+        createMut.mutate(values);
+      }
     }
-  }, [updateMut, createMut]);
+  }, [updateMut, createMut, batchCreateMut]);
 
   const handleEdit = useCallback((c: Carregamento) => {
     if (!canEdit) return;
