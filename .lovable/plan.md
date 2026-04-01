@@ -1,42 +1,53 @@
 
 
-# Suporte a Login Simultâneo (Mesma Conta em Vários Dispositivos)
+# Corrigir Travamento com Login Simultâneo
 
-## Problema
+## Problema Raiz
 
-Quando duas ou mais pessoas usam o **mesmo email/senha** em computadores diferentes, o sistema trava, não carrega e dá erros. Isso acontece porque o mecanismo de autenticação gera tokens de sessão independentes por dispositivo, e quando um dispositivo renova o token, pode invalidar a sessão do outro — causando um loop de re-autenticação, falha na busca de role, e o safety timeout de 6 segundos disparando.
+Quando duas pessoas usam o mesmo login ao mesmo tempo, o Supabase invalida o token de uma delas. Isso causa:
 
-## Diagnóstico
+1. **Safety timeout dispara** → `role` fica `null` → tela trava no loading ou fica sem permissões
+2. **Queries continuam disparando** com token inválido → retornam erro ou dados vazios → autocomplete não funciona, pedidos não carregam
+3. **Nenhuma recuperação automática** → o usuário precisa dar F5 manualmente
 
-Os console logs confirmam: `[Auth] Safety timeout reached, forcing loading=false` — a role nunca é carregada porque a sessão fica sendo invalidada pela outra aba/computador.
+## Solução (3 frentes)
 
-## Solução (duas frentes)
+### 1. Quando o safety timeout dispara sem role, redirecionar para `/auth`
 
-### 1. Tornar o auth resiliente a conflitos de sessão
+**`src/hooks/useAuth.ts`**: Quando o safety timeout força `loading=false` e não há `role` mas há `user`, fazer sign out automático e mostrar toast "Sessão expirou". Hoje o código apenas seta `loading=false` e deixa o usuário num estado quebrado.
 
-**`src/hooks/useAuth.ts`**:
-- No `onAuthStateChange`, tratar o evento `TOKEN_REFRESHED` e `SIGNED_OUT` de forma mais robusta
-- Quando o token refresh falhar (evento `SIGNED_OUT` inesperado), limpar estado e redirecionar para `/auth` em vez de travar no loading
-- Adicionar retry na busca de role: se falhar, tentar 1x mais após 1s antes de desistir
-- Quando `SIGNED_OUT` for recebido sem o usuário ter clicado "Sair", mostrar toast explicativo: "Sua sessão expirou. Faça login novamente."
+### 2. Proteger TODAS as queries com `enabled` baseado na sessão
 
-### 2. Recomendação: criar contas separadas (abordagem correta)
+Adicionar verificação de sessão ativa antes de disparar queries. Sem isso, queries rodam com token inválido e falham silenciosamente.
 
-A prática correta é cada pessoa ter sua própria conta. O sistema já tem a página de Usuários (`/usuarios`) onde o admin cria contas. Vou adicionar um aviso visual na tela de Usuários lembrando que cada pessoa deve ter seu próprio login.
+**Hooks afetados:**
+- `useCarregamentos` → adicionar `enabled: !!session`
+- `useCaminhoes` → adicionar `enabled: !!session`  
+- `useMotoristas` → adicionar `enabled: !!session`
+- `useClientes` → adicionar `enabled: !!session`
+- `useProdutos` → adicionar `enabled: !!session`
+- `useVendedores` → adicionar `enabled: !!session`
+- `useTiposCaminhao` → adicionar `enabled: !!session`
+
+Para isso, cada hook precisará acessar o estado de auth. A abordagem mais limpa: exportar uma função `useSession()` do `useAuth.ts` que retorna apenas `session`, e usá-la nos hooks.
+
+### 3. Auto-recovery: tentar refresh do token quando query falha com 401/403
+
+**`src/App.tsx`**: Configurar o `QueryClient` com `retry` inteligente que, ao detectar erro de auth (401/403/JWT expired), tenta `supabase.auth.refreshSession()` antes de retentar a query. Se o refresh falhar, faz sign out.
 
 ## Mudanças Técnicas
 
-### `src/hooks/useAuth.ts`
-- Detectar evento `SIGNED_OUT` não solicitado pelo usuário (flag `intentionalSignOut`)
-- Adicionar retry com backoff na `fetchRoleWithTimeout`
-- Tratar `TOKEN_REFRESH_FAILED` / erros de refresh graciosamente
-- Aumentar `SESSION_TIMEOUT_MS` de 6s para 8s para dar mais margem
-
-### `src/pages/Usuarios.tsx`
-- Adicionar alerta informativo no topo: "Cada pessoa deve ter seu próprio login para evitar conflitos de sessão"
-
 | Arquivo | Mudança |
 |---|---|
-| `src/hooks/useAuth.ts` | Retry na role, tratamento de SIGNED_OUT inesperado, flag de logout intencional |
-| `src/pages/Usuarios.tsx` | Alerta informativo sobre contas individuais |
+| `src/hooks/useAuth.ts` | Exportar `useSession()` hook; no safety timeout, fazer signOut se role=null e user existe |
+| `src/App.tsx` | QueryClient `retry` com detecção de erro 401 + auto-refresh |
+| `src/hooks/useCarregamentos.ts` | Adicionar `enabled: !!session` via `useSession()` |
+| `src/hooks/useCaminhoes.ts` | Adicionar `enabled: !!session` |
+| `src/hooks/useMotoristas.ts` | Adicionar `enabled: !!session` |
+| `src/hooks/useClientes.ts` | Adicionar `enabled: !!session` |
+| `src/hooks/useProdutos.ts` | Adicionar `enabled: !!session` |
+| `src/hooks/useVendedores.ts` | Adicionar `enabled: !!session` |
+| `src/hooks/useTiposCaminhao.ts` | Adicionar `enabled: !!session` |
+
+**Resultado**: Em vez de travar, o sistema detecta a sessão inválida, redireciona para login, e o usuário pode entrar novamente sem precisar dar F5. Queries não disparam com token quebrado.
 
