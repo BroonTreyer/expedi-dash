@@ -1,77 +1,48 @@
 
 
-# Analytics v3.0 — Upgrade Completo
+# Melhorar Dinamismo e Legibilidade dos Gráficos
 
-## Visão Geral
+## Mudanças
 
-Transformar a página de Analytics de 4 gráficos simples em um painel gerencial completo com tabs, métricas comparativas, novos gráficos e funcionalidades avançadas.
+### 1. Tooltips ricos e consistentes
+- Substituir o tooltip genérico por tooltips customizados com formatação visual: ícone de cor, valores formatados em negrito, labels claros
+- Adicionar tooltip nos gráficos Pie/Donut com formatação rica
 
-## Novas Funcionalidades
+### 2. Animações nos gráficos
+- Adicionar `animationDuration={800}` e `animationEasing="ease-out"` em todas as `<Area>`, `<Bar>`, `<Line>`, `<Pie>`
+- Adicionar `activeDot` com tamanho maior e borda nos LineCharts para feedback visual ao hover
 
-### 1. Layout com Tabs organizadas
-- **Visão Geral** — KPIs com comparação vs período anterior + sparklines
-- **Expedição** — Peso diário, acumulado, meta visual
-- **Vendedores** — Ranking, comparativo, evolução individual
-- **Rupturas** — Taxa, heatmap semanal, ranking de produtos com mais rupturas
-- **Geografia** — Distribuição UF em treemap + tabela detalhada
+### 3. Melhorar legibilidade dos eixos
+- Formatar eixo Y com unidades claras (ex: "1.2t" em vez de números longos)
+- Rotacionar labels do eixo X em 45° quando houver muitas datas para evitar sobreposição
+- Aumentar padding e espaçamento dos eixos
 
-### 2. KPIs com comparação percentual
-Cada KPI mostra o valor atual e a variação (%) vs período anterior equivalente. Seta verde para crescimento, vermelha para queda. Calculado automaticamente no hook.
+### 4. Interatividade visual
+- Adicionar `cursor` com estilo nos BarCharts (highlight ao hover na barra)
+- Bars com `activeBar` prop para highlight na barra sob o mouse
+- Pie com `activeShape` para expandir o segmento ao hover
 
-### 3. Novos gráficos e métricas
+### 5. Gradientes e cores melhoradas
+- Adicionar gradientes mais visíveis nas áreas
+- Barras horizontais com gradiente da esquerda para direita
+- Donut de status com sombra interna e label centralizado (total no meio)
 
-**Tab Visão Geral:**
-- 6 KPIs com variação % e micro-sparklines
-- Gráfico de peso acumulado (linha crescente)
-- Status breakdown (donut: Aguardando / Carregando / Carregado)
+### 6. Responsividade dos gráficos
+- Usar `tick={{ angle: -45, textAnchor: 'end' }}` quando período > 15 dias
+- Reduzir `fontSize` e `dot` size em telas menores
 
-**Tab Expedição:**
-- Área chart peso diário (já existe, melhorado)
-- Gráfico de barras empilhadas: peso por tipo de caminhão por dia
-- Linha de peso acumulado no período
-- Tabela resumo por dia (peso, pedidos, carregados, rupturas)
-
-**Tab Vendedores:**
-- Bar chart horizontal top 10 (já existe, melhorado com pedidos overlay)
-- Treemap de participação por vendedor
-- Tabela com colunas: vendedor, peso, pedidos, % participação, média por pedido
-
-**Tab Rupturas:**
-- Line chart taxa diária (já existe)
-- Heatmap semanal (dia da semana vs semana) mostrando concentração
-- Ranking de produtos com mais rupturas (bar chart)
-- KPI: dias sem ruptura, pior dia, média semanal
-
-**Tab Geografia:**
-- Treemap por UF (mais visual que pie chart)
-- Tabela detalhada: UF, peso, pedidos, % do total
-- Bar chart horizontal UFs
-
-### 4. Filtros avançados
-- Período customizado com date range picker (além dos presets)
-- Filtro por vendedor (select múltiplo)
-- Filtro por tipo de caminhão
-- Filtro por UF
-
-### 5. Exportar dados
-- Botão para exportar tabela visível como CSV
-
-### 6. Visual premium
-- Cards com gradientes sutis e ícones coloridos
-- Animações de entrada nos gráficos
-- Tooltips ricos em todos os gráficos
-- Esquema de cores consistente e profissional
-- Loading skeletons enquanto carrega
-- Empty states quando não há dados
+### 7. Heatmap melhorado
+- Adicionar tooltip ao hover de cada célula (em vez de apenas `title`)
+- Melhorar escala de cores (verde → amarelo → vermelho)
+- Adicionar legenda de intensidade
 
 ---
 
-## Mudanças Técnicas
+## Detalhes Técnicos
 
 | Arquivo | Mudança |
 |---|---|
-| `src/hooks/useAnalytics.ts` | Adicionar: query de período anterior para comparação %, breakdown por status, por tipo caminhão, por produto (rupturas), peso acumulado, heatmap semanal, filtros de vendedor/tipo/uf |
-| `src/pages/Analytics.tsx` | Reescrever com Tabs, novos gráficos, KPIs comparativos, filtros avançados, export CSV, skeletons, empty states |
+| `src/pages/Analytics.tsx` | Reescrever `ChartTooltip` com layout rico; adicionar animações, `activeDot`, `activeBar`, `activeShape` em Pie; melhorar heatmap com tooltip e escala de cores; labels dinâmicos nos eixos; donut com label central |
 
-Dados extras derivados dos mesmos campos já existentes na tabela `carregamentos_dia` — sem necessidade de migração de banco.
+Nenhuma mudança no hook ou banco — apenas visual/UX.
 
