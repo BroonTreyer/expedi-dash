@@ -75,10 +75,27 @@ export default function Index() {
   const { data: vendedores = [] } = useVendedores();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const { data: produtos = [] } = useProdutos();
-  const { data: clientes = [] } = useClientes();
   const createMut = useCreateCarregamento();
+  const batchCreateMut = useBatchCreateCarregamento();
   const updateMut = useUpdateCarregamento();
+  const batchUpdateMut = useBatchUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
+
+  // Derive unique clients from loaded carregamentos — no heavy fetch needed
+  const clientesFromData = useMemo(() => {
+    const map = new Map<string, { codigo_cliente: string; nome_cliente: string; cidade?: string | null; uf?: string | null }>();
+    for (const c of carregamentos) {
+      if (c.codigo_cliente && !map.has(c.codigo_cliente)) {
+        map.set(c.codigo_cliente, {
+          codigo_cliente: c.codigo_cliente,
+          nome_cliente: c.cliente ?? c.codigo_cliente,
+          cidade: c.cidade,
+          uf: c.uf,
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [carregamentos]);
 
   // Count finalized (hidden) items
   const finalizadosCount = useMemo(() => {
