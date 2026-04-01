@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -70,6 +70,12 @@ const STATUS_BG_MAP: Record<string, string> = {
   "Aguardando": "bg-amber-500/10",
   "Carregando": "bg-blue-500/10",
   "Carregado": "bg-emerald-600/10",
+};
+
+const STATUS_PROGRESS_COLOR: Record<string, string> = {
+  "Aguardando": "bg-amber-500",
+  "Carregando": "bg-blue-500",
+  "Carregado": "bg-emerald-500",
 };
 
 function getDateRange(period: string) {
@@ -289,7 +295,9 @@ function StatusMiniCards({ data }: { data: { status: string; count: number; peso
               <p className="text-xs text-muted-foreground font-medium">{d.status}</p>
               <p className="text-lg font-bold tabular-nums">{d.count}</p>
               <div className="flex items-center gap-2 mt-1">
-                <Progress value={pct} className="h-1.5 flex-1" />
+                <div className="h-1.5 flex-1 rounded-full bg-muted/50 overflow-hidden">
+                  <div className={cn("h-full rounded-full transition-all", STATUS_PROGRESS_COLOR[d.status] || "bg-slate-400")} style={{ width: `${pct}%` }} />
+                </div>
                 <span className="text-[10px] text-muted-foreground tabular-nums">{pct}%</span>
               </div>
             </div>
@@ -368,8 +376,8 @@ function PremiumTableRow({ cells, progressValue, maxProgress }: {
         <TableCell key={i} className={cn(i === 0 ? "font-medium" : "text-right tabular-nums", "py-2.5")}>
           {i === 1 && progressValue ? (
             <div className="flex items-center gap-2 justify-end">
-              <div className="w-16 h-1.5 rounded-full bg-muted/50 overflow-hidden hidden sm:block">
-                <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
+                <div className="w-16 h-1.5 rounded-full bg-muted/50 overflow-hidden hidden sm:block">
+                <div className="h-full rounded-full bg-slate-400/60" style={{ width: `${pct}%` }} />
               </div>
               <span>{typeof cell === "number" ? cell.toLocaleString("pt-BR") : cell}</span>
             </div>
@@ -759,7 +767,7 @@ export default function Analytics() {
                             <XAxis type="number" tick={AXIS_STYLE} />
                             <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
                             <Tooltip content={<RichTooltip suffix="" formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
-                            <Bar dataKey="rupturas" name="Rupturas" fill={BRAND_RED} radius={[0, 5, 5, 0]} animationDuration={800} />
+                            <Bar dataKey="rupturas" name="Rupturas" fill="#EF5350" radius={[0, 5, 5, 0]} animationDuration={800} />
                           </BarChart>
                         </ResponsiveContainer>
                       )}
@@ -815,7 +823,7 @@ export default function Analytics() {
                             <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
                               <div
                                 className="h-full rounded-full transition-all duration-700 ease-out"
-                                style={{ width: `${pct}%`, backgroundColor: BRAND_RED, opacity: Math.max(0.3, 1 - i * 0.08) }}
+                                style={{ width: `${pct}%`, backgroundColor: NAVY, opacity: Math.max(0.3, 1 - i * 0.08) }}
                               />
                             </div>
                           </div>
