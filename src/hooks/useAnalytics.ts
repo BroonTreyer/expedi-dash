@@ -106,7 +106,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
       const [currentRes, prevRes] = await Promise.all([
         supabase
           .from("carregamentos_dia")
-          .select("data, peso, status, vendedor_id, ruptura, uf, tipo_caminhao, nome_produto, vendedores(nome_vendedor)")
+          .select("data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, vendedores(nome_vendedor)")
           .gte("data", filters.dateFrom)
           .lte("data", filters.dateTo)
           .order("data", { ascending: true })
@@ -288,6 +288,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
     const totalPeso = filtered.reduce((s, r) => s + (r.peso ?? 0), 0);
     const totalPedidos = filtered.length;
     const totalRupturas = filtered.filter((r) => r.ruptura).length;
+    const totalSinalizadas = filtered.filter((r) => r.ruptura_sinalizada).length;
     const totalCarregado = filtered.filter((r) => r.status === "Carregado").reduce((s, r) => s + (r.peso ?? 0), 0);
     const diasUnicos = new Set(filtered.map((r) => r.data)).size;
     const mediaDiaria = diasUnicos > 0 ? Math.round(totalPeso / diasUnicos) : 0;
@@ -331,7 +332,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
       produtoRupturas,
       heatmap,
       kpis,
-      rupturaKpis: { diasSemRuptura, piorDia, mediaSemanal },
+      rupturaKpis: { diasSemRuptura, piorDia, mediaSemanal, totalSinalizadas },
       filterOptions: { uniqueVendedores, uniqueTipos, uniqueUfs },
     };
   }, [query.data, filters.vendedores, filters.tipoCaminhao, filters.ufs]);

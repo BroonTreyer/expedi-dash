@@ -109,6 +109,7 @@ export type Database = {
           placa: string | null
           quantidade: number | null
           ruptura: boolean
+          ruptura_sinalizada: boolean
           status: string
           tipo_caminhao: string | null
           tipo_frete: string | null
@@ -140,6 +141,7 @@ export type Database = {
           placa?: string | null
           quantidade?: number | null
           ruptura?: boolean
+          ruptura_sinalizada?: boolean
           status?: string
           tipo_caminhao?: string | null
           tipo_frete?: string | null
@@ -171,6 +173,7 @@ export type Database = {
           placa?: string | null
           quantidade?: number | null
           ruptura?: boolean
+          ruptura_sinalizada?: boolean
           status?: string
           tipo_caminhao?: string | null
           tipo_frete?: string | null
