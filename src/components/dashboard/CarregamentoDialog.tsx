@@ -191,15 +191,19 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         });
       });
     } else {
-      for (const item of items) {
-        onSubmit({
-          ...basePayload,
-          codigo_produto: item.codigo_produto,
-          nome_produto: item.nome_produto,
-          quantidade: item.quantidade,
-          peso: item.peso,
-          ruptura: item.ruptura,
-        });
+      // Batch create: send all items in a single request
+      const batchRows = items.map(item => ({
+        ...basePayload,
+        codigo_produto: item.codigo_produto,
+        nome_produto: item.nome_produto,
+        quantidade: item.quantidade,
+        peso: item.peso,
+        ruptura: item.ruptura,
+      }));
+      if (batchRows.length === 1) {
+        onSubmit(batchRows[0]);
+      } else {
+        onSubmit({ _batch: batchRows });
       }
     }
     // Close after a brief delay to allow mutations to fire
