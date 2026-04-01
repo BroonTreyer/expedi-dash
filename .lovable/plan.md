@@ -1,53 +1,54 @@
 
+# Escalar o sistema para 25+ usuários simultâneos sem travar
 
-# Corrigir Travamento com Login Simultâneo
+## Diagnóstico (o que está acontecendo)
+Pelo código e pelos dados atuais, o problema deixou de ser só login compartilhado e virou **sobrecarga de leitura/escrita no Painel**:
+1. O Painel carrega tabelas grandes em massa (ex.: `clientes` com ~4.776 registros) ao entrar na tela.
+2. Criar pedido/fechar carga dispara múltiplas operações individuais (N inserts/updates), gerando tempestade de realtime + refetch.
+3. Algumas hooks ainda consultam backend sem proteção de sessão consistente.
+4. Resultado prático: UI fica congestionada, autocomplete “para”, e usuários percebem travamento.
 
-## Problema Raiz
+## Plano de implementação
 
-Quando duas pessoas usam o mesmo login ao mesmo tempo, o Supabase invalida o token de uma delas. Isso causa:
+1. **Blindar auth para concorrência real**
+   - Ajustar `useAuth.ts` para evitar corrida de timeout/refresh em sessão ativa.
+   - Garantir que callbacks antigos não derrubem sessão nova.
 
-1. **Safety timeout dispara** → `role` fica `null` → tela trava no loading ou fica sem permissões
-2. **Queries continuam disparando** com token inválido → retornam erro ou dados vazios → autocomplete não funciona, pedidos não carregam
-3. **Nenhuma recuperação automática** → o usuário precisa dar F5 manualmente
+2. **Tirar carga pesada do Painel**
+   - Remover fetch completo de clientes no `Index`.
+   - Trocar preenchimento por código no `CarregamentoDialog` para **lookup por código sob demanda** (debounce), em vez de manter lista gigante em memória.
+   - Em filtros, usar apenas clientes presentes no período carregado.
 
-## Solução (3 frentes)
+3. **Transformar operações em lote**
+   - Criar mutations batch em `useCarregamentos.ts`:
+     - inserção de múltiplos itens do pedido em 1 requisição;
+     - fechamento de carga com múltiplos itens em 1 requisição.
+   - `Index.tsx` e `CarregamentoDialog.tsx` passam a usar essas mutations em lote.
 
-### 1. Quando o safety timeout dispara sem role, redirecionar para `/auth`
+4. **Reduzir tempestade de realtime/refetch**
+   - Em `useCarregamentos.ts`, trocar invalidate por debounce/throttle no evento INSERT.
+   - Ignorar invalidation quando o registro não pertence ao range visível.
+   - Manter patch otimista para UPDATE.
 
-**`src/hooks/useAuth.ts`**: Quando o safety timeout força `loading=false` e não há `role` mas há `user`, fazer sign out automático e mostrar toast "Sessão expirou". Hoje o código apenas seta `loading=false` e deixa o usuário num estado quebrado.
+5. **Padronizar proteção de sessão nas queries críticas**
+   - Aplicar `enabled: !!session` nas hooks que ainda faltam (movimentações, veículos esperados, registros, analytics).
+   - Refinar retry de auth no `App.tsx` para não entrar em ciclo agressivo.
 
-### 2. Proteger TODAS as queries com `enabled` baseado na sessão
+6. **Ajustes de banco para escala**
+   - Adicionar índices focados em buscas reais de autocomplete e ordenação frequente.
+   - Se após otimização ainda houver saturação no pico, aumentar capacidade da instância do backend no Lovable Cloud.
 
-Adicionar verificação de sessão ativa antes de disparar queries. Sem isso, queries rodam com token inválido e falham silenciosamente.
+## Detalhes técnicos (arquivos)
+- `src/hooks/useAuth.ts`: correções de corrida de sessão/timeout.
+- `src/pages/Index.tsx`: remover dependência pesada de clientes no carregamento inicial.
+- `src/components/dashboard/CarregamentoDialog.tsx`: lookup de cliente por código sob demanda.
+- `src/components/dashboard/Filters.tsx`: opções de cliente derivadas do dataset visível.
+- `src/hooks/useCarregamentos.ts`: mutations batch + controle de realtime.
+- `src/App.tsx`: retry de auth mais estável.
+- `src/hooks/useMovimentacoesPortaria.ts`, `src/hooks/useVeiculosEsperados.ts`, `src/hooks/useRegistrosPortaria.ts`, `src/hooks/useAnalytics.ts`: gating por sessão.
+- Migration SQL: índices de suporte para busca/ordenação.
 
-**Hooks afetados:**
-- `useCarregamentos` → adicionar `enabled: !!session`
-- `useCaminhoes` → adicionar `enabled: !!session`  
-- `useMotoristas` → adicionar `enabled: !!session`
-- `useClientes` → adicionar `enabled: !!session`
-- `useProdutos` → adicionar `enabled: !!session`
-- `useVendedores` → adicionar `enabled: !!session`
-- `useTiposCaminhao` → adicionar `enabled: !!session`
-
-Para isso, cada hook precisará acessar o estado de auth. A abordagem mais limpa: exportar uma função `useSession()` do `useAuth.ts` que retorna apenas `session`, e usá-la nos hooks.
-
-### 3. Auto-recovery: tentar refresh do token quando query falha com 401/403
-
-**`src/App.tsx`**: Configurar o `QueryClient` com `retry` inteligente que, ao detectar erro de auth (401/403/JWT expired), tenta `supabase.auth.refreshSession()` antes de retentar a query. Se o refresh falhar, faz sign out.
-
-## Mudanças Técnicas
-
-| Arquivo | Mudança |
-|---|---|
-| `src/hooks/useAuth.ts` | Exportar `useSession()` hook; no safety timeout, fazer signOut se role=null e user existe |
-| `src/App.tsx` | QueryClient `retry` com detecção de erro 401 + auto-refresh |
-| `src/hooks/useCarregamentos.ts` | Adicionar `enabled: !!session` via `useSession()` |
-| `src/hooks/useCaminhoes.ts` | Adicionar `enabled: !!session` |
-| `src/hooks/useMotoristas.ts` | Adicionar `enabled: !!session` |
-| `src/hooks/useClientes.ts` | Adicionar `enabled: !!session` |
-| `src/hooks/useProdutos.ts` | Adicionar `enabled: !!session` |
-| `src/hooks/useVendedores.ts` | Adicionar `enabled: !!session` |
-| `src/hooks/useTiposCaminhao.ts` | Adicionar `enabled: !!session` |
-
-**Resultado**: Em vez de travar, o sistema detecta a sessão inválida, redireciona para login, e o usuário pode entrar novamente sem precisar dar F5. Queries não disparam com token quebrado.
-
+## Critério de sucesso
+- Fluxo “Criar pedido” e “Fechar carga” sem travamento com 25+ usuários simultâneos.
+- Autocomplete respondendo de forma consistente durante operação pesada.
+- Queda clara no volume de requisições por ação (menos refetch redundante e menos eventos em cascata).
