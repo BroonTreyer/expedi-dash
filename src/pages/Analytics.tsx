@@ -72,6 +72,12 @@ const STATUS_BG_MAP: Record<string, string> = {
   "Carregado": "bg-emerald-600/10",
 };
 
+const STATUS_PROGRESS_COLOR: Record<string, string> = {
+  "Aguardando": "bg-amber-500",
+  "Carregando": "bg-blue-500",
+  "Carregado": "bg-emerald-500",
+};
+
 function getDateRange(period: string) {
   const today = new Date();
   switch (period) {
