@@ -531,6 +531,16 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          <AuditTimeline
+                            entityType="carregamento"
+                            entityId={c.id}
+                            title={`Histórico - Pedido ${c.numero_pedido ?? ""}`}
+                            trigger={
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Histórico">
+                                <History className="h-3.5 w-3.5" />
+                              </Button>
+                            }
+                          />
                         </div>
                       </TableCell>
                     )}
