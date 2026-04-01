@@ -332,7 +332,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
       produtoRupturas,
       heatmap,
       kpis,
-      rupturaKpis: { diasSemRuptura, piorDia, mediaSemanal },
+      rupturaKpis: { diasSemRuptura, piorDia, mediaSemanal, totalSinalizadas },
       filterOptions: { uniqueVendedores, uniqueTipos, uniqueUfs },
     };
   }, [query.data, filters.vendedores, filters.tipoCaminhao, filters.ufs]);

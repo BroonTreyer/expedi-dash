@@ -674,7 +674,17 @@ export default function Analytics() {
             {!hasData && !isLoading ? <EmptyState /> : (
               <div className="space-y-4">
                 {/* Ruptura KPIs */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
+                  <Card className="border-border/40">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="p-1.5 rounded-lg bg-orange-500/10"><AlertTriangle className="h-3.5 w-3.5 text-orange-500" /></div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total Sinalizadas</span>
+                      </div>
+                      <p className="text-2xl font-bold text-orange-600 tabular-nums">{a?.rupturaKpis?.totalSinalizadas ?? 0}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Inclui resolvidas</p>
+                    </CardContent>
+                  </Card>
                   <Card className="border-border/40">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-1">
