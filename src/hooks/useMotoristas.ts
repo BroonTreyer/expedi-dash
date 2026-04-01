@@ -84,7 +84,8 @@ export function useUpdateMotorista() {
       const updates: any = { nome_completo: input.nome_completo, cpf: input.cpf || null, telefone: input.telefone || null };
 
       if (input.fotoFile) {
-        const path = `motoristas/${input.id}/documento`;
+        const ext = input.fotoFile.name.split('.').pop() || 'bin';
+        const path = `motoristas/${input.id}/documento.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("portaria")
           .upload(path, input.fotoFile, { upsert: true });
