@@ -1,31 +1,26 @@
 
 
-# Preview de PDFs e Fotos Upados
+# Corrigir Preview de Documentos (PDF e Fotos)
 
-## Problema
-Atualmente, quando um PDF é enviado, o `PhotoViewerDialog` tenta renderizá-lo como `<img>`, o que não funciona para PDFs. O `CapturaFoto` já detecta PDFs e mostra um ícone, mas ao clicar para ampliar, não há preview real do conteúdo.
+## Problema Raiz
+
+O upload de documentos em `useMotoristas.ts` salva o arquivo sem extensão (`motoristas/${id}/documento`). A URL assinada resultante não contém `.pdf`, então `isPdfUrl()` nunca detecta como PDF. O `<img>` tenta renderizar um PDF e quebra, mostrando o ícone de imagem quebrada da screenshot.
 
 ## Solução
 
-### 1. `src/components/portaria/PhotoViewerDialog.tsx`
-- Detectar se a URL é de um PDF (`.pdf` ou `application/pdf` na URL)
-- Para PDFs: renderizar um `<iframe>` apontando para a URL com fallback para link de download
-- Para imagens: manter o `<img>` atual
-- Adicionar botão "Abrir em nova aba" para ambos os tipos
+### 1. `src/hooks/useMotoristas.ts` — Preservar extensão no upload
+- Mudar o path de `motoristas/${id}/documento` para `motoristas/${id}/documento.${ext}` (extraindo a extensão do arquivo original)
+- Isso garante que novos uploads tenham a extensão correta na URL
 
-### 2. `src/components/portaria/CapturaFoto.tsx`
-- Ao clicar no preview de PDF (ícone FileText), abrir o `PhotoViewerDialog` para preview real
-- Adicionar estado para controlar o viewer
+### 2. `src/components/portaria/PhotoViewerDialog.tsx` — Fallback inteligente para imagens quebradas
+- Adicionar `onError` no `<img>` que detecta falha de carregamento e mostra automaticamente um fallback com iframe (tentativa de PDF) + botão "Abrir em nova aba"
+- Isso resolve tanto URLs antigas (sem extensão) quanto novos PDFs
 
-### 3. `src/components/portaria/MovimentoDetailsDialog.tsx` — `ClickablePhoto`
-- Detectar URLs de PDF e renderizar ícone clicável em vez de `<img>` quebrada
-- O clique abre o `PhotoViewerDialog` que agora suporta PDFs
-
-## Detalhes Técnicos
+### 3. `src/hooks/useRegistrosPortaria.ts` e `src/hooks/useMovimentacoesPortaria.ts` — Verificar uploads similares
+- Esses já preservam a extensão (`${tipo}_${Date.now()}.${ext}`), então estão OK
 
 | Arquivo | Mudança |
 |---|---|
-| `PhotoViewerDialog.tsx` | Detectar PDF na URL → renderizar `<iframe>` em vez de `<img>`. Adicionar botão "Abrir em nova aba" |
-| `CapturaFoto.tsx` | Integrar `PhotoViewerDialog` para preview ao clicar no thumbnail |
-| `MovimentoDetailsDialog.tsx` | `ClickablePhoto` detecta PDF e mostra ícone em vez de img quebrada |
+| `useMotoristas.ts` | Adicionar extensão ao path de upload (create e update) |
+| `PhotoViewerDialog.tsx` | Adicionar estado `imgError` + fallback automático quando `<img>` falha |
 
