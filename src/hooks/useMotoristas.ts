@@ -48,7 +48,8 @@ export function useCreateMotorista() {
       const motorista = data as unknown as Motorista;
 
       if (input.fotoFile) {
-        const path = `motoristas/${motorista.id}/documento`;
+        const ext = input.fotoFile.name.split('.').pop() || 'bin';
+        const path = `motoristas/${motorista.id}/documento.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("portaria")
           .upload(path, input.fotoFile, { upsert: true });
