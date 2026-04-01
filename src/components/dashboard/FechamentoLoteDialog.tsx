@@ -9,8 +9,7 @@ import { Truck, MapPin, Package, Link2 } from "lucide-react";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
 import { CaminhaoAutocomplete } from "@/components/portaria/CaminhaoAutocomplete";
 import { cn } from "@/lib/utils";
-import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
-import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
+import { useCaminhoes } from "@/hooks/useCaminhoes";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
 import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
@@ -39,51 +38,19 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [nomeCarga, setNomeCarga] = useState("");
   const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
 
-  // Fetch veículos esperados e no pátio
-  const dataRef = dataCarregamento || selectedDate || new Date().toISOString().split("T")[0];
-  const { data: veiculosEsperados = [] } = useVeiculosEsperados(dataRef);
-  const { data: movimentacoes = [] } = useMovimentacoes(dataRef);
+  // Fetch caminhões cadastrados
+  const { data: caminhoesCadastrados = [] } = useCaminhoes();
 
-  // Veículos no pátio (entradas sem saída vinculada)
-  const veiculosPatio = useMemo(() => {
-    const saidasVinculadas = new Set(
-      movimentacoes.filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id)
-    );
-    return movimentacoes.filter((m) => {
-      if (m.tipo_movimento !== "entrada") return false;
-      if (saidasVinculadas.has(m.id)) return false;
-      if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
-      return true;
-    });
-  }, [movimentacoes]);
-
-  // Lista combinada de opções
   const veiculosDisponiveis = useMemo(() => {
-    const opcoes: { id: string; label: string; tipo: "esperado" | "patio"; placa: string; motorista: string; transportadora: string; tipoCaminhao: string }[] = [];
-    veiculosEsperados.filter((v) => !v.conferido).forEach((v) => {
-      opcoes.push({
-        id: `esp-${v.id}`,
-        label: `[Esperado] ${v.placa}${v.motorista ? ` - ${v.motorista}` : ""}`,
-        tipo: "esperado",
-        placa: v.placa,
-        motorista: v.motorista || "",
-        transportadora: v.transportadora || "",
-        tipoCaminhao: v.tipo_veiculo || "",
-      });
-    });
-    veiculosPatio.forEach((v) => {
-      opcoes.push({
-        id: `pat-${v.id}`,
-        label: `[Pátio] ${v.placa || "S/P"}${v.motorista ? ` - ${v.motorista}` : ""}`,
-        tipo: "patio",
-        placa: v.placa || "",
-        motorista: v.motorista || "",
-        transportadora: v.empresa || "",
-        tipoCaminhao: v.tipo_caminhao || "",
-      });
-    });
-    return opcoes;
-  }, [veiculosEsperados, veiculosPatio]);
+    return caminhoesCadastrados.map((c) => ({
+      id: c.id,
+      label: `${c.placa}${c.motorista?.nome_completo ? ` – ${c.motorista.nome_completo}` : ""}${c.tipo_caminhao ? ` (${c.tipo_caminhao})` : ""}`,
+      placa: c.placa,
+      motorista: c.motorista?.nome_completo || "",
+      transportadora: "",
+      tipoCaminhao: c.tipo_caminhao || "",
+    }));
+  }, [caminhoesCadastrados]);
 
   const handleVincularVeiculo = (val: string) => {
     setVeiculoVinculado(val);
