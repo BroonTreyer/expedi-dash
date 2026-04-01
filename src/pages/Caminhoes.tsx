@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useCaminhoes, useCreateCaminhao, useUpdateCaminhao, useDeleteCaminhao, type Caminhao } from "@/hooks/useCaminhoes";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
+import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
