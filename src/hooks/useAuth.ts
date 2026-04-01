@@ -59,9 +59,16 @@ export function useAuthState(): AuthState {
   useEffect(() => {
     let cancelled = false;
 
-    const safetyTimer = setTimeout(() => {
+    const safetyTimer = setTimeout(async () => {
       if (!cancelled && loading) {
         console.warn("[Auth] Safety timeout reached, forcing loading=false");
+        // If we have a user but no role, session is broken — force sign out
+        if (user && !role) {
+          console.warn("[Auth] User exists but role is null after timeout — signing out");
+          intentionalSignOut.current = true;
+          await supabase.auth.signOut();
+          toast.error("Sua sessão expirou. Faça login novamente.");
+        }
         setLoading(false);
       }
     }, SESSION_TIMEOUT_MS);
@@ -180,4 +187,10 @@ const defaultAuth: AuthState = {
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   return ctx ?? defaultAuth;
+}
+
+/** Lightweight hook that returns only the session — use in data hooks for gating queries */
+export function useSession() {
+  const { session } = useAuth();
+  return session;
 }

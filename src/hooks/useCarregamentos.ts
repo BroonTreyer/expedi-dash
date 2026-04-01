@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useCallback, useRef } from "react";
+import { useSession } from "@/hooks/useAuth";
 
 export type Carregamento = {
   id: string;
@@ -41,6 +42,7 @@ export type RealtimeStatus = "connecting" | "connected" | "disconnected";
 export function useCarregamentos(dateFrom: string, dateTo?: string) {
   const dateEnd = dateTo || dateFrom;
   const queryClient = useQueryClient();
+  const session = useSession();
   const realtimeStatusRef = useRef<RealtimeStatus>("connecting");
   const statusCallbackRef = useRef<((s: RealtimeStatus) => void) | null>(null);
 
@@ -111,6 +113,7 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
 
   const query = useQuery({
     queryKey: ["carregamentos", dateFrom, dateEnd],
+    enabled: !!session,
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
       let q = supabase

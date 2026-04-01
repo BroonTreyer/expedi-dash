@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSession } from "@/hooks/useAuth";
 
 export interface Caminhao {
   id: string;
@@ -19,8 +20,10 @@ export interface Caminhao {
 }
 
 export function useCaminhoes(search?: string) {
+  const session = useSession();
   return useQuery({
     queryKey: ["caminhoes", search],
+    enabled: !!session,
     queryFn: async () => {
       let q = supabase
         .from("caminhoes")
