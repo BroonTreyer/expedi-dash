@@ -521,23 +521,13 @@ export default function Analytics() {
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={a?.dailyWeight ?? []} margin={{ top: 5, right: 10, left: 0, bottom: xAxisHeight - 25 }}>
-                          <defs>
-                            <linearGradient id="gradPesoDiario" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={BRAND_RED} stopOpacity={0.85} />
-                              <stop offset="100%" stopColor={BRAND_RED_LIGHT} stopOpacity={0.6} />
-                            </linearGradient>
-                            <linearGradient id="gradCarrDiario" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={EMERALD} stopOpacity={0.85} />
-                              <stop offset="100%" stopColor={EMERALD} stopOpacity={0.5} />
-                            </linearGradient>
-                          </defs>
                           <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} vertical={false} />
                           <XAxis dataKey="date" tickFormatter={fmtDate} tick={xTickProps} height={xAxisHeight} />
                           <YAxis tick={AXIS_STYLE} tickFormatter={fmtYAxis} width={45} />
                           <Tooltip content={<RichTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.2 }} />
                           <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-                          <Bar dataKey="peso" name="Peso Total" fill="url(#gradPesoDiario)" radius={[4, 4, 0, 0]} animationDuration={800} />
-                          <Bar dataKey="carregado" name="Carregado" fill="url(#gradCarrDiario)" radius={[4, 4, 0, 0]} animationDuration={1000} />
+                          <Bar dataKey="peso" name="Peso Total" fill={NAVY} radius={[4, 4, 0, 0]} animationDuration={800} />
+                          <Bar dataKey="carregado" name="Carregado" fill={EMERALD} radius={[4, 4, 0, 0]} animationDuration={1000} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
