@@ -283,7 +283,7 @@ export default function Index() {
 
   const handleAdicionarCargaSubmit = useCallback(async (updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => {
     try {
-      await Promise.all(updates.map(u => updateMut.mutateAsync(u)));
+      batchUpdateMut.mutate(updates);
       toast.success(`${updates.length} pedido(s) adicionado(s) à carga`);
     } catch {
       // errors handled by mutation's onError
