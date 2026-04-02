@@ -25,8 +25,6 @@ interface ProductItem {
   pesoManual: boolean;
 }
 
-const PESO_EPSILON = 0.0001;
-
 const emptyItem = (): ProductItem => ({
   codigo_produto: "",
   nome_produto: "",
@@ -34,34 +32,8 @@ const emptyItem = (): ProductItem => ({
   peso: 0,
   pesoPadrao: 0,
   ruptura: false,
-  pesoManual: false,
+  pesoManual: true,
 });
-
-const inferPesoManual = (
-  peso: number | null | undefined,
-  quantidade: number | null | undefined,
-  pesoPadrao: number | null | undefined,
-  persisted?: boolean | null,
-) => {
-  // If already flagged as manual in the DB, trust it
-  if (persisted === true) return true;
-
-  // For persisted=false or undefined, infer from the data:
-  // if the stored weight differs from the expected calculation, treat as manual
-  const pesoAtual = Number(peso ?? 0);
-  const qty = Number(quantidade ?? 0);
-  const pp = Number(pesoPadrao ?? 0);
-
-  if (!Number.isFinite(pesoAtual) || !Number.isFinite(qty) || !Number.isFinite(pp) || qty <= 0 || pp <= 0) {
-    return false;
-  }
-
-  return Math.abs(pesoAtual - (pp * qty)) > PESO_EPSILON;
-};
-
-const shouldKeepManualPeso = (item: ProductItem) => {
-  return inferPesoManual(item.peso, item.quantidade, item.pesoPadrao, item.pesoManual);
-};
 
 interface Props {
   open: boolean;
