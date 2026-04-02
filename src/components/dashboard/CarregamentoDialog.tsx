@@ -22,6 +22,7 @@ interface ProductItem {
   peso: number;
   pesoPadrao: number;
   ruptura: boolean;
+  pesoManual: boolean;
 }
 
 const emptyItem = (): ProductItem => ({
@@ -31,6 +32,7 @@ const emptyItem = (): ProductItem => ({
   peso: 0,
   pesoPadrao: 0,
   ruptura: false,
+  pesoManual: false,
 });
 
 interface Props {
