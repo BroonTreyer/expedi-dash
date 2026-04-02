@@ -1,46 +1,45 @@
 
 
-# Corrigir peso de Pão de Alho e Kit Feijoada
+# Corrigir erro "Acesso não permitido" e crash do Realtime
 
-## Problema
-Quando o usuário digita a quantidade (ex: 1400 unidades de Pão de Alho), o peso não recalcula. O sistema salva peso = 0.4 kg (peso padrão de 1 unidade) independente da quantidade. Deveria ser 0.4 × 1400 = 560 kg.
+## Problemas identificados
 
-Dados atuais no banco com peso errado:
-- PAO DE ALHO TRADICIONAL: qty=1400, peso=0.4 (deveria ser 560)
-- PAO DE ALHO PICANTE: qty=400, peso=0.4 (deveria ser 160)
-- PAO DE ALHO COM CALABRESA: qty=500, peso=0.4 (deveria ser 200)
-- INGREDIENTES P/ FEIJOADA: qty=100, peso=5 (deveria ser 500)
+### 1. Race condition no ProtectedRoute
+Quando o auth se inicializa, existe uma janela onde `loading=false`, `user` existe, mas `role` ainda é `null`. Nesse momento, `accessDenied` se torna `true` e dispara o toast + redirect, mesmo que milissegundos depois a role carregue como "admin".
 
-## Mudanças
+Causa raiz: o `onAuthStateChange` pode disparar múltiplos eventos (INITIAL_SESSION, TOKEN_REFRESHED) e a closure do callback referencia o valor antigo de `role` (null), fazendo role fetches redundantes.
 
-### 1. `src/components/dashboard/CarregamentoDialog.tsx` — recalcular peso ao mudar quantidade
-Na função `handleItemQuantidade` (linha 209), quando o item tem `pesoPadrao > 0`, recalcular o peso automaticamente:
-```ts
-const handleItemQuantidade = (index: number, qty: number) => {
-  const item = items[index];
-  if (item.pesoPadrao > 0) {
-    updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty });
-  } else {
-    updateItem(index, { quantidade: qty });
-  }
-};
+### 2. Crash do Realtime (tela branca)
+O erro "cannot add postgres_changes callbacks after subscribe()" causa crash fatal. Isso acontece quando o componente `useNotifications` re-monta e tenta adicionar listeners a um canal já subscrito, mesmo com o guard de `notificationChannels` Map — o canal pode estar num estado intermediário.
+
+## Correções
+
+### Arquivo: `src/components/ProtectedRoute.tsx`
+- Tratar `role === null` como "ainda carregando" quando o usuário existe e `allowedRoles` está definido
+- Mudar condição: se user existe mas role é null, mostrar loading (não negar acesso)
+- Remover toast repetitivo — mostrar apenas uma vez
+
+```tsx
+// Mudança na lógica:
+// Se user existe mas role é null, considerar como "carregando role"
+const roleStillLoading = !!user && role === null && !!allowedRoles;
+const accessDenied = !loading && !!user && !!allowedRoles && !!role && !allowedRoles.includes(role);
+
+if (loading || roleStillLoading) {
+  return <LoadingSpinner />;
+}
 ```
-Isso mantém o princípio de peso manual (o usuário pode editar o campo peso depois), mas garante que ao mudar quantidade o cálculo inicial é feito.
 
-### 2. Corrigir dados existentes no banco
-Migration SQL para recalcular o peso dos registros afetados:
-```sql
-UPDATE carregamentos_dia c
-SET peso = p.peso_padrao * c.quantidade
-FROM produtos p
-WHERE c.codigo_produto = p.codigo_produto
-  AND p.peso_padrao > 0
-  AND c.quantidade > 0
-  AND c.peso = p.peso_padrao;
-```
-Isso corrige apenas os registros onde peso = peso_padrao (não multiplicado pela quantidade).
+### Arquivo: `src/hooks/useNotifications.ts`
+- Adicionar verificação de estado do canal antes de criar novo
+- Usar `removeChannel` mais defensivamente
+- Wrap em try/catch para evitar crash fatal
+
+### Arquivo: `src/hooks/useAuth.ts`
+- Na closure do `onAuthStateChange`, usar ref para `role` em vez de state (evita stale closure no check de TOKEN_REFRESHED)
 
 ## Arquivos afetados
-- `src/components/dashboard/CarregamentoDialog.tsx` — 1 alteração na função handleItemQuantidade
-- Migration SQL — corrigir dados existentes
+- `src/components/ProtectedRoute.tsx` — corrigir race condition role=null
+- `src/hooks/useNotifications.ts` — proteger contra crash do realtime
+- `src/hooks/useAuth.ts` — usar ref para role no callback
 
