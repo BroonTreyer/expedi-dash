@@ -431,7 +431,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                         <Input
                           type="number"
                           value={item.peso}
-                          onChange={(e) => updateItem(idx, { peso: Number(e.target.value), pesoManual: true })}
+                          onChange={(e) => handleItemPeso(idx, Number(e.target.value))}
                           className="h-9 text-sm"
                         />
                       </div>
