@@ -1,22 +1,24 @@
 
 
-# Remover produtos do Romaneio de Carga na impressão
+# Corrigir peso padrão dos Pães de Alho
 
 ## Problema
-O romaneio mostra linhas individuais de produto (ex: "Sem produto — 1.500 kg") dentro de cada grupo de cliente. O usuário quer ver apenas o cliente com o peso total, sem a tabela de itens.
+Os 5 produtos de Pão de Alho (códigos 810-814) estão com `peso_padrao = 4` (peso da caixa 10×400g). Quando o faturamento digita "60 unidades", o sistema calcula 60 × 4 = 240 kg, mas o correto é 60 × 0,4 = 24 kg (peso unitário do pacote).
 
-## Mudança
+## Solução
+Atualizar o `peso_padrao` de 4 para 0.4 nos 5 produtos de Pão de Alho no banco de dados.
 
-### `src/components/dashboard/CargaPrintDialog.tsx`
-- Remover a `<table>` de itens (linhas 142-153) dentro de cada grupo de cliente
-- Manter o cabeçalho do cliente com número de ordem, código, nome e peso total
-
-O resultado será cada bloco mostrando apenas:
-```text
-1. 30988 – JORGE BATISTA E CIA LTDA          9.304,6 kg
-2. 16112 – JORGE BATISTA E CIA LTDA          6.730 kg
-3. 19480 – CENTRAL DE FRIOS PIAUÍ LTDA       2.098,4 kg
+```sql
+UPDATE produtos SET peso_padrao = 0.4 WHERE codigo_produto IN ('810','811','812','813','814');
 ```
 
-Sem as linhas de "Sem produto" abaixo de cada cliente.
+Nenhuma mudança de código é necessária — o cálculo automático `peso_padrao × quantidade` já funciona corretamente, só o valor cadastrado que estava errado.
+
+| Produto | Antes | Depois |
+|---|---|---|
+| PAO DE ALHO TRADICIONAL 10x400g | 4 kg | 0,4 kg |
+| PAO DE ALHO PICANTE 10x400g | 4 kg | 0,4 kg |
+| PAO DE ALHO COM CALABRESA 10x400g | 4 kg | 0,4 kg |
+| PAO DE ALHO MISTO 10x400g | 4 kg | 0,4 kg |
+| PAO DE ALHO TRAD E PICANTE 10x400g | 4 kg | 0,4 kg |
 
