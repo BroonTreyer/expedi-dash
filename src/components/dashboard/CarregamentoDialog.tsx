@@ -84,6 +84,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: editing.peso ?? 0,
         pesoPadrao: p?.peso_padrao ?? 0,
         ruptura: editing.ruptura ?? false,
+        pesoManual: false,
       }]);
     } else {
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
