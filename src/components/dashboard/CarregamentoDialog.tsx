@@ -203,7 +203,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
 
     if (editing) {
-      items.forEach((item, index) => {
+      finalItems.forEach((item, index) => {
         onSubmit({
           ...basePayload,
           ...(index === 0 ? { id: editing.id } : {}),
@@ -215,8 +215,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         });
       });
     } else {
-      // Batch create: send all items in a single request
-      const batchRows = items.map(item => ({
+      const batchRows = finalItems.map(item => ({
         ...basePayload,
         codigo_produto: item.codigo_produto,
         nome_produto: item.nome_produto,
