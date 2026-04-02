@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -11,15 +11,20 @@ interface Props {
 
 export function ProtectedRoute({ children, allowedRoles }: Props) {
   const { user, role, loading } = useAuth();
+  const toastShown = useRef(false);
 
-  // If role is still null (loading/failed), don't grant access to restricted routes
-  const accessDenied = !loading && !!user && !!(allowedRoles && (!role || !allowedRoles.includes(role)));
+  // If user exists but role hasn't loaded yet, treat as loading
+  const roleStillLoading = !!user && role === null && !!allowedRoles;
+  const accessDenied = !loading && !!user && !!allowedRoles && !!role && !allowedRoles.includes(role);
 
   useEffect(() => {
-    if (accessDenied) toast.error("Acesso não permitido para seu nível");
+    if (accessDenied && !toastShown.current) {
+      toastShown.current = true;
+      toast.error("Acesso não permitido para seu nível");
+    }
   }, [accessDenied]);
 
-  if (loading) {
+  if (loading || roleStillLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
