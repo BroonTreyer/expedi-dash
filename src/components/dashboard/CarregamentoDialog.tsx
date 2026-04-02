@@ -229,19 +229,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       }
     }
 
-    // Recalculate peso from pesoPadrao only if user didn't manually edit it
-    const finalItems = items.map(item => {
-      const p = produtos.find(pr => pr.codigo_produto.toLowerCase() === item.codigo_produto.toLowerCase());
-      const pp = p?.peso_padrao ?? item.pesoPadrao;
-      const pesoManual = inferPesoManual(item.peso, item.quantidade, pp, item.pesoManual);
-      if (pesoManual) return { ...item, pesoPadrao: pp, pesoManual: true };
-      return {
-        ...item,
-        pesoPadrao: pp,
-        pesoManual: false,
-        peso: pp > 0 ? pp * item.quantidade : item.peso,
-      };
-    });
+    // Use item values directly — weight is always manual
+    const finalItems = items.map(item => ({
+      ...item,
+      pesoManual: true,
+    }));
 
     if (mode === "logistica") {
       basePayload.etapa = "logistica";
