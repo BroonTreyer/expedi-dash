@@ -767,17 +767,25 @@ export default function Analytics() {
                             <XAxis type="number" tick={AXIS_STYLE} />
                             <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
                             <Tooltip
-                              content={
-                                <RichTooltip
-                                  suffix=""
-                                  formatLabel={(v: string) => v}
-                                  extraFormatter={(entry: any) => {
-                                    const item = (a?.produtoRupturas ?? []).find((p: any) => p.produto === entry?.produto);
-                                    if (!item) return null;
-                                    return ` — ${item.peso.toLocaleString("pt-BR")} kg`;
-                                  }}
-                                />
-                              }
+                              content={({ active, payload, label }: any) => {
+                                if (!active || !payload?.length) return null;
+                                const d = payload[0]?.payload;
+                                return (
+                                  <div className="bg-popover/95 backdrop-blur-md border border-border/60 rounded-lg shadow-2xl p-3 text-xs min-w-[170px]">
+                                    <p className="font-semibold text-foreground mb-2 pb-1.5 border-b border-border/40 text-[11px]">{d?.produto}</p>
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center justify-between gap-4">
+                                        <span className="text-muted-foreground text-[11px]">Rupturas</span>
+                                        <span className="font-bold text-foreground tabular-nums text-[11px]">{d?.rupturas}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between gap-4">
+                                        <span className="text-muted-foreground text-[11px]">Peso</span>
+                                        <span className="font-bold text-foreground tabular-nums text-[11px]">{(d?.peso ?? 0).toLocaleString("pt-BR")} <span className="text-muted-foreground font-normal">kg</span></span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }}
                               cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }}
                             />
                             <Bar dataKey="rupturas" name="Rupturas" fill="#EF5350" radius={[0, 5, 5, 0]} animationDuration={800} />
