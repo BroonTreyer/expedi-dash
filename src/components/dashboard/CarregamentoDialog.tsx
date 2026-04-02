@@ -183,13 +183,14 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   };
 
   const handleSubmit = async () => {
-    const basePayload: Record<string, any> = { ...form };
-    delete basePayload.id;
-    delete basePayload.vendedores;
-    delete basePayload.codigo_produto;
-    delete basePayload.nome_produto;
-    delete basePayload.quantidade;
-    delete basePayload.peso;
+    // Clean payload: remove system/read-only fields
+    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'created_at', 'updated_at', 'ruptura_sinalizada'];
+    const basePayload: Record<string, any> = {};
+    for (const [key, value] of Object.entries(form)) {
+      if (!SYSTEM_FIELDS.includes(key)) {
+        basePayload[key] = value;
+      }
+    }
 
     // Recalculate peso from pesoPadrao to avoid stale cached values
     const finalItems = items.map(item => {
@@ -203,17 +204,31 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
 
     if (editing) {
-      finalItems.forEach((item, index) => {
-        onSubmit({
+      // First item is an update; additional items are batch inserts
+      const firstItem = finalItems[0];
+      const updatePayload = {
+        ...basePayload,
+        id: editing.id,
+        codigo_produto: firstItem.codigo_produto,
+        nome_produto: firstItem.nome_produto,
+        quantidade: firstItem.quantidade,
+        peso: firstItem.peso,
+        ruptura: firstItem.ruptura,
+      };
+
+      if (finalItems.length > 1) {
+        const extraRows = finalItems.slice(1).map(item => ({
           ...basePayload,
-          ...(index === 0 ? { id: editing.id } : {}),
           codigo_produto: item.codigo_produto,
           nome_produto: item.nome_produto,
           quantidade: item.quantidade,
           peso: item.peso,
           ruptura: item.ruptura,
-        });
-      });
+        }));
+        onSubmit({ ...updatePayload, _batch: extraRows });
+      } else {
+        onSubmit(updatePayload);
+      }
     } else {
       const batchRows = finalItems.map(item => ({
         ...basePayload,
@@ -229,8 +244,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         onSubmit({ _batch: batchRows });
       }
     }
-    // Close after a brief delay to allow mutations to fire
-    setTimeout(() => onOpenChange(false), 150);
+    onOpenChange(false);
   };
 
   const showVendas = mode === "vendas" || mode === "editar";
