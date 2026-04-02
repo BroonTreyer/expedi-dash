@@ -69,9 +69,13 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   const [debouncedClienteCode, setDebouncedClienteCode] = useState("");
   const clienteDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
+  const lastInitId = useRef<string | null>(null);
 
   useEffect(() => {
     if (editing) {
+      // Only reset state when editing a different record
+      if (lastInitId.current === editing.id) return;
+      lastInitId.current = editing.id;
       setForm({ ...editing });
       const v = vendedores.find(v => v.id === editing.vendedor_id);
       setCodigoVendedorInput(v?.codigo_vendedor ?? "");
@@ -87,6 +91,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         pesoManual: false,
       }]);
     } else {
+      lastInitId.current = null;
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
       setCodigoVendedorInput("");
       setCodigoClienteInput("");
@@ -161,12 +166,21 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     if (found) {
       const pp = found.peso_padrao ?? 0;
       const item = items[index];
-      updateItem(index, {
-        codigo_produto: codigo,
-        nome_produto: found.nome_produto,
-        pesoPadrao: pp,
-        peso: pp * (item.quantidade ?? 1),
-      });
+      if (item.pesoManual) {
+        // Preserve manually edited weight
+        updateItem(index, {
+          codigo_produto: codigo,
+          nome_produto: found.nome_produto,
+          pesoPadrao: pp,
+        });
+      } else {
+        updateItem(index, {
+          codigo_produto: codigo,
+          nome_produto: found.nome_produto,
+          pesoPadrao: pp,
+          peso: pp * (item.quantidade ?? 1),
+        });
+      }
     } else {
       updateItem(index, { codigo_produto: codigo, nome_produto: "", pesoPadrao: 0, peso: 0 });
     }
