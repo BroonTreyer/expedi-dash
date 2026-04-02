@@ -199,8 +199,9 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       }
     }
 
-    // Recalculate peso from pesoPadrao to avoid stale cached values
+    // Recalculate peso from pesoPadrao only if user didn't manually edit it
     const finalItems = items.map(item => {
+      if (item.pesoManual) return item;
       const p = produtos.find(pr => pr.codigo_produto.toLowerCase() === item.codigo_produto.toLowerCase());
       const pp = p?.peso_padrao ?? item.pesoPadrao;
       return { ...item, peso: pp > 0 ? pp * item.quantidade : item.peso };
