@@ -1,46 +1,28 @@
 
 
-# Auditoria de Bugs — Problemas Encontrados e Correções
+# Corrigir peso manual sendo sobrescrito ao editar
 
-## Bugs Identificados
+## Problema Raiz
 
-### Bug 1: Logística não consegue editar pedidos
-Em `CarregamentoTable.tsx` (linha 290) e `Index.tsx` (linha 40), a variável `canEdit` é:
-```typescript
-const canEdit = isAdmin || isFaturamento;
-```
-Usuários com role **logística** não veem o botão de editar. Isso explica o relato de "outro usuário não consegue editar".
+Existem **dois caminhos** que sobrescrevem o peso manual:
 
-**Correção**: Adicionar `isLogistica` à condição `canEdit` em ambos os arquivos.
+1. **`handleItemCodigo` (linha 164-169)**: Quando o código do produto é preenchido/alterado, ele força `peso: pp * quantidade` sem verificar se `pesoManual` é `true`. No modo edição, quando o dialog abre e o código do produto já está preenchido, qualquer re-render que dispare essa função apaga o peso manual.
 
-### Bug 2: Dependency arrays incorretos em callbacks
-Em `Index.tsx`:
-- `handleLoteSubmit` (linha 291) lista `updateMut` no dependency array, mas usa `batchUpdateMut.mutate()`. Deveria ser `batchUpdateMut`.
-- `handleAdicionarCargaSubmit` (linha 306) lista `updateMut` no dependency array, mas usa `batchUpdateMut.mutate()`. Deveria ser `batchUpdateMut`.
+2. **`useEffect` de inicialização (linha 73-95)**: Quando o dialog reabre para edição, ele sempre seta `pesoManual: false`, o que é correto para a abertura inicial. Porém, o `useEffect` depende de `[editing, open, selectedDate]` — se `open` ou `selectedDate` mudar durante a edição (ex: o dialog pisca), ele reseta todo o estado incluindo o peso que o usuário digitou.
 
-Isso pode causar stale closures — a função referencia uma versão antiga do mutation.
+## Solução
 
-**Correção**: Atualizar os dependency arrays.
+### `src/components/dashboard/CarregamentoDialog.tsx`
 
-### Bug 3: Registros antigos com pesos absurdos (quantidade=1, peso=20.000 kg)
-Existem dezenas de registros no banco onde `quantidade = 1` mas `peso` está em valores como 8.000, 10.000, 12.000, 13.000 e até 20.000 kg. Isso aconteceu porque os usuários digitavam o peso total desejado no campo de peso, mas o sistema interpretava como peso unitário. Exemplos:
-- CALABRESA 4x2,5kg: qty=1, peso=20.000 (deveria ser 10 kg)
-- LINGUIÇA TOSCANA MISTA 4x5kg: qty=1, peso=20.000 (deveria ser 20 kg)
+**Mudança 1 — `handleItemCodigo` (linhas 159-172):**
+- Antes de sobrescrever o peso, verificar se `item.pesoManual` é `true`
+- Se for, manter o peso atual do item e só atualizar nome/pesoPadrao
 
-Esses registros inflam os totais de peso em KPIs, consolidado e analytics.
-
-**Correção**: Migration SQL para corrigir registros onde `quantidade = 1` e `peso > peso_padrao * 10` (claramente errados), recalculando como `peso_padrao × quantidade`.
-
-### Bug 4: Warning de React ref no console
-`CarregamentoDialog` passa ref para componente `Select` que não aceita refs. É um warning não-crítico mas polui o console.
-
-**Nota**: Não causa bug funcional, prioridade baixa.
-
-## Plano de Implementação
+**Mudança 2 — `useEffect` de inicialização (linhas 73-95):**
+- Usar uma ref para rastrear se o dialog já foi inicializado para o `editing.id` atual
+- Só resetar o estado quando o `editing` realmente mudar (novo id), não quando `open` pisca
 
 | Arquivo | Mudança |
 |---|---|
-| `Index.tsx` | `canEdit = isAdmin \|\| isFaturamento \|\| isLogistica`; corrigir dependency arrays |
-| `CarregamentoTable.tsx` | `canEdit = isAdmin \|\| isFaturamento \|\| isLogistica` |
-| Migration SQL | Corrigir registros com peso absurdo (qty=1, peso >> peso_padrao) |
+| `CarregamentoDialog.tsx` | Respeitar `pesoManual` em `handleItemCodigo`; evitar reset desnecessário do estado |
 
