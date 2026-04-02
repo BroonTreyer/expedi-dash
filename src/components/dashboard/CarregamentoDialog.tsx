@@ -179,12 +179,13 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     if (found) {
       const pp = found.peso_padrao ?? 0;
       const item = items[index];
-      if (shouldKeepManualPeso(item)) {
-        // Preserve manually edited weight
+      // Only auto-fill weight on brand new items (peso === 0)
+      if (item.peso === 0 && pp > 0) {
         updateItem(index, {
           codigo_produto: codigo,
           nome_produto: found.nome_produto,
           pesoPadrao: pp,
+          peso: pp * (item.quantidade ?? 1),
           pesoManual: true,
         });
       } else {
@@ -192,18 +193,15 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           codigo_produto: codigo,
           nome_produto: found.nome_produto,
           pesoPadrao: pp,
-          peso: pp * (item.quantidade ?? 1),
-          pesoManual: false,
+          pesoManual: true,
         });
       }
     } else {
-      const item = items[index];
       updateItem(index, {
         codigo_produto: codigo,
         nome_produto: "",
         pesoPadrao: 0,
-        peso: shouldKeepManualPeso(item) ? item.peso : 0,
-        pesoManual: shouldKeepManualPeso(item),
+        pesoManual: true,
       });
     }
   };
