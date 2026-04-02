@@ -1,0 +1,1 @@
+DO $$ BEGIN RAISE NOTICE 'auth password protection handled outside SQL migration'; END $$;
