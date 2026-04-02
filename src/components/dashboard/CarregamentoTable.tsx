@@ -287,7 +287,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
   const isLogistica = userRole === "logistica";
   const isFaturamento = userRole === "faturamento";
   const canChangeStatus = canChangeStatusProp ?? (isAdmin || isLogistica || isFaturamento);
-  const canEdit = isAdmin || isFaturamento;
+  const canEdit = isAdmin || isFaturamento || isLogistica;
   const canDelete = isAdmin || isFaturamento;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;

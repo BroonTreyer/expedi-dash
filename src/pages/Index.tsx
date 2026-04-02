@@ -303,7 +303,7 @@ export default function Index() {
       // errors handled by mutation's onError
     }
     setSelectedIds([]);
-  }, [updateMut]);
+  }, [batchUpdateMut]);
 
   const handlePrintCarga = useCallback((cargaId: string) => {
     const itemsInCarga = carregamentos.filter(c => c.carga_id === cargaId);
