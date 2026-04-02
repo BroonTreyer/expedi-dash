@@ -7,7 +7,7 @@ import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
-import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
+import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchCreateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
@@ -53,6 +53,7 @@ export default function Rupturas() {
   const { data: produtos = [] } = useProdutos();
   const { data: clientes = [] } = useClientes();
   const createMut = useCreateCarregamento();
+  const batchCreateMut = useBatchCreateCarregamento();
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
 
@@ -193,6 +194,26 @@ export default function Rupturas() {
     if (deleteId) deleteMut.mutate(deleteId);
     setDeleteId(null);
   }, [deleteId, deleteMut]);
+
+  const handleSubmit = useCallback((values: Record<string, any>) => {
+    if (values.id) {
+      const { _batch, ...updatePayload } = values;
+      updateMut.mutate(updatePayload);
+
+      if (Array.isArray(_batch) && _batch.length > 0) {
+        batchCreateMut.mutate(_batch);
+      }
+
+      return;
+    }
+
+    if (Array.isArray(values._batch)) {
+      batchCreateMut.mutate(values._batch.map((row) => ({ ...row, status: "Aguardando pedido" })));
+      return;
+    }
+
+    createMut.mutate({ ...values, status: "Aguardando pedido" });
+  }, [updateMut, batchCreateMut, createMut]);
 
   const isMobile = useIsMobile();
 
@@ -465,13 +486,7 @@ export default function Rupturas() {
         <CarregamentoDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          onSubmit={(values) => {
-            if (editing) {
-              updateMut.mutate(values);
-            } else {
-              createMut.mutate({ ...values, status: "Aguardando pedido" });
-            }
-          }}
+          onSubmit={handleSubmit}
           editing={editing}
           mode={dialogMode}
           vendedores={vendedores}

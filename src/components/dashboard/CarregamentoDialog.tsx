@@ -25,6 +25,8 @@ interface ProductItem {
   pesoManual: boolean;
 }
 
+const PESO_EPSILON = 0.0001;
+
 const emptyItem = (): ProductItem => ({
   codigo_produto: "",
   nome_produto: "",
@@ -34,6 +36,25 @@ const emptyItem = (): ProductItem => ({
   ruptura: false,
   pesoManual: false,
 });
+
+const inferPesoManual = (
+  peso: number | null | undefined,
+  quantidade: number | null | undefined,
+  pesoPadrao: number | null | undefined,
+  persisted?: boolean | null,
+) => {
+  if (typeof persisted === "boolean") return persisted;
+
+  const pesoAtual = Number(peso ?? 0);
+  const qty = Number(quantidade ?? 0);
+  const pp = Number(pesoPadrao ?? 0);
+
+  if (!Number.isFinite(pesoAtual) || !Number.isFinite(qty) || !Number.isFinite(pp) || qty <= 0 || pp <= 0) {
+    return false;
+  }
+
+  return Math.abs(pesoAtual - (pp * qty)) > PESO_EPSILON;
+};
 
 interface Props {
   open: boolean;
@@ -71,33 +92,46 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
   const lastInitId = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (editing) {
-      // Only reset state when editing a different record
-      if (lastInitId.current === editing.id) return;
-      lastInitId.current = editing.id;
-      setForm({ ...editing });
-      const v = vendedores.find(v => v.id === editing.vendedor_id);
-      setCodigoVendedorInput(v?.codigo_vendedor ?? "");
-      setCodigoClienteInput(editing.codigo_cliente ?? "");
-      const p = produtos.find(p => p.codigo_produto === editing.codigo_produto);
-      setItems([{
-        codigo_produto: editing.codigo_produto ?? "",
-        nome_produto: editing.nome_produto ?? "",
-        quantidade: editing.quantidade ?? 1,
-        peso: editing.peso ?? 0,
-        pesoPadrao: p?.peso_padrao ?? 0,
-        ruptura: editing.ruptura ?? false,
-        pesoManual: false,
-      }]);
-    } else {
+  const handleDialogOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) {
       lastInitId.current = null;
-      setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
-      setCodigoVendedorInput("");
-      setCodigoClienteInput("");
-      setItems([emptyItem()]);
     }
-  }, [editing, open, selectedDate]);
+    onOpenChange(nextOpen);
+  }, [onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!editing) return;
+    if (lastInitId.current === editing.id) return;
+
+    const vendedor = vendedores.find((v) => v.id === editing.vendedor_id);
+    const produto = produtos.find((p) => p.codigo_produto === editing.codigo_produto);
+    const pesoPadrao = Number(produto?.peso_padrao ?? 0);
+
+    lastInitId.current = editing.id;
+    setForm({ ...editing });
+    setCodigoVendedorInput(vendedor?.codigo_vendedor ?? "");
+    setCodigoClienteInput(editing.codigo_cliente ?? "");
+    setItems([{
+      codigo_produto: editing.codigo_produto ?? "",
+      nome_produto: editing.nome_produto ?? "",
+      quantidade: editing.quantidade ?? 1,
+      peso: editing.peso ?? 0,
+      pesoPadrao,
+      ruptura: editing.ruptura ?? false,
+      pesoManual: inferPesoManual(editing.peso, editing.quantidade, pesoPadrao, editing.peso_manual),
+    }]);
+  }, [editing, open, produtos, vendedores]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (editing) return;
+
+    setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
+    setCodigoVendedorInput("");
+    setCodigoClienteInput("");
+    setItems([emptyItem()]);
+  }, [editing, open, selectedDate, defaultRuptura]);
 
   const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -205,7 +239,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
   const handleSubmit = async () => {
     // Clean payload: remove system/read-only fields
-    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'created_at', 'updated_at', 'ruptura_sinalizada'];
+    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada'];
     const basePayload: Record<string, any> = {};
     for (const [key, value] of Object.entries(form)) {
       if (!SYSTEM_FIELDS.includes(key)) {
@@ -235,6 +269,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         nome_produto: firstItem.nome_produto,
         quantidade: firstItem.quantidade,
         peso: firstItem.peso,
+        peso_manual: firstItem.pesoManual,
         ruptura: firstItem.ruptura,
       };
 
@@ -245,6 +280,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           nome_produto: item.nome_produto,
           quantidade: item.quantidade,
           peso: item.peso,
+          peso_manual: item.pesoManual,
           ruptura: item.ruptura,
         }));
         onSubmit({ ...updatePayload, _batch: extraRows });
@@ -258,6 +294,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         nome_produto: item.nome_produto,
         quantidade: item.quantidade,
         peso: item.peso,
+        peso_manual: item.pesoManual,
         ruptura: item.ruptura,
       }));
       if (batchRows.length === 1) {
@@ -266,14 +303,14 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         onSubmit({ _batch: batchRows });
       }
     }
-    onOpenChange(false);
+    handleDialogOpenChange(false);
   };
 
   const showVendas = mode === "vendas" || mode === "editar";
   const showLogistica = mode === "logistica" || mode === "editar";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
           <DialogTitle>{TITLES[mode]}</DialogTitle>
@@ -504,7 +541,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           )}
         </div>
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>Cancelar</Button>
           <Button
             onClick={handleSubmit}
             disabled={mode === "vendas" ? !form.vendedor_id : mode === "logistica" ? !form.tipo_caminhao || !form.placa || !form.motorista : !form.vendedor_id}
