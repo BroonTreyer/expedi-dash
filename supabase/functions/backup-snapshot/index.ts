@@ -196,7 +196,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Ação inválida. Use 'create' ou 'restore'" }), {
+    // ── WIPE ORDERS ──
+    if (action === "wipe_orders") {
+      // Count before delete
+      const { count, error: countErr } = await admin
+        .from("carregamentos_dia")
+        .select("*", { count: "exact", head: true });
+      if (countErr) throw new Error(`Erro ao contar pedidos: ${countErr.message}`);
+
+      const { error: delErr } = await admin
+        .from("carregamentos_dia")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      if (delErr) throw new Error(`Erro ao apagar pedidos: ${delErr.message}`);
+
+      await admin.from("audit_log").insert({
+        entity_type: "backup",
+        entity_id: "wipe_orders",
+        action: "wipe_orders",
+        user_id: userId,
+        user_email: "",
+        changes: { deleted_count: count },
+      });
+
+      return new Response(JSON.stringify({ success: true, deleted: count }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Ação inválida" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
