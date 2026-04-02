@@ -1,83 +1,30 @@
 
-# Corrigir o Pão de Alho ainda aparecendo com 240 kg
 
-## Problema raiz confirmado
-O cadastro do produto já está correto: os códigos **810–814** estão com `peso_padrao = 0.4`.
+# Adicionar peso (kg) ao ranking de produtos com ruptura no Analytics
 
-O erro que continua aparecendo não está mais no cadastro de produto. Ele está nos **registros já salvos** em `carregamentos_dia`, porque a tela de rupturas soma o campo **`peso` gravado na linha**, e não recalcula com base no cadastro atual.
+## Problema
+O ranking de "Produtos com Mais Rupturas" na aba Rupturas do Analytics mostra apenas a **quantidade** de rupturas por produto, mas não mostra o **peso total em kg** de cada produto.
 
-Evidência encontrada:
-- `produtos.814` = `0.4`
-- em `carregamentos_dia`, as rupturas do código **814** ainda somam **`total_qtd = 60`** e **`total_peso = 240`**
+## Solução
 
-Ou seja: o sistema está exibindo um **peso antigo persistido no banco**, não o peso novo do produto.
+### 1. `src/hooks/useAnalytics.ts` — Acumular peso no mapa de rupturas por produto
 
-## O que implementar
+A interface `ProdutoRuptura` já tem o campo `peso` mas não está sendo preenchido. Alterar o bloco de cálculo (linhas 265-274):
 
-### 1. Corrigir os dados já gravados
-Atualizar os registros existentes de Pão de Alho em `carregamentos_dia` para recalcular:
-```text
-peso = quantidade * 0.4
-```
+- Trocar o Map de `Map<string, number>` para `Map<string, { count: number; peso: number }>`
+- Acumular `r.peso` junto com a contagem
+- Mapear para `{ produto, rupturas, peso }` no resultado final
 
-Escopo recomendado:
-- códigos `810`, `811`, `812`, `813`, `814`
-- priorizar pelo menos os registros de ruptura e pendentes
-- idealmente corrigir todos os registros em que o peso foi salvo com a lógica antiga
+### 2. `src/pages/Analytics.tsx` — Mostrar peso no gráfico/tooltip
 
-### 2. Blindar o fluxo para não voltar a acontecer
-No envio do pedido, garantir que o `peso` final seja derivado novamente de:
-```text
-pesoPadrao × quantidade
-```
-em vez de confiar apenas no valor que já estava no estado local.
+No gráfico de barras horizontais (linhas 760-775):
+- Adicionar uma segunda barra (`peso`) ou exibir o peso no tooltip
+- Atualizar o tooltip para mostrar "X rupturas — Y kg" por produto
 
-Arquivo principal:
-- `src/components/dashboard/CarregamentoDialog.tsx`
+Abordagem recomendada: manter o gráfico com barras de contagem, mas adicionar o peso no tooltip para não poluir visualmente.
 
-Isso evita que um item fique com peso antigo em casos de cache/local state inconsistente.
+| Arquivo | Mudança |
+|---|---|
+| `useAnalytics.ts` | Acumular peso no `prodRuptMap` e incluir no resultado |
+| `Analytics.tsx` | Exibir peso no tooltip do gráfico de rupturas por produto |
 
-### 3. Validar os pontos onde o valor aparece
-As telas abaixo usam o `peso` salvo no carregamento e por isso refletem o erro histórico:
-- `src/pages/Rupturas.tsx`
-- `src/components/dashboard/RupturasPrintDialog.tsx`
-- `src/components/dashboard/CarregamentoTable.tsx`
-
-Depois do ajuste dos dados, essas telas devem passar a mostrar:
-```text
-60 unid
-24 kg
-```
-em vez de `240 kg`.
-
-## Detalhes técnicos
-
-### Dados a corrigir
-Tabela:
-- `carregamentos_dia`
-
-Regra:
-```text
-para códigos 810–814:
-novo peso = quantidade * 0.4
-```
-
-### Código a endurecer
-Arquivo:
-- `src/components/dashboard/CarregamentoDialog.tsx`
-
-Mudança:
-- recalcular `peso` no `handleSubmit` para cada item antes de enviar `onSubmit`
-
-## Validação após a correção
-1. Abrir a tela de Rupturas e verificar o código **814**
-2. Confirmar que o resumo mostra **60 unid / 24 kg**
-3. Confirmar que impressão de rupturas mostra o mesmo valor
-4. Criar um novo pedido de Pão de Alho e validar que novos registros já nascem com peso correto
-5. Rodar o build para garantir que não ficou nenhuma quebra de TypeScript/import
-
-## Resultado esperado
-- o cadastro de produto continua em `0.4`
-- os registros antigos deixam de carregar `240 kg`
-- a ruptura passa a exibir o valor correto
-- novos pedidos não voltam a gravar o peso antigo
