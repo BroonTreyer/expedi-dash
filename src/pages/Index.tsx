@@ -37,7 +37,7 @@ export default function Index() {
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
   const isFaturamento = role === "faturamento";
-  const canEdit = isAdmin || isFaturamento;
+  const canEdit = isAdmin || isFaturamento || isLogistica;
 
   const [view, setView] = useState<"table" | "kanban">("table");
   const today = new Date();
