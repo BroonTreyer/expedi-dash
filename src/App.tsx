@@ -17,6 +17,7 @@ import Portaria from "./pages/Portaria";
 import Motoristas from "./pages/Motoristas";
 import Caminhoes from "./pages/Caminhoes";
 import Analytics from "./pages/Analytics";
+import Backups from "./pages/Backups";
 
 import Relatorios from "./pages/Relatorios";
 import PortalMotorista from "./pages/PortalMotorista";
