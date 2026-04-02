@@ -288,7 +288,7 @@ export default function Index() {
       // errors handled by mutation's onError
     }
     setSelectedIds([]);
-  }, [updateMut, queryClient]);
+  }, [batchUpdateMut, queryClient]);
 
   // When user unchecks groups inside FechamentoLoteDialog and closes it, remove those IDs from selection
   const handleLoteExcluded = useCallback((excludedItemIds: string[]) => {
