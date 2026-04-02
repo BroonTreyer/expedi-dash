@@ -36,7 +36,7 @@ export default function Rupturas() {
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
   const isFaturamento = role === "faturamento";
-  const canEdit = isAdmin || isFaturamento;
+  const canEdit = isAdmin || isFaturamento || isLogistica;
 
   const [searchParams] = useSearchParams();
   const today = new Date();
