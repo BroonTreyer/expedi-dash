@@ -22,6 +22,7 @@ interface ProductItem {
   peso: number;
   pesoPadrao: number;
   ruptura: boolean;
+  pesoManual: boolean;
 }
 
 const emptyItem = (): ProductItem => ({
@@ -31,6 +32,7 @@ const emptyItem = (): ProductItem => ({
   peso: 0,
   pesoPadrao: 0,
   ruptura: false,
+  pesoManual: false,
 });
 
 interface Props {
@@ -82,6 +84,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: editing.peso ?? 0,
         pesoPadrao: p?.peso_padrao ?? 0,
         ruptura: editing.ruptura ?? false,
+        pesoManual: false,
       }]);
     } else {
       setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
@@ -171,7 +174,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
   const handleItemQuantidade = (index: number, qty: number) => {
     const item = items[index];
-    updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty });
+    if (item.pesoManual) {
+      updateItem(index, { quantidade: qty });
+    } else {
+      updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty });
+    }
   };
 
   const addItem = () => setItems(prev => [...prev, emptyItem()]);
@@ -192,8 +199,9 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       }
     }
 
-    // Recalculate peso from pesoPadrao to avoid stale cached values
+    // Recalculate peso from pesoPadrao only if user didn't manually edit it
     const finalItems = items.map(item => {
+      if (item.pesoManual) return item;
       const p = produtos.find(pr => pr.codigo_produto.toLowerCase() === item.codigo_produto.toLowerCase());
       const pp = p?.peso_padrao ?? item.pesoPadrao;
       return { ...item, peso: pp > 0 ? pp * item.quantidade : item.peso };
@@ -376,7 +384,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                         <Input
                           type="number"
                           value={item.peso}
-                          onChange={(e) => updateItem(idx, { peso: Number(e.target.value) })}
+                          onChange={(e) => updateItem(idx, { peso: Number(e.target.value), pesoManual: true })}
                           className="h-9 text-sm"
                         />
                       </div>
