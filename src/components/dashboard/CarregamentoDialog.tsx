@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { STATUSES, UF_LIST } from "@/lib/constants";
+import { STATUSES, UF_LIST, isPorUnidade } from "@/lib/constants";
 import { Plus, X } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
@@ -212,6 +212,18 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty });
     } else {
       updateItem(index, { quantidade: qty });
+    }
+  };
+
+  const handleItemPeso = (index: number, peso: number) => {
+    const item = items[index];
+    // For unit-based products (Pão de Alho), only update weight — quantity stays manual
+    if (isPorUnidade(item.nome_produto) || item.pesoPadrao <= 0) {
+      updateItem(index, { peso, pesoManual: true });
+    } else {
+      // For normal products, recalculate quantity from weight
+      const qty = Math.round(peso / item.pesoPadrao);
+      updateItem(index, { peso, quantidade: qty, pesoManual: true });
     }
   };
 
@@ -419,7 +431,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                         <Input
                           type="number"
                           value={item.peso}
-                          onChange={(e) => updateItem(idx, { peso: Number(e.target.value), pesoManual: true })}
+                          onChange={(e) => handleItemPeso(idx, Number(e.target.value))}
                           className="h-9 text-sm"
                         />
                       </div>
