@@ -183,22 +183,24 @@ export default function Index() {
   }, [isAdmin, isLogistica, isFaturamento, updateMut]);
 
   const handleSubmit = useCallback((values: Record<string, any>) => {
+    const onFkError = {
+      onError: (e: any) => {
+        if (e?.message?.includes("foreign key constraint")) {
+          toast.error("Código de produto ou cliente inválido. Verifique se estão cadastrados.");
+        }
+      },
+    };
+
     if (values.id) {
-      updateMut.mutate(values, {
-        onError: (e: any) => {
-          if (e?.message?.includes("foreign key constraint")) {
-            toast.error("Código de produto ou cliente inválido. Verifique se estão cadastrados.");
-          }
-        },
-      });
+      // Edit mode: update the main item
+      const { _batch, ...updatePayload } = values;
+      updateMut.mutate(updatePayload, onFkError);
+
+      // If there are additional items from multi-product edit, insert them
+      if (Array.isArray(_batch) && _batch.length > 0) {
+        batchCreateMut.mutate(_batch, onFkError);
+      }
     } else {
-      const onFkError = {
-        onError: (e: any) => {
-          if (e?.message?.includes("foreign key constraint")) {
-            toast.error("Código de produto ou cliente inválido. Verifique se estão cadastrados.");
-          }
-        },
-      };
       if (Array.isArray(values._batch)) {
         batchCreateMut.mutate(values._batch, onFkError);
       } else {
