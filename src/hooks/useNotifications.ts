@@ -27,69 +27,70 @@ export function useNotifications() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Realtime subscription
   useEffect(() => {
     if (!user?.id) return;
 
-    const channelName = `notifications-${user.id}`;
-    const channelTopic = `realtime:${channelName}`;
+    const userId = user.id;
+    const channelName = `notifications-${userId}`;
 
     const releaseChannel = () => {
-      const entry = notificationChannels.get(user.id);
+      const entry = notificationChannels.get(userId);
       if (!entry) return;
-
       entry.subscribers -= 1;
       if (entry.subscribers <= 0) {
-        supabase.removeChannel(entry.channel);
-        notificationChannels.delete(user.id);
+        try { supabase.removeChannel(entry.channel); } catch {}
+        notificationChannels.delete(userId);
       }
     };
 
-    const existingEntry = notificationChannels.get(user.id);
+    const existingEntry = notificationChannels.get(userId);
     if (existingEntry) {
       existingEntry.subscribers += 1;
       return releaseChannel;
     }
 
-    supabase
-      .getChannels()
-      .filter((channel) => channel.topic === channelTopic)
-      .forEach((channel) => {
-        supabase.removeChannel(channel);
-      });
+    // Clean up any stale channels with same topic
+    const channelTopic = `realtime:${channelName}`;
+    try {
+      supabase.getChannels()
+        .filter((c) => c.topic === channelTopic)
+        .forEach((c) => { try { supabase.removeChannel(c); } catch {} });
+    } catch {}
 
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["notifications"] });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const updated = payload.new as Notification;
-          queryClient.setQueryData<Notification[]>(["notifications"], (old) =>
-            old?.map((n) => (n.id === updated.id ? { ...n, ...updated } : n))
-          );
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const deleted = payload.old as any;
-          queryClient.setQueryData<Notification[]>(["notifications"], (old) =>
-            old?.filter((n) => n.id !== deleted.id)
-          );
-        }
-      )
-      .subscribe();
+    try {
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+          () => { queryClient.invalidateQueries({ queryKey: ["notifications"] }); }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+          (payload) => {
+            const updated = payload.new as Notification;
+            queryClient.setQueryData<Notification[]>(["notifications"], (old) =>
+              old?.map((n) => (n.id === updated.id ? { ...n, ...updated } : n))
+            );
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+          (payload) => {
+            const deleted = payload.old as any;
+            queryClient.setQueryData<Notification[]>(["notifications"], (old) =>
+              old?.filter((n) => n.id !== deleted.id)
+            );
+          }
+        )
+        .subscribe();
 
-    notificationChannels.set(user.id, { channel, subscribers: 1 });
+      notificationChannels.set(userId, { channel, subscribers: 1 });
+    } catch (err) {
+      console.warn("[Notifications] Failed to create realtime channel:", err);
+    }
 
     return releaseChannel;
   }, [user?.id, queryClient]);

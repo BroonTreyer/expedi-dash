@@ -52,9 +52,13 @@ export function useAuthState(): AuthState {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const roleRef = useRef<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const bootstrapped = useRef(false);
   const intentionalSignOut = useRef(false);
+
+  // Keep ref in sync
+  useEffect(() => { roleRef.current = role; }, [role]);
 
   useEffect(() => {
     let cancelled = false;
