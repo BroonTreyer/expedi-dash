@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { STATUSES, UF_LIST } from "@/lib/constants";
+import { STATUSES, UF_LIST, isProdutoUnidade } from "@/lib/constants";
 import { Plus, X } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
