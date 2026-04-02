@@ -37,7 +37,7 @@ export default function Index() {
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
   const isFaturamento = role === "faturamento";
-  const canEdit = isAdmin || isFaturamento;
+  const canEdit = isAdmin || isFaturamento || isLogistica;
 
   const [view, setView] = useState<"table" | "kanban">("table");
   const today = new Date();
@@ -288,7 +288,7 @@ export default function Index() {
       // errors handled by mutation's onError
     }
     setSelectedIds([]);
-  }, [updateMut, queryClient]);
+  }, [batchUpdateMut, queryClient]);
 
   // When user unchecks groups inside FechamentoLoteDialog and closes it, remove those IDs from selection
   const handleLoteExcluded = useCallback((excludedItemIds: string[]) => {
@@ -303,7 +303,7 @@ export default function Index() {
       // errors handled by mutation's onError
     }
     setSelectedIds([]);
-  }, [updateMut]);
+  }, [batchUpdateMut]);
 
   const handlePrintCarga = useCallback((cargaId: string) => {
     const itemsInCarga = carregamentos.filter(c => c.carga_id === cargaId);
