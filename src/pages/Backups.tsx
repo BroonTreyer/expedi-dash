@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Database, Download, RotateCcw, Plus, Loader2, Trash2 } from "lucide-react";
+import { Database, RotateCcw, Plus, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -44,6 +44,8 @@ export default function Backups() {
   const [restoreId, setRestoreId] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [wipeOpen, setWipeOpen] = useState(false);
+  const [wipeConfirm, setWipeConfirm] = useState("");
 
   const { data: snapshots, isLoading } = useQuery({
     queryKey: ["data_snapshots"],
@@ -107,6 +109,28 @@ export default function Backups() {
       queryClient.invalidateQueries({ queryKey: ["data_snapshots"] });
     },
     onError: (err: any) => toast.error(err.message),
+  });
+
+  const wipeMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("backup-snapshot", {
+        body: { action: "wipe_orders" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`${data.deleted ?? 0} pedidos apagados com sucesso!`);
+      setWipeOpen(false);
+      setWipeConfirm("");
+      queryClient.invalidateQueries();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao apagar pedidos");
+      setWipeOpen(false);
+      setWipeConfirm("");
+    },
   });
 
   const totalRecords = (counts: Record<string, number>) =>
@@ -216,6 +240,24 @@ export default function Backups() {
             )}
           </CardContent>
         </Card>
+
+        {/* Danger zone */}
+        <Card className="border-destructive/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" /> Zona de Perigo
+            </CardTitle>
+            <CardDescription>Ações irreversíveis — crie um snapshot antes de prosseguir</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={() => setWipeOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Apagar Todos os Pedidos
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Restore confirmation */}
@@ -240,16 +282,14 @@ export default function Backups() {
               disabled={confirmText !== "RESTAURAR" || restoreMutation.isPending}
               onClick={() => restoreId && restoreMutation.mutate(restoreId)}
             >
-              {restoreMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
+              {restoreMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Confirmar Restauração
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete confirmation */}
+      {/* Delete snapshot confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -266,6 +306,36 @@ export default function Backups() {
               disabled={deleteMutation.isPending}
             >
               Excluir
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Wipe orders confirmation */}
+      <AlertDialog open={wipeOpen} onOpenChange={() => { setWipeOpen(false); setWipeConfirm(""); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Apagar Todos os Pedidos</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso irá <strong>apagar permanentemente todos os pedidos</strong> da tabela de carregamentos.
+              Crie um snapshot antes se quiser poder restaurar depois.
+              Digite <strong>APAGAR TUDO</strong> para confirmar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            placeholder='Digite "APAGAR TUDO"'
+            value={wipeConfirm}
+            onChange={(e) => setWipeConfirm(e.target.value)}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={wipeConfirm !== "APAGAR TUDO" || wipeMutation.isPending}
+              onClick={() => wipeMutation.mutate()}
+            >
+              {wipeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Apagar Todos os Pedidos
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
