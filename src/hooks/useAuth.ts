@@ -98,7 +98,7 @@ export function useAuthState(): AuthState {
         setUser(newSession?.user ?? null);
 
         // If token was just refreshed and we already have a role, skip re-fetching
-        if (event === "TOKEN_REFRESHED" && role) {
+        if (event === "TOKEN_REFRESHED" && roleRef.current) {
           setLoading(false);
           return;
         }
