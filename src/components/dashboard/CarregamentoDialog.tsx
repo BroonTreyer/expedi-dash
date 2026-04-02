@@ -174,7 +174,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
   const handleItemQuantidade = (index: number, qty: number) => {
     const item = items[index];
-    updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty });
+    if (item.pesoManual) {
+      updateItem(index, { quantidade: qty });
+    } else {
+      updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty });
+    }
   };
 
   const addItem = () => setItems(prev => [...prev, emptyItem()]);
