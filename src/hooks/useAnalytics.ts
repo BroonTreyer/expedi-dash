@@ -263,13 +263,16 @@ export function useAnalytics(filters: AnalyticsFilters) {
     const tipoKeys = Array.from(allTipos);
 
     // === 8. Produto rupturas ranking ===
-    const prodRuptMap = new Map<string, number>();
+    const prodRuptMap = new Map<string, { count: number; peso: number }>();
     filtered.filter((r) => r.ruptura).forEach((r) => {
       const prod = r.nome_produto || "N/I";
-      prodRuptMap.set(prod, (prodRuptMap.get(prod) || 0) + 1);
+      const entry = prodRuptMap.get(prod) || { count: 0, peso: 0 };
+      entry.count += 1;
+      entry.peso += r.peso ?? 0;
+      prodRuptMap.set(prod, entry);
     });
     const produtoRupturas: ProdutoRuptura[] = Array.from(prodRuptMap.entries())
-      .map(([produto, rupturas]) => ({ produto, rupturas }))
+      .map(([produto, v]) => ({ produto, rupturas: v.count, peso: v.peso }))
       .sort((a, b) => b.rupturas - a.rupturas)
       .slice(0, 10);
 
