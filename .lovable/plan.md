@@ -1,89 +1,127 @@
 
-# Corrigir por que “os pesos não voltaram”
+# Rollback real dos dados afetados
 
-## O que eu confirmei
-Há 2 problemas diferentes misturados:
+## O problema real
+O que voltou foi só parte da lógica do app. Os números do banco não voltaram por completo.
 
-1. **A restauração dos pesos manuais não foi consolidada para todos os registros que hoje aparecem na tela**
-   - Existem vários pedidos do dia com peso alto correto no banco, mas com `peso_manual = false`.
-   - Isso faz o sistema tratar esses pesos como automáticos quando o pedido é aberto para edição.
+Pelo que revisei:
+- a tela está mostrando os valores que estão gravados hoje no banco, então não é só problema visual
+- ainda existem pedidos recentes com `peso = 20` e `peso_manual = false` em produtos que deveriam estar com peso total digitado
+- o dialog ainda recalcula peso para itens não marcados como manuais no envio, então dado parcialmente restaurado continua vulnerável
 
-2. **A lógica atual do dialog ainda permite perder o peso ao editar**
-   - Em `CarregamentoDialog.tsx`, a função `inferPesoManual(...)` retorna o valor persistido **sempre que ele existe**.
-   - Como `peso_manual` agora sempre existe no banco e muitos registros antigos estão `false`, a inferência nunca roda.
-   - Resultado: pedidos com peso diferente do padrão da caixa continuam abrindo como se fossem automáticos e podem ser sobrescritos ao salvar.
+As imagens confirmam isso: os totais de grupo batem com a soma das linhas erradas, então a tabela está refletindo dados ainda corrompidos.
 
-## Evidência encontrada
-- Na janela exibida no painel, há **247 registros** carregados.
-- Desses, **16** ainda aparecem diferentes do peso de criação no histórico.
-- **13 desses 16 são Pão de Alho (810–814)**:
-  - o histórico de criação mostra 40/80/160
-  - mas isso era o valor antigo errado
-  - o valor atual menor é o correto
-  - então **esses não devem ser restaurados pelo audit**
-- Também encontrei pedidos do dia com peso alto correto no banco, mas ainda com `peso_manual = false`, o que explica o bug ao editar.
+## O que vou fazer
+Vou tratar isso como **rollback de dados**, não como simples correção de código.
 
-## Plano de correção
+### 1. Congelar a referência correta para rollback
+Definir um **ponto seguro anterior ao incidente** e usar esse ponto como verdade para restauração.
 
-### 1. Corrigir a lógica do dialog para proteger pesos legados
-Arquivo: `src/components/dashboard/CarregamentoDialog.tsx`
+Importante:
+- voltar versão pelo History ajuda no código
+- mas **não restaura números do banco**
+- então o rollback precisa ser feito diretamente nos registros afetados
 
-Vou ajustar a inferência assim:
-- `peso_manual = true` continua sendo respeitado
-- mas `peso_manual = false` **não vai mais bloquear a inferência**
-- se o peso salvo divergir do cálculo `peso_padrao × quantidade`, o item abrirá como manual
+### 2. Reconstruir o último estado bom de cada pedido afetado
+Como você pediu **“tudo afetado”**, não vou restaurar só peso.
 
-Em termos práticos:
-```text
-Se peso_manual já for true -> manual
-Se peso_manual for false, mas o peso salvo for diferente do peso esperado -> tratar como manual
-```
+Vou reconstruir, para cada pedido impactado, o **último estado confiável antes da alteração ruim**, usando o histórico de auditoria:
+- snapshot do `criado`
+- sequência dos `alterado`
+- parar no instante anterior ao incidente
+- o resultado vira o “estado bom” daquele pedido
 
-Isso impede que um pedido com peso correto no banco seja rebaixado para o peso da caixa ao editar.
+Isso evita o erro das tentativas anteriores, que usavam só o peso de criação e não respeitavam mudanças legítimas feitas depois.
 
-### 2. Corrigir os dados que ficaram “certos no peso, errados na flag”
-Operação de dados no banco
+### 3. Restaurar todos os campos alterados nos pedidos impactados
+A restauração vai considerar os campos operacionais afetados, especialmente:
+- `peso`
+- `peso_manual`
+- `quantidade`
+- `codigo_produto`
+- `nome_produto`
+- `status`
+- `etapa`
+- `cliente`
+- `codigo_cliente`
+- `cidade`
+- `uf`
+- `tipo_frete`
+- `transportadora`
+- `tipo_caminhao`
+- `placa`
+- `motorista`
+- `carga_id`
+- `nome_carga`
+- `ordem_entrega`
+- `observacoes`
+- horários relacionados, quando divergirem do último estado bom
 
-Vou marcar `peso_manual = true` nos registros em que:
-- o peso atual bate com o peso de criação no audit
-- e o peso atual diverge do peso padrão do produto
+### 4. Aplicar o rollback só nos registros realmente atingidos
+O alvo não será “todo o banco”.
+Será:
+- todos os pedidos alterados dentro da janela do incidente
+- com prioridade para pedidos abertos / não consolidados / sem carga fechada
+- incluindo históricos onde o valor atual diverge do estado reconstruído
 
-Isso cobre os pedidos do dia que hoje aparecem com peso correto na tabela, mas ainda ficam vulneráveis quando alguém edita.
+Isso reduz risco de desfazer alterações legítimas feitas depois por usuários.
 
-### 3. Restaurar apenas os registros realmente errados
-Operação de dados no banco
-
-Vou separar os casos:
-- **Restaurar** registros cujo peso atual foi reduzido indevidamente para o padrão da caixa
-- **Não restaurar** os Pães de Alho 810–814, porque o peso de criação deles estava errado desde a origem
-
-Também vou corrigir o registro isolado que hoje parece inflado de forma incorreta em relação ao histórico.
-
-### 4. Manter Pão de Alho protegido
-Na correção de dados, vou excluir explicitamente os códigos:
-- `810`
-- `811`
-- `812`
-- `813`
-- `814`
-
-Assim o sistema não volta a trazer 40/80/160 kg antigos para itens que hoje já estão corretos em 0,4 kg por unidade.
+### 5. Blindar a edição para não estragar de novo
+Depois do rollback dos dados, vou manter uma proteção no app para que:
+- se o peso salvo divergir do cálculo padrão, o item abra como manual
+- salvar edição não recalcule peso restaurado
+- abrir pedido, salvar e reabrir preserve exatamente o mesmo valor
 
 ## Arquivos/partes envolvidos
 - `src/components/dashboard/CarregamentoDialog.tsx`
-- atualização de dados em `carregamentos_dia` com base em `audit_log` e `produtos`
+- `src/pages/Index.tsx` (fluxo de submit, se necessário)
+- dados de `carregamentos_dia`
+- histórico de `audit_log`
 
-## Validação que vou considerar obrigatória
-1. Abrir um pedido do dia com peso alto/manual
-2. Confirmar que o campo abre com o peso atual correto
-3. Salvar sem mexer no peso
-4. Reabrir e validar que ele permaneceu igual
-5. Conferir a tabela principal
-6. Conferir Rupturas
-7. Confirmar que Pão de Alho continua com peso corrigido e não volta ao valor antigo
+## Abordagem técnica
+```text
+audit_log (criado + alterado até antes do incidente)
+        ↓
+reconstrução do último estado bom por pedido
+        ↓
+comparação com estado atual em carregamentos_dia
+        ↓
+rollback somente dos registros divergentes
+        ↓
+validação em tabela principal, rupturas e edição
+```
+
+## Validação obrigatória
+Depois da restauração, a validação precisa confirmar:
+
+1. Tabela principal:
+   - pesos individuais corretos
+   - total do grupo correto
+   - contagem de produtos coerente
+
+2. Rupturas:
+   - mesmos pesos da tabela principal
+   - sem divergência entre lista e resumo
+
+3. Edição:
+   - abrir pedido com peso restaurado
+   - salvar sem mexer no peso
+   - reabrir e confirmar que nada mudou
+
+4. Casos históricos:
+   - pedidos abertos que estavam sem carga fechada
+   - registros antigos que hoje ainda aparecem alterados
+
+## Observação importante
+Se você quer “voltar exatamente como estava antes”, o caminho correto é em duas partes:
+
+1. **Código/UI**: voltar para uma versão estável pelo History
+2. **Dados**: restaurar os registros do banco para o último estado bom anterior ao incidente
+
+Só o passo 1 não resolve os números.
 
 ## Resultado esperado
-- os pesos corretos voltam a aparecer e permanecem estáveis
-- editar o pedido não derruba mais o valor para o peso da caixa
-- os registros antigos de Pão de Alho não são “restaurados errado”
-- tabela principal, rupturas e edição passam a ficar consistentes
+- os pedidos voltam para os valores corretos anteriores ao incidente
+- não apenas o peso, mas todos os campos comprovadamente afetados
+- tabela principal, rupturas e edição passam a bater entre si
+- o sistema para de sobrescrever novamente os valores restaurados
