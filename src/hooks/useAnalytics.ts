@@ -61,6 +61,7 @@ export interface DailyByTipo {
 export interface ProdutoRuptura {
   produto: string;
   rupturas: number;
+  peso: number;
 }
 
 export interface HeatmapCell {

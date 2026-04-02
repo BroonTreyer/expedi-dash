@@ -766,7 +766,20 @@ export default function Analytics() {
                             <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                             <XAxis type="number" tick={AXIS_STYLE} />
                             <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
-                            <Tooltip content={<RichTooltip suffix="" formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
+                            <Tooltip
+                              content={
+                                <RichTooltip
+                                  suffix=""
+                                  formatLabel={(v: string) => v}
+                                  extraFormatter={(entry: any) => {
+                                    const item = (a?.produtoRupturas ?? []).find((p: any) => p.produto === entry?.produto);
+                                    if (!item) return null;
+                                    return ` — ${item.peso.toLocaleString("pt-BR")} kg`;
+                                  }}
+                                />
+                              }
+                              cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }}
+                            />
                             <Bar dataKey="rupturas" name="Rupturas" fill="#EF5350" radius={[0, 5, 5, 0]} animationDuration={800} />
                           </BarChart>
                         </ResponsiveContainer>
