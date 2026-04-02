@@ -1,108 +1,38 @@
 
-# Corrigir de vez o peso manual sendo trocado pelo peso padrão da caixa
+
+# Restaurar os pesos originais dos pedidos
 
 ## O que aconteceu
-O problema não é permissão nem bloqueio de edição no banco. O problema é de lógica no app:
+A migration que rodou às 18:03 de hoje recalculou o peso de registros com `quantidade = 1` usando `peso_padrao × quantidade`, tratando os valores altos como "erros". Na realidade, os usuários estavam digitando o peso total desejado (ex: 13.000 kg de linguiça toscana para um cliente), e a migration sobrescreveu esses valores pelo peso de uma única caixa (ex: 20 kg).
 
-1. O sistema só sabe que o peso é “manual” enquanto o dialog está aberto.
-2. Quando um pedido já salvo é reaberto, o item volta com `pesoManual: false`.
-3. Ao salvar de novo, o app recalcula `peso = peso_padrao × quantidade` e sobrescreve o peso digitado.
-4. Isso explica exatamente o comportamento de “eu coloco um peso e depois ele volta para o peso da caixa”.
+## Dados disponíveis para restauração
+O audit_log tem os registros de **criação** (`action = 'criado'`) com o campo `changes->'novo'->'peso'` contendo o peso original que o usuário digitou. Confirmei isso consultando o banco — os valores originais estão preservados no log.
 
-Os sinais batem com isso:
-- o campo local `pesoManual` existe só no componente
-- ele não é persistido no banco
-- o submit recalcula o peso sempre que `pesoManual` está falso
-- o audit atual nem registra mudança de peso, então fica difícil rastrear depois
+## Plano
 
-## O que vou corrigir
+### 1. Restaurar pesos via audit_log (usando insert tool para UPDATE)
+Executar um UPDATE que cruza `carregamentos_dia` com `audit_log` para restaurar o peso original:
 
-### 1. Persistir no banco se o peso é manual
-Arquivo: migration SQL
-
-Adicionar coluna em `carregamentos_dia`:
-- `peso_manual boolean not null default false`
-
-### 2. Fazer backfill dos pedidos já existentes
-Arquivo: migration SQL
-
-Marcar como manual os registros em que o peso salvo diverge do cálculo esperado do produto:
-```text
-peso esperado = produtos.peso_padrao × quantidade
+```sql
+UPDATE carregamentos_dia c
+SET peso = (a.changes->'novo'->>'peso')::numeric,
+    peso_manual = true
+FROM audit_log a
+WHERE a.entity_id = c.id::text
+  AND a.entity_type = 'carregamento'
+  AND a.action = 'criado'
+  AND c.quantidade = 1
+  AND (a.changes->'novo'->>'peso')::numeric > c.peso * 2
 ```
 
-Usarei uma tolerância pequena para não quebrar casos decimais.
+Isso pega apenas os registros onde o peso original era significativamente maior que o peso atual (ou seja, os que foram "corrigidos" pela migration errada), e restaura o valor que o usuário digitou originalmente.
 
-Também vou incluir uma recuperação dos casos recentes em que:
-- o audit de criação mostra um peso original manual
-- o registro atual ficou igual ao peso padrão recalculado
+Também marca `peso_manual = true` para que o sistema nunca mais sobrescreva esses valores.
 
-Assim os pedidos que já foram “estragados” por esse bug podem ser restaurados quando houver evidência confiável no histórico.
-
-### 3. Corrigir o dialog para respeitar peso manual em qualquer reabertura
-Arquivo: `src/components/dashboard/CarregamentoDialog.tsx`
-
-Ajustes:
-- iniciar `pesoManual` com base em `editing.peso_manual`
-- se esse campo ainda não existir no dado carregado, inferir pelo desvio entre `peso` salvo e `peso_padrao × quantidade`
-- ao digitar no campo de peso, manter `pesoManual = true`
-- ao salvar, enviar também `peso_manual`
-- nunca recalcular peso de item manual ao reabrir/editar/salvar outro campo
-
-Resultado:
-- se o usuário digitou 504 kg, continuará 504 kg
-- se o usuário usa cálculo automático, continua automático normalmente
-
-### 4. Garantir que todas as telas passem o flag corretamente
-Arquivos:
-- `src/pages/Index.tsx`
-- `src/pages/Rupturas.tsx`
-- `src/hooks/useCarregamentos.ts` (tipagem)
-
-Vou garantir que create/update/batch create enviem e tipem `peso_manual`, para o dado não se perder entre telas e mutações.
-
-### 5. Melhorar rastreabilidade
-Arquivo: migration SQL do trigger de auditoria
-
-Adicionar auditoria para:
-- `peso`
-- `quantidade`
-- `peso_manual`
-- `codigo_produto` / `nome_produto` se necessário
-
-Assim, se alguém reclamar de novo, ficará visível quando o peso foi alterado e para qual valor.
-
-## Validação
-Vou considerar a correção pronta só depois de validar estes cenários:
-
-1. Criar pedido com peso manual diferente do padrão
-2. Salvar e reabrir o mesmo pedido
-3. Editar outro campo sem mexer no peso
-4. Confirmar que o peso manual permanece igual
-5. Editar quantidade em pedido automático e confirmar recálculo normal
-6. Editar peso com outro usuário operacional e confirmar persistência
-7. Conferir Rupturas, Analytics, impressão e tabelas usando o peso corrigido
-
-## Detalhes técnicos
-```text
-Antes:
-peso manual só existia na memória do dialog
-
-Depois:
-peso_manual fica salvo no banco
-    -> dialog reabre sabendo se aquele peso é manual
-    -> submit preserva o valor digitado
-    -> recálculo automático só acontece quando o item não é manual
-```
-
-## Arquivos envolvidos
-- `src/components/dashboard/CarregamentoDialog.tsx`
-- `src/pages/Index.tsx`
-- `src/pages/Rupturas.tsx`
-- `src/hooks/useCarregamentos.ts`
-- `supabase/migrations/...` (nova migration para coluna, backfill e auditoria)
+### 2. Nenhuma mudança de código necessária
+O código atual já respeita `peso_manual = true` e não recalcula o peso nesses casos. A correção é puramente de dados.
 
 ## Resultado esperado
-- o sistema para de trocar peso digitado pelo peso da caixa
-- pedidos antigos afetados podem ser recuperados onde houver histórico confiável
-- novos pedidos e novas edições passam a manter exatamente o peso informado pelo usuário
+- Todos os pedidos que tiveram o peso sobrescrito pela migration voltam ao valor original digitado pelo usuário
+- O flag `peso_manual` impede que o sistema sobrescreva novamente no futuro
+
