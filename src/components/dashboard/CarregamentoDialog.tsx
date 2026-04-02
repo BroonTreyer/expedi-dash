@@ -218,7 +218,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   const handleItemPeso = (index: number, peso: number) => {
     const item = items[index];
     // For unit-based products (Pão de Alho), only update weight — quantity stays manual
-    if (isProdutoUnidade(item.nome_produto) || item.pesoPadrao <= 0) {
+    if (isPorUnidade(item.nome_produto) || item.pesoPadrao <= 0) {
       updateItem(index, { peso, pesoManual: true });
     } else {
       // For normal products, recalculate quantity from weight
