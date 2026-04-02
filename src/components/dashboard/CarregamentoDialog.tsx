@@ -59,6 +59,10 @@ const inferPesoManual = (
   return Math.abs(pesoAtual - (pp * qty)) > PESO_EPSILON;
 };
 
+const shouldKeepManualPeso = (item: ProductItem) => {
+  return inferPesoManual(item.peso, item.quantidade, item.pesoPadrao, item.pesoManual);
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -203,12 +207,13 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     if (found) {
       const pp = found.peso_padrao ?? 0;
       const item = items[index];
-      if (item.pesoManual) {
+      if (shouldKeepManualPeso(item)) {
         // Preserve manually edited weight
         updateItem(index, {
           codigo_produto: codigo,
           nome_produto: found.nome_produto,
           pesoPadrao: pp,
+          pesoManual: true,
         });
       } else {
         updateItem(index, {
@@ -216,19 +221,27 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           nome_produto: found.nome_produto,
           pesoPadrao: pp,
           peso: pp * (item.quantidade ?? 1),
+          pesoManual: false,
         });
       }
     } else {
-      updateItem(index, { codigo_produto: codigo, nome_produto: "", pesoPadrao: 0, peso: 0 });
+      const item = items[index];
+      updateItem(index, {
+        codigo_produto: codigo,
+        nome_produto: "",
+        pesoPadrao: 0,
+        peso: shouldKeepManualPeso(item) ? item.peso : 0,
+        pesoManual: shouldKeepManualPeso(item),
+      });
     }
   };
 
   const handleItemQuantidade = (index: number, qty: number) => {
     const item = items[index];
-    if (item.pesoManual) {
-      updateItem(index, { quantidade: qty });
+    if (shouldKeepManualPeso(item)) {
+      updateItem(index, { quantidade: qty, pesoManual: true });
     } else {
-      updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty });
+      updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty, pesoManual: false });
     }
   };
 
@@ -252,10 +265,16 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
     // Recalculate peso from pesoPadrao only if user didn't manually edit it
     const finalItems = items.map(item => {
-      if (item.pesoManual) return item;
       const p = produtos.find(pr => pr.codigo_produto.toLowerCase() === item.codigo_produto.toLowerCase());
       const pp = p?.peso_padrao ?? item.pesoPadrao;
-      return { ...item, peso: pp > 0 ? pp * item.quantidade : item.peso };
+      const pesoManual = inferPesoManual(item.peso, item.quantidade, pp, item.pesoManual);
+      if (pesoManual) return { ...item, pesoPadrao: pp, pesoManual: true };
+      return {
+        ...item,
+        pesoPadrao: pp,
+        pesoManual: false,
+        peso: pp > 0 ? pp * item.quantidade : item.peso,
+      };
     });
 
     if (mode === "logistica") {
