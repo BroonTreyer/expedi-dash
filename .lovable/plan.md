@@ -1,45 +1,38 @@
 
 
-# Corrigir erro "Acesso não permitido" e crash do Realtime
+# Cálculo bidirecional Quantidade ↔ Peso no formulário de pedido
 
-## Problemas identificados
+## Ideia
+Concordo com a abordagem. Faz sentido ter o cálculo bidirecional:
+- **Alterar quantidade** → recalcula peso (qty × peso_padrao) — já funciona hoje
+- **Alterar peso** → recalcula quantidade (peso ÷ peso_padrao), arredondando
+- **Exceção**: Pão de Alho (produtos em UNID) — quantidade é manual, peso calcula a partir da qty mas nunca o inverso
 
-### 1. Race condition no ProtectedRoute
-Quando o auth se inicializa, existe uma janela onde `loading=false`, `user` existe, mas `role` ainda é `null`. Nesse momento, `accessDenied` se torna `true` e dispara o toast + redirect, mesmo que milissegundos depois a role carregue como "admin".
+## Mudanças
 
-Causa raiz: o `onAuthStateChange` pode disparar múltiplos eventos (INITIAL_SESSION, TOKEN_REFRESHED) e a closure do callback referencia o valor antigo de `role` (null), fazendo role fetches redundantes.
+### Arquivo: `src/components/dashboard/CarregamentoDialog.tsx`
 
-### 2. Crash do Realtime (tela branca)
-O erro "cannot add postgres_changes callbacks after subscribe()" causa crash fatal. Isso acontece quando o componente `useNotifications` re-monta e tenta adicionar listeners a um canal já subscrito, mesmo com o guard de `notificationChannels` Map — o canal pode estar num estado intermediário.
+1. **Nova função `handleItemPeso`** — quando o usuário digita o peso manualmente:
+   - Se o produto tem `pesoPadrao > 0` e **não** é Pão de Alho → calcula `quantidade = Math.round(peso / pesoPadrao)`
+   - Se é Pão de Alho ou não tem peso padrão → só atualiza o peso, sem mexer na quantidade
 
-## Correções
+2. **Alterar o campo Peso (kg)** no JSX — trocar o `onChange` atual por `handleItemPeso` em vez do `updateItem` direto
 
-### Arquivo: `src/components/ProtectedRoute.tsx`
-- Tratar `role === null` como "ainda carregando" quando o usuário existe e `allowedRoles` está definido
-- Mudar condição: se user existe mas role é null, mostrar loading (não negar acesso)
-- Remover toast repetitivo — mostrar apenas uma vez
+3. **`handleItemQuantidade`** — já está correto (recalcula peso = qty × pesoPadrao)
 
-```tsx
-// Mudança na lógica:
-// Se user existe mas role é null, considerar como "carregando role"
-const roleStillLoading = !!user && role === null && !!allowedRoles;
-const accessDenied = !loading && !!user && !!allowedRoles && !!role && !allowedRoles.includes(role);
+4. Usar a função `isProdutoUnidade` de `constants.ts` para identificar Pão de Alho
 
-if (loading || roleStillLoading) {
-  return <LoadingSpinner />;
-}
+### Lógica resumida
+```text
+Produto normal (ex: Mussarela, peso_padrao=6.3):
+  - Digita qty=10  → peso = 63
+  - Digita peso=63 → qty = 10
+
+Pão de Alho (peso_padrao=0.4, contado por unidade):
+  - Digita qty=1400 → peso = 560
+  - Digita peso=560  → qty NÃO muda (fica manual)
 ```
 
-### Arquivo: `src/hooks/useNotifications.ts`
-- Adicionar verificação de estado do canal antes de criar novo
-- Usar `removeChannel` mais defensivamente
-- Wrap em try/catch para evitar crash fatal
-
-### Arquivo: `src/hooks/useAuth.ts`
-- Na closure do `onAuthStateChange`, usar ref para `role` em vez de state (evita stale closure no check de TOKEN_REFRESHED)
-
-## Arquivos afetados
-- `src/components/ProtectedRoute.tsx` — corrigir race condition role=null
-- `src/hooks/useNotifications.ts` — proteger contra crash do realtime
-- `src/hooks/useAuth.ts` — usar ref para role no callback
+### Arquivo afetado
+- `src/components/dashboard/CarregamentoDialog.tsx` — adicionar `handleItemPeso`, alterar onChange do campo peso
 
