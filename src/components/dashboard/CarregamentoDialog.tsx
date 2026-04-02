@@ -98,7 +98,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       peso: editing.peso ?? 0,
       pesoPadrao,
       ruptura: editing.ruptura ?? false,
-      pesoManual: inferPesoManual(editing.peso, editing.quantidade, pesoPadrao, editing.peso_manual),
+      pesoManual: true,
     }]);
   }, [editing, open, produtos, vendedores]);
 
