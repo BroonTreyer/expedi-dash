@@ -1,30 +1,42 @@
 
 
-# Adicionar peso (kg) ao ranking de produtos com ruptura no Analytics
+# Corrigir Bugs na Criação/Edição de Pedidos
 
-## Problema
-O ranking de "Produtos com Mais Rupturas" na aba Rupturas do Analytics mostra apenas a **quantidade** de rupturas por produto, mas não mostra o **peso total em kg** de cada produto.
+## Problemas Identificados
+
+### Bug 1: Múltiplos itens no modo edição — só o último salva
+No `handleSubmit` (linhas 206-215), quando há múltiplos produtos no modo edição, o código chama `onSubmit()` em um `forEach` loop. Cada chamada dispara `createMut.mutate()` separadamente. O React Query **não enfileira** chamadas a `.mutate()` — cada nova chamada sobrescreve o rastreamento da anterior. Resultado: apenas o último item é salvo corretamente. Os outros disparam a request HTTP mas o sucesso/erro não é tratado, e a invalidação de cache fica inconsistente.
+
+### Bug 2: Dialog fecha antes das mutations completarem
+O `setTimeout(() => onOpenChange(false), 150)` fecha o dialog em 150ms, independente de as mutations terem finalizado. Se a rede está lenta ou o banco demora, o usuário vê o dialog fechar mas os dados não foram salvos.
+
+### Bug 3: Dados do formulário misturados com dados do editing
+Quando o dialog abre para edição, `setForm({ ...editing })` copia TODOS os campos do carregamento para o form, incluindo `created_at`, `updated_at`, `vendedores`, etc. Esses campos extras são enviados no payload e podem causar erros silenciosos ou sobrescrever dados com valores inválidos. A limpeza no `handleSubmit` remove apenas `id`, `vendedores`, `codigo_produto`, `nome_produto`, `quantidade`, `peso` — mas não limpa `created_at`, `updated_at`, etc.
 
 ## Solução
 
-### 1. `src/hooks/useAnalytics.ts` — Acumular peso no mapa de rupturas por produto
+### 1. `src/components/dashboard/CarregamentoDialog.tsx`
 
-A interface `ProdutoRuptura` já tem o campo `peso` mas não está sendo preenchido. Alterar o bloco de cálculo (linhas 265-274):
+**Corrigir submit de múltiplos itens no modo edição:**
+- Item 0: continua como update (com `id`)
+- Itens 1+: agrupar em um `_batch` array e enviar como uma única chamada, igual ao modo de criação
 
-- Trocar o Map de `Map<string, number>` para `Map<string, { count: number; peso: number }>`
-- Acumular `r.peso` junto com a contagem
-- Mapear para `{ produto, rupturas, peso }` no resultado final
+**Aguardar mutations antes de fechar:**
+- Remover o `setTimeout` e chamar `onOpenChange(false)` imediatamente — as mutations já são fire-and-forget com otimistic update, não precisam esperar
+- Ou melhor: chamar `onOpenChange(false)` sincrono após disparar onSubmit
 
-### 2. `src/pages/Analytics.tsx` — Mostrar peso no gráfico/tooltip
+**Limpar payload de campos indesejados:**
+- Adicionar limpeza de `created_at`, `updated_at`, `ruptura_sinalizada` e outros campos do banco que não devem ser reenviados
 
-No gráfico de barras horizontais (linhas 760-775):
-- Adicionar uma segunda barra (`peso`) ou exibir o peso no tooltip
-- Atualizar o tooltip para mostrar "X rupturas — Y kg" por produto
+### 2. `src/pages/Index.tsx`
 
-Abordagem recomendada: manter o gráfico com barras de contagem, mas adicionar o peso no tooltip para não poluir visualmente.
+**Adaptar `handleSubmit` para o novo formato de edição com batch:**
+- Quando receber `_batch` + `id` no mesmo payload, fazer update do item principal e batch insert dos novos
+
+## Detalhes Técnicos
 
 | Arquivo | Mudança |
 |---|---|
-| `useAnalytics.ts` | Acumular peso no `prodRuptMap` e incluir no resultado |
-| `Analytics.tsx` | Exibir peso no tooltip do gráfico de rupturas por produto |
+| `CarregamentoDialog.tsx` | Agrupar itens extras em `_batch`; limpar campos de sistema do payload; remover `setTimeout` no close |
+| `Index.tsx` | Tratar novo formato `{ id, _batch, ...basePayload }` no `handleSubmit` |
 
