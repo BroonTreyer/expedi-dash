@@ -43,8 +43,11 @@ const inferPesoManual = (
   pesoPadrao: number | null | undefined,
   persisted?: boolean | null,
 ) => {
-  if (typeof persisted === "boolean") return persisted;
+  // If already flagged as manual in the DB, trust it
+  if (persisted === true) return true;
 
+  // For persisted=false or undefined, infer from the data:
+  // if the stored weight differs from the expected calculation, treat as manual
   const pesoAtual = Number(peso ?? 0);
   const qty = Number(quantidade ?? 0);
   const pp = Number(pesoPadrao ?? 0);
