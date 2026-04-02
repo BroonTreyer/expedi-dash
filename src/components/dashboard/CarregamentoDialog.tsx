@@ -100,6 +100,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   }, [onOpenChange]);
 
   useEffect(() => {
+    if (!open) return;
     if (!editing) return;
     if (lastInitId.current === editing.id) return;
 
@@ -120,16 +121,17 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       ruptura: editing.ruptura ?? false,
       pesoManual: inferPesoManual(editing.peso, editing.quantidade, pesoPadrao, editing.peso_manual),
     }]);
-  }, [editing, produtos, vendedores]);
+  }, [editing, open, produtos, vendedores]);
 
   useEffect(() => {
+    if (!open) return;
     if (editing) return;
 
     setForm({ data: selectedDate, status: "Aguardando", etapa: "vendas", ruptura: defaultRuptura ?? false });
     setCodigoVendedorInput("");
     setCodigoClienteInput("");
     setItems([emptyItem()]);
-  }, [editing, selectedDate, defaultRuptura]);
+  }, [editing, open, selectedDate, defaultRuptura]);
 
   const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
 
