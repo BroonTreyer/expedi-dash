@@ -207,12 +207,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   };
 
   const handleItemQuantidade = (index: number, qty: number) => {
-    const item = items[index];
-    if (shouldKeepManualPeso(item)) {
-      updateItem(index, { quantidade: qty, pesoManual: true });
-    } else {
-      updateItem(index, { quantidade: qty, peso: item.pesoPadrao * qty, pesoManual: false });
-    }
+    // Never recalculate weight — user controls it
+    updateItem(index, { quantidade: qty });
   };
 
   const addItem = () => setItems(prev => [...prev, emptyItem()]);
