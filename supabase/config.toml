@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.roteirizar]
 verify_jwt = false
+
+[functions.backup-snapshot]
+verify_jwt = false

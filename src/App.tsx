@@ -17,6 +17,7 @@ import Portaria from "./pages/Portaria";
 import Motoristas from "./pages/Motoristas";
 import Caminhoes from "./pages/Caminhoes";
 import Analytics from "./pages/Analytics";
+import Backups from "./pages/Backups";
 
 import Relatorios from "./pages/Relatorios";
 import PortalMotorista from "./pages/PortalMotorista";
@@ -62,6 +63,7 @@ function AppRoutes() {
         <Route path="/motoristas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Motoristas /></ProtectedRoute>} />
         <Route path="/caminhoes" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><Caminhoes /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Analytics /></ProtectedRoute>} />
+        <Route path="/backups" element={<ProtectedRoute allowedRoles={["admin"]}><Backups /></ProtectedRoute>} />
         
         <Route path="/relatorios" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Relatorios /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />

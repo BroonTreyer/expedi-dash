@@ -239,6 +239,33 @@ export type Database = {
         }
         Relationships: []
       }
+      data_snapshots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          record_counts: Json
+          snapshot_data: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          record_counts?: Json
+          snapshot_data?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          record_counts?: Json
+          snapshot_data?: Json
+        }
+        Relationships: []
+      }
       geocode_cache: {
         Row: {
           cidade: string
