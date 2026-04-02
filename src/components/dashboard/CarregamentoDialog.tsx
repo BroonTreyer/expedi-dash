@@ -166,12 +166,21 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     if (found) {
       const pp = found.peso_padrao ?? 0;
       const item = items[index];
-      updateItem(index, {
-        codigo_produto: codigo,
-        nome_produto: found.nome_produto,
-        pesoPadrao: pp,
-        peso: pp * (item.quantidade ?? 1),
-      });
+      if (item.pesoManual) {
+        // Preserve manually edited weight
+        updateItem(index, {
+          codigo_produto: codigo,
+          nome_produto: found.nome_produto,
+          pesoPadrao: pp,
+        });
+      } else {
+        updateItem(index, {
+          codigo_produto: codigo,
+          nome_produto: found.nome_produto,
+          pesoPadrao: pp,
+          peso: pp * (item.quantidade ?? 1),
+        });
+      }
     } else {
       updateItem(index, { codigo_produto: codigo, nome_produto: "", pesoPadrao: 0, peso: 0 });
     }
