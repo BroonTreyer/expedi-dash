@@ -191,6 +191,13 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     delete basePayload.quantidade;
     delete basePayload.peso;
 
+    // Recalculate peso from pesoPadrao to avoid stale cached values
+    const finalItems = items.map(item => {
+      const p = produtos.find(pr => pr.codigo_produto.toLowerCase() === item.codigo_produto.toLowerCase());
+      const pp = p?.peso_padrao ?? item.pesoPadrao;
+      return { ...item, peso: pp > 0 ? pp * item.quantidade : item.peso };
+    });
+
     if (mode === "logistica") {
       basePayload.etapa = "logistica";
     }
