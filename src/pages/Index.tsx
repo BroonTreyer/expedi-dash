@@ -182,6 +182,13 @@ export default function Index() {
     updateMut.mutate(updates);
   }, [isAdmin, isLogistica, isFaturamento, updateMut]);
 
+  // Fields shared across all products of the same order (propagated on edit)
+  const SHARED_FIELDS = useMemo(() => [
+    'vendedor_id', 'codigo_cliente', 'cliente', 'cidade', 'uf', 'tipo_frete',
+    'tipo_caminhao', 'placa', 'motorista', 'transportadora', 'carga_id', 'nome_carga',
+    'horario_previsto', 'observacoes', 'status', 'etapa',
+  ], []);
+
   const handleSubmit = useCallback((values: Record<string, any>) => {
     const onFkError = {
       onError: (e: any) => {
@@ -200,6 +207,32 @@ export default function Index() {
       if (Array.isArray(_batch) && _batch.length > 0) {
         batchCreateMut.mutate(_batch, onFkError);
       }
+
+      // Cascade: propagate shared fields to sibling rows (same numero_pedido + data)
+      const editedItem = carregamentos.find((c) => c.id === values.id);
+      if (editedItem && editedItem.numero_pedido) {
+        const siblings = carregamentos.filter(
+          (c) =>
+            c.id !== values.id &&
+            c.numero_pedido === editedItem.numero_pedido &&
+            c.data === editedItem.data
+        );
+        if (siblings.length > 0) {
+          const sharedPayload: Record<string, any> = {};
+          for (const field of SHARED_FIELDS) {
+            if (field in updatePayload) {
+              sharedPayload[field] = updatePayload[field];
+            }
+          }
+          if (Object.keys(sharedPayload).length > 0) {
+            const siblingUpdates = siblings.map((s) => ({
+              id: s.id,
+              ...sharedPayload,
+            }));
+            batchUpdateMut.mutate(siblingUpdates);
+          }
+        }
+      }
     } else {
       if (Array.isArray(values._batch)) {
         batchCreateMut.mutate(values._batch, onFkError);
@@ -207,7 +240,7 @@ export default function Index() {
         createMut.mutate(values, onFkError);
       }
     }
-  }, [updateMut, createMut, batchCreateMut]);
+  }, [updateMut, createMut, batchCreateMut, batchUpdateMut, carregamentos, SHARED_FIELDS]);
 
   const handleEdit = useCallback((c: Carregamento) => {
     if (!canEdit) return;
