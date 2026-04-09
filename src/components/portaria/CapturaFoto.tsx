@@ -30,7 +30,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
   }, [localPreview]);
 
   useEffect(() => {
-    if (disabled) return;
+    if (disabled || shouldCapture) return;
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -49,7 +49,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
     };
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [disabled, onCapture, localPreview]);
+  }, [disabled, onCapture, localPreview, shouldCapture]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
