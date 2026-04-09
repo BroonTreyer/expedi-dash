@@ -10,6 +10,7 @@ interface Props {
   disabled?: boolean;
   previewUrl?: string | null;
   accept?: string;
+  cameraOnly?: boolean;
 }
 
 export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*" }: Props) {
