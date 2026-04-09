@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const TABLES = [
@@ -226,38 +226,10 @@ Deno.serve(async (req) => {
 
     // ── SYNC CLIENTS ──
     if (action === "sync_clients") {
-      // Fetch all clients
-      const allClients = await fetchAllRows(admin, "clientes");
-      let updatedCount = 0;
+      const { data: result, error: rpcErr } = await admin.rpc("sync_clients_to_orders");
+      if (rpcErr) throw new Error(`Erro ao sincronizar: ${rpcErr.message}`);
 
-      for (const client of allClients) {
-        const { count, error: updErr } = await admin
-          .from("carregamentos_dia")
-          .update({
-            cliente: client.nome_cliente,
-            cidade: client.cidade,
-            uf: client.uf,
-          }, { count: "exact" })
-          .eq("codigo_cliente", client.codigo_cliente)
-          .or(
-            `cliente.neq.${client.nome_cliente},cidade.neq.${client.cidade},uf.neq.${client.uf}`
-          );
-
-        // Fallback: just update all matching rows without the filter
-        if (updErr) {
-          const { count: c2 } = await admin
-            .from("carregamentos_dia")
-            .update({
-              cliente: client.nome_cliente,
-              cidade: client.cidade,
-              uf: client.uf,
-            }, { count: "exact" })
-            .eq("codigo_cliente", client.codigo_cliente);
-          updatedCount += (c2 ?? 0);
-        } else {
-          updatedCount += (count ?? 0);
-        }
-      }
+      const updatedCount = result?.updated ?? 0;
 
       await admin.from("audit_log").insert({
         entity_type: "backup",
@@ -265,7 +237,7 @@ Deno.serve(async (req) => {
         action: "sync_clients",
         user_id: userId,
         user_email: "",
-        changes: { updated_count: updatedCount, clients_checked: allClients.length },
+        changes: { updated_count: updatedCount },
       });
 
       return new Response(JSON.stringify({ success: true, updated: updatedCount }), {
