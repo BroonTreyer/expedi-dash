@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Database, RotateCcw, Plus, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Database, RotateCcw, Plus, Loader2, Trash2, AlertTriangle, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -133,6 +133,22 @@ export default function Backups() {
     },
   });
 
+  const syncClientsMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("backup-snapshot", {
+        body: { action: "sync_clients" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`${data.updated ?? 0} registros de pedidos atualizados com dados dos clientes!`);
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+    },
+    onError: (err: any) => toast.error(err.message || "Erro ao sincronizar clientes"),
+  });
+
   const totalRecords = (counts: Record<string, number>) =>
     Object.values(counts).reduce((a, b) => a + b, 0);
 
@@ -238,6 +254,32 @@ export default function Backups() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Sync clients */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" /> Sincronizar Dados
+            </CardTitle>
+            <CardDescription>
+              Atualiza nome, cidade e UF dos pedidos existentes com os dados atuais da tabela de clientes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={() => syncClientsMutation.mutate()}
+              disabled={syncClientsMutation.isPending}
+            >
+              {syncClientsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Sincronizar Clientes com Pedidos
+            </Button>
           </CardContent>
         </Card>
 
