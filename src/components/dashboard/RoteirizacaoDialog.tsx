@@ -463,6 +463,16 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
             {ufsUnicas.map((uf) => <Badge key={uf} variant="secondary" className="text-xs font-bold">{uf}</Badge>)}
           </div>
           <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={handleExportExcel}
+            disabled={activeGroups.length === 0}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            Exportar
+          </Button>
+          <Button
             variant="default"
             size="sm"
             className="ml-auto gap-1.5 text-xs"
