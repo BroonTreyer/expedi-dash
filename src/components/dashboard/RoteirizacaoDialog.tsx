@@ -21,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUp, ArrowDown, MapPin, Package, GripVertical, Route, Loader2, ArrowRight } from "lucide-react";
+import { ArrowUp, ArrowDown, MapPin, Package, GripVertical, Route, Loader2, ArrowRight, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -349,6 +350,48 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     }
   }, [shouldAutoRoute, isRouting, groups.length, handleRoteirizar]);
 
+  const handleExportExcel = useCallback(() => {
+    const header = ["#", "CÓDIGO", "NOME", "CIDADE", "UF", "PESO", "VENDEDOR"];
+    const rows: (string | number | null)[][] = [header];
+    let totalPesoExcel = 0;
+
+    activeGroups.forEach((g, i) => {
+      // Find vendedor(es) from original items
+      const vendedores = new Set<string>();
+      for (const item of items) {
+        if (item.codigo_cliente === g.codigoCliente && item.vendedores?.nome_vendedor) {
+          vendedores.add(item.vendedores.nome_vendedor);
+        }
+      }
+      totalPesoExcel += g.pesoTotal;
+      rows.push([
+        `${i + 1}º`,
+        g.codigoCliente ?? "",
+        g.nomeCliente ?? "Sem cliente",
+        g.cidade ?? "",
+        g.uf ?? "",
+        g.pesoTotal,
+        Array.from(vendedores).join(", "),
+      ]);
+    });
+
+    rows.push(["", "", "", "", "", totalPesoExcel, ""]);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 5 },   // #
+      { wch: 10 },  // CÓDIGO
+      { wch: 35 },  // NOME
+      { wch: 22 },  // CIDADE
+      { wch: 5 },   // UF
+      { wch: 10 },  // PESO
+      { wch: 15 },  // VENDEDOR
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Roteirização");
+    XLSX.writeFile(wb, "roteirizacao.xlsx");
+  }, [activeGroups, items]);
+
   const handleAdvance = () => {
     onAdvance({
       groups: activeGroups,
@@ -419,6 +462,16 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
           <div className="flex gap-1 flex-wrap">
             {ufsUnicas.map((uf) => <Badge key={uf} variant="secondary" className="text-xs font-bold">{uf}</Badge>)}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={handleExportExcel}
+            disabled={activeGroups.length === 0}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            Exportar
+          </Button>
           <Button
             variant="default"
             size="sm"
