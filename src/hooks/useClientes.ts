@@ -62,9 +62,24 @@ export function useUpdateCliente() {
     mutationFn: async ({ id, ...values }: { id: string; codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; ativo: boolean }) => {
       const { data, error } = await supabase.from("clientes").update(values).eq("id", id).select().single();
       if (error) throw error;
+
+      // Propagar nome, cidade e UF para todos os pedidos com esse codigo_cliente
+      await supabase
+        .from("carregamentos_dia")
+        .update({
+          cliente: values.nome_cliente,
+          cidade: values.cidade || null,
+          uf: values.uf || null,
+        })
+        .eq("codigo_cliente", values.codigo_cliente);
+
       return data;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clientes"] }); toast.success("Cliente atualizado"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clientes"] });
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success("Cliente atualizado");
+    },
     onError: (e: any) => toast.error(e.message),
   });
 }
