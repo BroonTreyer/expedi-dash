@@ -133,6 +133,22 @@ export default function Backups() {
     },
   });
 
+  const syncClientsMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("backup-snapshot", {
+        body: { action: "sync_clients" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`${data.updated ?? 0} registros de pedidos atualizados com dados dos clientes!`);
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+    },
+    onError: (err: any) => toast.error(err.message || "Erro ao sincronizar clientes"),
+  });
+
   const totalRecords = (counts: Record<string, number>) =>
     Object.values(counts).reduce((a, b) => a + b, 0);
 
