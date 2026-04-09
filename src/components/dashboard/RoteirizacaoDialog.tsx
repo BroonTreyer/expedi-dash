@@ -350,6 +350,48 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     }
   }, [shouldAutoRoute, isRouting, groups.length, handleRoteirizar]);
 
+  const handleExportExcel = useCallback(() => {
+    const header = ["#", "CÓDIGO", "NOME", "CIDADE", "UF", "PESO", "VENDEDOR"];
+    const rows: (string | number | null)[][] = [header];
+    let totalPesoExcel = 0;
+
+    activeGroups.forEach((g, i) => {
+      // Find vendedor(es) from original items
+      const vendedores = new Set<string>();
+      for (const item of items) {
+        if (item.codigo_cliente === g.codigoCliente && item.vendedores?.nome_vendedor) {
+          vendedores.add(item.vendedores.nome_vendedor);
+        }
+      }
+      totalPesoExcel += g.pesoTotal;
+      rows.push([
+        `${i + 1}º`,
+        g.codigoCliente ?? "",
+        g.nomeCliente ?? "Sem cliente",
+        g.cidade ?? "",
+        g.uf ?? "",
+        g.pesoTotal,
+        Array.from(vendedores).join(", "),
+      ]);
+    });
+
+    rows.push(["", "", "", "", "", totalPesoExcel, ""]);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 5 },   // #
+      { wch: 10 },  // CÓDIGO
+      { wch: 35 },  // NOME
+      { wch: 22 },  // CIDADE
+      { wch: 5 },   // UF
+      { wch: 10 },  // PESO
+      { wch: 15 },  // VENDEDOR
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Roteirização");
+    XLSX.writeFile(wb, "roteirizacao.xlsx");
+  }, [activeGroups, items]);
+
   const handleAdvance = () => {
     onAdvance({
       groups: activeGroups,
