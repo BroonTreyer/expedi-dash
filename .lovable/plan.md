@@ -1,41 +1,38 @@
 
 
-# Exportar Excel da Roteirização (formato do print 1)
+# Corrigir câmera no Android e confirmar PWA
 
-## O que será feito
-Adicionar um botão "Exportar Excel" na tela de Roteirização que gera uma planilha no formato da imagem enviada, com colunas: ordem, código cliente, nome, cidade, UF, peso, vendedor.
+## PWA no Android
+O PWA já está configurado corretamente para Android:
+- Manifest com ícones 192x192 e 512x512, `display: "standalone"`
+- Service worker com `autoUpdate`
+- Meta tags mobile no `index.html`
 
-## Mudanças
+No Android, o usuário pode instalar via menu do Chrome → "Adicionar à tela inicial" ou "Instalar app". Funciona igual app nativo.
 
-### Arquivo: `src/components/dashboard/RoteirizacaoDialog.tsx`
+## Problema da câmera
+O componente `CapturaFoto` usa `<input type="file" accept="image/*">` sem o atributo `capture`. No Android, isso abre um seletor que permite escolher entre câmera e galeria. Você quer que abra **somente a câmera**.
 
-1. Importar `* as XLSX from "xlsx"` e o ícone `FileSpreadsheet` do lucide-react
+## Solução
 
-2. Criar função `handleExportExcel` que:
-   - Percorre os `groups` ativos na ordem atual
-   - Para cada grupo, busca o vendedor dos `items` originais (prop `items`) cruzando pelo `codigoCliente`
-   - Monta array de linhas: `[ordem, codigo_cliente, nome_cliente, cidade, uf, peso_total, vendedor]`
-   - Adiciona linha de total no final (soma do peso)
-   - Gera workbook com `XLSX.utils.aoa_to_sheet`, aplica larguras de coluna
-   - Faz download como `.xlsx`
+### Arquivo: `src/components/portaria/CapturaFoto.tsx`
 
-3. Adicionar botão "Exportar" ao lado do botão "Roteirizar" na barra de resumo (summary bar), usando ícone `FileSpreadsheet`
+1. Adicionar prop `cameraOnly` (default `true` para manter o comportamento desejado)
+2. Adicionar atributo `capture="environment"` no `<input>` — isso força o Android a abrir diretamente a câmera traseira
+3. Remover o listener de paste (Ctrl+V) quando `cameraOnly` estiver ativo, já que só deve aceitar fotos da câmera
+4. Atualizar o texto do placeholder para "Toque para fotografar"
 
-### Lógica de vendedor
-- O `RotaGroup` não tem vendedor, mas os `items` originais (prop `items: Carregamento[]`) têm `vendedores?.nome_vendedor`
-- Para cada grupo, busca nos items originais pelo `codigo_cliente` e pega o primeiro vendedor encontrado
-- Se houver mais de um vendedor por cliente, lista todos separados por vírgula
-
-### Formato da planilha
+### Detalhe técnico
 ```text
-| #  | CÓDIGO | NOME                    | CIDADE            | UF | PESO    | VENDEDOR |
-|----|--------|-------------------------|-------------------|----|---------|----------|
-| 1º | 33628  | M LIMA ALMEIDA          | JEQUIE            | BA | 2832    | EDIVAR   |
-| 2º | 21759  | FRIGO IRMAOS VAZ        | JAGUAQUARA        | BA | 1800    | EDIVAR   |
-...
-|    |        |                         |                   |    | TOTAL   |          |
+Antes:  <input type="file" accept="image/*" />
+Depois: <input type="file" accept="image/*" capture="environment" />
 ```
 
-## Arquivo afetado
-- `src/components/dashboard/RoteirizacaoDialog.tsx`
+O atributo `capture="environment"` instrui o navegador mobile a usar a câmera traseira diretamente, sem mostrar opção de galeria.
+
+### Exceção
+Campos que aceitam PDF (como `foto_documento_url`) continuarão sem `capture`, pois precisam permitir upload de arquivo. A prop `accept` já controla isso — quando `accept` inclui `application/pdf`, não adicionamos `capture`.
+
+## Arquivos afetados
+- `src/components/portaria/CapturaFoto.tsx`
 
