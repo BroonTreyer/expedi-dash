@@ -75,6 +75,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
         ref={inputRef}
         type="file"
         accept={accept}
+        capture={shouldCapture ? "environment" : undefined}
         className="hidden"
         onChange={handleChange}
         disabled={disabled}
