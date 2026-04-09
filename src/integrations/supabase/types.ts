@@ -832,6 +832,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      sync_clients_to_orders: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "logistica" | "faturamento" | "portaria"
