@@ -226,26 +226,13 @@ Deno.serve(async (req) => {
 
     // ── SYNC CLIENTS ──
     if (action === "sync_clients") {
-      // Fetch all clients
       const allClients = await fetchAllRows(admin, "clientes");
       let updatedCount = 0;
+      const errors: string[] = [];
 
       for (const client of allClients) {
-        const { count, error: updErr } = await admin
-          .from("carregamentos_dia")
-          .update({
-            cliente: client.nome_cliente,
-            cidade: client.cidade,
-            uf: client.uf,
-          }, { count: "exact" })
-          .eq("codigo_cliente", client.codigo_cliente)
-          .or(
-            `cliente.neq.${client.nome_cliente},cidade.neq.${client.cidade},uf.neq.${client.uf}`
-          );
-
-        // Fallback: just update all matching rows without the filter
-        if (updErr) {
-          const { count: c2 } = await admin
+        try {
+          const { count } = await admin
             .from("carregamentos_dia")
             .update({
               cliente: client.nome_cliente,
@@ -253,9 +240,9 @@ Deno.serve(async (req) => {
               uf: client.uf,
             }, { count: "exact" })
             .eq("codigo_cliente", client.codigo_cliente);
-          updatedCount += (c2 ?? 0);
-        } else {
           updatedCount += (count ?? 0);
+        } catch (e) {
+          errors.push(`${client.codigo_cliente}: ${e.message}`);
         }
       }
 
@@ -265,10 +252,10 @@ Deno.serve(async (req) => {
         action: "sync_clients",
         user_id: userId,
         user_email: "",
-        changes: { updated_count: updatedCount, clients_checked: allClients.length },
+        changes: { updated_count: updatedCount, clients_checked: allClients.length, errors: errors.length > 0 ? errors.slice(0, 10) : undefined },
       });
 
-      return new Response(JSON.stringify({ success: true, updated: updatedCount }), {
+      return new Response(JSON.stringify({ success: true, updated: updatedCount, errors: errors.length > 0 ? errors.slice(0, 10) : undefined }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
