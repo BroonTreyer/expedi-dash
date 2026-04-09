@@ -13,7 +13,7 @@ interface Props {
   cameraOnly?: boolean;
 }
 
-export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*" }: Props) {
+export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*", cameraOnly = true }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
@@ -21,6 +21,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
 
   const preview = previewUrl || localPreview;
   const showAsPdf = isPdf || (previewUrl && (previewUrl.includes('.pdf') || previewUrl.includes('application/pdf')));
+  const shouldCapture = cameraOnly && !accept.includes("application/pdf");
 
   useEffect(() => {
     return () => {
