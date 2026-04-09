@@ -257,6 +257,32 @@ export default function Backups() {
           </CardContent>
         </Card>
 
+        {/* Sync clients */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" /> Sincronizar Dados
+            </CardTitle>
+            <CardDescription>
+              Atualiza nome, cidade e UF dos pedidos existentes com os dados atuais da tabela de clientes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={() => syncClientsMutation.mutate()}
+              disabled={syncClientsMutation.isPending}
+            >
+              {syncClientsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Sincronizar Clientes com Pedidos
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Danger zone */}
         <Card className="border-destructive/50">
           <CardHeader className="pb-3">
