@@ -1,39 +1,27 @@
 
 
-# Propagar alterações de pedido para todos os produtos do mesmo pedido
+# Sincronizar dados de clientes no painel após atualização
 
 ## Problema
-Quando um pedido tem múltiplos produtos (ex: 5 itens), cada produto é uma linha separada na tabela `carregamentos_dia`. Para alterar o vendedor, cliente, cidade, UF ou qualquer campo logístico, o usuário precisa editar **cada linha individualmente**. Deveria alterar uma vez e propagar para todas as linhas do mesmo pedido.
+O painel lê `cliente`, `cidade` e `uf` diretamente das linhas de `carregamentos_dia`. Quando você atualiza um cliente na página Clientes, os pedidos existentes continuam com os dados antigos porque são campos duplicados (desnormalizados).
 
 ## Solução
-Ao salvar a edição de um carregamento, identificar todas as linhas que pertencem ao mesmo pedido (mesmo `numero_pedido` + `data`, ou mesmo `carga_id`) e atualizar os campos compartilhados em todas elas automaticamente.
-
-## Campos compartilhados (propagados)
-- `vendedor_id`, `codigo_cliente`, `cliente`, `cidade`, `uf`, `tipo_frete`, `numero_pedido`
-- `tipo_caminhao`, `placa`, `motorista`, `transportadora`, `carga_id`, `nome_carga`, `horario_previsto`
-- `observacoes`, `status`, `etapa`
-
-## Campos individuais (NÃO propagados)
-- `codigo_produto`, `nome_produto`, `quantidade`, `peso`, `ruptura`
+Ao atualizar um cliente, propagar automaticamente as alterações (nome, cidade, UF) para todos os registros de `carregamentos_dia` que usam o mesmo `codigo_cliente`.
 
 ## Mudanças
 
-### 1. `src/hooks/useCarregamentos.ts` — novo hook `useUpdateCarregamentoCascade`
-- Recebe o payload de update + lista de IDs irmãos (mesmo pedido)
-- Separa campos compartilhados dos individuais
-- Atualiza o registro principal com todos os campos
-- Atualiza os registros irmãos apenas com os campos compartilhados (batch update)
+### 1. `src/hooks/useClientes.ts` — `useUpdateCliente`
+Após o update do cliente, executar um update em cascata:
+```sql
+UPDATE carregamentos_dia 
+SET cliente = novo_nome, cidade = nova_cidade, uf = novo_uf
+WHERE codigo_cliente = codigo_do_cliente
+```
+Isso garante que todos os pedidos (passados e futuros) reflitam os dados atualizados.
 
-### 2. `src/pages/Index.tsx` — alterar `handleSubmit` no modo editar
-- Antes de chamar o update, buscar na lista de carregamentos todos os registros com o mesmo `numero_pedido` e `data` (ou mesmo `carga_id`)
-- Passar os IDs irmãos para o hook cascade
-- Se o pedido tem apenas 1 linha, comportamento normal (sem mudança)
+### 2. Invalidar queries do painel
+Após a propagação, invalidar também a query `["carregamentos"]` para que o painel recarregue os dados atualizados.
 
-### 3. `src/components/dashboard/CarregamentoDialog.tsx` — sem alteração
-O dialog já funciona corretamente. A propagação acontece no submit handler.
-
-## Resultado
-- Alterar vendedor, cliente ou qualquer campo logístico em um produto propaga automaticamente para todos os produtos do mesmo pedido
-- Campos de produto (código, nome, quantidade, peso) continuam individuais
-- Sem mudança na experiência do dialog — a mágica acontece no salvamento
+## Arquivos afetados
+- `src/hooks/useClientes.ts` — adicionar propagação no `useUpdateCliente`
 
