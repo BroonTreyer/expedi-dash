@@ -130,6 +130,10 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const handleSelectCategoria = (cat: Categoria) => {
     setCategoria(cat);
     setValues({});
+    if (cat === "carga_propria" && tipo === "entrada") {
+      // Carga própria não tem "entrada" — o 1º contato é saída p/ rota
+      setTipo("saida");
+    }
     setStep("form");
   };
 
