@@ -1,27 +1,19 @@
 
 
-# Corrigir dois bugs no fluxo Veículos Esperados → Dialog
+# Corrigir label do botão para terceirizados em Veículos Esperados
 
-## Problemas encontrados
+## Problema
+O botão para terceirizados ainda diz **"Registrar Entrada"**, mas o fluxo de terceirizados começa com **Chegada** (não Entrada). A Entrada é liberada depois, numa segunda etapa.
 
-**Bug 1 — Estado `prefillEtapa` não é resetado**: Quando o usuário clica "Registrar Saída p/ Rota" nos Veículos Esperados, a função `openRegistroFromVeiculoEsperado` faz `setPrefill(null)` mas **não** faz `setPrefillEtapa(null)`. Se antes o usuário abriu um Retorno ou Lacre do pátio, o `prefillEtapa` fica com valor antigo ("retorno" ou "lacre"), fazendo o dialog abrir com título e campos errados.
+## Correção
 
-**Bug 2 — Matriz de campos errada para 1ª saída**: Em `portaria-fields-config.ts`, `getMatrix("saida")` retorna `VISIBILITY_SAIDA` (campos de lacre). Mas a 1ª saída p/ rota usa `tipo = "saida"` e deveria usar a matriz `VISIBILITY` (campos normais: placa, motorista, km_inicial, foto_placa, etc.).
+### `src/components/portaria/VeiculosEsperadosPanel.tsx`
+- Trocar `"Registrar Entrada"` → **`"Registrar Chegada"`** nos dois locais (mobile linha 167, desktop linha 221)
 
-## Correções
+| Grupo | Label atual | Label correto |
+|-------|------------|---------------|
+| PRÓPRIA | Registrar Saída p/ Rota ✅ | Mantém |
+| Outros (terceirizado) | Registrar Entrada ❌ | **Registrar Chegada** |
 
-### `src/pages/Portaria.tsx`
-- Na função `openRegistroFromVeiculoEsperado`, adicionar `setPrefillEtapa(null)` para limpar estado residual
-
-### `src/lib/portaria-fields-config.ts`
-- Em `getMatrix()`, mudar a lógica: `"saida"` → retorna `VISIBILITY` (matriz normal), apenas `"lacre"` → retorna `VISIBILITY_SAIDA`
-
-Isso garante que:
-- 1ª saída p/ rota (tipo="saida") → mostra campos normais (placa, motorista, km_inicial, foto_placa, rota)
-- Retorno (tipo="retorno") → mostra foto painel + km final
-- Lacre (tipo="lacre") → mostra foto lacre + nº lacre + conferente
-
-## Arquivos afetados
-- `src/pages/Portaria.tsx` (1 linha)
-- `src/lib/portaria-fields-config.ts` (1 linha na função `getMatrix`)
+1 arquivo, 2 linhas alteradas.
 
