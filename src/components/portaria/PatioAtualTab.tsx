@@ -209,7 +209,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
       <div className="py-12 flex flex-col items-center gap-2 text-muted-foreground">
         <ParkingCircle className="h-10 w-10 opacity-30" />
         <p className="font-medium">Nenhum veículo no pátio</p>
-        <p className="text-xs">Registre uma entrada para começar</p>
+        <p className="text-xs">Registre um movimento para começar</p>
       </div>
     );
   }
@@ -246,7 +246,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div>
-                    <span className="text-muted-foreground">Entrada: </span>
+                    <span className="text-muted-foreground">Horário: </span>
                     <span className="font-medium">{format(new Date(m.data_hora), dateFromStr !== dateToStr ? "dd/MM HH:mm" : "HH:mm", { locale: ptBR })}</span>
                   </div>
                   <div className={getTempoClass(minutos)}>
@@ -330,7 +330,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
       <Table>
         <TableHeader>
           <TableRow>
-            <SortableTableHead sortKey="data_hora" sort={sort} onSort={toggleSort}>Entrada</SortableTableHead>
+            <SortableTableHead sortKey="data_hora" sort={sort} onSort={toggleSort}>Horário</SortableTableHead>
             <SortableTableHead sortKey="tempo" sort={sort} onSort={toggleSort}>Tempo</SortableTableHead>
             <SortableTableHead sortKey="categoria" sort={sort} onSort={toggleSort}>Categoria</SortableTableHead>
             <SortableTableHead sortKey="placa" sort={sort} onSort={toggleSort}>Placa</SortableTableHead>

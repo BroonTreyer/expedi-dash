@@ -116,13 +116,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setConfiancaLacre(null);
   }, [open, prefill, prefillEtapa, prefillFromPlanilha]);
 
-  // For carga_propria new registration, force "saida" as the tipo (1ª saída)
   const effectiveTipo = useMemo(() => {
-    if (categoria === "carga_propria" && tipo === "entrada" && !prefillFromPlanilha) {
-      return "entrada"; // Will be converted to "saida" tipo_movimento on save with etapa_carga_propria
-    }
     return tipo;
-  }, [categoria, tipo, prefillFromPlanilha]);
+  }, [tipo]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, effectiveTipo), [categoria, effectiveTipo]);
   const canSave = useMemo(() => validateForm(categoria, values, effectiveTipo), [categoria, values, effectiveTipo]);
@@ -130,6 +126,10 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const handleSelectCategoria = (cat: Categoria) => {
     setCategoria(cat);
     setValues({});
+    if (cat === "carga_propria" && tipo === "entrada") {
+      // Carga própria não tem "entrada" — o 1º contato é saída p/ rota
+      setTipo("saida");
+    }
     setStep("form");
   };
 
@@ -210,7 +210,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
         // Determine tipo_movimento for DB
         let dbTipoMovimento = tipo === "entrada" ? "entrada" : "saida";
         // For carga_propria new entry (1ª saída), create as "saida" with etapa
-        const isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && tipo === "entrada" && !prefill && !prefillFromPlanilha;
+        const isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && !prefill && !prefillFromPlanilha;
         if (isCargaPropriaPrimeiraSaida) {
           dbTipoMovimento = "saida";
         }
@@ -290,7 +290,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     if (prefillEtapa === "lacre" && prefill) return `Registrar lacre e saída final do veículo ${prefill.placa}`;
     if (prefill) return `Registrar saída do veículo ${prefill.placa}`;
     if (prefillFromPlanilha) return `Conferir entrada do veículo ${prefillFromPlanilha.placa}`;
-    if (categoria === "carga_propria") return "Registrar saída para rota";
     return `Preencha os dados de ${tipo === "entrada" ? "entrada" : "saída"}`;
   };
 
@@ -303,7 +302,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const getSaveButtonLabel = () => {
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Finalizar c/ Lacre";
-    if (categoria === "carga_propria" && tipo === "entrada" && !prefill && !prefillFromPlanilha) return "Registrar Saída p/ Rota";
     return `Registrar ${tipo === "entrada" ? "Entrada" : "Saída"}`;
   };
 
@@ -328,9 +326,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                   <ArrowUpFromLine className="h-4 w-4" /> Saída
                 </Button>
               </div>
-              {categoria === "carga_propria" && tipo === "entrada" && (
-                <p className="text-[11px] text-muted-foreground">Para Carga Própria, "Entrada" registra a 1ª saída para rota</p>
-              )}
             </div>
 
             {/* Category cards */}
