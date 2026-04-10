@@ -365,6 +365,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
                       {getCategoriaLabel(m.categoria)}
                     </Badge>
+                    {m.categoria === "carga_propria" && m.etapa_carga_propria && (
+                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
+                        {m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
+                      </Badge>
+                    )}
                     {m.categoria === "terceirizado" && m.etapa_terceirizado && (
                       <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
                         {m.etapa_terceirizado === "aguardando" ? "Aguardando" : "No Pátio"}
