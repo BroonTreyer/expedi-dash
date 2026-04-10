@@ -86,7 +86,7 @@ export default function Portaria() {
 
   const pendentesEsperados = veiculosEsperados.filter((v) => !v.conferido).length;
 
-  const openRegistro = (prefillData?: MovimentacaoPortaria, etapa?: "retorno" | "lacre") => {
+  const openRegistro = (prefillData?: MovimentacaoPortaria, etapa?: "retorno" | "lacre" | "saida_rota") => {
     setPrefill(prefillData || null);
     setPrefillEtapa(etapa || null);
     setPrefillFromPlanilha(null);

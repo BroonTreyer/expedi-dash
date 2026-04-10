@@ -303,6 +303,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
   // Title and description based on flow
   const getDialogDescription = () => {
+    if (prefillEtapa === "saida_rota" && prefill) return `Registrar saída p/ rota do veículo ${prefill.placa}`;
     if (prefillEtapa === "retorno" && prefill) return `Registrar retorno do veículo ${prefill.placa}`;
     if (prefillEtapa === "lacre" && prefill) return `Registrar lacre e saída final do veículo ${prefill.placa}`;
     if (prefill) return `Registrar saída do veículo ${prefill.placa}`;
@@ -314,12 +315,14 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   };
 
   const getDialogTitle = () => {
+    if (prefillEtapa === "saida_rota") return "Saída p/ Rota";
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Saída Final — Lacre";
     return `Cadastro de ${categoriaLabel}`;
   };
 
   const getSaveButtonLabel = () => {
+    if (prefillEtapa === "saida_rota") return "Registrar Saída p/ Rota";
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Finalizar c/ Lacre";
     if (categoria === "carga_propria" && !prefill) return "Registrar Saída p/ Rota";
