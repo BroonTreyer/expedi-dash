@@ -164,7 +164,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                 </div>
                 {!isConferido && !readOnly && (
                   <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1" onClick={() => onRegistrar(v)}>
-{v.grupo === "PRÓPRIA" ? "Registrar Saída p/ Rota" : "Registrar Chegada"}
+Registrar Chegada
                   </Button>
                 )}
               </div>
