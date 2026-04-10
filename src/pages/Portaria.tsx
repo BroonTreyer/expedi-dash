@@ -98,6 +98,7 @@ export default function Portaria() {
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
     }
     setPrefill(null);
+    setPrefillEtapa(null);
     const isTerceirizado = v.grupo === "FROTAS" || v.grupo === "INTERIOR";
     const isCargaPropria = !isTerceirizado;
     setPrefillFromPlanilha({
