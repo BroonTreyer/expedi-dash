@@ -20,6 +20,8 @@ export interface FieldConfig {
 // Visibility matrix per field per category
 type VisibilityMatrix = Record<string, Record<Categoria, FieldVisibility>>;
 
+export type TipoMovimentoPortaria = "entrada" | "saida" | "retorno" | "lacre";
+
 export const CATEGORIAS_PORTARIA: { value: Categoria; label: string; icon: string; description: string }[] = [
   { value: "carga_propria", label: "Carga Própria", icon: "🚛", description: "Frota própria com controle de KM e rota" },
   { value: "terceirizado", label: "Terceirizado", icon: "🚚", description: "Transportadora terceirizada" },
@@ -84,6 +86,7 @@ export const FIELDS: FieldConfig[] = [
   { key: "foto_nota_url", label: "📷 Foto da Nota Fiscal", type: "photo", block: "evidencias" },
 ];
 
+// ENTRADA visibility — used for entrada of all categories AND 1ª saída of carga_propria
 export const VISIBILITY: VisibilityMatrix = {
   // Identificação
   tipo_operacao:      { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "opcional",    visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
@@ -129,9 +132,20 @@ export const VISIBILITY: VisibilityMatrix = {
   foto_lacre_url:     { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto",      visitante: "oculto",      prestador: "oculto",      outros: "oculto" },
 };
 
-// Exit visibility — only carga_propria has fields; others use quick exit
+// RETORNO visibility — carga_propria retorno stage: foto painel + km final + observações
+export const VISIBILITY_RETORNO: VisibilityMatrix = Object.fromEntries(
+  Object.keys(VISIBILITY).map((key) => {
+    const allOculto: Record<Categoria, FieldVisibility> = { carga_propria: "oculto", terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" };
+    if (key === "foto_painel_url") return [key, { ...allOculto, carga_propria: "obrigatorio" }];
+    if (key === "km_final") return [key, { ...allOculto, carga_propria: "obrigatorio" }];
+    if (key === "observacoes") return [key, { ...allOculto, carga_propria: "opcional" }];
+    if (key === "ocorrencia") return [key, { ...allOculto, carga_propria: "opcional" }];
+    return [key, allOculto];
+  })
+);
+
+// SAIDA/LACRE visibility — lacre stage for carga_propria; exit for terceirizado/fornecedor
 export const VISIBILITY_SAIDA: VisibilityMatrix = {
-  // Only show foto_painel + km_final + observacoes for carga_propria exit
   tipo_operacao:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   nome_completo:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   empresa:            { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
@@ -150,20 +164,20 @@ export const VISIBILITY_SAIDA: VisibilityMatrix = {
   qtd_entregas:       { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   km_rota:            { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   km_inicial:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  km_final:           { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  tipo_carga:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  nota_fiscal:        { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  doca_setor:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  carga_id:           { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  km_final:           { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  tipo_carga:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  nota_fiscal:        { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  doca_setor:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  carga_id:           { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   numero_lacre:       { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  responsavel_interno:{ carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  conferente:         { carga_propria: "opcional",    terceirizado: "opcional",    fornecedor: "opcional", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  ocorrencia:         { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  observacoes:        { carga_propria: "opcional",    terceirizado: "opcional",    fornecedor: "opcional", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  foto_placa_url:     { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  foto_documento_url: { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  foto_painel_url:    { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto",      fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  responsavel_interno:{ carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  conferente:         { carga_propria: "opcional",    terceirizado: "opcional", fornecedor: "opcional", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  ocorrencia:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  observacoes:        { carga_propria: "opcional",    terceirizado: "opcional", fornecedor: "opcional", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_placa_url:     { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_documento_url: { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_painel_url:    { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   foto_lacre_url:     { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto", prestador: "oculto", outros: "oculto" },
 };
 
@@ -175,8 +189,14 @@ export const BLOCKS = [
   { key: "evidencias", label: "Evidências", icon: "📸" },
 ] as const;
 
-export function getVisibleFields(categoria: Categoria, tipoMovimento: "entrada" | "saida" = "entrada") {
-  const matrix = tipoMovimento === "saida" ? VISIBILITY_SAIDA : VISIBILITY;
+function getMatrix(tipoMovimento: TipoMovimentoPortaria): VisibilityMatrix {
+  if (tipoMovimento === "retorno") return VISIBILITY_RETORNO;
+  if (tipoMovimento === "saida" || tipoMovimento === "lacre") return VISIBILITY_SAIDA;
+  return VISIBILITY;
+}
+
+export function getVisibleFields(categoria: Categoria, tipoMovimento: TipoMovimentoPortaria = "entrada") {
+  const matrix = getMatrix(tipoMovimento);
   return FIELDS.filter((f) => {
     const vis = matrix[f.key]?.[categoria];
     return vis && vis !== "oculto";
@@ -186,16 +206,16 @@ export function getVisibleFields(categoria: Categoria, tipoMovimento: "entrada" 
   }));
 }
 
-export function getVisibleBlocks(categoria: Categoria, tipoMovimento: "entrada" | "saida" = "entrada") {
+export function getVisibleBlocks(categoria: Categoria, tipoMovimento: TipoMovimentoPortaria = "entrada") {
   const visibleFields = getVisibleFields(categoria, tipoMovimento);
   return BLOCKS.filter((block) => visibleFields.some((f) => f.block === block.key));
 }
 
-export function getBlockFields(categoria: Categoria, blockKey: string, tipoMovimento: "entrada" | "saida" = "entrada") {
+export function getBlockFields(categoria: Categoria, blockKey: string, tipoMovimento: TipoMovimentoPortaria = "entrada") {
   return getVisibleFields(categoria, tipoMovimento).filter((f) => f.block === blockKey);
 }
 
-export function validateForm(categoria: Categoria, values: Record<string, any>, tipoMovimento: "entrada" | "saida" = "entrada"): boolean {
+export function validateForm(categoria: Categoria, values: Record<string, any>, tipoMovimento: TipoMovimentoPortaria = "entrada"): boolean {
   const requiredFields = getVisibleFields(categoria, tipoMovimento).filter((f) => f.required);
   return requiredFields.every((f) => {
     const val = values[f.key];
