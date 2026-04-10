@@ -116,13 +116,9 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setConfiancaLacre(null);
   }, [open, prefill, prefillEtapa, prefillFromPlanilha]);
 
-  // For carga_propria new registration, force "saida" as the tipo (1ª saída)
   const effectiveTipo = useMemo(() => {
-    if (categoria === "carga_propria" && tipo === "entrada" && !prefillFromPlanilha) {
-      return "entrada"; // Will be converted to "saida" tipo_movimento on save with etapa_carga_propria
-    }
     return tipo;
-  }, [categoria, tipo, prefillFromPlanilha]);
+  }, [tipo]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, effectiveTipo), [categoria, effectiveTipo]);
   const canSave = useMemo(() => validateForm(categoria, values, effectiveTipo), [categoria, values, effectiveTipo]);
