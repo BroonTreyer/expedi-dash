@@ -172,10 +172,21 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
     try {
       if (isCargaPropriaUpdate && prefill) {
-        // UPDATE existing record for retorno or lacre stages
+        // UPDATE existing record for saida_rota, retorno or lacre stages
         const updates: Record<string, any> = {};
 
-        if (prefillEtapa === "retorno") {
+        if (prefillEtapa === "saida_rota") {
+          updates.foto_placa_url = values.foto_placa_url || null;
+          updates.placa = values.placa?.trim().toUpperCase() || prefill.placa || null;
+          updates.motorista = values.motorista?.trim() || prefill.motorista || null;
+          updates.km_inicial = values.km_inicial ? Number(values.km_inicial) : null;
+          updates.rota = values.rota?.trim() || prefill.rota || null;
+          updates.texto_placa_lido = textoPlacaLido;
+          updates.confianca_placa = confiancaPlaca;
+          updates.placa_confirmada = values.placa?.trim().toUpperCase() || null;
+          updates.horario_real_saida = new Date().toISOString();
+          updates.etapa_carga_propria = "em_rota";
+        } else if (prefillEtapa === "retorno") {
           updates.foto_painel_url = values.foto_painel_url || null;
           updates.km_final = values.km_final ? Number(values.km_final) : null;
           updates.observacoes = values.observacoes?.trim() || prefill.observacoes || null;
