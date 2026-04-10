@@ -1,0 +1,1 @@
+ALTER TABLE public.movimentacoes_portaria ADD COLUMN etapa_carga_propria text;
