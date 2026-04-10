@@ -214,7 +214,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
         // Determine tipo_movimento for DB
         let dbTipoMovimento = tipo === "entrada" ? "entrada" : "saida";
         // For carga_propria new entry (1ª saída), create as "saida" with etapa
-        const isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && tipo === "entrada" && !prefill && !prefillFromPlanilha;
+        const isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && !prefill && !prefillFromPlanilha;
         if (isCargaPropriaPrimeiraSaida) {
           dbTipoMovimento = "saida";
         }
