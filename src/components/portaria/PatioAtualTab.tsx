@@ -92,8 +92,14 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         .map((m) => m.movimento_vinculado_id!)
     );
     return movimentacoes
-      .filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id))
       .filter((m) => {
+        // Carga própria 3-stage: show in pátio if em_rota or retornou
+        if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
+          return m.etapa_carga_propria !== "finalizado";
+        }
+        // Normal: show entradas without linked saída
+        if (m.tipo_movimento !== "entrada") return false;
+        if (saidasVinculadas.has(m.id)) return false;
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
         return true;
