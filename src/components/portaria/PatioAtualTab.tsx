@@ -283,7 +283,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </div>
                 {!readOnly && (
                 <div className="flex justify-end pt-1">
-                  {m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
+                  {m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
+                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
+                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
+                    </Button>
+                  ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
                        <ArrowDownToLine className="h-3 w-3" /> Registrar Retorno
                     </Button>
