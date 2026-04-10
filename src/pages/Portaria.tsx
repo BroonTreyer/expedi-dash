@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck } from "lucide-react";
-import { useMovimentacoes, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { useMovimentacoes, useCreateMovimentacao, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
@@ -39,6 +39,7 @@ export default function Portaria() {
   const [tipoFilter, setTipoFilter] = useState("");
 
   const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
+  const createMov = useCreateMovimentacao();
   const { data: veiculosEsperados = [] } = useVeiculosEsperados(dateFromStr);
   const importarMutation = useImportarVeiculosEsperados();
   const marcarConferidoMutation = useMarcarConferido();
@@ -47,7 +48,7 @@ export default function Portaria() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
-  const [prefillEtapa, setPrefillEtapa] = useState<"retorno" | "lacre" | null>(null);
+  const [prefillEtapa, setPrefillEtapa] = useState<"retorno" | "lacre" | "saida_rota" | null>(null);
   const [prefillFromPlanilha, setPrefillFromPlanilha] = useState<Record<string, any> | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
