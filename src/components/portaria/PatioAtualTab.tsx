@@ -19,7 +19,7 @@ interface Props {
   movimentacoes: MovimentacaoPortaria[];
   search: string;
   categoriaFilter: string;
-  onRegistrarSaida: (entrada: MovimentacaoPortaria, etapa?: "retorno" | "lacre") => void;
+  onRegistrarSaida: (entrada: MovimentacaoPortaria, etapa?: "retorno" | "lacre" | "saida_rota") => void;
   isLoading?: boolean;
   readOnly?: boolean;
   dateFromStr?: string;
@@ -230,8 +230,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
                   <div className="flex items-center gap-1">
                     {m.categoria === "carga_propria" && m.etapa_carga_propria && (
-                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
-                        {m.etapa_carga_propria === "em_rota" ? "🔵 Em Rota" : "🟡 Retornou"}
+                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
+                        {m.etapa_carga_propria === "chegou" ? "🟠 Chegou" : m.etapa_carga_propria === "em_rota" ? "🔵 Em Rota" : "🟡 Retornou"}
                       </Badge>
                     )}
                     {m.categoria === "terceirizado" && m.etapa_terceirizado && (
