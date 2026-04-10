@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, Clock, AlertTriangle, ParkingCircle, LogIn } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, LogIn } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -19,7 +19,7 @@ interface Props {
   movimentacoes: MovimentacaoPortaria[];
   search: string;
   categoriaFilter: string;
-  onRegistrarSaida: (entrada: MovimentacaoPortaria) => void;
+  onRegistrarSaida: (entrada: MovimentacaoPortaria, etapa?: "retorno" | "lacre") => void;
   isLoading?: boolean;
   readOnly?: boolean;
   dateFromStr?: string;
@@ -92,8 +92,14 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         .map((m) => m.movimento_vinculado_id!)
     );
     return movimentacoes
-      .filter((m) => m.tipo_movimento === "entrada" && !saidasVinculadas.has(m.id))
       .filter((m) => {
+        // Carga própria 3-stage: show in pátio if em_rota or retornou
+        if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
+          return m.etapa_carga_propria !== "finalizado";
+        }
+        // Normal: show entradas without linked saída
+        if (m.tipo_movimento !== "entrada") return false;
+        if (saidasVinculadas.has(m.id)) return false;
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
         return true;
@@ -223,6 +229,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
                   <div className="flex items-center gap-1">
+                    {m.categoria === "carga_propria" && m.etapa_carga_propria && (
+                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
+                        {m.etapa_carga_propria === "em_rota" ? "🔵 Em Rota" : "🟡 Retornou"}
+                      </Badge>
+                    )}
                     {m.categoria === "terceirizado" && m.etapa_terceirizado && (
                       <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
                         {m.etapa_terceirizado === "aguardando" ? "🟡 Aguardando" : "🟢 No Pátio"}
@@ -272,7 +283,15 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </div>
                 {!readOnly && (
                 <div className="flex justify-end pt-1">
-                  {m.categoria === "carga_propria" ? (
+                  {m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
+                       <ArrowDownToLine className="h-3 w-3" /> Registrar Retorno
+                    </Button>
+                  ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "retornou" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
+                       <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
+                    </Button>
+                  ) : m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                        <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
                     </Button>
@@ -346,6 +365,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
                       {getCategoriaLabel(m.categoria)}
                     </Badge>
+                    {m.categoria === "carga_propria" && m.etapa_carga_propria && (
+                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
+                        {m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
+                      </Badge>
+                    )}
                     {m.categoria === "terceirizado" && m.etapa_terceirizado && (
                       <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
                         {m.etapa_terceirizado === "aguardando" ? "Aguardando" : "No Pátio"}
@@ -367,7 +391,15 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </TableCell>
                 <TableCell className="text-right">
                   {!readOnly && (
-                  m.categoria === "carga_propria" ? (
+                  m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
+                      <ArrowDownToLine className="h-3 w-3" /> Retorno
+                    </Button>
+                  ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "retornou" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
+                      <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
+                    </Button>
+                  ) : m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
                     </Button>

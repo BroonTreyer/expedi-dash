@@ -11,6 +11,7 @@ import { PlacaInput } from "./PlacaInput";
 import { MotoristaAutocomplete } from "./MotoristaAutocomplete";
 import {
   useCreateMovimentacao,
+  useUpdateMovimentacao,
   uploadFotoMovimentacao,
   type MovimentacaoPortaria,
 } from "@/hooks/useMovimentacoesPortaria";
@@ -21,6 +22,7 @@ import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft } from "lucide-rea
 import { toast } from "sonner";
 import {
   type Categoria,
+  type TipoMovimentoPortaria,
   CATEGORIAS_PORTARIA,
   getVisibleBlocks,
   getBlockFields,
@@ -31,16 +33,19 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   prefill?: MovimentacaoPortaria | null;
+  /** For carga própria 3-stage flow: "retorno" or "lacre" */
+  prefillEtapa?: "retorno" | "lacre" | null;
   prefillFromPlanilha?: Record<string, any> | null;
   onCreated?: (placa: string) => void;
 }
 
-export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFromPlanilha, onCreated }: Props) {
+export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEtapa, prefillFromPlanilha, onCreated }: Props) {
   const { user } = useAuth();
   const createMov = useCreateMovimentacao();
+  const updateMov = useUpdateMovimentacao();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const [step, setStep] = useState<"categoria" | "form">("categoria");
-  const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
+  const [tipo, setTipo] = useState<TipoMovimentoPortaria>("entrada");
   const [categoria, setCategoria] = useState<Categoria>("carga_propria");
   const [values, setValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
@@ -55,10 +60,26 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
     setValues((prev) => ({ ...prev, [key]: val }));
   }, []);
 
+  // Determine if this is a carga própria update flow (retorno or lacre)
+  const isCargaPropriaUpdate = !!prefill && prefill.categoria === "carga_propria" && (prefillEtapa === "retorno" || prefillEtapa === "lacre");
+
   // Reset when opening
   useEffect(() => {
     if (!open) return;
-    if (prefill) {
+    if (prefill && prefillEtapa === "retorno") {
+      // Carga própria retorno stage
+      setStep("form");
+      setTipo("retorno");
+      setCategoria("carga_propria");
+      setValues({});
+    } else if (prefill && prefillEtapa === "lacre") {
+      // Carga própria lacre/final exit stage
+      setStep("form");
+      setTipo("lacre");
+      setCategoria("carga_propria");
+      setValues({});
+    } else if (prefill) {
+      // Legacy: saída for non-carga-própria OR old flow
       setStep("form");
       setTipo("saida");
       setCategoria((prefill.categoria as Categoria) || "carga_propria");
@@ -93,10 +114,18 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
     setOcrLacreLoading(false);
     setTextoLacreLido(null);
     setConfiancaLacre(null);
-  }, [open, prefill, prefillFromPlanilha]);
+  }, [open, prefill, prefillEtapa, prefillFromPlanilha]);
 
-  const blocks = useMemo(() => getVisibleBlocks(categoria, tipo), [categoria, tipo]);
-  const canSave = useMemo(() => validateForm(categoria, values, tipo), [categoria, values, tipo]);
+  // For carga_propria new registration, force "saida" as the tipo (1ª saída)
+  const effectiveTipo = useMemo(() => {
+    if (categoria === "carga_propria" && tipo === "entrada" && !prefillFromPlanilha) {
+      return "entrada"; // Will be converted to "saida" tipo_movimento on save with etapa_carga_propria
+    }
+    return tipo;
+  }, [categoria, tipo, prefillFromPlanilha]);
+
+  const blocks = useMemo(() => getVisibleBlocks(categoria, effectiveTipo), [categoria, effectiveTipo]);
+  const canSave = useMemo(() => validateForm(categoria, values, effectiveTipo), [categoria, values, effectiveTipo]);
 
   const handleSelectCategoria = (cat: Categoria) => {
     setCategoria(cat);
@@ -135,68 +164,117 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
     if (!canSave) return;
     setSaving(true);
 
-    // Calculate km_rodado for carga_propria
-    let kmRodado: number | null = null;
-    const kmInicialSource = tipo === "saida" && prefill?.km_inicial != null ? prefill.km_inicial : values.km_inicial;
-    if (categoria === "carga_propria" && values.km_final && kmInicialSource != null) {
-      kmRodado = Number(values.km_final) - Number(kmInicialSource);
-    }
-
     try {
-      await createMov.mutateAsync({
-        tipo_movimento: tipo,
-        categoria,
-        placa: values.placa?.trim().toUpperCase() || null,
-        motorista: values.motorista?.trim() || null,
-        empresa: values.empresa?.trim() || null,
-        destino_setor: values.destino_setor?.trim() || values.doca_setor?.trim() || null,
-        motivo: null,
-        carga_id: values.carga_id?.trim() || null,
-        foto_placa_url: values.foto_placa_url || null,
-        texto_placa_lido: textoPlacaLido,
-        confianca_placa: confiancaPlaca,
-        placa_confirmada: values.placa?.trim().toUpperCase() || null,
-        foto_documento_url: values.foto_documento_url || null,
-        observacoes: values.observacoes?.trim() || null,
-        usuario_id: user?.id ?? null,
-        movimento_vinculado_id: prefill?.id || null,
-        // New fields
-        tipo_operacao: values.tipo_operacao || null,
-        documento: values.documento?.trim() || null,
-        nome_completo: values.nome_completo?.trim() || null,
-        rota: values.rota?.trim() || null,
-        peso: values.peso ? Number(values.peso) : null,
-        qtd_entregas: values.qtd_entregas ? Number(values.qtd_entregas) : null,
-        km_rota: values.km_rota ? Number(values.km_rota) : null,
-        km_inicial: values.km_inicial ? Number(values.km_inicial) : null,
-        km_final: values.km_final ? Number(values.km_final) : null,
-        km_rodado: kmRodado,
-        apelido: values.apelido?.trim() || null,
-        conferente: values.conferente?.trim() || null,
-        ocorrencia: values.ocorrencia?.trim() || null,
-        nota_fiscal: values.nota_fiscal?.trim() || null,
-        servico_executar: values.servico_executar?.trim() || null,
-        responsavel_interno: values.responsavel_interno?.trim() || null,
-        pessoa_visitada: values.pessoa_visitada?.trim() || null,
-        motivo_visita: values.motivo_visita?.trim() || null,
-        telefone: values.telefone?.trim() || null,
-        descricao: values.descricao?.trim() || null,
-        tipo_carga: values.tipo_carga?.trim() || null,
-        numero_lacre: values.numero_lacre?.trim() || null,
-        doca_setor: values.doca_setor?.trim() || null,
-        foto_painel_url: values.foto_painel_url || null,
-        foto_nota_url: values.foto_nota_url || null,
-        foto_lacre_url: values.foto_lacre_url || null,
-        tipo_caminhao: values.tipo_caminhao?.trim() || null,
-        // Terceirizado 3-stage fields
-        ...(categoria === "terceirizado" && tipo === "entrada" ? {
-          horario_chegada: new Date().toISOString(),
-          etapa_terceirizado: "aguardando",
-        } : {}),
-      } as any);
-      const savedPlaca = values.placa?.trim().toUpperCase() || "";
-      if (savedPlaca) onCreated?.(savedPlaca);
-      onOpenChange(false);
+      if (isCargaPropriaUpdate && prefill) {
+        // UPDATE existing record for retorno or lacre stages
+        const updates: Record<string, any> = {};
+
+        if (prefillEtapa === "retorno") {
+          updates.foto_painel_url = values.foto_painel_url || null;
+          updates.km_final = values.km_final ? Number(values.km_final) : null;
+          updates.observacoes = values.observacoes?.trim() || prefill.observacoes || null;
+          updates.ocorrencia = values.ocorrencia?.trim() || null;
+          updates.horario_real_retorno = new Date().toISOString();
+          updates.etapa_carga_propria = "retornou";
+          // Calculate km_rodado
+          if (updates.km_final != null && prefill.km_inicial != null) {
+            updates.km_rodado = Number(updates.km_final) - Number(prefill.km_inicial);
+          }
+        } else if (prefillEtapa === "lacre") {
+          updates.foto_lacre_url = values.foto_lacre_url || null;
+          updates.numero_lacre = values.numero_lacre?.trim() || null;
+          updates.conferente = values.conferente?.trim() || null;
+          if (values.observacoes?.trim()) {
+            // Append to existing observacoes
+            const existing = prefill.observacoes || "";
+            const novo = values.observacoes.trim();
+            updates.observacoes = existing ? `${existing}\n[Lacre] ${novo}` : novo;
+          }
+          updates.horario_real_saida = new Date().toISOString();
+          updates.etapa_carga_propria = "finalizado";
+        }
+
+        await updateMov.mutateAsync({ id: prefill.id, ...updates });
+        const savedPlaca = prefill.placa || "";
+        if (savedPlaca) onCreated?.(savedPlaca);
+        onOpenChange(false);
+      } else {
+        // CREATE new record
+        // Calculate km_rodado for carga_propria (legacy saida with prefill)
+        let kmRodado: number | null = null;
+        const kmInicialSource = tipo === "saida" && prefill?.km_inicial != null ? prefill.km_inicial : values.km_inicial;
+        if (categoria === "carga_propria" && values.km_final && kmInicialSource != null) {
+          kmRodado = Number(values.km_final) - Number(kmInicialSource);
+        }
+
+        // Determine tipo_movimento for DB
+        let dbTipoMovimento = tipo === "entrada" ? "entrada" : "saida";
+        // For carga_propria new entry (1ª saída), create as "saida" with etapa
+        const isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && tipo === "entrada" && !prefill && !prefillFromPlanilha;
+        if (isCargaPropriaPrimeiraSaida) {
+          dbTipoMovimento = "saida";
+        }
+
+        await createMov.mutateAsync({
+          tipo_movimento: dbTipoMovimento,
+          categoria,
+          placa: values.placa?.trim().toUpperCase() || null,
+          motorista: values.motorista?.trim() || null,
+          empresa: values.empresa?.trim() || null,
+          destino_setor: values.destino_setor?.trim() || values.doca_setor?.trim() || null,
+          motivo: null,
+          carga_id: values.carga_id?.trim() || null,
+          foto_placa_url: values.foto_placa_url || null,
+          texto_placa_lido: textoPlacaLido,
+          confianca_placa: confiancaPlaca,
+          placa_confirmada: values.placa?.trim().toUpperCase() || null,
+          foto_documento_url: values.foto_documento_url || null,
+          observacoes: values.observacoes?.trim() || null,
+          usuario_id: user?.id ?? null,
+          movimento_vinculado_id: prefill?.id || null,
+          // New fields
+          tipo_operacao: values.tipo_operacao || null,
+          documento: values.documento?.trim() || null,
+          nome_completo: values.nome_completo?.trim() || null,
+          rota: values.rota?.trim() || null,
+          peso: values.peso ? Number(values.peso) : null,
+          qtd_entregas: values.qtd_entregas ? Number(values.qtd_entregas) : null,
+          km_rota: values.km_rota ? Number(values.km_rota) : null,
+          km_inicial: values.km_inicial ? Number(values.km_inicial) : null,
+          km_final: values.km_final ? Number(values.km_final) : null,
+          km_rodado: kmRodado,
+          apelido: values.apelido?.trim() || null,
+          conferente: values.conferente?.trim() || null,
+          ocorrencia: values.ocorrencia?.trim() || null,
+          nota_fiscal: values.nota_fiscal?.trim() || null,
+          servico_executar: values.servico_executar?.trim() || null,
+          responsavel_interno: values.responsavel_interno?.trim() || null,
+          pessoa_visitada: values.pessoa_visitada?.trim() || null,
+          motivo_visita: values.motivo_visita?.trim() || null,
+          telefone: values.telefone?.trim() || null,
+          descricao: values.descricao?.trim() || null,
+          tipo_carga: values.tipo_carga?.trim() || null,
+          numero_lacre: values.numero_lacre?.trim() || null,
+          doca_setor: values.doca_setor?.trim() || null,
+          foto_painel_url: values.foto_painel_url || null,
+          foto_nota_url: values.foto_nota_url || null,
+          foto_lacre_url: values.foto_lacre_url || null,
+          tipo_caminhao: values.tipo_caminhao?.trim() || null,
+          // Carga própria 1ª saída
+          ...(isCargaPropriaPrimeiraSaida ? {
+            etapa_carga_propria: "em_rota",
+            horario_real_saida: new Date().toISOString(),
+          } : {}),
+          // Terceirizado 3-stage fields
+          ...(categoria === "terceirizado" && tipo === "entrada" ? {
+            horario_chegada: new Date().toISOString(),
+            etapa_terceirizado: "aguardando",
+          } : {}),
+        } as any);
+        const savedPlaca = values.placa?.trim().toUpperCase() || "";
+        if (savedPlaca) onCreated?.(savedPlaca);
+        onOpenChange(false);
+      }
     } finally {
       setSaving(false);
     }
@@ -205,6 +283,29 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
   const handleClose = () => onOpenChange(false);
 
   const categoriaLabel = CATEGORIAS_PORTARIA.find((c) => c.value === categoria)?.label || categoria;
+
+  // Title and description based on flow
+  const getDialogDescription = () => {
+    if (prefillEtapa === "retorno" && prefill) return `Registrar retorno do veículo ${prefill.placa}`;
+    if (prefillEtapa === "lacre" && prefill) return `Registrar lacre e saída final do veículo ${prefill.placa}`;
+    if (prefill) return `Registrar saída do veículo ${prefill.placa}`;
+    if (prefillFromPlanilha) return `Conferir entrada do veículo ${prefillFromPlanilha.placa}`;
+    if (categoria === "carga_propria") return "Registrar saída para rota";
+    return `Preencha os dados de ${tipo === "entrada" ? "entrada" : "saída"}`;
+  };
+
+  const getDialogTitle = () => {
+    if (prefillEtapa === "retorno") return "Registrar Retorno";
+    if (prefillEtapa === "lacre") return "Saída Final — Lacre";
+    return `Cadastro de ${categoriaLabel}`;
+  };
+
+  const getSaveButtonLabel = () => {
+    if (prefillEtapa === "retorno") return "Registrar Retorno";
+    if (prefillEtapa === "lacre") return "Finalizar c/ Lacre";
+    if (categoria === "carga_propria" && tipo === "entrada" && !prefill && !prefillFromPlanilha) return "Registrar Saída p/ Rota";
+    return `Registrar ${tipo === "entrada" ? "Entrada" : "Saída"}`;
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(v); }}>
@@ -224,9 +325,12 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                   <ArrowDownToLine className="h-4 w-4" /> Entrada
                 </Button>
                 <Button type="button" variant={tipo === "saida" ? "default" : "outline"} className="gap-2" onClick={() => setTipo("saida")}>
-                  <ArrowUpFromLine className="h-4 w-4" /> Retorno
+                  <ArrowUpFromLine className="h-4 w-4" /> Saída
                 </Button>
               </div>
+              {categoria === "carga_propria" && tipo === "entrada" && (
+                <p className="text-[11px] text-muted-foreground">Para Carga Própria, "Entrada" registra a 1ª saída para rota</p>
+              )}
             </div>
 
             {/* Category cards */}
@@ -253,16 +357,26 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 )}
-                Cadastro de {categoriaLabel}
+                {getDialogTitle()}
               </DialogTitle>
-              <DialogDescription>
-                {prefill ? `Registrar retorno do veículo ${prefill.placa}` : prefillFromPlanilha ? `Conferir entrada do veículo ${prefillFromPlanilha.placa}` : `Preencha os dados de ${tipo === "entrada" ? "entrada" : "retorno"}`}
-              </DialogDescription>
+              <DialogDescription>{getDialogDescription()}</DialogDescription>
             </DialogHeader>
+
+            {/* Show info banner for retorno/lacre */}
+            {isCargaPropriaUpdate && prefill && (
+              <div className="rounded-md bg-muted/50 p-2.5 text-sm space-y-0.5">
+                <div><span className="text-muted-foreground">Placa:</span> <strong>{prefill.placa}</strong></div>
+                <div><span className="text-muted-foreground">Motorista:</span> <strong>{prefill.motorista || "—"}</strong></div>
+                {prefill.rota && <div><span className="text-muted-foreground">Rota:</span> <strong>{prefill.rota}</strong></div>}
+                {prefillEtapa === "retorno" && prefill.km_inicial != null && (
+                  <div><span className="text-muted-foreground">KM Inicial:</span> <strong>{prefill.km_inicial}</strong></div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-5">
               {blocks.map((block) => {
-                const fields = getBlockFields(categoria, block.key, tipo);
+                const fields = getBlockFields(categoria, block.key, effectiveTipo);
                 if (fields.length === 0) return null;
 
                 return (
@@ -425,8 +539,24 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
                 );
               })}
 
-              {/* KM Rodado calculated display */}
+              {/* KM Rodado calculated display for retorno */}
               {(() => {
+                if (prefillEtapa === "retorno" && prefill?.km_inicial != null && values.km_final) {
+                  const rodado = Number(values.km_final) - Number(prefill.km_inicial);
+                  const kmRota = prefill.km_rota;
+                  return (
+                    <div className="rounded-md bg-muted/50 p-3 text-sm">
+                      <span className="text-muted-foreground">KM Rodado: </span>
+                      <span className="font-semibold">{rodado.toFixed(0)} km</span>
+                      {kmRota && (
+                        <span className="text-muted-foreground ml-2">
+                          (Rota: {kmRota} km — {Math.abs(rodado - Number(kmRota)).toFixed(0)} km de diferença)
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
+                // Legacy: km display for old saida flow
                 const kmIni = tipo === "saida" && prefill?.km_inicial != null ? prefill.km_inicial : values.km_inicial;
                 if (!(categoria === "carga_propria" && values.km_final && kmIni != null)) return null;
                 const rodado = Number(values.km_final) - Number(kmIni);
@@ -452,7 +582,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillFr
               <Button variant="outline" onClick={handleClose} disabled={saving}>Cancelar</Button>
               <Button onClick={handleSave} disabled={!canSave || saving || ocrLoading || ocrLacreLoading}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Registrar {tipo === "entrada" ? "Entrada" : "Retorno"}
+                {getSaveButtonLabel()}
               </Button>
             </DialogFooter>
           </>

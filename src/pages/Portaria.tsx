@@ -47,6 +47,7 @@ export default function Portaria() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
+  const [prefillEtapa, setPrefillEtapa] = useState<"retorno" | "lacre" | null>(null);
   const [prefillFromPlanilha, setPrefillFromPlanilha] = useState<Record<string, any> | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
@@ -70,6 +71,9 @@ export default function Portaria() {
         .map((m) => m.movimento_vinculado_id!)
     );
     const patio = movimentacoes.filter((m) => {
+      // Carga própria: show in pátio if etapa is em_rota or retornou (these are tipo_movimento=saida)
+      if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria && m.etapa_carga_propria !== "finalizado") return true;
+      // Others: normal entrada-based pátio logic
       if (m.tipo_movimento !== "entrada") return false;
       if (saidasVinculadas.has(m.id)) return false;
       if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
@@ -81,8 +85,9 @@ export default function Portaria() {
 
   const pendentesEsperados = veiculosEsperados.filter((v) => !v.conferido).length;
 
-  const openRegistro = (prefillData?: MovimentacaoPortaria) => {
+  const openRegistro = (prefillData?: MovimentacaoPortaria, etapa?: "retorno" | "lacre") => {
     setPrefill(prefillData || null);
+    setPrefillEtapa(etapa || null);
     setPrefillFromPlanilha(null);
     setDialogOpen(true);
   };
@@ -310,7 +315,7 @@ export default function Portaria() {
                   movimentacoes={movimentacoes}
                   search={search}
                   categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
-                  onRegistrarSaida={(entrada) => openRegistro(entrada)}
+                  onRegistrarSaida={(entrada, etapa) => openRegistro(entrada, etapa)}
                   isLoading={isLoading}
                     readOnly={false}
                   dateFromStr={dateFromStr}
@@ -381,6 +386,7 @@ export default function Portaria() {
         open={dialogOpen}
         onOpenChange={handleDialogClose}
         prefill={prefill}
+        prefillEtapa={prefillEtapa}
         prefillFromPlanilha={prefillFromPlanilha}
         onCreated={handleMovimentacaoCreated}
       />

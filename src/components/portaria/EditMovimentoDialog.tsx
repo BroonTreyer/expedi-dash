@@ -38,6 +38,7 @@ const EDITABLE_FIELDS: { key: string; label: string; type: "text" | "number" | "
   { key: "responsavel_interno", label: "Responsável Interno", type: "text" },
   { key: "doca_setor", label: "Doca/Setor", type: "text" },
   { key: "tipo_caminhao", label: "Tipo de Caminhão", type: "text" },
+  { key: "etapa_carga_propria", label: "Etapa Carga Própria", type: "select", options: ["em_rota", "retornou", "finalizado"] },
   { key: "observacoes", label: "Observações", type: "textarea" },
   { key: "ocorrencia", label: "Ocorrência", type: "textarea" },
 ];

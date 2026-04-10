@@ -331,6 +331,7 @@ export type Database = {
           doca_setor: string | null
           documento: string | null
           empresa: string | null
+          etapa_carga_propria: string | null
           etapa_terceirizado: string | null
           foto_documento_url: string | null
           foto_lacre_url: string | null
@@ -385,6 +386,7 @@ export type Database = {
           doca_setor?: string | null
           documento?: string | null
           empresa?: string | null
+          etapa_carga_propria?: string | null
           etapa_terceirizado?: string | null
           foto_documento_url?: string | null
           foto_lacre_url?: string | null
@@ -439,6 +441,7 @@ export type Database = {
           doca_setor?: string | null
           documento?: string | null
           empresa?: string | null
+          etapa_carga_propria?: string | null
           etapa_terceirizado?: string | null
           foto_documento_url?: string | null
           foto_lacre_url?: string | null
