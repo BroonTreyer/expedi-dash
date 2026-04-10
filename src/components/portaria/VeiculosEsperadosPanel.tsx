@@ -218,7 +218,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                     <TableCell className="py-1.5">
                       {!isConferido && !readOnly && (
                         <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1" onClick={() => onRegistrar(v)}>
-                          {v.grupo === "PRÓPRIA" ? "Registrar Saída p/ Rota" : "Registrar Chegada"}
+                          Registrar Chegada
                         </Button>
                       )}
                     </TableCell>

@@ -20,7 +20,7 @@ export interface FieldConfig {
 // Visibility matrix per field per category
 type VisibilityMatrix = Record<string, Record<Categoria, FieldVisibility>>;
 
-export type TipoMovimentoPortaria = "entrada" | "saida" | "retorno" | "lacre";
+export type TipoMovimentoPortaria = "entrada" | "saida" | "retorno" | "lacre" | "saida_rota";
 
 export const CATEGORIAS_PORTARIA: { value: Categoria; label: string; icon: string; description: string }[] = [
   { value: "carga_propria", label: "Carga Própria", icon: "🚛", description: "Frota própria com controle de KM e rota" },
@@ -192,6 +192,7 @@ export const BLOCKS = [
 function getMatrix(tipoMovimento: TipoMovimentoPortaria): VisibilityMatrix {
   if (tipoMovimento === "retorno") return VISIBILITY_RETORNO;
   if (tipoMovimento === "lacre") return VISIBILITY_SAIDA;
+  if (tipoMovimento === "saida_rota") return VISIBILITY; // same fields as normal entrada/saida
   return VISIBILITY;
 }
 
