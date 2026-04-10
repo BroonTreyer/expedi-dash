@@ -93,18 +93,46 @@ export default function Portaria() {
     setDialogOpen(true);
   };
 
-  const openRegistroFromVeiculoEsperado = (v: VeiculoEsperado) => {
+  const openRegistroFromVeiculoEsperado = async (v: VeiculoEsperado) => {
     if (v.data_referencia > dateFromStr) {
       const dataFormatada = format(new Date(v.data_referencia + "T00:00:00"), "dd/MM");
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
     }
+
+    const isCargaPropria = v.grupo === "PRÓPRIA";
+
+    if (isCargaPropria) {
+      // Direct INSERT — only records arrival time + spreadsheet data (no dialog)
+      try {
+        await createMov.mutateAsync({
+          tipo_movimento: "saida",
+          categoria: "carga_propria",
+          etapa_carga_propria: "chegou",
+          data_hora: new Date().toISOString(),
+          placa: v.placa || null,
+          motorista: v.motorista || null,
+          rota: v.destino || null,
+          peso: v.peso ?? null,
+          qtd_entregas: v.qtd_entregas ?? null,
+          carga_id: v.carga_id || null,
+          usuario_id: user?.id ?? null,
+          horario_chegada: new Date().toISOString(),
+        } as any);
+        // Auto-mark as conferido
+        marcarConferidoMutation.mutate({ placa: v.placa, dataReferencia: v.data_referencia });
+        toast.success(`Chegada de ${v.placa} registrada!`);
+      } catch {
+        toast.error("Erro ao registrar chegada");
+      }
+      return;
+    }
+
+    // Non-carga-própria: open dialog as before
     setPrefill(null);
     setPrefillEtapa(null);
-    const isTerceirizado = v.grupo === "FROTAS" || v.grupo === "INTERIOR";
-    const isCargaPropria = !isTerceirizado;
     setPrefillFromPlanilha({
-      tipo: isCargaPropria ? ("saida" as const) : ("entrada" as const),
-      categoria: isTerceirizado ? "terceirizado" : "carga_propria",
+      tipo: "entrada" as const,
+      categoria: "terceirizado",
       placa: v.placa,
       motorista: v.motorista || "",
       empresa: v.transportadora || "",
