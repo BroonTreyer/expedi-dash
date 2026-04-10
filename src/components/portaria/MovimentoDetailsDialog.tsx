@@ -163,6 +163,11 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 </Badge>
               )}
               <Badge variant="outline">{getCategoriaLabel(m.categoria)}</Badge>
+              {m.categoria === "carga_propria" && m.etapa_carga_propria && (
+                <Badge variant="outline" className={`text-[11px] ${m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : m.etapa_carga_propria === "retornou" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "border-green-500 text-green-700 dark:text-green-400"}`}>
+                  {m.etapa_carga_propria === "em_rota" ? "🔵 Em Rota" : m.etapa_carga_propria === "retornou" ? "🟡 Retornou" : "✅ Finalizado"}
+                </Badge>
+              )}
               {m.tipo_operacao && <Badge variant="outline" className="text-[11px]">{m.tipo_operacao}</Badge>}
               {dataBadge && (
                 <Badge
