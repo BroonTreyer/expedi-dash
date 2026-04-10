@@ -71,6 +71,9 @@ export default function Portaria() {
         .map((m) => m.movimento_vinculado_id!)
     );
     const patio = movimentacoes.filter((m) => {
+      // Carga própria: show in pátio if etapa is em_rota or retornou (these are tipo_movimento=saida)
+      if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria && m.etapa_carga_propria !== "finalizado") return true;
+      // Others: normal entrada-based pátio logic
       if (m.tipo_movimento !== "entrada") return false;
       if (saidasVinculadas.has(m.id)) return false;
       if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
