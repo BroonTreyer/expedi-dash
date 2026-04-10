@@ -290,7 +290,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     if (prefillEtapa === "lacre" && prefill) return `Registrar lacre e saída final do veículo ${prefill.placa}`;
     if (prefill) return `Registrar saída do veículo ${prefill.placa}`;
     if (prefillFromPlanilha) return `Conferir entrada do veículo ${prefillFromPlanilha.placa}`;
-    if (categoria === "carga_propria") return "Registrar saída para rota";
     return `Preencha os dados de ${tipo === "entrada" ? "entrada" : "saída"}`;
   };
 
@@ -303,7 +302,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const getSaveButtonLabel = () => {
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Finalizar c/ Lacre";
-    if (categoria === "carga_propria" && tipo === "entrada" && !prefill && !prefillFromPlanilha) return "Registrar Saída p/ Rota";
     return `Registrar ${tipo === "entrada" ? "Entrada" : "Saída"}`;
   };
 
@@ -328,9 +326,6 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                   <ArrowUpFromLine className="h-4 w-4" /> Saída
                 </Button>
               </div>
-              {categoria === "carga_propria" && tipo === "entrada" && (
-                <p className="text-[11px] text-muted-foreground">Para Carga Própria, "Entrada" registra a 1ª saída para rota</p>
-              )}
             </div>
 
             {/* Category cards */}
