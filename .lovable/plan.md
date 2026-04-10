@@ -1,46 +1,43 @@
 
 
-# Corrigir nomes/labels do fluxo de Carga Própria na Portaria
+# Corrigir labels e fluxo de Carga Própria (todos os pontos pendentes)
 
-## Problema
-Os botões e labels ainda mostram "Entrada" para Carga Própria, o que não faz sentido no fluxo real. O motorista já está dentro da empresa — o primeiro contato com a portaria é quando ele **sai** para a rota.
+## Problemas encontrados
+
+1. **Veículos Esperados**: botão diz "Registrar Entrada" — deveria ser **"Registrar Saída p/ Rota"** para carga própria
+2. **Callback do Esperados**: `openRegistroFromVeiculoEsperado` envia `tipo: "entrada"` mesmo para carga própria — precisa ser `"saida"`
+3. **Pátio**: registros antigos sem `etapa_carga_propria` mostram "Saída c/ KM" em vez de entrar no fluxo correto
+4. **Dialog**: seletor de tipo ainda mostra "Entrada/Saída" genérico — para Carga Própria deveria mostrar só "Saída p/ Rota"
 
 ## Mudanças
 
-### `src/components/portaria/RegistroMovimentoDialog.tsx`
-
-1. Quando categoria for `carga_propria`, trocar o botão "Entrada" por **"Saída p/ Rota"** e esconder o botão "Saída" (não se aplica nessa tela inicial)
-2. Remover a mensagem confusa "Para Carga Própria, 'Entrada' registra a 1ª saída para rota"
-3. Quando carga_propria é selecionada no step "categoria", pular direto para o form com `tipo = "saida"` e `etapa_carga_propria = "em_rota"` (já funciona assim internamente, mas os labels precisam refletir isso)
-
-Nomes dos botões no seletor de tipo para **Carga Própria**:
-- Botão único: **"Saída p/ Rota"** (em vez de Entrada/Saída)
-
-Títulos dos diálogos:
-- 1ª etapa (nova): "Saída para Rota" (já está ok via `getDialogTitle`)
-- Retorno: "Registrar Retorno" (ok)
-- Lacre: "Saída Final — Lacre" (ok)
-
-### `src/components/portaria/PatioAtualTab.tsx`
-
-1. No pátio (desktop), a coluna "Entrada" → renomear para **"Horário"** (genérico, pois carga própria não tem "entrada")
-2. Texto vazio no pátio "Registre uma entrada para começar" → **"Registre um movimento para começar"**
+### `src/components/portaria/VeiculosEsperadosPanel.tsx`
+- Receber prop `grupo` do veículo para decidir o label do botão
+- Se o veículo é carga própria (grupo não é FROTAS/INTERIOR/TERCEIRIZADO): botão → **"Registrar Saída"**
+- Se é terceirizado: manter **"Registrar Entrada"**
 
 ### `src/pages/Portaria.tsx`
+- Em `openRegistroFromVeiculoEsperado`: quando categoria for `carga_propria`, setar `tipo: "saida"` em vez de `"entrada"`
 
-1. Nas tabs do pátio, verificar se algum label menciona "entrada" de forma genérica que precise ajuste
+### `src/components/portaria/RegistroMovimentoDialog.tsx`
+- No step "categoria", esconder os botões "Entrada/Saída" quando já se sabe que carga_propria sempre será saída. Alternativa: mostrar botão único "Saída p/ Rota" para carga_propria
+- Quando `prefillFromPlanilha` com categoria `carga_propria`, forçar `tipo = "saida"` no useEffect de reset
 
-## Resumo das trocas de labels
+### `src/components/portaria/PatioAtualTab.tsx`
+- Tratar registros antigos de carga_propria sem `etapa_carga_propria` como se fossem `em_rota` (fallback), mostrando botão "Registrar Retorno" em vez de "Saída c/ KM"
 
-| Onde | Antes | Depois |
-|------|-------|--------|
-| Seletor tipo (carga_propria) | "Entrada" / "Saída" | Botão único "Saída p/ Rota" |
-| Mensagem explicativa | "Para Carga Própria, 'Entrada' registra a 1ª saída" | Removida |
-| Botão salvar (1ª etapa) | "Registrar Saída p/ Rota" | Mantém (já correto) |
-| Coluna pátio | "Entrada" | "Horário" |
-| Pátio vazio | "Registre uma entrada para começar" | "Registre um movimento para começar" |
+## Resumo de labels
+
+| Local | Antes | Depois |
+|-------|-------|--------|
+| Esperados (carga própria) | "Registrar Entrada" | "Registrar Saída" |
+| Esperados (terceirizado) | "Registrar Entrada" | Mantém |
+| Seletor tipo (carga própria) | "Entrada" / "Saída" | Botão único "Saída p/ Rota" |
+| Pátio (sem etapa) | "Saída c/ KM" | "Registrar Retorno" |
 
 ## Arquivos afetados
+- `src/components/portaria/VeiculosEsperadosPanel.tsx`
+- `src/pages/Portaria.tsx`
 - `src/components/portaria/RegistroMovimentoDialog.tsx`
 - `src/components/portaria/PatioAtualTab.tsx`
 
