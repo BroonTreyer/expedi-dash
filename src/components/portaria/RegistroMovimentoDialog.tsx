@@ -33,8 +33,8 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   prefill?: MovimentacaoPortaria | null;
-  /** For carga própria 3-stage flow: "retorno" or "lacre" */
-  prefillEtapa?: "retorno" | "lacre" | null;
+  /** For carga própria stages: "retorno", "lacre", or "saida_rota" */
+  prefillEtapa?: "retorno" | "lacre" | "saida_rota" | null;
   prefillFromPlanilha?: Record<string, any> | null;
   onCreated?: (placa: string) => void;
 }
@@ -61,12 +61,18 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   }, []);
 
   // Determine if this is a carga própria update flow (retorno or lacre)
-  const isCargaPropriaUpdate = !!prefill && prefill.categoria === "carga_propria" && (prefillEtapa === "retorno" || prefillEtapa === "lacre");
+  const isCargaPropriaUpdate = !!prefill && prefill.categoria === "carga_propria" && (prefillEtapa === "retorno" || prefillEtapa === "lacre" || prefillEtapa === "saida_rota");
 
   // Reset when opening
   useEffect(() => {
     if (!open) return;
-    if (prefill && prefillEtapa === "retorno") {
+    if (prefill && prefillEtapa === "saida_rota") {
+      // Carga própria: saída p/ rota (from chegou stage)
+      setStep("form");
+      setTipo("saida_rota");
+      setCategoria("carga_propria");
+      setValues({});
+    } else if (prefill && prefillEtapa === "retorno") {
       // Carga própria retorno stage
       setStep("form");
       setTipo("retorno");
