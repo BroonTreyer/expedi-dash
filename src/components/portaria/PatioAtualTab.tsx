@@ -391,7 +391,15 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </TableCell>
                 <TableCell className="text-right">
                   {!readOnly && (
-                  m.categoria === "carga_propria" ? (
+                  m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
+                      <ArrowDownToLine className="h-3 w-3" /> Retorno
+                    </Button>
+                  ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "retornou" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
+                      <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
+                    </Button>
+                  ) : m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
                     </Button>
