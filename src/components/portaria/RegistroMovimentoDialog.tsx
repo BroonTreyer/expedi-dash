@@ -210,7 +210,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
         // Determine tipo_movimento for DB
         let dbTipoMovimento = tipo === "entrada" ? "entrada" : "saida";
         // For carga_propria new entry (1ª saída), create as "saida" with etapa
-        const isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && !prefill && !prefillFromPlanilha;
+        const isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && !prefillEtapa;
         if (isCargaPropriaPrimeiraSaida) {
           dbTipoMovimento = "saida";
         }
@@ -289,7 +289,10 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     if (prefillEtapa === "retorno" && prefill) return `Registrar retorno do veículo ${prefill.placa}`;
     if (prefillEtapa === "lacre" && prefill) return `Registrar lacre e saída final do veículo ${prefill.placa}`;
     if (prefill) return `Registrar saída do veículo ${prefill.placa}`;
-    if (prefillFromPlanilha) return `Conferir entrada do veículo ${prefillFromPlanilha.placa}`;
+    if (prefillFromPlanilha) {
+      if (prefillFromPlanilha.categoria === "carga_propria") return `Registrar saída p/ rota do veículo ${prefillFromPlanilha.placa}`;
+      return `Conferir entrada do veículo ${prefillFromPlanilha.placa}`;
+    }
     return `Preencha os dados de ${tipo === "entrada" ? "entrada" : "saída"}`;
   };
 
@@ -302,6 +305,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const getSaveButtonLabel = () => {
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Finalizar c/ Lacre";
+    if (categoria === "carga_propria" && !prefill) return "Registrar Saída p/ Rota";
     return `Registrar ${tipo === "entrada" ? "Entrada" : "Saída"}`;
   };
 
@@ -326,6 +330,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                   <ArrowUpFromLine className="h-4 w-4" /> Saída
                 </Button>
               </div>
+              <p className="text-[11px] text-muted-foreground">Para Carga Própria, selecione a categoria abaixo — será registrado como Saída p/ Rota automaticamente.</p>
             </div>
 
             {/* Category cards */}
