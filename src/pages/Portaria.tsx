@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Portaria() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isPortaria = role === "portaria";
 
   const today = new Date();
