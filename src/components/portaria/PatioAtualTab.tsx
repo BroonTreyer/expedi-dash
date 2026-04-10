@@ -19,7 +19,7 @@ interface Props {
   movimentacoes: MovimentacaoPortaria[];
   search: string;
   categoriaFilter: string;
-  onRegistrarSaida: (entrada: MovimentacaoPortaria) => void;
+  onRegistrarSaida: (entrada: MovimentacaoPortaria, etapa?: "retorno" | "lacre") => void;
   isLoading?: boolean;
   readOnly?: boolean;
   dateFromStr?: string;
