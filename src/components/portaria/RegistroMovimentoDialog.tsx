@@ -33,8 +33,8 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   prefill?: MovimentacaoPortaria | null;
-  /** For carga própria 3-stage flow: "retorno" or "lacre" */
-  prefillEtapa?: "retorno" | "lacre" | null;
+  /** For carga própria stages: "retorno", "lacre", or "saida_rota" */
+  prefillEtapa?: "retorno" | "lacre" | "saida_rota" | null;
   prefillFromPlanilha?: Record<string, any> | null;
   onCreated?: (placa: string) => void;
 }
@@ -61,12 +61,18 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   }, []);
 
   // Determine if this is a carga própria update flow (retorno or lacre)
-  const isCargaPropriaUpdate = !!prefill && prefill.categoria === "carga_propria" && (prefillEtapa === "retorno" || prefillEtapa === "lacre");
+  const isCargaPropriaUpdate = !!prefill && prefill.categoria === "carga_propria" && (prefillEtapa === "retorno" || prefillEtapa === "lacre" || prefillEtapa === "saida_rota");
 
   // Reset when opening
   useEffect(() => {
     if (!open) return;
-    if (prefill && prefillEtapa === "retorno") {
+    if (prefill && prefillEtapa === "saida_rota") {
+      // Carga própria: saída p/ rota (from chegou stage)
+      setStep("form");
+      setTipo("saida_rota");
+      setCategoria("carga_propria");
+      setValues({});
+    } else if (prefill && prefillEtapa === "retorno") {
       // Carga própria retorno stage
       setStep("form");
       setTipo("retorno");
@@ -166,10 +172,21 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
     try {
       if (isCargaPropriaUpdate && prefill) {
-        // UPDATE existing record for retorno or lacre stages
+        // UPDATE existing record for saida_rota, retorno or lacre stages
         const updates: Record<string, any> = {};
 
-        if (prefillEtapa === "retorno") {
+        if (prefillEtapa === "saida_rota") {
+          updates.foto_placa_url = values.foto_placa_url || null;
+          updates.placa = values.placa?.trim().toUpperCase() || prefill.placa || null;
+          updates.motorista = values.motorista?.trim() || prefill.motorista || null;
+          updates.km_inicial = values.km_inicial ? Number(values.km_inicial) : null;
+          updates.rota = values.rota?.trim() || prefill.rota || null;
+          updates.texto_placa_lido = textoPlacaLido;
+          updates.confianca_placa = confiancaPlaca;
+          updates.placa_confirmada = values.placa?.trim().toUpperCase() || null;
+          updates.horario_real_saida = new Date().toISOString();
+          updates.etapa_carga_propria = "em_rota";
+        } else if (prefillEtapa === "retorno") {
           updates.foto_painel_url = values.foto_painel_url || null;
           updates.km_final = values.km_final ? Number(values.km_final) : null;
           updates.observacoes = values.observacoes?.trim() || prefill.observacoes || null;
@@ -286,6 +303,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
   // Title and description based on flow
   const getDialogDescription = () => {
+    if (prefillEtapa === "saida_rota" && prefill) return `Registrar saída p/ rota do veículo ${prefill.placa}`;
     if (prefillEtapa === "retorno" && prefill) return `Registrar retorno do veículo ${prefill.placa}`;
     if (prefillEtapa === "lacre" && prefill) return `Registrar lacre e saída final do veículo ${prefill.placa}`;
     if (prefill) return `Registrar saída do veículo ${prefill.placa}`;
@@ -297,12 +315,14 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   };
 
   const getDialogTitle = () => {
+    if (prefillEtapa === "saida_rota") return "Saída p/ Rota";
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Saída Final — Lacre";
     return `Cadastro de ${categoriaLabel}`;
   };
 
   const getSaveButtonLabel = () => {
+    if (prefillEtapa === "saida_rota") return "Registrar Saída p/ Rota";
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Finalizar c/ Lacre";
     if (categoria === "carga_propria" && !prefill) return "Registrar Saída p/ Rota";
