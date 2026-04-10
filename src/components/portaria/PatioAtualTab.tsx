@@ -370,8 +370,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       {getCategoriaLabel(m.categoria)}
                     </Badge>
                     {m.categoria === "carga_propria" && m.etapa_carga_propria && (
-                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
-                        {m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
+                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
+                        {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
                       </Badge>
                     )}
                     {m.categoria === "terceirizado" && m.etapa_terceirizado && (
@@ -395,7 +395,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </TableCell>
                 <TableCell className="text-right">
                   {!readOnly && (
-                  m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
+                  m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
+                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
+                      <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
+                    </Button>
+                  ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
                       <ArrowDownToLine className="h-3 w-3" /> Retorno
                     </Button>
