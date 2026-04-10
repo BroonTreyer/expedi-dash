@@ -99,8 +99,9 @@ export default function Portaria() {
     }
     setPrefill(null);
     const isTerceirizado = v.grupo === "FROTAS" || v.grupo === "INTERIOR";
+    const isCargaPropria = !isTerceirizado;
     setPrefillFromPlanilha({
-      tipo: "entrada" as const,
+      tipo: isCargaPropria ? ("saida" as const) : ("entrada" as const),
       categoria: isTerceirizado ? "terceirizado" : "carga_propria",
       placa: v.placa,
       motorista: v.motorista || "",
