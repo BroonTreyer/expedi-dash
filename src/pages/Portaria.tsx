@@ -47,6 +47,7 @@ export default function Portaria() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
+  const [prefillEtapa, setPrefillEtapa] = useState<"retorno" | "lacre" | null>(null);
   const [prefillFromPlanilha, setPrefillFromPlanilha] = useState<Record<string, any> | null>(null);
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
