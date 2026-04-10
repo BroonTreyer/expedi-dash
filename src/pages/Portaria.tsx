@@ -315,7 +315,7 @@ export default function Portaria() {
                   movimentacoes={movimentacoes}
                   search={search}
                   categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
-                  onRegistrarSaida={(entrada) => openRegistro(entrada)}
+                  onRegistrarSaida={(entrada, etapa) => openRegistro(entrada, etapa)}
                   isLoading={isLoading}
                     readOnly={false}
                   dateFromStr={dateFromStr}
@@ -386,6 +386,7 @@ export default function Portaria() {
         open={dialogOpen}
         onOpenChange={handleDialogClose}
         prefill={prefill}
+        prefillEtapa={prefillEtapa}
         prefillFromPlanilha={prefillFromPlanilha}
         onCreated={handleMovimentacaoCreated}
       />
