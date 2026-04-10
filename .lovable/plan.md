@@ -1,23 +1,27 @@
 
 
-# Corrigir label do botão em Veículos Esperados
+# Corrigir dois bugs no fluxo Veículos Esperados → Dialog
 
-## Problema
-O botão em Veículos Esperados diz "Registrar Saída" para carga própria, mas deveria dizer **"Registrar Saída p/ Rota"** para deixar claro que é a 1ª etapa do fluxo. As etapas seguintes (Retorno e Lacre) já estão corretas no Pátio.
+## Problemas encontrados
 
-## Resumo do fluxo correto
+**Bug 1 — Estado `prefillEtapa` não é resetado**: Quando o usuário clica "Registrar Saída p/ Rota" nos Veículos Esperados, a função `openRegistroFromVeiculoEsperado` faz `setPrefill(null)` mas **não** faz `setPrefillEtapa(null)`. Se antes o usuário abriu um Retorno ou Lacre do pátio, o `prefillEtapa` fica com valor antigo ("retorno" ou "lacre"), fazendo o dialog abrir com título e campos errados.
 
-| Onde | Etapa | Botão |
-|------|-------|-------|
-| Veículos Esperados | 1ª etapa | **Registrar Saída p/ Rota** |
-| Pátio (em_rota) | 2ª etapa | Registrar Retorno ✅ (já correto) |
-| Pátio (retornou) | 3ª etapa | Saída c/ Lacre ✅ (já correto) |
+**Bug 2 — Matriz de campos errada para 1ª saída**: Em `portaria-fields-config.ts`, `getMatrix("saida")` retorna `VISIBILITY_SAIDA` (campos de lacre). Mas a 1ª saída p/ rota usa `tipo = "saida"` e deveria usar a matriz `VISIBILITY` (campos normais: placa, motorista, km_inicial, foto_placa, etc.).
 
-## Mudança
+## Correções
 
-### `src/components/portaria/VeiculosEsperadosPanel.tsx`
-- Trocar o label `"Registrar Saída"` → **`"Registrar Saída p/ Rota"`** para veículos com `grupo === "PRÓPRIA"`
-- Dois locais: botão mobile (linha ~167) e botão desktop (linha ~220)
+### `src/pages/Portaria.tsx`
+- Na função `openRegistroFromVeiculoEsperado`, adicionar `setPrefillEtapa(null)` para limpar estado residual
 
-Apenas 1 arquivo, 2 linhas de texto alteradas.
+### `src/lib/portaria-fields-config.ts`
+- Em `getMatrix()`, mudar a lógica: `"saida"` → retorna `VISIBILITY` (matriz normal), apenas `"lacre"` → retorna `VISIBILITY_SAIDA`
+
+Isso garante que:
+- 1ª saída p/ rota (tipo="saida") → mostra campos normais (placa, motorista, km_inicial, foto_placa, rota)
+- Retorno (tipo="retorno") → mostra foto painel + km final
+- Lacre (tipo="lacre") → mostra foto lacre + nº lacre + conferente
+
+## Arquivos afetados
+- `src/pages/Portaria.tsx` (1 linha)
+- `src/lib/portaria-fields-config.ts` (1 linha na função `getMatrix`)
 
