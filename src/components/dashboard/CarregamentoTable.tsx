@@ -8,7 +8,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, History, Link2 } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, History, Link2, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AuditTimeline } from "./AuditTimeline";
 import { useCreatePortalToken } from "@/hooks/usePortalToken";
@@ -25,6 +25,7 @@ interface Props {
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
+  onClone?: (c: Carregamento) => void;
   onUndoCarga?: (cargaId: string) => void;
   onPrintCarga?: (cargaId: string) => void;
   userRole?: AppRole | null;
@@ -197,6 +198,11 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
             {canEdit && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
                 <Edit className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {canEdit && onClone && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                <Copy className="h-3.5 w-3.5" />
               </Button>
             )}
             {canDelete && (
@@ -534,6 +540,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          {canEdit && onClone && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {canDelete && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
@@ -731,6 +742,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             {canEdit && (
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
                                 <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {canEdit && onClone && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                                <Copy className="h-3.5 w-3.5" />
                               </Button>
                             )}
                             {canDelete && (

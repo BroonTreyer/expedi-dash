@@ -249,6 +249,15 @@ export default function Index() {
     setDialogOpen(true);
   }, [canEdit]);
 
+  const handleClone = useCallback((c: Carregamento) => {
+    if (!canEdit) return;
+    // Clone without id/numero_pedido so dialog treats it as new
+    const cloned = { ...c, id: "", numero_pedido: null } as Carregamento;
+    setEditing(cloned);
+    setDialogMode("vendas");
+    setDialogOpen(true);
+  }, [canEdit]);
+
   const handleComplete = useCallback((c: Carregamento) => {
     if (!isAdmin && !isLogistica) return;
     setEditing(c);
@@ -510,6 +519,7 @@ export default function Index() {
             currentDate={dateFromStr}
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
+            onClone={handleClone}
             onDelete={handleDeleteRequest}
             onUndoCarga={handleUndoCargaRequest}
             onPrintCarga={handlePrintCarga}
