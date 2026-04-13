@@ -1,46 +1,31 @@
 
 
-# Permitir que Logística cadastre clientes
+# Adicionar exclusão seletiva na aba Veículos Esperados
 
 ## Problema
-Atualmente, apenas perfis **admin** e **faturamento** podem inserir e editar clientes. O perfil **logística** não tem permissão.
+Atualmente só existe "Limpar lista" que apaga todos os veículos esperados de uma vez. O usuário precisa poder selecionar e apagar registros individuais ou em lote.
 
 ## Solução
-Atualizar as políticas RLS da tabela `clientes` para incluir o role `logistica` nas operações de INSERT e UPDATE.
+Adicionar checkboxes de seleção em cada linha (pendente e conferida) + barra de ações com botão "Excluir selecionados" e confirmação.
 
 ## Alterações
 
-### Migração SQL
-Substituir as duas políticas existentes:
+### `src/hooks/useVeiculosEsperados.ts`
+- Adicionar hook `useDeleteVeiculosEsperados` que recebe um array de IDs e deleta todos via `.in('id', ids)`
 
-```sql
--- INSERT: adicionar logistica
-DROP POLICY "Admin/faturamento insert clientes" ON public.clientes;
-CREATE POLICY "Ops insert clientes" ON public.clientes
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    has_role(auth.uid(), 'admin'::app_role) OR
-    has_role(auth.uid(), 'faturamento'::app_role) OR
-    has_role(auth.uid(), 'logistica'::app_role)
-  );
+### `src/components/portaria/VeiculosEsperadosPanel.tsx`
+- Adicionar estado `selectedIds: Set<string>`
+- Checkbox no header da tabela (selecionar/desmarcar todos visíveis)
+- Checkbox em cada linha da tabela desktop e em cada card mobile
+- Quando há seleção, mostrar barra com contagem + botão "Excluir selecionados"
+- Diálogo de confirmação antes de excluir
+- Props: receber `onDeleteSelected` callback e `isDeletingSelected`
 
--- UPDATE: adicionar logistica
-DROP POLICY "Admin/faturamento update clientes" ON public.clientes;
-CREATE POLICY "Ops update clientes" ON public.clientes
-  FOR UPDATE TO authenticated
-  USING (
-    has_role(auth.uid(), 'admin'::app_role) OR
-    has_role(auth.uid(), 'faturamento'::app_role) OR
-    has_role(auth.uid(), 'logistica'::app_role)
-  )
-  WITH CHECK (
-    has_role(auth.uid(), 'admin'::app_role) OR
-    has_role(auth.uid(), 'faturamento'::app_role) OR
-    has_role(auth.uid(), 'logistica'::app_role)
-  );
-```
+### `src/pages/Portaria.tsx`
+- Integrar o novo hook `useDeleteVeiculosEsperados` e passar o callback para o painel
 
-Nenhuma alteração de código no frontend é necessária — a página de Clientes já existe e ficará acessível automaticamente.
+### RLS
+A política `Admin/logistica delete veiculos_esperados` já permite exclusão para admin e logística. Se o perfil portaria também precisar excluir, será necessária uma migração para incluí-lo na policy.
 
-1 migração, 0 arquivos de código alterados.
+2 arquivos alterados, 1 hook novo, possivelmente 1 migração.
 
