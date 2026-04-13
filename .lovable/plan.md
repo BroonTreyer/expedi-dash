@@ -1,67 +1,50 @@
 
-# Corrigir clonagem para sempre trazer o pedido inteiro
+Do I know what the issue is? Sim.
 
-## Diagnóstico
-A lógica de buscar os “irmãos” do pedido já foi adicionada no `Index`, mas o comportamento ainda permite clonar só a linha clicada em alguns cenários.
+## Problema exato
+O print confirma que o problema não está só no dialog: a própria tabela está agrupando por cliente, não por pedido.
 
-Pelo código atual, há dois pontos frágeis:
+Hoje, em `CarregamentoTable.tsx`, o `buildGroups` usa `codigo_cliente` como chave. Então o cabeçalho com “9 produtos” pode representar vários itens do mesmo cliente, mas não necessariamente um único pedido. Quando você clica em clonar nesse cabeçalho, a ação usa só o primeiro registro do grupo. Depois, no `Index`, o clone busca os itens do mesmo `numero_pedido + data` desse primeiro registro — por isso o dialog acaba abrindo com apenas 1 item.
 
-1. `handleClone` usa `numero_pedido + data`, mas faz fallback para `[c]` quando o item clicado não tem `numero_pedido` confiável no momento.
-2. A tabela ainda mostra o botão de clonar nas linhas filhas do grupo expandido e nos cartões individuais, o que mantém a ação “presa” ao item, em vez de ao pedido como conjunto.
-
-## O que vou ajustar
+## O que vou corrigir
 
 ### 1. `src/components/dashboard/CarregamentoTable.tsx`
-Tornar o botão de clonar uma ação do pedido/grupo, não de cada produto.
+Trocar o agrupamento visual para pedido real, não cliente.
 
-Mudanças:
-- No desktop:
-  - manter o botão de clonar na linha principal do grupo
-  - remover o botão de clonar das linhas filhas expandidas
-- No mobile:
-  - para grupos com múltiplos produtos, deixar o clone apenas no card principal do grupo
-  - remover dos itens internos agrupados
-- Quando houver grupo com vários itens, o clone deve sempre chamar `onClone(first)` no cabeçalho do grupo
+- mudar `buildGroups` para agrupar por `numero_pedido + data`
+- se `numero_pedido` não existir, manter a linha como item individual
+- desktop e mobile devem mostrar grupo expandível apenas quando houver múltiplos produtos do mesmo pedido
+- o botão de clonar do grupo deve usar os itens completos daquele pedido
 
-Objetivo:
-- impedir que o usuário dispare clone “por item” em pedidos com múltiplos produtos
+Isso elimina o falso agrupamento “cliente com vários produtos” que hoje mascara pedidos diferentes.
 
 ### 2. `src/pages/Index.tsx`
-Fortalecer o `handleClone` para montar o pedido completo com mais segurança.
+Fortalecer o callback de clonagem.
 
-Mudanças:
-- buscar todos os itens do mesmo pedido por `numero_pedido + data`
-- usar comparação normalizada para evitar falhas de tipo (`number`, `string`, `null`)
-- se o item clicado pertencer a um grupo visível no dashboard, priorizar o conjunto completo daquele pedido
-- garantir que `cloneItems` receba todos os produtos antes de abrir o dialog
-- manter ID temporário `clone-*` para forçar reinit correto
+- ajustar o fluxo para aceitar o conjunto completo do pedido vindo da tabela
+- usar esse conjunto como fonte principal de `cloneItems`
+- manter fallback por `numero_pedido + data`, com comparação normalizada
+- continuar gerando `id` temporário `clone-*` e limpando `numero_pedido`
 
-Objetivo:
-- evitar cair no fallback de “só a linha clicada”
+Assim o clone deixa de depender só da linha clicada.
 
 ### 3. `src/components/dashboard/CarregamentoDialog.tsx`
-Deixar a inicialização do dialog mais robusta para clones multi-itens.
+Garantir que o dialog sempre inicialize com todos os produtos do pedido clonado.
 
-Mudanças:
-- quando `cloneItems` existir, usar sempre `cloneItems` como fonte dos produtos clonados
-- limpar campos que não devem ser herdados como identidade do pedido original
-- garantir que o formulário base venha do primeiro item, mas a lista de produtos venha de todos os itens
-- preservar o fluxo de submit como `INSERT` para IDs `clone-*`
-
-Objetivo:
-- garantir que o dialog abra com todos os produtos do pedido, não só com o primeiro item carregado
+- usar `cloneItems` como fonte oficial da lista de produtos
+- montar o formulário base com o primeiro item
+- montar `items[]` com todos os produtos recebidos
+- manter o submit como criação de novo pedido para IDs `clone-*`
 
 ## Resultado esperado
-Ao clicar em “Clonar” em um pedido com vários produtos:
-- o dialog abre em modo de novo pedido
-- todos os produtos daquele pedido aparecem na seção “Produtos”
-- o usuário pode editar qualquer item antes de salvar
-- o salvamento cria um novo pedido completo, sem sobrescrever o original
+Ao clicar em “Clonar”:
 
-## Arquivos afetados
-- `src/components/dashboard/CarregamentoTable.tsx`
-- `src/pages/Index.tsx`
-- `src/components/dashboard/CarregamentoDialog.tsx`
+- se o pedido tiver 9 produtos, o dialog abrirá com os 9 produtos
+- se o cliente tiver vários pedidos, cada pedido aparecerá separado na tabela
+- o clone copiará apenas o pedido escolhido, inteiro, sem misturar pedidos do mesmo cliente
+- o novo salvamento continuará criando um pedido novo, sem sobrescrever o original
 
-## Detalhe técnico
-Hoje a UI ainda trata “clonar” como ação disponível em linhas de produto individuais. Mesmo com a busca por `numero_pedido`, isso deixa a experiência ambígua e pode mascarar o clone completo. A correção principal é elevar a ação para o nível do pedido/grupo e fazer o dialog confiar explicitamente em `cloneItems` como fonte da lista completa de produtos.
+## Detalhes técnicos
+- Não precisa mudar banco nem backend
+- O warning de `ref` no `Select` é um problema separado e não é a causa deste bug
+- A correção principal é alinhar a UI com a regra real de negócio: clone por pedido, não por cliente
