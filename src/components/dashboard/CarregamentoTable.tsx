@@ -201,7 +201,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 <Edit className="h-3.5 w-3.5" />
               </Button>
             )}
-            {canEdit && onClone && (
+            {canEdit && onClone && !isGrouped && (
               <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
                 <Copy className="h-3.5 w-3.5" />
               </Button>
@@ -685,6 +685,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          {canEdit && onClone && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(first)}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {canDelete && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => group.items.forEach(i => onDelete(i.id))}>
                               <Trash2 className="h-3.5 w-3.5" />
@@ -743,11 +748,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             {canEdit && (
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
                                 <Edit className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {canEdit && onClone && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
-                                <Copy className="h-3.5 w-3.5" />
                               </Button>
                             )}
                             {canDelete && (
