@@ -25,7 +25,7 @@ interface Props {
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
-  onClone?: (c: Carregamento) => void;
+  onClone?: (items: Carregamento[]) => void;
   onUndoCarga?: (cargaId: string) => void;
   onPrintCarga?: (cargaId: string) => void;
   userRole?: AppRole | null;
@@ -40,6 +40,8 @@ interface Props {
 }
 
 interface Group {
+  key: string;
+  numeroPedido: number | null;
   codigoCliente: string | null;
   nomeCliente: string | null;
   items: Carregamento[];
@@ -83,15 +85,15 @@ function buildGroups(data: Carregamento[]): Group[] {
   const map = new Map<string, Group>();
   const singles: Group[] = [];
   for (const c of data) {
-    if (c.codigo_cliente) {
-      const key = c.codigo_cliente;
+    if (c.numero_pedido != null) {
+      const key = `${String(c.numero_pedido)}::${c.data}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
-        map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
+        map.set(key, { key, numeroPedido: c.numero_pedido, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
       }
     } else {
-      singles.push({ codigoCliente: null, nomeCliente: null, items: [c] });
+      singles.push({ key: c.id, numeroPedido: null, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
     }
   }
   return [...map.values(), ...singles];
