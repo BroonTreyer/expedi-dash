@@ -445,7 +445,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               </TableRow>
             )}
             {groups.map((group) => {
-              const isMulti = group.codigoCliente !== null && group.items.length > 1;
+              const isMulti = group.numeroPedido !== null && group.items.length > 1;
 
               if (!isMulti) {
                 const c = group.items[0];
@@ -544,7 +544,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canEdit && onClone && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone([c])}>
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -683,12 +683,12 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canEdit && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onEdit(first)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.key) : onEdit(first)}>
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {canEdit && onClone && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(first)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(group.items)}>
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
                           )}
