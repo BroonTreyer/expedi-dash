@@ -249,14 +249,20 @@ export default function Index() {
     setDialogOpen(true);
   }, [canEdit]);
 
+  const [cloneItems, setCloneItems] = useState<Carregamento[]>([]);
+
   const handleClone = useCallback((c: Carregamento) => {
     if (!canEdit) return;
-    // Clone without id/numero_pedido so dialog treats it as new
-    const cloned = { ...c, id: "", numero_pedido: null } as Carregamento;
+    // Find all sibling rows of the same order (same numero_pedido + data)
+    const siblings = c.numero_pedido
+      ? carregamentos.filter(r => r.numero_pedido === c.numero_pedido && r.data === c.data)
+      : [c];
+    const cloned = { ...siblings[0], id: "", numero_pedido: null } as Carregamento;
+    setCloneItems(siblings);
     setEditing(cloned);
     setDialogMode("vendas");
     setDialogOpen(true);
-  }, [canEdit]);
+  }, [canEdit, carregamentos]);
 
   const handleComplete = useCallback((c: Carregamento) => {
     if (!isAdmin && !isLogistica) return;
@@ -535,7 +541,7 @@ export default function Index() {
 
         <CarregamentoDialog
           open={dialogOpen}
-          onOpenChange={setDialogOpen}
+          onOpenChange={(v) => { setDialogOpen(v); if (!v) setCloneItems([]); }}
           onSubmit={handleSubmit}
           editing={editing}
           mode={dialogMode}
@@ -544,6 +550,7 @@ export default function Index() {
           produtos={produtos}
           clientes={clientesFromData}
           selectedDate={dateFromStr}
+          cloneItems={cloneItems}
         />
 
         <RoteirizacaoDialog

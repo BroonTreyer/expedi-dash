@@ -47,6 +47,7 @@ interface Props {
   clientes: { codigo_cliente: string; nome_cliente: string; cidade?: string | null; uf?: string | null }[];
   selectedDate: string;
   defaultRuptura?: boolean;
+  cloneItems?: Carregamento[];
 }
 
 const TITLES: Record<DialogMode, string> = {
@@ -61,7 +62,7 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
   editar: "Edite todos os campos do carregamento",
 };
 
-export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura }: Props) {
+export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura, cloneItems }: Props) {
   const session = useSession();
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
@@ -91,16 +92,23 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     setForm({ ...editing });
     setCodigoVendedorInput(vendedor?.codigo_vendedor ?? "");
     setCodigoClienteInput(editing.codigo_cliente ?? "");
-    setItems([{
-      codigo_produto: editing.codigo_produto ?? "",
-      nome_produto: editing.nome_produto ?? "",
-      quantidade: editing.quantidade ?? 1,
-      peso: editing.peso ?? 0,
-      pesoPadrao,
-      ruptura: editing.ruptura ?? false,
-      pesoManual: true,
-    }]);
-  }, [editing, open, produtos, vendedores]);
+
+    // If cloning with multiple sibling items, populate all of them
+    const sourceRows = (cloneItems && cloneItems.length > 1) ? cloneItems : [editing];
+    setItems(sourceRows.map(row => {
+      const prod = produtos.find((p) => p.codigo_produto === row.codigo_produto);
+      const pp = Number(prod?.peso_padrao ?? 0);
+      return {
+        codigo_produto: row.codigo_produto ?? "",
+        nome_produto: row.nome_produto ?? "",
+        quantidade: row.quantidade ?? 1,
+        peso: row.peso ?? 0,
+        pesoPadrao: pp,
+        ruptura: row.ruptura ?? false,
+        pesoManual: true,
+      };
+    }));
+  }, [editing, open, produtos, vendedores, cloneItems]);
 
   useEffect(() => {
     if (!open) return;
