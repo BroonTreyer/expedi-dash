@@ -572,20 +572,20 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
 
               // Multi-item group
               const first = group.items[0];
-              const isOpen = expanded.has(group.codigoCliente!);
+              const isOpen = expanded.has(group.key);
               const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
               const hasRuptura = group.items.some(i => i.ruptura);
               const groupAllSelected = selectable && group.items.every(i => selectedSet.has(i.id));
 
               return (
-                <Fragment key={`group-${group.codigoCliente}`}>
+                <Fragment key={`group-${group.key}`}>
                   <TableRow
                     className={cn(
                       "hover:bg-muted/30 cursor-pointer border-t-2 border-t-primary/30 bg-primary/[0.03]",
                       hasRuptura && "bg-amber-50/40 dark:bg-amber-950/20",
                       !isOpen && "border-b"
                     )}
-                    onClick={() => toggle(group.codigoCliente!)}
+                    onClick={() => toggle(group.key)}
                   >
                     {selectable && (
                       <TableCell className="w-[40px]" onClick={(e) => e.stopPropagation()}>
@@ -627,7 +627,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     </TableCell>
                     <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
-                      {group.items.length} produtos
+                      Ped. {group.numeroPedido} · {group.items.length} produtos
                     </TableCell>
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                     <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
