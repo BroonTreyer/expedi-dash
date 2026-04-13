@@ -99,7 +99,7 @@ function buildGroups(data: Carregamento[]): Group[] {
 
 // ─── Mobile ───
 
-function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
+function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, onClone, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const isFaturamento = userRole === "faturamento";
