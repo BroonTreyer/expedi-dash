@@ -251,16 +251,18 @@ export default function Index() {
 
   const [cloneItems, setCloneItems] = useState<Carregamento[]>([]);
 
-  const handleClone = useCallback((items: Carregamento[]) => {
+  const handleClone = useCallback((c: Carregamento) => {
     if (!canEdit) return;
-    const siblings = items.length > 0 ? items : [items[0]];
-    const first = siblings[0];
-    const cloned = { ...first, id: `clone-${crypto.randomUUID()}`, numero_pedido: null } as Carregamento;
+    // Find all sibling rows of the same order (same numero_pedido + data)
+    const siblings = c.numero_pedido
+      ? carregamentos.filter(r => r.numero_pedido === c.numero_pedido && r.data === c.data)
+      : [c];
+    const cloned = { ...siblings[0], id: `clone-${crypto.randomUUID()}`, numero_pedido: null } as Carregamento;
     setCloneItems(siblings);
     setEditing(cloned);
     setDialogMode("vendas");
     setDialogOpen(true);
-  }, [canEdit]);
+  }, [canEdit, carregamentos]);
 
   const handleComplete = useCallback((c: Carregamento) => {
     if (!isAdmin && !isLogistica) return;
