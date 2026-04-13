@@ -395,6 +395,8 @@ export default function Portaria() {
                 limparMutation.mutate({ dataInicio: di.toISOString().slice(0, 10), dataFim: df.toISOString().slice(0, 10) });
               }}
               isClearing={limparMutation.isPending}
+              onDeleteSelected={isPortaria ? undefined : (ids) => deleteVeiculosMutation.mutate(ids)}
+              isDeletingSelected={deleteVeiculosMutation.isPending}
               dataFiltrada={dateFromStr}
               readOnly={false}
               search={search}
