@@ -14,9 +14,9 @@ const allNavItems = [
   { to: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "logistica", "faturamento"] },
   
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "faturamento"] },
-  { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "faturamento"] },
-  { to: "/clientes", label: "Clientes", icon: Building2, roles: ["admin", "faturamento"] },
+  { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/clientes", label: "Clientes", icon: Building2, roles: ["admin", "logistica", "faturamento"] },
   { to: "/portaria", label: "Portaria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
   { to: "/motoristas", label: "Motoristas", icon: Contact, roles: ["admin", "logistica", "portaria"] },
   { to: "/caminhoes", label: "Caminhões", icon: Truck, roles: ["admin", "logistica"] },
