@@ -25,7 +25,7 @@ interface Props {
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
-  onClone?: (c: Carregamento) => void;
+  onClone?: (items: Carregamento[]) => void;
   onUndoCarga?: (cargaId: string) => void;
   onPrintCarga?: (cargaId: string) => void;
   userRole?: AppRole | null;
@@ -40,6 +40,8 @@ interface Props {
 }
 
 interface Group {
+  key: string;
+  numeroPedido: number | null;
   codigoCliente: string | null;
   nomeCliente: string | null;
   items: Carregamento[];
@@ -83,15 +85,15 @@ function buildGroups(data: Carregamento[]): Group[] {
   const map = new Map<string, Group>();
   const singles: Group[] = [];
   for (const c of data) {
-    if (c.codigo_cliente) {
-      const key = c.codigo_cliente;
+    if (c.numero_pedido != null) {
+      const key = `${String(c.numero_pedido)}::${c.data}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
-        map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
+        map.set(key, { key, numeroPedido: c.numero_pedido, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
       }
     } else {
-      singles.push({ codigoCliente: null, nomeCliente: null, items: [c] });
+      singles.push({ key: c.id, numeroPedido: null, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
     }
   }
   return [...map.values(), ...singles];
@@ -134,21 +136,21 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
   return (
     <div className="space-y-3">
       {groups.map((group) => {
-        const isMulti = group.codigoCliente !== null && group.items.length > 1;
+        const isMulti = group.numeroPedido !== null && group.items.length > 1;
         if (isMulti) {
           const first = group.items[0];
-          const isOpen = expanded.has(group.codigoCliente!);
+          const isOpen = expanded.has(group.key);
           const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
           return (
-            <div key={`g-${group.codigoCliente}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
+            <div key={`g-${group.key}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
               <button
                 type="button"
                 className="w-full bg-primary/5 px-3 py-2 flex items-center justify-between gap-2 hover:bg-primary/10 transition-colors"
-                onClick={() => toggle(group.codigoCliente!)}
+                onClick={() => toggle(group.key)}
               >
                 <div className="flex items-center gap-2">
                   {isOpen ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
-                  <span className="text-xs font-mono font-bold text-primary">{group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}</span>
+                  <span className="text-xs font-mono font-bold text-primary">Ped. {group.numeroPedido} – {group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}</span>
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
                 </div>
@@ -157,7 +159,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
               {isOpen && (
                 <div className="divide-y divide-border/40">
                   {group.items.map((c, idx) => (
-                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} />
+                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} groupItems={group.items} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} />
                   ))}
                 </div>
               )}
@@ -171,10 +173,11 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
   );
 }
 
-function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, onClone, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
+function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, onClone, groupItems, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
   c: Carregamento; isAdmin: boolean; canEdit: boolean; canDelete: boolean; canComplete: boolean; hasActions: boolean; canChangeStatus: boolean;
   onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onComplete: (c: Carregamento) => void;
-  onClone?: (c: Carregamento) => void;
+  onClone?: (items: Carregamento[]) => void;
+  groupItems?: Carregamento[];
   statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean;
 }) {
   return (
@@ -202,7 +205,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
               </Button>
             )}
             {canEdit && onClone && !isGrouped && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(groupItems ?? [c])}>
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -443,7 +446,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               </TableRow>
             )}
             {groups.map((group) => {
-              const isMulti = group.codigoCliente !== null && group.items.length > 1;
+              const isMulti = group.numeroPedido !== null && group.items.length > 1;
 
               if (!isMulti) {
                 const c = group.items[0];
@@ -542,7 +545,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canEdit && onClone && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone([c])}>
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -570,20 +573,20 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
 
               // Multi-item group
               const first = group.items[0];
-              const isOpen = expanded.has(group.codigoCliente!);
+              const isOpen = expanded.has(group.key);
               const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
               const hasRuptura = group.items.some(i => i.ruptura);
               const groupAllSelected = selectable && group.items.every(i => selectedSet.has(i.id));
 
               return (
-                <Fragment key={`group-${group.codigoCliente}`}>
+                <Fragment key={`group-${group.key}`}>
                   <TableRow
                     className={cn(
                       "hover:bg-muted/30 cursor-pointer border-t-2 border-t-primary/30 bg-primary/[0.03]",
                       hasRuptura && "bg-amber-50/40 dark:bg-amber-950/20",
                       !isOpen && "border-b"
                     )}
-                    onClick={() => toggle(group.codigoCliente!)}
+                    onClick={() => toggle(group.key)}
                   >
                     {selectable && (
                       <TableCell className="w-[40px]" onClick={(e) => e.stopPropagation()}>
@@ -625,7 +628,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     </TableCell>
                     <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
-                      {group.items.length} produtos
+                      Ped. {group.numeroPedido} · {group.items.length} produtos
                     </TableCell>
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                     <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
@@ -681,12 +684,12 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canEdit && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onEdit(first)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.key) : onEdit(first)}>
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {canEdit && onClone && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(first)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(group.items)}>
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
                           )}
