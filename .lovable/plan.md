@@ -1,24 +1,24 @@
 
 
-# Clonar pedido inteiro (todos os itens)
+# Fix: Clonar pedido inteiro
 
-## Problema
-Atualmente o clone copia apenas a linha clicada. Um pedido pode ter múltiplos produtos (mesmo `numero_pedido` + `data`), e o usuário quer clonar todos.
+## Problema identificado
+
+Há dois bugs:
+
+1. **Guard de inicialização bloqueia clones repetidos**: No `CarregamentoDialog`, linha 85, existe um guard `if (lastInitId.current === editing.id) return;`. Quando clonamos, `editing.id` é `""`. Após o primeiro clone, `lastInitId.current` fica `""`, e clones subsequentes são ignorados porque `"" === ""`.
+
+2. **Possível falha no filtro de irmãos**: O `numero_pedido` pode ser `number | null`. Se a comparação falhar silenciosamente, só o item clicado é retornado.
 
 ## Solução
 
 ### `src/pages/Index.tsx` — `handleClone`
-Em vez de clonar só o registro clicado, buscar todos os "irmãos" do mesmo pedido na lista `carregamentos` já carregada (filtrar por `numero_pedido` + `data`), e passar todos como items para o dialog.
-
-Mudanças:
-- `handleClone` filtra `carregamentos` por `c.numero_pedido === clicked.numero_pedido && c.data === clicked.data`
-- Passa os irmãos como uma nova prop `cloneItems` para `CarregamentoDialog`
-- Limpa `id` e `numero_pedido` do editing principal
+- Gerar um ID temporário único (ex: `crypto.randomUUID()`) para o `editing.id` do clone, garantindo que o guard `lastInitId` nunca bloqueie
+- Manter o filtro de siblings por `numero_pedido` + `data`
 
 ### `src/components/dashboard/CarregamentoDialog.tsx`
-- Adicionar prop opcional `cloneItems: Carregamento[]`
-- No `useEffect` de inicialização (quando `editing` existe), se `cloneItems` tiver mais de 1 item, popular `items[]` com todos os produtos do pedido (não apenas o primeiro)
-- O resto do fluxo (submit batch) já funciona para múltiplos items
+- Ajustar a lógica do `useEffect` para que o guard funcione com IDs temporários de clone
+- Garantir que no submit, IDs temporários (não-UUID do banco) sejam tratados como INSERT
 
-2 arquivos, ~15 linhas alteradas.
+2 arquivos, ~5 linhas alteradas.
 
