@@ -12,7 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck } from "lucide-react";
 import { useMovimentacoes, useCreateMovimentacao, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
+import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados, useDeleteVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";

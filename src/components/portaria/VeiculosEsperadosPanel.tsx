@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { ClipboardCheck, Truck, X, CheckCircle2, CalendarClock } from "lucide-react";
+import { ClipboardCheck, Truck, X, CheckCircle2, CalendarClock, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 
 interface Props {
@@ -12,7 +14,9 @@ interface Props {
   onRegistrar: (veiculo: VeiculoEsperado) => void;
   onClear?: () => void;
   isClearing?: boolean;
-  dataFiltrada?: string; // yyyy-MM-dd
+  onDeleteSelected?: (ids: string[]) => void;
+  isDeletingSelected?: boolean;
+  dataFiltrada?: string;
   readOnly?: boolean;
   search?: string;
 }
@@ -47,13 +51,15 @@ const DataAtrasadaBadge = React.forwardRef<HTMLDivElement, { dataRef: string }>(
 );
 DataAtrasadaBadge.displayName = "DataAtrasadaBadge";
 
-export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, dataFiltrada, readOnly, search }: Props) {
+export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, onDeleteSelected, isDeletingSelected, dataFiltrada, readOnly, search }: Props) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   if (veiculos.length === 0) return null;
 
   const totalConferidos = veiculos.filter((v) => v.conferido).length;
   const pendentes = veiculos.length - totalConferidos;
 
-  // Filter out conferidos, then apply search
   const pendingVeiculos = veiculos.filter((v) => !v.conferido);
   const filtered = search
     ? pendingVeiculos.filter((v) => {
@@ -62,6 +68,69 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
           .some((field) => field?.toLowerCase().includes(s));
       })
     : pendingVeiculos;
+
+  const canDelete = !!onDeleteSelected && !readOnly;
+  const allVisibleSelected = filtered.length > 0 && filtered.every((v) => selectedIds.has(v.id));
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((v) => next.delete(v.id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((v) => next.add(v.id));
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    onDeleteSelected?.(Array.from(selectedIds));
+    setSelectedIds(new Set());
+    setConfirmOpen(false);
+  };
+
+  const selectionBar = canDelete && selectedIds.size > 0 && (
+    <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b text-xs">
+      <span className="font-medium">{selectedIds.size} selecionado(s)</span>
+      <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setSelectedIds(new Set())}>
+        Limpar seleção
+      </Button>
+      <Button
+        variant="destructive"
+        size="sm"
+        className="h-6 text-[10px] gap-1 ml-auto"
+        onClick={() => setConfirmOpen(true)}
+        disabled={isDeletingSelected}
+      >
+        <Trash2 className="h-3 w-3" />
+        Excluir selecionados
+      </Button>
+    </div>
+  );
+
+  const confirmDialog = (
+    <DeleteConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      onConfirm={handleDeleteConfirm}
+      title="Excluir veículos selecionados"
+      description={`Tem certeza que deseja excluir ${selectedIds.size} veículo(s) da lista de esperados? Esta ação não pode ser desfeita.`}
+    />
+  );
 
   if (pendentes === 0) {
     return (
@@ -88,6 +157,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
         <CardContent className="p-4">
           <p className="text-sm text-muted-foreground text-center">✅ Todos os veículos foram conferidos!</p>
         </CardContent>
+        {confirmDialog}
       </Card>
     );
   }
@@ -120,19 +190,29 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
         </div>
       </CardHeader>
       <CardContent className="p-0">
+        {selectionBar}
+
         {/* Mobile: Cards */}
         <div className="md:hidden space-y-2 p-3">
           {filtered.map((v) => {
             const isConferido = v.conferido;
             const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
             const isPassado = isDataPassada(v.data_referencia, dataFiltrada);
+            const isSelected = selectedIds.has(v.id);
             return (
               <div
                 key={v.id}
-                className={`rounded-lg border bg-card p-3 space-y-2 ${isConferido ? "opacity-50" : ""} ${isFuturo && !isConferido ? "border-amber-300 dark:border-amber-700" : ""} ${isPassado && !isConferido ? "border-destructive/50" : ""}`}
+                className={`rounded-lg border bg-card p-3 space-y-2 ${isConferido ? "opacity-50" : ""} ${isFuturo && !isConferido ? "border-amber-300 dark:border-amber-700" : ""} ${isPassado && !isConferido ? "border-destructive/50" : ""} ${isSelected ? "ring-2 ring-primary" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
+                    {canDelete && (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleOne(v.id)}
+                        className="shrink-0"
+                      />
+                    )}
                     {isConferido ? (
                       <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                     ) : (
@@ -164,7 +244,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                 </div>
                 {!isConferido && !readOnly && (
                   <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1" onClick={() => onRegistrar(v)}>
-Registrar Chegada
+                    Registrar Chegada
                   </Button>
                 )}
               </div>
@@ -177,6 +257,14 @@ Registrar Chegada
           <Table>
             <TableHeader>
               <TableRow>
+                {canDelete && (
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={allVisibleSelected && filtered.length > 0}
+                      onCheckedChange={toggleAll}
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="text-[11px] w-[60px]">Status</TableHead>
                 <TableHead className="text-[11px]">Placa</TableHead>
                 <TableHead className="text-[11px]">Motorista</TableHead>
@@ -192,8 +280,17 @@ Registrar Chegada
                 const isConferido = v.conferido;
                 const isFuturo = isDataFutura(v.data_referencia, dataFiltrada);
                 const isPassado = isDataPassada(v.data_referencia, dataFiltrada);
+                const isSelected = selectedIds.has(v.id);
                 return (
-                  <TableRow key={v.id} className={`${isConferido ? "opacity-50" : ""} ${isFuturo && !isConferido ? "bg-amber-50/50 dark:bg-amber-950/20" : ""} ${isPassado && !isConferido ? "bg-destructive/5" : ""}`}>
+                  <TableRow key={v.id} className={`${isConferido ? "opacity-50" : ""} ${isFuturo && !isConferido ? "bg-amber-50/50 dark:bg-amber-950/20" : ""} ${isPassado && !isConferido ? "bg-destructive/5" : ""} ${isSelected ? "bg-primary/5" : ""}`}>
+                    {canDelete && (
+                      <TableCell className="py-1.5">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleOne(v.id)}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="py-1.5">
                       {isConferido ? (
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -229,6 +326,7 @@ Registrar Chegada
           </Table>
         </div>
       </CardContent>
+      {confirmDialog}
     </Card>
   );
 }
