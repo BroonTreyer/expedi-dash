@@ -1,28 +1,24 @@
 
 
-# Clonar Pedido
+# Clonar pedido inteiro (todos os itens)
 
-## O que será feito
-Adicionar um botão "Clonar" na tabela de carregamentos que cria uma cópia do pedido e abre o dialog de edição para o usuário ajustar os dados antes de salvar.
+## Problema
+Atualmente o clone copia apenas a linha clicada. Um pedido pode ter múltiplos produtos (mesmo `numero_pedido` + `data`), e o usuário quer clonar todos.
 
-## Como funciona
-1. O usuário clica no botão de clonar (ícone Copy) em qualquer pedido
-2. O sistema abre o dialog de criação (modo "vendas") com todos os campos preenchidos com os dados do pedido original
-3. O campo `numero_pedido` fica vazio (será gerado automaticamente)
-4. O usuário pode alterar qualquer campo e salvar como um novo pedido
+## Solução
 
-## Mudanças técnicas
+### `src/pages/Index.tsx` — `handleClone`
+Em vez de clonar só o registro clicado, buscar todos os "irmãos" do mesmo pedido na lista `carregamentos` já carregada (filtrar por `numero_pedido` + `data`), e passar todos como items para o dialog.
 
-### `src/components/dashboard/CarregamentoTable.tsx`
-- Adicionar prop `onClone: (c: Carregamento) => void` na interface Props
-- Adicionar botão com ícone `Copy` ao lado do botão de editar, que chama `onClone(c)`
-
-### `src/pages/Index.tsx`
-- Criar função `handleClone` que recebe um Carregamento, limpa `id` e `numero_pedido`, seta como `editing` com modo `"vendas"` e abre o dialog
-- Passar `onClone={handleClone}` para `CarregamentoTable`
+Mudanças:
+- `handleClone` filtra `carregamentos` por `c.numero_pedido === clicked.numero_pedido && c.data === clicked.data`
+- Passa os irmãos como uma nova prop `cloneItems` para `CarregamentoDialog`
+- Limpa `id` e `numero_pedido` do editing principal
 
 ### `src/components/dashboard/CarregamentoDialog.tsx`
-- Nenhuma mudança necessaria: o dialog em modo "vendas" com `editing` preenchido ja preenche os campos. Apenas garantir que no submit, quando `editing` existe mas modo e "vendas", faz INSERT (nao UPDATE).
+- Adicionar prop opcional `cloneItems: Carregamento[]`
+- No `useEffect` de inicialização (quando `editing` existe), se `cloneItems` tiver mais de 1 item, popular `items[]` com todos os produtos do pedido (não apenas o primeiro)
+- O resto do fluxo (submit batch) já funciona para múltiplos items
 
-3 arquivos afetados.
+2 arquivos, ~15 linhas alteradas.
 
