@@ -25,7 +25,7 @@ interface Props {
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
-  onClone?: (c: Carregamento) => void;
+  onClone?: (items: Carregamento[]) => void;
   onUndoCarga?: (cargaId: string) => void;
   onPrintCarga?: (cargaId: string) => void;
   userRole?: AppRole | null;
@@ -157,7 +157,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
               {isOpen && (
                 <div className="divide-y divide-border/40">
                   {group.items.map((c, idx) => (
-                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} />
+                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} groupItems={group.items} />
                   ))}
                 </div>
               )}
@@ -165,7 +165,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
           );
         }
         const c = group.items[0];
-        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} />;
+        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} groupItems={group.items} />;
       })}
     </div>
   );
@@ -174,8 +174,8 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
 function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, onClone, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
   c: Carregamento; isAdmin: boolean; canEdit: boolean; canDelete: boolean; canComplete: boolean; hasActions: boolean; canChangeStatus: boolean;
   onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onComplete: (c: Carregamento) => void;
-  onClone?: (c: Carregamento) => void;
-  statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean;
+  onClone?: (items: Carregamento[]) => void;
+  statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean; groupItems?: Carregamento[];
 }) {
   return (
     <CardContent className="p-4 space-y-3">
@@ -202,7 +202,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
               </Button>
             )}
             {canEdit && onClone && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(groupItems ?? [c])}>
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -542,7 +542,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canEdit && onClone && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(group.items)}>
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -685,6 +685,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          {canEdit && onClone && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(group.items)}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {canDelete && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => group.items.forEach(i => onDelete(i.id))}>
                               <Trash2 className="h-3.5 w-3.5" />
@@ -746,7 +751,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               </Button>
                             )}
                             {canEdit && onClone && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(group.items)}>
                                 <Copy className="h-3.5 w-3.5" />
                               </Button>
                             )}
