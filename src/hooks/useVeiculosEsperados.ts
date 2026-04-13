@@ -161,6 +161,27 @@ export function useMarcarConferido() {
   });
 }
 
+export function useDeleteVeiculosEsperados() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from("veiculos_esperados" as any)
+        .delete()
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      toast.success(`${ids.length} veículo(s) excluído(s)`);
+    },
+    onError: () => {
+      toast.error("Erro ao excluir veículos selecionados");
+    },
+  });
+}
+
 export function useLimparVeiculosEsperados() {
   const qc = useQueryClient();
 

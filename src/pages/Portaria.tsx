@@ -12,7 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck } from "lucide-react";
 import { useMovimentacoes, useCreateMovimentacao, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
+import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados, useDeleteVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
 import { PatioAtualTab } from "@/components/portaria/PatioAtualTab";
@@ -44,6 +44,7 @@ export default function Portaria() {
   const importarMutation = useImportarVeiculosEsperados();
   const marcarConferidoMutation = useMarcarConferido();
   const limparMutation = useLimparVeiculosEsperados();
+  const deleteVeiculosMutation = useDeleteVeiculosEsperados();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -394,6 +395,8 @@ export default function Portaria() {
                 limparMutation.mutate({ dataInicio: di.toISOString().slice(0, 10), dataFim: df.toISOString().slice(0, 10) });
               }}
               isClearing={limparMutation.isPending}
+              onDeleteSelected={isPortaria ? undefined : (ids) => deleteVeiculosMutation.mutate(ids)}
+              isDeletingSelected={deleteVeiculosMutation.isPending}
               dataFiltrada={dateFromStr}
               readOnly={false}
               search={search}
