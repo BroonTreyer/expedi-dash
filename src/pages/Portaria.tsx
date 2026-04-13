@@ -44,6 +44,7 @@ export default function Portaria() {
   const importarMutation = useImportarVeiculosEsperados();
   const marcarConferidoMutation = useMarcarConferido();
   const limparMutation = useLimparVeiculosEsperados();
+  const deleteVeiculosMutation = useDeleteVeiculosEsperados();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
