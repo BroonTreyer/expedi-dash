@@ -257,7 +257,7 @@ export default function Index() {
     const siblings = c.numero_pedido
       ? carregamentos.filter(r => r.numero_pedido === c.numero_pedido && r.data === c.data)
       : [c];
-    const cloned = { ...siblings[0], id: "", numero_pedido: null } as Carregamento;
+    const cloned = { ...siblings[0], id: `clone-${crypto.randomUUID()}`, numero_pedido: null } as Carregamento;
     setCloneItems(siblings);
     setEditing(cloned);
     setDialogMode("vendas");
