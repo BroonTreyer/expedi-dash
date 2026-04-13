@@ -94,7 +94,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     setCodigoClienteInput(editing.codigo_cliente ?? "");
 
     // If cloning with multiple sibling items, populate all of them
-    const sourceRows = (cloneItems && cloneItems.length > 1) ? cloneItems : [editing];
+    const sourceRows = (cloneItems && cloneItems.length >= 1) ? cloneItems : [editing];
     setItems(sourceRows.map(row => {
       const prod = produtos.find((p) => p.codigo_produto === row.codigo_produto);
       const pp = Number(prod?.peso_padrao ?? 0);
