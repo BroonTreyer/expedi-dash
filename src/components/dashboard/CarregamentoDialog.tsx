@@ -263,7 +263,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       basePayload.etapa = "logistica";
     }
 
-    if (editing && editing.id) {
+    if (editing && editing.id && !editing.id.startsWith("clone-")) {
       // First item is an update; additional items are batch inserts
       const firstItem = finalItems[0];
       const updatePayload = {
