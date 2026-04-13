@@ -136,21 +136,21 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
   return (
     <div className="space-y-3">
       {groups.map((group) => {
-        const isMulti = group.codigoCliente !== null && group.items.length > 1;
+        const isMulti = group.numeroPedido !== null && group.items.length > 1;
         if (isMulti) {
           const first = group.items[0];
-          const isOpen = expanded.has(group.codigoCliente!);
+          const isOpen = expanded.has(group.key);
           const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
           return (
-            <div key={`g-${group.codigoCliente}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
+            <div key={`g-${group.key}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
               <button
                 type="button"
                 className="w-full bg-primary/5 px-3 py-2 flex items-center justify-between gap-2 hover:bg-primary/10 transition-colors"
-                onClick={() => toggle(group.codigoCliente!)}
+                onClick={() => toggle(group.key)}
               >
                 <div className="flex items-center gap-2">
                   {isOpen ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
-                  <span className="text-xs font-mono font-bold text-primary">{group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}</span>
+                  <span className="text-xs font-mono font-bold text-primary">Ped. {group.numeroPedido} – {group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}</span>
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
                 </div>
@@ -176,7 +176,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
 function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, onClone, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
   c: Carregamento; isAdmin: boolean; canEdit: boolean; canDelete: boolean; canComplete: boolean; hasActions: boolean; canChangeStatus: boolean;
   onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onComplete: (c: Carregamento) => void;
-  onClone?: (c: Carregamento) => void;
+  onClone?: (items: Carregamento[]) => void;
   statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean;
 }) {
   return (
@@ -204,7 +204,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
               </Button>
             )}
             {canEdit && onClone && !isGrouped && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone([c])}>
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             )}
