@@ -8,7 +8,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, History, Link2 } from "lucide-react";
+import { Trash2, Edit, ClipboardCheck, AlertTriangle, ChevronRight, ChevronDown, Undo2, Printer, PackageSearch, History, Link2, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AuditTimeline } from "./AuditTimeline";
 import { useCreatePortalToken } from "@/hooks/usePortalToken";
@@ -25,6 +25,7 @@ interface Props {
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
   onComplete: (c: Carregamento) => void;
+  onClone?: (c: Carregamento) => void;
   onUndoCarga?: (cargaId: string) => void;
   onPrintCarga?: (cargaId: string) => void;
   userRole?: AppRole | null;
@@ -98,7 +99,7 @@ function buildGroups(data: Carregamento[]): Group[] {
 
 // ─── Mobile ───
 
-function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
+function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, onClone, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const isFaturamento = userRole === "faturamento";
@@ -156,7 +157,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
               {isOpen && (
                 <div className="divide-y divide-border/40">
                   {group.items.map((c, idx) => (
-                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} />
+                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} />
                   ))}
                 </div>
               )}
@@ -164,15 +165,16 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, us
           );
         }
         const c = group.items[0];
-        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} />;
+        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} />;
       })}
     </div>
   );
 }
 
-function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
+function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, onClone, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped }: {
   c: Carregamento; isAdmin: boolean; canEdit: boolean; canDelete: boolean; canComplete: boolean; hasActions: boolean; canChangeStatus: boolean;
   onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onComplete: (c: Carregamento) => void;
+  onClone?: (c: Carregamento) => void;
   statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean;
 }) {
   return (
@@ -197,6 +199,11 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
             {canEdit && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
                 <Edit className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {canEdit && onClone && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                <Copy className="h-3.5 w-3.5" />
               </Button>
             )}
             {canDelete && (
@@ -280,7 +287,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
 
 // ─── Desktop ───
 
-export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, onDelete, onComplete, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
+export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, onDelete, onComplete, onClone, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
   const isMobile = useIsMobile();
   const portalMut = useCreatePortalToken();
   const isAdmin = userRole === "admin";
@@ -369,7 +376,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
   const handleBottomProxyScroll = useCallback(() => syncScroll(bottomProxyRef.current), [syncScroll]);
 
   if (isMobile) {
-    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} canChangeStatus={canChangeStatus} />;
+    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} canChangeStatus={canChangeStatus} />;
   }
 
   const toggle = (key: string) => {
@@ -532,6 +539,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                           {canEdit && (
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
                               <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {canEdit && onClone && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                              <Copy className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {canDelete && (
@@ -731,6 +743,11 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             {canEdit && (
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
                                 <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {canEdit && onClone && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(c)}>
+                                <Copy className="h-3.5 w-3.5" />
                               </Button>
                             )}
                             {canDelete && (
