@@ -14,6 +14,7 @@ interface Props {
     telefone?: string;
     cpf?: string;
     renavam?: string;
+    transportadora?: string;
   }) => void;
   disabled?: boolean;
 }
@@ -54,6 +55,7 @@ export function CaminhaoAutocomplete({ value, onChange, onSelect, disabled }: Pr
       telefone: c.motorista?.telefone || undefined,
       cpf: c.motorista?.cpf || undefined,
       renavam: c.renavam || undefined,
+      transportadora: c.transportadora || undefined,
     });
   };
 

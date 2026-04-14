@@ -47,7 +47,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       label: `${c.placa}${c.motorista?.nome_completo ? ` – ${c.motorista.nome_completo}` : ""}${c.tipo_caminhao ? ` (${c.tipo_caminhao})` : ""}`,
       placa: c.placa,
       motorista: c.motorista?.nome_completo || "",
-      transportadora: "",
+      transportadora: c.transportadora || "",
       tipoCaminhao: c.tipo_caminhao || "",
     }));
   }, [caminhoesCadastrados]);
@@ -252,6 +252,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                 onSelect={(m) => {
                   if (m.placa) setPlaca(m.placa);
                   if (m.tipo_caminhao) setTipoCaminhao(m.tipo_caminhao);
+                  if (m.transportadora) setTransportadora(m.transportadora);
                 }}
               />
             </div>
@@ -262,7 +263,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                 onChange={setPlaca}
                 onSelect={(c) => {
                   setPlaca(c.placa);
+                  if (c.motorista) setMotorista(c.motorista);
                   if (c.tipo_caminhao) setTipoCaminhao(c.tipo_caminhao);
+                  if (c.transportadora) setTransportadora(c.transportadora);
                 }}
               />
             </div>

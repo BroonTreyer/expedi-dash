@@ -13,7 +13,7 @@ import { toast } from "sonner";
 interface Props {
   value: string;
   onChange: (name: string) => void;
-  onSelect?: (motorista: { nome_completo: string; telefone?: string; cpf?: string; placa?: string; tipo_caminhao?: string }) => void;
+  onSelect?: (motorista: { nome_completo: string; telefone?: string; cpf?: string; placa?: string; tipo_caminhao?: string; transportadora?: string }) => void;
   disabled?: boolean;
 }
 
@@ -122,10 +122,11 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
     // Lookup caminhão vinculado ao motorista
     let placa: string | undefined;
     let tipo_caminhao: string | undefined;
+    let transportadora: string | undefined;
     try {
       const { data: caminhao } = await supabase
         .from("caminhoes")
-        .select("placa, tipo_caminhao")
+        .select("placa, tipo_caminhao, transportadora")
         .eq("ativo", true)
         .eq("motorista_id", m.id)
         .limit(1)
@@ -133,10 +134,11 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
       if (caminhao) {
         placa = caminhao.placa;
         tipo_caminhao = caminhao.tipo_caminhao || undefined;
+        transportadora = caminhao.transportadora || undefined;
       }
     } catch {}
 
-    onSelect?.({ nome_completo: m.nome_completo, telefone: m.telefone || undefined, cpf: m.cpf || undefined, placa, tipo_caminhao });
+    onSelect?.({ nome_completo: m.nome_completo, telefone: m.telefone || undefined, cpf: m.cpf || undefined, placa, tipo_caminhao, transportadora });
   };
 
   const handleUpdatePhone = async () => {
