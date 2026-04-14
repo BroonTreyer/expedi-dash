@@ -406,7 +406,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   </Button>
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_80px_100px_auto_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
+                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_100px_80px_auto_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
                     <div className="space-y-1">
                       <Label className="text-xs sm:hidden">Código</Label>
                       {idx === 0 && <Label className="text-xs hidden sm:block">Código</Label>}
