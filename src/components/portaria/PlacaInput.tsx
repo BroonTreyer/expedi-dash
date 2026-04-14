@@ -9,7 +9,7 @@ import { useEffect, useRef, useCallback } from "react";
 interface Props {
   value: string;
   onChange: (v: string) => void;
-  onAutofill?: (data: { motorista?: string; empresa?: string; categoria?: string; destino_setor?: string; tipo_caminhao?: string; telefone?: string }) => void;
+  onAutofill?: (data: { motorista?: string; empresa?: string; categoria?: string; destino_setor?: string; tipo_caminhao?: string; telefone?: string; transportadora?: string }) => void;
   disabled?: boolean;
 }
 
@@ -41,6 +41,7 @@ export function PlacaInput({ value, onChange, onAutofill, disabled }: Props) {
         motorista: caminhaoMatch.motorista?.nome_completo || undefined,
         tipo_caminhao: caminhaoMatch.tipo_caminhao || undefined,
         telefone: caminhaoMatch.motorista?.telefone || undefined,
+        transportadora: caminhaoMatch.transportadora || undefined,
       });
     }
   }, [caminhaoMatch]);
