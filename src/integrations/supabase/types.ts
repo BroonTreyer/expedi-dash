@@ -56,6 +56,7 @@ export type Database = {
           placa: string
           renavam: string | null
           tipo_caminhao: string | null
+          transportadora: string | null
         }
         Insert: {
           ativo?: boolean
@@ -65,6 +66,7 @@ export type Database = {
           placa: string
           renavam?: string | null
           tipo_caminhao?: string | null
+          transportadora?: string | null
         }
         Update: {
           ativo?: boolean
@@ -74,6 +76,7 @@ export type Database = {
           placa?: string
           renavam?: string | null
           tipo_caminhao?: string | null
+          transportadora?: string | null
         }
         Relationships: [
           {
