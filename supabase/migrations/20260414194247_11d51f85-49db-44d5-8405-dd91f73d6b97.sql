@@ -1,0 +1,1 @@
+ALTER TABLE public.caminhoes ADD COLUMN transportadora TEXT;

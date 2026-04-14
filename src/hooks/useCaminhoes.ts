@@ -8,6 +8,7 @@ export interface Caminhao {
   placa: string;
   renavam: string | null;
   tipo_caminhao: string | null;
+  transportadora: string | null;
   motorista_id: string | null;
   ativo: boolean;
   created_at: string;
@@ -68,12 +69,13 @@ export function useCaminhaoPorMotorista(motoristaId: string | null) {
 export function useCreateCaminhao() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: { placa: string; renavam?: string; tipo_caminhao?: string; motorista_id?: string | null }) => {
+    mutationFn: async (values: { placa: string; renavam?: string; tipo_caminhao?: string; motorista_id?: string | null; transportadora?: string }) => {
       const { data, error } = await supabase.from("caminhoes").insert({
         placa: values.placa.toUpperCase().trim(),
         renavam: values.renavam?.trim() || null,
         tipo_caminhao: values.tipo_caminhao || null,
         motorista_id: values.motorista_id || null,
+        transportadora: values.transportadora?.trim() || null,
       }).select("*, motoristas(id, nome_completo, telefone, cpf)").single();
       if (error) throw error;
       return { ...data, motorista: (data as any).motoristas ?? null } as Caminhao;
@@ -86,12 +88,13 @@ export function useCreateCaminhao() {
 export function useUpdateCaminhao() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: { id: string; placa: string; renavam?: string; tipo_caminhao?: string; motorista_id?: string | null }) => {
+    mutationFn: async (values: { id: string; placa: string; renavam?: string; tipo_caminhao?: string; motorista_id?: string | null; transportadora?: string }) => {
       const { data, error } = await supabase.from("caminhoes").update({
         placa: values.placa.toUpperCase().trim(),
         renavam: values.renavam?.trim() || null,
         tipo_caminhao: values.tipo_caminhao || null,
         motorista_id: values.motorista_id || null,
+        transportadora: values.transportadora?.trim() || null,
       }).eq("id", values.id).select().single();
       if (error) throw error;
       return data;

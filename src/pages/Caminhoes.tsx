@@ -28,6 +28,7 @@ function CaminhaoFormDialog({
   const [placa, setPlaca] = useState("");
   const [renavam, setRenavam] = useState("");
   const [tipoCaminhao, setTipoCaminhao] = useState("");
+  const [transportadora, setTransportadora] = useState("");
   const [motoristaNome, setMotoristaNome] = useState("");
   const [motoristaId, setMotoristaId] = useState<string | null>(null);
 
@@ -37,6 +38,7 @@ function CaminhaoFormDialog({
       setPlaca(caminhao?.placa ?? "");
       setRenavam(caminhao?.renavam ?? "");
       setTipoCaminhao(caminhao?.tipo_caminhao ?? "");
+      setTransportadora(caminhao?.transportadora ?? "");
       setMotoristaNome(caminhao?.motorista?.nome_completo ?? "");
       setMotoristaId(caminhao?.motorista_id ?? null);
     }
@@ -53,6 +55,7 @@ function CaminhaoFormDialog({
       placa: placa.toUpperCase().trim(),
       renavam: renavam.trim() || undefined,
       tipo_caminhao: tipoCaminhao || undefined,
+      transportadora: transportadora.trim() || undefined,
       motorista_id: motoristaId,
     };
     if (caminhao) {
@@ -89,6 +92,10 @@ function CaminhaoFormDialog({
                 {tipos.map((t) => <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Transportadora</Label>
+            <Input value={transportadora} onChange={(e) => setTransportadora(e.target.value)} placeholder="Nome da transportadora" />
           </div>
           <div className="space-y-2">
             <Label>Motorista Vinculado</Label>
@@ -161,7 +168,8 @@ export default function Caminhoes() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-bold">{c.placa}</p>
-                      {c.tipo_caminhao && <p className="text-xs text-muted-foreground">Tipo: {c.tipo_caminhao}</p>}
+                       {c.tipo_caminhao && <p className="text-xs text-muted-foreground">Tipo: {c.tipo_caminhao}</p>}
+                       {c.transportadora && <p className="text-xs text-muted-foreground">Transp: {c.transportadora}</p>}
                       {c.renavam && <p className="text-xs text-muted-foreground">RENAVAM: {c.renavam}</p>}
                       {c.motorista && (
                         <p className="text-xs text-muted-foreground">
@@ -188,27 +196,29 @@ export default function Caminhoes() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Placa</TableHead>
-                  <TableHead>RENAVAM</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Motorista</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>CPF</TableHead>
+                   <TableHead>Placa</TableHead>
+                   <TableHead>RENAVAM</TableHead>
+                   <TableHead>Tipo</TableHead>
+                   <TableHead>Transportadora</TableHead>
+                   <TableHead>Motorista</TableHead>
+                   <TableHead>Telefone</TableHead>
+                   <TableHead>CPF</TableHead>
                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-                ) : caminhoes.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    <div className="flex flex-col items-center gap-2"><Truck className="h-8 w-8 text-muted-foreground/40" /><span>Nenhum caminhão encontrado</span></div>
+                 {isLoading ? (
+                   <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                 ) : caminhoes.length === 0 ? (
+                   <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                     <div className="flex flex-col items-center gap-2"><Truck className="h-8 w-8 text-muted-foreground/40" /><span>Nenhum caminhão encontrado</span></div>
                   </TableCell></TableRow>
                 ) : caminhoes.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-bold">{c.placa}</TableCell>
                     <TableCell>{c.renavam || "—"}</TableCell>
-                    <TableCell>{c.tipo_caminhao || "—"}</TableCell>
+                     <TableCell>{c.tipo_caminhao || "—"}</TableCell>
+                     <TableCell>{c.transportadora || "—"}</TableCell>
                     <TableCell>{c.motorista?.nome_completo || "—"}</TableCell>
                     <TableCell>{c.motorista?.telefone ? maskPhone(c.motorista.telefone) : "—"}</TableCell>
                     <TableCell>{c.motorista?.cpf ? maskCPF(c.motorista.cpf) : "—"}</TableCell>
