@@ -1,31 +1,39 @@
 
 
-# Adicionar exclusão seletiva na aba Veículos Esperados
+# Inverter relação motorista→placa e trocar ordem Peso/Qtd
 
-## Problema
-Atualmente só existe "Limpar lista" que apaga todos os veículos esperados de uma vez. O usuário precisa poder selecionar e apagar registros individuais ou em lote.
+## 1. Motorista puxa placa (em vez de placa puxar motorista)
 
-## Solução
-Adicionar checkboxes de seleção em cada linha (pendente e conferida) + barra de ações com botão "Excluir selecionados" e confirmação.
+**Onde**: `FechamentoLoteDialog.tsx` (fechamento de carga) e `CarregamentoDialog.tsx` (logística/editar)
 
-## Alterações
+**Hoje**: o campo Placa usa `CaminhaoAutocomplete` que busca por placa e preenche motorista.
+**Depois**: o campo Motorista vem primeiro e, ao selecionar um motorista, busca na tabela `caminhoes` o veículo vinculado a ele, preenchendo automaticamente placa, tipo de caminhão, etc.
 
-### `src/hooks/useVeiculosEsperados.ts`
-- Adicionar hook `useDeleteVeiculosEsperados` que recebe um array de IDs e deleta todos via `.in('id', ids)`
+### Alterações
 
-### `src/components/portaria/VeiculosEsperadosPanel.tsx`
-- Adicionar estado `selectedIds: Set<string>`
-- Checkbox no header da tabela (selecionar/desmarcar todos visíveis)
-- Checkbox em cada linha da tabela desktop e em cada card mobile
-- Quando há seleção, mostrar barra com contagem + botão "Excluir selecionados"
-- Diálogo de confirmação antes de excluir
-- Props: receber `onDeleteSelected` callback e `isDeletingSelected`
+**`src/components/portaria/MotoristaAutocomplete.tsx`**
+- Ampliar o callback `onSelect` para também retornar `placa` e `tipo_caminhao` do caminhão vinculado ao motorista
+- Fazer um lookup na tabela `caminhoes` (via o hook existente ou query direta) quando um motorista é selecionado, buscando `caminhoes.motorista_id = motorista.id`
 
-### `src/pages/Portaria.tsx`
-- Integrar o novo hook `useDeleteVeiculosEsperados` e passar o callback para o painel
+**`src/hooks/useCaminhoes.ts`**
+- Adicionar hook `useCaminhaoPorMotorista(motoristaId)` que busca o caminhão ativo vinculado a um motorista específico
 
-### RLS
-A política `Admin/logistica delete veiculos_esperados` já permite exclusão para admin e logística. Se o perfil portaria também precisar excluir, será necessária uma migração para incluí-lo na policy.
+**`src/components/dashboard/FechamentoLoteDialog.tsx`**
+- Reordenar os campos: Motorista antes de Placa
+- No `onSelect` do `MotoristaAutocomplete`, preencher automaticamente placa e tipo de caminhão
+- Manter o campo Placa editável (caso o motorista use outro veículo)
 
-2 arquivos alterados, 1 hook novo, possivelmente 1 migração.
+**`src/components/dashboard/CarregamentoDialog.tsx`** (seção logística, linhas 495-510)
+- Reordenar: Motorista antes de Placa
+- Ao digitar/selecionar motorista, buscar caminhão vinculado e preencher placa e tipo
+
+## 2. Inverter ordem Peso ↔ Quantidade nos produtos
+
+**Onde**: `CarregamentoDialog.tsx`, grid de produtos (linhas 425-445)
+
+**Alteração**: trocar a posição das colunas — Peso (kg) vem antes de Qtd. Ajustar tanto os labels do header quanto os inputs, no desktop e mobile.
+
+---
+
+3 arquivos alterados, 1 hook novo. Sem migração necessária.
 
