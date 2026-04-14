@@ -1,27 +1,13 @@
 
 
-# Diagnóstico da Portaria
+# Corrigir erro "Component is not a function" (cache do Vite)
 
-## Problema encontrado
-
-Existe **1 warning** no console:
-
-> "Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()? Check the render method of `PatioAtualTab`."
-
-O componente `SortableTableHead` é uma função simples, mas o `TableHead` interno usa `forwardRef`. Quando o React tenta passar um ref para `SortableTableHead` (dentro de `PatioAtualTab`), ele falha silenciosamente.
-
-**Impacto**: Baixo. Não causa crash nem perda de funcionalidade, mas pode causar comportamento inesperado em scroll automático ou foco de acessibilidade.
-
-## Nenhum outro erro
-
-- Sem erros de runtime
-- Sem falhas de rede (todas as requests retornam 200)
-- Sem erros de TypeScript em build
+O erro persiste no preview por causa do cache de dependências do Vite (`.vite/deps`). O arquivo `sortable-table-head.tsx` está correto, mas o bundle cacheado ainda referencia a versão antiga (sem `forwardRef`).
 
 ## Correção
 
-### `src/components/ui/sortable-table-head.tsx`
-- Envolver o componente com `React.forwardRef` para que ele possa receber refs corretamente
+1. Limpar o cache do Vite (`node_modules/.vite`)
+2. Forçar rebuild para que o preview funcione sem erro
 
-1 arquivo alterado, correção trivial.
+1 comando, sem alteração de código.
 
