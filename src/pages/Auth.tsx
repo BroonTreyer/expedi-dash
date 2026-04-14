@@ -45,7 +45,7 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
-            <img src={fricoLogo} alt="Frico Alimentos" className="h-16 w-auto" width={64} height={64} fetchPriority="high" />
+            <img src="/frico-logo.webp" alt="Frico Alimentos" className="h-16 w-auto" width={64} height={64} fetchPriority="high" />
           </div>
           <CardTitle className="text-2xl">Expedição</CardTitle>
           <CardDescription>Entre com suas credenciais</CardDescription>
