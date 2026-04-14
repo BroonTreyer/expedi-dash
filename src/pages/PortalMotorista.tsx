@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Truck, MapPin, User, Building2, Clock, Package, AlertTriangle, CheckCircle2 } from "lucide-react";
-import fricoLogo from "@/assets/frico-logo.png";
+import fricoLogo from "@/assets/frico-logo-optimized.webp";
 
 interface TokenData {
   id: string;
