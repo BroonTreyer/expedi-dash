@@ -45,6 +45,26 @@ export function useCaminhoes(search?: string) {
   });
 }
 
+export function useCaminhaoPorMotorista(motoristaId: string | null) {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["caminhao-por-motorista", motoristaId],
+    enabled: !!session && !!motoristaId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("caminhoes")
+        .select("*")
+        .eq("ativo", true)
+        .eq("motorista_id", motoristaId!)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: string; placa: string; tipo_caminhao: string | null; renavam: string | null } | null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useCreateCaminhao() {
   const qc = useQueryClient();
   return useMutation({

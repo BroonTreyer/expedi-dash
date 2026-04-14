@@ -245,20 +245,26 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Placa * (busca caminhão cadastrado)</Label>
+              <Label className="text-xs">Motorista * (busca veículo vinculado)</Label>
+              <MotoristaAutocomplete
+                value={motorista}
+                onChange={setMotorista}
+                onSelect={(m) => {
+                  if (m.placa) setPlaca(m.placa);
+                  if (m.tipo_caminhao) setTipoCaminhao(m.tipo_caminhao);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Placa *</Label>
               <CaminhaoAutocomplete
                 value={placa}
                 onChange={setPlaca}
                 onSelect={(c) => {
                   setPlaca(c.placa);
                   if (c.tipo_caminhao) setTipoCaminhao(c.tipo_caminhao);
-                  if (c.motorista) setMotorista(c.motorista);
                 }}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Motorista *</Label>
-              <MotoristaAutocomplete value={motorista} onChange={setMotorista} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Transportadora</Label>

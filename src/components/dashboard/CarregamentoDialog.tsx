@@ -424,22 +424,22 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:contents">
                       <div className="space-y-1">
-                        <Label className="text-xs sm:hidden">Qtd</Label>
-                        {idx === 0 && <Label className="text-xs hidden sm:block">Qtd</Label>}
-                        <Input
-                          type="number"
-                          value={item.quantidade}
-                          onChange={(e) => handleItemQuantidade(idx, Number(e.target.value))}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
                         <Label className="text-xs sm:hidden">Peso (kg)</Label>
                         {idx === 0 && <Label className="text-xs hidden sm:block">Peso (kg)</Label>}
                         <Input
                           type="number"
                           value={item.peso}
                           onChange={(e) => handleItemPeso(idx, Number(e.target.value))}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs sm:hidden">Qtd</Label>
+                        {idx === 0 && <Label className="text-xs hidden sm:block">Qtd</Label>}
+                        <Input
+                          type="number"
+                          value={item.quantidade}
+                          onChange={(e) => handleItemQuantidade(idx, Number(e.target.value))}
                           className="h-9 text-sm"
                         />
                       </div>
@@ -500,12 +500,12 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Placa *</Label>
-                <Input value={form.placa ?? ""} onChange={(e) => set("placa", e.target.value.toUpperCase())} placeholder="ABC1D23" />
-              </div>
-              <div className="space-y-1.5">
                 <Label className="text-xs">Motorista *</Label>
                 <Input value={form.motorista ?? ""} onChange={(e) => set("motorista", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Placa *</Label>
+                <Input value={form.placa ?? ""} onChange={(e) => set("placa", e.target.value.toUpperCase())} placeholder="ABC1D23" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Transportadora</Label>

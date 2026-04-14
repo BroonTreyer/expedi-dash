@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { CapturaFoto } from "./CapturaFoto";
 import { useMotoristas, useCreateMotorista, useUpdateMotorista, type Motorista } from "@/hooks/useMotoristas";
+import { supabase } from "@/integrations/supabase/client";
 import { Phone, FileText, Plus, Pencil, Check } from "lucide-react";
 import { maskCPF, maskPhone } from "@/lib/masks";
 import { toast } from "sonner";
@@ -12,7 +13,7 @@ import { toast } from "sonner";
 interface Props {
   value: string;
   onChange: (name: string) => void;
-  onSelect?: (motorista: { nome_completo: string; telefone?: string; cpf?: string }) => void;
+  onSelect?: (motorista: { nome_completo: string; telefone?: string; cpf?: string; placa?: string; tipo_caminhao?: string }) => void;
   disabled?: boolean;
 }
 
@@ -110,14 +111,32 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
   const filtered = debounced.trim().length >= 2 ? motoristas.slice(0, 8) : [];
   const showNoResults = open && debounced.trim().length >= 2 && filtered.length === 0;
 
-  const handleSelect = (m: Motorista) => {
+  const handleSelect = async (m: Motorista) => {
     onChange(m.nome_completo);
     setQuery(m.nome_completo);
     setOpen(false);
     setSelectedMotorista(m);
     setNewPhone(m.telefone ? maskPhone(m.telefone) : "");
     setEditingPhone(false);
-    onSelect?.({ nome_completo: m.nome_completo, telefone: m.telefone || undefined, cpf: m.cpf || undefined });
+
+    // Lookup caminhão vinculado ao motorista
+    let placa: string | undefined;
+    let tipo_caminhao: string | undefined;
+    try {
+      const { data: caminhao } = await supabase
+        .from("caminhoes")
+        .select("placa, tipo_caminhao")
+        .eq("ativo", true)
+        .eq("motorista_id", m.id)
+        .limit(1)
+        .maybeSingle();
+      if (caminhao) {
+        placa = caminhao.placa;
+        tipo_caminhao = caminhao.tipo_caminhao || undefined;
+      }
+    } catch {}
+
+    onSelect?.({ nome_completo: m.nome_completo, telefone: m.telefone || undefined, cpf: m.cpf || undefined, placa, tipo_caminhao });
   };
 
   const handleUpdatePhone = async () => {
