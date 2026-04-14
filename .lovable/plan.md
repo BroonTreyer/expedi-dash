@@ -1,39 +1,27 @@
 
 
-# Inverter relação motorista→placa e trocar ordem Peso/Qtd
+# Diagnóstico da Portaria
 
-## 1. Motorista puxa placa (em vez de placa puxar motorista)
+## Problema encontrado
 
-**Onde**: `FechamentoLoteDialog.tsx` (fechamento de carga) e `CarregamentoDialog.tsx` (logística/editar)
+Existe **1 warning** no console:
 
-**Hoje**: o campo Placa usa `CaminhaoAutocomplete` que busca por placa e preenche motorista.
-**Depois**: o campo Motorista vem primeiro e, ao selecionar um motorista, busca na tabela `caminhoes` o veículo vinculado a ele, preenchendo automaticamente placa, tipo de caminhão, etc.
+> "Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()? Check the render method of `PatioAtualTab`."
 
-### Alterações
+O componente `SortableTableHead` é uma função simples, mas o `TableHead` interno usa `forwardRef`. Quando o React tenta passar um ref para `SortableTableHead` (dentro de `PatioAtualTab`), ele falha silenciosamente.
 
-**`src/components/portaria/MotoristaAutocomplete.tsx`**
-- Ampliar o callback `onSelect` para também retornar `placa` e `tipo_caminhao` do caminhão vinculado ao motorista
-- Fazer um lookup na tabela `caminhoes` (via o hook existente ou query direta) quando um motorista é selecionado, buscando `caminhoes.motorista_id = motorista.id`
+**Impacto**: Baixo. Não causa crash nem perda de funcionalidade, mas pode causar comportamento inesperado em scroll automático ou foco de acessibilidade.
 
-**`src/hooks/useCaminhoes.ts`**
-- Adicionar hook `useCaminhaoPorMotorista(motoristaId)` que busca o caminhão ativo vinculado a um motorista específico
+## Nenhum outro erro
 
-**`src/components/dashboard/FechamentoLoteDialog.tsx`**
-- Reordenar os campos: Motorista antes de Placa
-- No `onSelect` do `MotoristaAutocomplete`, preencher automaticamente placa e tipo de caminhão
-- Manter o campo Placa editável (caso o motorista use outro veículo)
+- Sem erros de runtime
+- Sem falhas de rede (todas as requests retornam 200)
+- Sem erros de TypeScript em build
 
-**`src/components/dashboard/CarregamentoDialog.tsx`** (seção logística, linhas 495-510)
-- Reordenar: Motorista antes de Placa
-- Ao digitar/selecionar motorista, buscar caminhão vinculado e preencher placa e tipo
+## Correção
 
-## 2. Inverter ordem Peso ↔ Quantidade nos produtos
+### `src/components/ui/sortable-table-head.tsx`
+- Envolver o componente com `React.forwardRef` para que ele possa receber refs corretamente
 
-**Onde**: `CarregamentoDialog.tsx`, grid de produtos (linhas 425-445)
-
-**Alteração**: trocar a posição das colunas — Peso (kg) vem antes de Qtd. Ajustar tanto os labels do header quanto os inputs, no desktop e mobile.
-
----
-
-3 arquivos alterados, 1 hook novo. Sem migração necessária.
+1 arquivo alterado, correção trivial.
 
