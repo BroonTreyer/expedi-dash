@@ -67,11 +67,21 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   useEffect(() => {
     if (!open) return;
     if (prefill && prefillEtapa === "saida_rota") {
-      // Carga própria: saída p/ rota (from chegou stage)
+      // Carga própria: saída p/ rota (from chegou stage) — prefill with existing data
       setStep("form");
       setTipo("saida_rota");
       setCategoria("carga_propria");
-      setValues({});
+      setValues({
+        placa: prefill.placa || "",
+        motorista: prefill.motorista || "",
+        rota: prefill.rota || "",
+        carga_id: prefill.carga_id || "",
+        peso: prefill.peso ?? "",
+        qtd_entregas: prefill.qtd_entregas ?? "",
+        empresa: prefill.empresa || "",
+        tipo_caminhao: prefill.tipo_caminhao || "",
+        telefone: prefill.telefone || "",
+      });
     } else if (prefill && prefillEtapa === "retorno") {
       // Carga própria retorno stage
       setStep("form");
@@ -420,7 +430,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                                   if (d.destino_setor) set("destino_setor", d.destino_setor);
                                   if (d.tipo_caminhao) set("tipo_caminhao", d.tipo_caminhao);
                                 }}
-                                disabled={saving || !!prefill}
+                                disabled={saving || (!!prefill && prefillEtapa !== "saida_rota")}
                               />
                               {field.required && !values.placa?.trim() && (
                                 <p className="text-[11px] text-destructive">* Obrigatório</p>
@@ -439,8 +449,11 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                                 onChange={(v) => set("motorista", v)}
                                 onSelect={(m) => {
                                   if (m.telefone) set("telefone", m.telefone);
+                                  if (m.placa) set("placa", m.placa);
+                                  if (m.tipo_caminhao) set("tipo_caminhao", m.tipo_caminhao);
+                                  if (m.transportadora) set("empresa", m.transportadora);
                                 }}
-                                disabled={saving || !!prefill}
+                                disabled={saving || (!!prefill && prefillEtapa !== "saida_rota")}
                               />
                               {field.required && !values.motorista?.trim() && (
                                 <p className="text-[11px] text-destructive">* Obrigatório</p>
