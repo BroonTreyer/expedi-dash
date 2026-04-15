@@ -1,36 +1,24 @@
 
 
-## Plano: Taxa de Ruptura por pedido único e exibição didática
+## Correção: campo `numero_pedido` ausente na query do período atual
 
-### Problema atual
-1. **Cálculo por linha**: `totalRupturas / totalPedidos` conta cada **linha de produto** individualmente. Se um pedido tem 5 produtos e 2 têm ruptura, conta como 2/5 em vez de 1 pedido afetado.
-2. **Exibição seca**: O KPI mostra apenas "5%" sem contexto — não informa "5% de quê".
+### Problema
+Na query principal do `useAnalytics.ts` (linha 115), o `select` do período atual não inclui `numero_pedido`. O campo só é buscado na query do período anterior. Como resultado, o cálculo de pedidos únicos retorna 0 de 0, e a Taxa de Ruptura aparece como **0%** com **"0 de 0 pedidos"**.
 
-### O que será feito
+### Correção
+Adicionar `numero_pedido` ao `select` da query do período atual.
 
-**1. Alterar o cálculo para pedidos únicos (`useAnalytics.ts`)**
-- `totalPedidosUnicos` = quantidade de `numero_pedido` distintos no período
-- `pedidosComRuptura` = quantidade de `numero_pedido` distintos que têm pelo menos 1 linha com `ruptura = true`
-- `taxaRuptura = (pedidosComRuptura / totalPedidosUnicos) * 100`
-- Aplicar a mesma lógica no período anterior para a variação comparativa
-- Exportar `pedidosComRuptura` e `totalPedidosUnicos` no objeto `kpis`
+**Arquivo:** `src/hooks/useAnalytics.ts`
 
-**2. Exibição didática no KPI Card (`Analytics.tsx`)**
-- Em vez de mostrar apenas `5%`, mostrar: **`5%`** com subtítulo **`12 de 240 pedidos`**
-- Adicionar campo `subtitle` ao KpiCard para suportar essa informação extra
-- O KpiCard passa a renderizar uma linha menor abaixo do valor principal com o detalhe
+**Linha 115 — de:**
+```
+.select("data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, vendedores(nome_vendedor)")
+```
 
-**3. Tooltip no KPI do dashboard principal (`KpiCards.tsx`)**
-- Atualizar o tooltip do card "Rupturas" para incluir a mesma lógica: calcular por pedido único e exibir "X de Y pedidos com ruptura"
+**Para:**
+```
+.select("data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, vendedores(nome_vendedor)")
+```
 
-### Arquivos a alterar
-- `src/hooks/useAnalytics.ts` — cálculo por pedido único
-- `src/pages/Analytics.tsx` — KpiCard com subtitle, exibição didática
-- `src/components/dashboard/KpiCards.tsx` — tooltip e cálculo por pedido único
-
-### Resultado esperado
-O KPI de Taxa de Ruptura mostrará, por exemplo:
-- **5%** (valor principal)
-- **12 de 240 pedidos** (subtítulo explicativo)
-- Tooltip: "Percentual de pedidos únicos que tiveram ao menos 1 produto com ruptura"
+Uma única linha a alterar. Após isso, o KPI mostrará corretamente a taxa de ruptura por pedido único com o subtítulo detalhado.
 
