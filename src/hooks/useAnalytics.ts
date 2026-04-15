@@ -148,7 +148,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
     const prevCarregado = prevRaw.filter((r) => r.status === "Carregado").reduce((s, r) => s + (r.peso ?? 0), 0);
     const prevDias = new Set(prevRaw.map((r) => r.data)).size;
     const prevMedia = prevDias > 0 ? Math.round(prevPeso / prevDias) : 0;
-    const prevTaxaRuptura = prevPedidos > 0 ? Math.round((prevRupturas / prevPedidos) * 100) : 0;
+    const prevTaxaRuptura = prevPedidosUnicos > 0 ? Math.round((prevPedidosComRuptura / prevPedidosUnicos) * 100) : 0;
 
     // === 1. Peso diário + acumulado ===
     const dailyMap = new Map<string, { peso: number; carregado: number }>();
@@ -299,7 +299,10 @@ export function useAnalytics(filters: AnalyticsFilters) {
     const totalCarregado = filtered.filter((r) => r.status === "Carregado").reduce((s, r) => s + (r.peso ?? 0), 0);
     const diasUnicos = new Set(filtered.map((r) => r.data)).size;
     const mediaDiaria = diasUnicos > 0 ? Math.round(totalPeso / diasUnicos) : 0;
-    const taxaRuptura = totalPedidos > 0 ? Math.round((totalRupturas / totalPedidos) * 100) : 0;
+    // Ruptura por pedido único
+    const totalPedidosUnicos = new Set(filtered.filter(r => r.numero_pedido).map(r => r.numero_pedido)).size;
+    const pedidosComRuptura = new Set(filtered.filter(r => r.ruptura && r.numero_pedido).map(r => r.numero_pedido)).size;
+    const taxaRuptura = totalPedidosUnicos > 0 ? Math.round((pedidosComRuptura / totalPedidosUnicos) * 100) : 0;
 
     // Ruptura-specific KPIs
     const diasSemRuptura = rupturaDaily.filter((d) => d.rupturas === 0).length;
@@ -314,6 +317,8 @@ export function useAnalytics(filters: AnalyticsFilters) {
       diasUnicos,
       mediaDiaria,
       taxaRuptura,
+      totalPedidosUnicos,
+      pedidosComRuptura,
       varPeso: calcVar(totalPeso, prevPeso),
       varPedidos: calcVar(totalPedidos, prevPedidos),
       varRupturas: calcVar(totalRupturas, prevRupturas),
