@@ -420,6 +420,7 @@ export default function Analytics() {
   const kpis = a?.kpis ?? {
     totalPeso: 0, totalPedidos: 0, totalRupturas: 0, totalCarregado: 0,
     diasUnicos: 0, mediaDiaria: 0, taxaRuptura: 0,
+    totalPedidosUnicos: 0, pedidosComRuptura: 0,
     varPeso: null, varPedidos: null, varRupturas: null,
     varCarregado: null, varMediaDiaria: null, varTaxaRuptura: null,
   };
