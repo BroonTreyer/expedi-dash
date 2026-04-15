@@ -1,40 +1,74 @@
 
+Objetivo: corrigir o bug no fluxo “Saída p/ Rota” da Portaria para que os dados vindos da planilha/chegada já apareçam no formulário e continuem editáveis.
 
-## Plano: Vinculação bidirecional Placa ↔ Motorista ↔ Transportadora no Fechamento de Carga
+O que identifiquei
+- A causa principal está em `src/components/portaria/RegistroMovimentoDialog.tsx`.
+- Quando o diálogo abre com `prefillEtapa === "saida_rota"`, ele faz `setValues({})` em vez de carregar os dados já existentes do registro (`placa`, `motorista`, `rota`, `carga_id`, etc.).
+- Além disso, os campos de Placa e Motorista ficam bloqueados por `disabled={saving || !!prefill}`, então no fluxo de atualização eles não podem ser corrigidos manualmente.
+- O banner superior mostra os dados antigos do `prefill`, mas os inputs em si ficam vazios e travados, que é exatamente o comportamento visto no print.
 
-### Problema atual
-- Os campos Placa e Motorista no `FechamentoLoteDialog` já usam autocomplete, mas **não fazem cross-fill bidirecional** corretamente (digitar motorista preenche placa, mas digitar placa não preenche motorista no mesmo fluxo).
-- O campo **Transportadora** é um `Input` livre, sem vínculo ao cadastro de caminhões.
-- A tabela `caminhoes` **não tem coluna `transportadora`**, então não existe onde armazenar essa relação.
+Implementação proposta
+1. Ajustar a inicialização do formulário em `RegistroMovimentoDialog`
+- No caso `prefillEtapa === "saida_rota"`, preencher `values` com os dados do `prefill`:
+  - `placa`
+  - `motorista`
+  - `rota`
+  - `carga_id`
+  - `peso`
+  - `qtd_entregas`
+  - `empresa`
+  - `tipo_caminhao`
+  - qualquer outro campo útil já existente no registro
 
-### O que será feito
+2. Desbloquear edição apenas no fluxo “Saída p/ Rota”
+- Manter o bloqueio enquanto estiver salvando.
+- Remover o bloqueio indevido causado por `!!prefill` para Placa e Motorista nesse fluxo específico.
+- Regra:
+  - `retorno` e `lacre`: continuam protegidos como hoje
+  - `saida_rota`: Placa, Motorista e Rota ficam editáveis
 
-**1. Migração de banco de dados**
-- Adicionar coluna `transportadora TEXT` na tabela `caminhoes`.
+3. Garantir autopreenchimento ao editar
+- Aproveitar o comportamento já existente do `PlacaInput` e `MotoristaAutocomplete`.
+- Ao alterar a placa, o formulário deve continuar puxando motorista e vínculo relacionado.
+- Ao alterar o motorista, o formulário deve continuar puxando placa/vínculo relacionado quando existir.
+- Também vou completar o `onSelect` do `MotoristaAutocomplete` nesse diálogo para refletir melhor os campos vinculados no formulário da Portaria.
 
-**2. Atualizar hook `useCaminhoes`**
-- Incluir `transportadora` no retorno da interface `Caminhao`.
+4. Revisar persistência no save
+- Confirmar que no `handleSave`, para `prefillEtapa === "saida_rota"`, o update continue gravando:
+  - `placa`
+  - `motorista`
+  - `rota`
+  - `km_inicial`
+  - `foto_placa_url`
+  - `etapa_carga_propria = "em_rota"`
+- Se necessário, alinhar para salvar também algum campo exibido no formulário que esteja sendo carregado mas não persistido.
 
-**3. Atualizar `CaminhaoAutocomplete`**
-- No `onSelect`, incluir `motorista` (nome) e `transportadora` nos dados retornados para o pai.
+Arquivos a alterar
+- `src/components/portaria/RegistroMovimentoDialog.tsx`
+- Possivelmente `src/components/portaria/MotoristaAutocomplete.tsx` apenas se eu precisar completar o retorno do `onSelect` usado nesse fluxo
 
-**4. Atualizar `MotoristaAutocomplete`**
-- No lookup de caminhão vinculado, incluir `transportadora` no retorno do `onSelect`.
+Resultado esperado
+- Ao clicar em “Saída p/ Rota” para um veículo que veio da planilha e já foi marcado como “chegou”:
+  - a placa aparece preenchida
+  - o motorista aparece preenchido
+  - a rota aparece preenchida
+  - os campos podem ser ajustados manualmente
+  - o registro salva corretamente e muda para a etapa “em_rota”
 
-**5. Atualizar `FechamentoLoteDialog` — cross-fill bidirecional**
-- Quando o usuário **digita a placa** e seleciona no `CaminhaoAutocomplete`:
-  - Preenche automaticamente: `motorista`, `tipo_caminhao`, `transportadora`.
-- Quando o usuário **digita o motorista** e seleciona no `MotoristaAutocomplete`:
-  - Preenche automaticamente: `placa`, `tipo_caminhao`, `transportadora`.
-- Quando o usuário seleciona no dropdown **"Vincular a veículo"**:
-  - Preenche todos os campos como já faz, agora incluindo `transportadora`.
+Detalhe técnico
+```text
+Problema atual:
+chegada (registro salvo com placa/motorista/rota)
+   -> abre diálogo saida_rota
+   -> setValues({})
+   -> inputs vazios
+   -> placa/motorista bloqueados por !!prefill
 
-**6. Atualizar página de Caminhões (cadastro)**
-- Adicionar campo `Transportadora` nos formulários de criação e edição de caminhões para que o dado possa ser persistido.
-
-### Detalhes técnicos
-- Migração SQL: `ALTER TABLE public.caminhoes ADD COLUMN transportadora TEXT;`
-- O `CaminhaoAutocomplete.onSelect` passa a retornar `{ placa, tipo_caminhao, motorista, telefone, cpf, renavam, transportadora }`.
-- O `MotoristaAutocomplete.onSelect` passa a retornar `{ nome_completo, telefone, cpf, placa, tipo_caminhao, transportadora }`.
-- No `FechamentoLoteDialog`, os handlers `onSelect` de ambos os autocompletes preenchem `setTransportadora()` junto com os demais campos.
-
+Correção:
+chegada (registro salvo com placa/motorista/rota)
+   -> abre diálogo saida_rota
+   -> setValues(prefill...)
+   -> inputs preenchidos
+   -> campos editáveis
+   -> salva update no mesmo registro
+```
