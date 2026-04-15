@@ -135,8 +135,8 @@ function VarBadge({ value }: { value: number | null }) {
 }
 
 // ── KPI Card ──
-function KpiCard({ label, value, icon: Icon, variation, loading, accent }: {
-  label: string; value: string; icon: any; variation: number | null; loading: boolean; accent?: string;
+function KpiCard({ label, value, icon: Icon, variation, loading, accent, subtitle }: {
+  label: string; value: string; icon: any; variation: number | null; loading: boolean; accent?: string; subtitle?: string;
 }) {
   if (loading) return (
     <Card className="border-border/40">
@@ -159,6 +159,9 @@ function KpiCard({ label, value, icon: Icon, variation, loading, accent }: {
           <span className="text-lg sm:text-xl font-bold tracking-tight">{value}</span>
           <VarBadge value={variation} />
         </div>
+        {subtitle && (
+          <span className="text-[10px] text-muted-foreground leading-tight">{subtitle}</span>
+        )}
       </CardContent>
     </Card>
   );
@@ -430,7 +433,7 @@ export default function Analytics() {
     { label: "Total Pedidos", value: kpis.totalPedidos.toLocaleString("pt-BR"), icon: Package, variation: kpis.varPedidos, accent: "bg-blue-500/10" },
     { label: "Peso Carregado", value: fmtKg(kpis.totalCarregado), icon: CheckCircle2, variation: kpis.varCarregado, accent: "bg-emerald-500/10" },
     { label: "Média Diária", value: fmtKg(kpis.mediaDiaria), icon: TrendingUp, variation: kpis.varMediaDiaria, accent: "bg-violet-500/10" },
-    { label: "Taxa Ruptura", value: `${kpis.taxaRuptura}%`, icon: AlertTriangle, variation: kpis.varTaxaRuptura, accent: "bg-amber-500/10" },
+    { label: "Taxa Ruptura", value: `${kpis.taxaRuptura}%`, icon: AlertTriangle, variation: kpis.varTaxaRuptura, accent: "bg-amber-500/10", subtitle: `${kpis.pedidosComRuptura ?? 0} de ${kpis.totalPedidosUnicos ?? 0} pedidos` },
     { label: "Dias no Período", value: String(kpis.diasUnicos), icon: Calendar, variation: null, accent: "bg-slate-500/10" },
   ];
 

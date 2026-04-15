@@ -119,7 +119,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
           .limit(5000),
         supabase
           .from("carregamentos_dia")
-          .select("data, peso, status, ruptura")
+          .select("data, peso, status, ruptura, numero_pedido")
           .gte("data", prevFrom)
           .lte("data", prevTo)
           .limit(5000),
