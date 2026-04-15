@@ -427,8 +427,10 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                               onAutofill={(d) => {
                                   if (d.motorista) set("motorista", d.motorista);
                                   if (d.empresa) set("empresa", d.empresa);
+                                  if (d.transportadora) set("empresa", d.transportadora);
                                   if (d.destino_setor) set("destino_setor", d.destino_setor);
                                   if (d.tipo_caminhao) set("tipo_caminhao", d.tipo_caminhao);
+                                  if (d.telefone) set("telefone", d.telefone);
                                 }}
                                 disabled={saving || (!!prefill && prefillEtapa !== "saida_rota")}
                               />
