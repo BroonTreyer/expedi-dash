@@ -81,6 +81,8 @@ export interface KpiComparison {
   diasUnicos: number;
   mediaDiaria: number;
   taxaRuptura: number;
+  totalPedidosUnicos: number;
+  pedidosComRuptura: number;
   // variations vs previous period
   varPeso: number | null;
   varPedidos: number | null;
@@ -141,10 +143,12 @@ export function useAnalytics(filters: AnalyticsFilters) {
       return true;
     });
 
-    // === Previous period KPIs ===
+    // === Previous period KPIs (por pedido único) ===
     const prevPeso = prevRaw.reduce((s, r) => s + (r.peso ?? 0), 0);
     const prevPedidos = prevRaw.length;
-    const prevRupturas = prevRaw.filter((r) => r.ruptura).length;
+    const prevPedidosUnicos = new Set(prevRaw.filter((r: any) => r.numero_pedido).map((r: any) => r.numero_pedido)).size;
+    const prevPedidosComRuptura = new Set(prevRaw.filter((r: any) => r.ruptura && r.numero_pedido).map((r: any) => r.numero_pedido)).size;
+    const prevRupturas = prevPedidosComRuptura;
     const prevCarregado = prevRaw.filter((r) => r.status === "Carregado").reduce((s, r) => s + (r.peso ?? 0), 0);
     const prevDias = new Set(prevRaw.map((r) => r.data)).size;
     const prevMedia = prevDias > 0 ? Math.round(prevPeso / prevDias) : 0;
