@@ -17,12 +17,15 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
   const pesoCarregando = source.filter(c => c.status === "Carregando").reduce((s, c) => s + (c.peso ?? 0), 0);
   const totalVeiculos = new Set(source.filter(c => c.placa).map(c => c.placa)).size;
   const pendentesLogistica = new Set(source.filter(c => c.etapa === "vendas" && c.numero_pedido).map(c => c.numero_pedido)).size;
-  const rupturas = source.filter(c => c.ruptura).length;
+  // Rupturas por pedido único
+  const totalPedidosUnicos = new Set(source.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
+  const pedidosComRuptura = new Set(source.filter(c => c.ruptura && c.numero_pedido).map(c => c.numero_pedido)).size;
+  const rupturas = pedidosComRuptura;
 
   const cards = [
     { label: selectedData ? "Clientes (sel.)" : "Clientes", value: totalClientes, icon: Package, color: "text-primary", tooltip: "Quantidade de clientes distintos nos pedidos" },
     { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500", tooltip: "Pedidos na etapa de vendas aguardando logística" },
-    { label: "Rupturas", value: rupturas, icon: AlertTriangle, color: "text-amber-600", tooltip: "Pedidos marcados com ruptura de estoque" },
+    { label: "Rupturas", value: rupturas, icon: AlertTriangle, color: "text-amber-600", tooltip: `${pedidosComRuptura} de ${totalPedidosUnicos} pedidos únicos com ao menos 1 produto em ruptura` },
     { label: selectedData ? "Peso Sel." : "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground", tooltip: "Soma do peso de todos os pedidos exibidos" },
     { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado", tooltip: "Peso dos pedidos com status 'Carregado'" },
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary", tooltip: "Quantidade de veículos (placas) distintos" },
