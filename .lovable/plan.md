@@ -1,74 +1,36 @@
 
-Objetivo: corrigir o bug no fluxo “Saída p/ Rota” da Portaria para que os dados vindos da planilha/chegada já apareçam no formulário e continuem editáveis.
 
-O que identifiquei
-- A causa principal está em `src/components/portaria/RegistroMovimentoDialog.tsx`.
-- Quando o diálogo abre com `prefillEtapa === "saida_rota"`, ele faz `setValues({})` em vez de carregar os dados já existentes do registro (`placa`, `motorista`, `rota`, `carga_id`, etc.).
-- Além disso, os campos de Placa e Motorista ficam bloqueados por `disabled={saving || !!prefill}`, então no fluxo de atualização eles não podem ser corrigidos manualmente.
-- O banner superior mostra os dados antigos do `prefill`, mas os inputs em si ficam vazios e travados, que é exatamente o comportamento visto no print.
+## Plano: Taxa de Ruptura por pedido único e exibição didática
 
-Implementação proposta
-1. Ajustar a inicialização do formulário em `RegistroMovimentoDialog`
-- No caso `prefillEtapa === "saida_rota"`, preencher `values` com os dados do `prefill`:
-  - `placa`
-  - `motorista`
-  - `rota`
-  - `carga_id`
-  - `peso`
-  - `qtd_entregas`
-  - `empresa`
-  - `tipo_caminhao`
-  - qualquer outro campo útil já existente no registro
+### Problema atual
+1. **Cálculo por linha**: `totalRupturas / totalPedidos` conta cada **linha de produto** individualmente. Se um pedido tem 5 produtos e 2 têm ruptura, conta como 2/5 em vez de 1 pedido afetado.
+2. **Exibição seca**: O KPI mostra apenas "5%" sem contexto — não informa "5% de quê".
 
-2. Desbloquear edição apenas no fluxo “Saída p/ Rota”
-- Manter o bloqueio enquanto estiver salvando.
-- Remover o bloqueio indevido causado por `!!prefill` para Placa e Motorista nesse fluxo específico.
-- Regra:
-  - `retorno` e `lacre`: continuam protegidos como hoje
-  - `saida_rota`: Placa, Motorista e Rota ficam editáveis
+### O que será feito
 
-3. Garantir autopreenchimento ao editar
-- Aproveitar o comportamento já existente do `PlacaInput` e `MotoristaAutocomplete`.
-- Ao alterar a placa, o formulário deve continuar puxando motorista e vínculo relacionado.
-- Ao alterar o motorista, o formulário deve continuar puxando placa/vínculo relacionado quando existir.
-- Também vou completar o `onSelect` do `MotoristaAutocomplete` nesse diálogo para refletir melhor os campos vinculados no formulário da Portaria.
+**1. Alterar o cálculo para pedidos únicos (`useAnalytics.ts`)**
+- `totalPedidosUnicos` = quantidade de `numero_pedido` distintos no período
+- `pedidosComRuptura` = quantidade de `numero_pedido` distintos que têm pelo menos 1 linha com `ruptura = true`
+- `taxaRuptura = (pedidosComRuptura / totalPedidosUnicos) * 100`
+- Aplicar a mesma lógica no período anterior para a variação comparativa
+- Exportar `pedidosComRuptura` e `totalPedidosUnicos` no objeto `kpis`
 
-4. Revisar persistência no save
-- Confirmar que no `handleSave`, para `prefillEtapa === "saida_rota"`, o update continue gravando:
-  - `placa`
-  - `motorista`
-  - `rota`
-  - `km_inicial`
-  - `foto_placa_url`
-  - `etapa_carga_propria = "em_rota"`
-- Se necessário, alinhar para salvar também algum campo exibido no formulário que esteja sendo carregado mas não persistido.
+**2. Exibição didática no KPI Card (`Analytics.tsx`)**
+- Em vez de mostrar apenas `5%`, mostrar: **`5%`** com subtítulo **`12 de 240 pedidos`**
+- Adicionar campo `subtitle` ao KpiCard para suportar essa informação extra
+- O KpiCard passa a renderizar uma linha menor abaixo do valor principal com o detalhe
 
-Arquivos a alterar
-- `src/components/portaria/RegistroMovimentoDialog.tsx`
-- Possivelmente `src/components/portaria/MotoristaAutocomplete.tsx` apenas se eu precisar completar o retorno do `onSelect` usado nesse fluxo
+**3. Tooltip no KPI do dashboard principal (`KpiCards.tsx`)**
+- Atualizar o tooltip do card "Rupturas" para incluir a mesma lógica: calcular por pedido único e exibir "X de Y pedidos com ruptura"
 
-Resultado esperado
-- Ao clicar em “Saída p/ Rota” para um veículo que veio da planilha e já foi marcado como “chegou”:
-  - a placa aparece preenchida
-  - o motorista aparece preenchido
-  - a rota aparece preenchida
-  - os campos podem ser ajustados manualmente
-  - o registro salva corretamente e muda para a etapa “em_rota”
+### Arquivos a alterar
+- `src/hooks/useAnalytics.ts` — cálculo por pedido único
+- `src/pages/Analytics.tsx` — KpiCard com subtitle, exibição didática
+- `src/components/dashboard/KpiCards.tsx` — tooltip e cálculo por pedido único
 
-Detalhe técnico
-```text
-Problema atual:
-chegada (registro salvo com placa/motorista/rota)
-   -> abre diálogo saida_rota
-   -> setValues({})
-   -> inputs vazios
-   -> placa/motorista bloqueados por !!prefill
+### Resultado esperado
+O KPI de Taxa de Ruptura mostrará, por exemplo:
+- **5%** (valor principal)
+- **12 de 240 pedidos** (subtítulo explicativo)
+- Tooltip: "Percentual de pedidos únicos que tiveram ao menos 1 produto com ruptura"
 
-Correção:
-chegada (registro salvo com placa/motorista/rota)
-   -> abre diálogo saida_rota
-   -> setValues(prefill...)
-   -> inputs preenchidos
-   -> campos editáveis
-   -> salva update no mesmo registro
-```
