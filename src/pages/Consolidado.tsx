@@ -217,18 +217,31 @@ export default function Consolidado() {
     mutationFn: async (cargaId: string) => {
       const { error, count } = await supabase
         .from("carregamentos_dia")
-        .delete({ count: "exact" })
+        .update({
+          etapa: "vendas",
+          status: "Aguardando",
+          carga_id: null,
+          nome_carga: null,
+          placa: null,
+          motorista: null,
+          tipo_caminhao: null,
+          transportadora: null,
+          ordem_entrega: null,
+          horario_inicio: null,
+          horario_fim: null,
+        }, { count: "exact" })
         .eq("carga_id", cargaId);
       if (error) throw error;
-      if (count === 0) throw new Error("Sem permissão. Apenas administradores e logística podem apagar cargas.");
+      if (count === 0) throw new Error("Sem permissão. Apenas administradores e logística podem desfazer cargas.");
+      return count ?? 0;
     },
-    onSuccess: () => {
+    onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ["consolidado"] });
       queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
-      toast.success("Carga apagada");
+      toast.success(`Carga desfeita — ${count} pedido${count !== 1 ? "s" : ""} voltaram para Vendas`);
       setEditGroup(null);
     },
-    onError: (e: any) => toast.error(e.message ?? "Erro ao apagar carga"),
+    onError: (e: any) => toast.error(e.message ?? "Erro ao desfazer carga"),
   });
 
   const removeFromCargaMut = useMutation({
