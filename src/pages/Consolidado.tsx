@@ -195,6 +195,40 @@ export default function Consolidado() {
     onError: () => toast.error("Erro ao atualizar data"),
   });
 
+  const editCargaMut = useMutation({
+    mutationFn: async ({ itemIds, fields }: { itemIds: string[]; fields: Record<string, string> }) => {
+      if (itemIds.length === 0) return;
+      const { error } = await supabase
+        .from("carregamentos_dia")
+        .update(fields)
+        .in("id", itemIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["consolidado"] });
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success("Carga atualizada");
+      setEditGroup(null);
+    },
+    onError: () => toast.error("Erro ao atualizar carga"),
+  });
+
+  const removeFromCargaMut = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from("carregamentos_dia")
+        .update({ carga_id: null, nome_carga: null, etapa: "vendas" })
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["consolidado"] });
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success("Pedido removido da carga");
+    },
+    onError: () => toast.error("Erro ao remover pedido"),
+  });
+
   const handleStatusChange = useCallback(
     (group: CargaGroup, newStatus: string) => {
       const ids = group.items.map((i) => i.id);
