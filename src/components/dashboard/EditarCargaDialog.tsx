@@ -67,7 +67,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Carga</DialogTitle>
           </DialogHeader>
@@ -77,7 +77,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
               <Label htmlFor="ec-nome">Nome da Carga</Label>
               <Input id="ec-nome" value={nomeCarga} onChange={(e) => setNomeCarga(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="ec-placa">Placa</Label>
                 <Input id="ec-placa" value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} />
@@ -99,7 +99,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
             {/* Pedidos list */}
             <div className="space-y-1.5">
               <Label>Pedidos na carga ({visibleItems.length})</Label>
-              <div className="border rounded-md divide-y max-h-[240px] overflow-y-auto">
+              <div className="border rounded-md divide-y max-h-[55vh] overflow-y-auto">
                 {visibleItems.length === 0 ? (
                   <p className="text-xs text-muted-foreground p-3 text-center">Nenhum pedido restante</p>
                 ) : (
@@ -110,7 +110,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                           Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
                           {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
                         </div>
-                        <div className="text-muted-foreground truncate">
+                        <div className="text-muted-foreground whitespace-normal break-words">
                           {item.cliente ?? item.codigo_cliente ?? "—"} • {[item.cidade, item.uf].filter(Boolean).join("/") || "—"} • {(item.peso ?? 0).toLocaleString("pt-BR")} kg
                         </div>
                       </div>
