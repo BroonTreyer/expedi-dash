@@ -1,40 +1,46 @@
 
-User says "Inverter ordem" doesn't give feedback whether it worked or what changed. Let me check the current implementation.
 
-Looking at recent context: `inverterOrdemMut` exists in `Consolidado.tsx` and invalidates queries on success. But the user doesn't see confirmation.
+## Diagnóstico
 
-Likely issues:
-1. No success toast after invert
-2. The dialog's `group` prop may not refresh — after mutation, query updates but the open dialog still shows the old `group` snapshot (since `group` is selected/derived state, not re-derived from fresh query data)
-3. User can't see the new order inside the dialog because items aren't displayed with `ordem_entrega`
+**O que aconteceu:**
+- Às 17:05 hoje, logística@frico.ind.br fechou a carga **"EDIVAR ROTA"** com 23 pedidos (vendedor Edivar) → status mudou para etapa "logistica", carga_id = "EDIVAR ROTA".
+- Às 17:49:45, o **mesmo usuário clicou em "Apagar carga"** dentro do diálogo de Editar Carga → o botão funcionou exatamente como projetado: deletou todos os 23 pedidos com `carga_id = 'EDIVAR ROTA'`.
+- Não foi um bug — foi o comportamento intencional do botão "Apagar carga inteira" (que tem confirmação `DeleteConfirmDialog`). O usuário provavelmente confundiu "Apagar carga" com "remover apenas um pedido" ou fechou o aviso sem ler.
 
-## Plano: Feedback visível ao inverter ordem
+**Por que apagou TUDO:** O botão "Apagar carga" executa `DELETE FROM carregamentos_dia WHERE carga_id = 'EDIVAR ROTA'` — apaga todos os pedidos do agrupamento, não só um item. Isso é diferente do "X" ao lado de cada pedido (que apenas remove o pedido da carga, mantendo-o na etapa Vendas).
 
-### Problemas
-1. Sem toast de sucesso/erro confirmando a inversão.
-2. A lista de pedidos no diálogo não mostra o número da parada (`ordem_entrega`), então mesmo invertendo não há como visualizar a mudança.
-3. O `group` selecionado pode não refletir os novos valores após o invalidate (depende de como `Consolidado.tsx` deriva o group aberto).
+**Boa notícia:** o `audit_log` guarda o registro completo de cada pedido em `changes->'novo'` no momento da criação. Conseguimos reconstruir 100% dos 23 pedidos exatamente como estavam.
 
-### Mudanças
+## Plano de recuperação + prevenção
 
-**`src/pages/Consolidado.tsx`** — `inverterOrdemMut`:
-- Adicionar `toast.success("Ordem de entrega invertida (N paradas)")` no `onSuccess`.
-- Adicionar `toast.error(...)` no `onError`.
-- Garantir que o `group` aberto seja re-derivado da query atualizada (re-selecionar pelo `cargaId` após invalidação) para que a lista no diálogo reflita a nova ordem.
+### Etapa 1 — Restaurar os 23 pedidos da carga EDIVAR ROTA
 
-**`src/components/dashboard/EditarCargaDialog.tsx`** — lista de pedidos:
-- Mostrar o número da parada na frente de cada item: `#{ordem_entrega} Pedido X — Produto…` quando `ordem_entrega != null`.
-- Ordenar `visibleItems` por `ordem_entrega` (asc, nulls ao fim) para que o usuário veja visualmente a sequência mudar de cabeça para baixo após inverter.
+Script SQL que:
+1. Lê os 23 IDs deletados em `audit_log` (action='excluido', entity_type='carregamento', criados em 17:49:45 hoje).
+2. Para cada ID, busca a entrada `criado` correspondente e extrai `changes->'novo'` (o snapshot completo da linha).
+3. Aplica por cima as últimas alterações registradas em audit_log (`carga_id`, `nome_carga`, `etapa`, `placa`, `motorista`, `transportadora`, `tipo_caminhao`, `ordem_entrega`) para restaurar o estado pós-fechamento.
+4. `INSERT` nas mesmas linhas (mesmos UUIDs) em `carregamentos_dia`.
 
-### Resultado
-Após clicar "Inverter ordem":
-- Toast verde "Ordem de entrega invertida (5 paradas)".
-- A lista no diálogo reordena imediatamente (parada #1 vira #5, etc.), confirmando visualmente.
-- Em caso de erro, toast vermelho com a mensagem.
+Verificação prévia: contar quantos dos 23 IDs têm `changes->'novo'` disponível antes de executar. Se algum estiver faltando, restaurar pelo menos os que têm e reportar os ausentes.
+
+### Etapa 2 — Prevenir novo acidente (mudança no UI)
+
+No `DeleteConfirmDialog` chamado a partir de "Apagar carga inteira" no `EditarCargaDialog`:
+
+- **Tornar a confirmação mais explícita**: em vez de só "Confirmar/Cancelar", exigir que o usuário **digite o nome da carga** (ex: "EDIVAR ROTA") em um input para liberar o botão "Apagar".
+- Mudar o texto do botão no rodapé do diálogo de "Apagar carga" para **"Apagar carga inteira (N pedidos)"** mostrando explicitamente quantos pedidos serão removidos.
+- Adicionar variant visualmente mais destacada (já é destructive, mas adicionar um aviso vermelho expandido na descrição: "Esta ação apagará permanentemente os N pedidos. Para remover apenas um pedido, use o ícone X ao lado dele.").
 
 ### Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/Consolidado.tsx` | Adicionar toasts e re-derivar `group` aberto após mutação |
-| `src/components/dashboard/EditarCargaDialog.tsx` | Mostrar `#ordem_entrega` em cada item e ordenar lista por parada |
+| Restauração via SQL (insert tool) | Reconstruir 23 linhas em `carregamentos_dia` a partir do `audit_log` |
+| `src/components/dashboard/EditarCargaDialog.tsx` | Mudar texto do botão para incluir contagem; descrição do `DeleteConfirmDialog` mais clara |
+| `src/components/dashboard/DeleteConfirmDialog.tsx` | Suportar prop opcional `confirmText` que exige digitar um texto para liberar o botão Apagar |
+
+### Resultado esperado
+
+- Os 23 pedidos da carga EDIVAR ROTA voltam a aparecer no Consolidado/Painel exatamente como estavam (mesma carga, mesma rota, mesmas ordens de entrega).
+- Próxima vez que alguém clicar "Apagar carga inteira", terá que digitar o nome da carga para confirmar — bloqueia cliques acidentais.
+
