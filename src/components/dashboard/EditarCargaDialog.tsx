@@ -130,14 +130,38 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving || visibleItems.length === 0}>
-              {saving ? "Salvando…" : "Salvar"}
-            </Button>
+          <DialogFooter className="sm:justify-between gap-2">
+            {onDeleteCarga ? (
+              <Button
+                variant="destructive"
+                onClick={() => setConfirmDeleteCarga(true)}
+                disabled={saving || deleting}
+                className="sm:mr-auto"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                {deleting ? "Apagando…" : "Apagar carga"}
+              </Button>
+            ) : <div />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={saving || deleting || visibleItems.length === 0}>
+                {saving ? "Salvando…" : "Salvar"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={confirmDeleteCarga}
+        onOpenChange={setConfirmDeleteCarga}
+        onConfirm={() => {
+          if (group && onDeleteCarga) onDeleteCarga(group.cargaId);
+          setConfirmDeleteCarga(false);
+        }}
+        title="Apagar carga inteira"
+        description={`Esta ação apagará TODOS os ${group.items.length} pedido(s) da carga "${group.nomeCarga ?? group.cargaId}" permanentemente. Esta ação não pode ser desfeita.`}
+      />
 
       <DeleteConfirmDialog
         open={!!removeTarget}
