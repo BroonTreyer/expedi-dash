@@ -52,7 +52,17 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
 
   if (!group) return null;
 
-  const visibleItems = group.items.filter((i) => !removedIds.has(i.id));
+  const visibleItems = group.items
+    .filter((i) => !removedIds.has(i.id))
+    .slice()
+    .sort((a, b) => {
+      const ao = a.ordem_entrega;
+      const bo = b.ordem_entrega;
+      if (ao == null && bo == null) return 0;
+      if (ao == null) return 1;
+      if (bo == null) return -1;
+      return ao - bo;
+    });
 
   const handleSave = () => {
     const ids = visibleItems.map((i) => i.id);
