@@ -35,6 +35,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [transportadora, setTransportadora] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Carregamento | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteCarga, setConfirmDeleteCarga] = useState(false);
 
   useEffect(() => {
     if (group && open) {
