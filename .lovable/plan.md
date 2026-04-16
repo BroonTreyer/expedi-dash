@@ -1,38 +1,39 @@
 
-Add a "Delete load" button inside the EditarCargaDialog (Consolidado page) that allows admin users to delete an entire closed load.
+User wants logística role to also be able to delete entire loads (currently only admin can per RLS `Admin delete carregamentos_dia`).
 
-## Plano: Apagar carga fechada no Consolidado
+## Plano: Permitir logística apagar cargas
 
-### O que será feito
+### Mudança
 
-Adicionar um botão "Apagar carga" no diálogo de edição (`EditarCargaDialog`) que remove a carga inteira — todos os pedidos vinculados àquele `carga_id`.
+Atualizar a política RLS de DELETE em `carregamentos_dia` para incluir o role `logistica` além de `admin`.
 
-### Comportamento
+### SQL (migration)
 
-- Botão **"Apagar carga"** vermelho/destrutivo no rodapé esquerdo do diálogo
-- Confirmação obrigatória via `DeleteConfirmDialog` com aviso claro: "Esta ação apagará TODOS os X pedidos desta carga permanentemente"
-- Ao confirmar: deleta todos os registros de `carregamentos_dia` cujo `carga_id` corresponde
-- Apenas admin pode executar (RLS já protege: `Admin delete carregamentos_dia`)
-- Se usuário não-admin clicar, o backend retorna erro e exibe toast: "Apenas administradores podem apagar cargas"
-- Após sucesso: fecha diálogo, toast "Carga apagada", invalida cache
+```sql
+DROP POLICY "Admin delete carregamentos_dia" ON public.carregamentos_dia;
+
+CREATE POLICY "Admin/logistica delete carregamentos_dia"
+ON public.carregamentos_dia
+FOR DELETE
+TO authenticated
+USING (
+  has_role(auth.uid(), 'admin'::app_role)
+  OR has_role(auth.uid(), 'logistica'::app_role)
+);
+```
+
+### Ajuste no frontend
+
+Atualizar mensagem de erro em `src/hooks/useCarregamentos.ts` (`useDeleteCarregamento`) e em `src/pages/Consolidado.tsx` (mutation `deleteCargaMut`) para refletir que agora admin **e** logística podem apagar — mensagem: "Sem permissão para excluir. Apenas administradores e logística podem deletar registros."
 
 ### Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/dashboard/EditarCargaDialog.tsx` | Alterar — adicionar botão + handler + confirmação |
-| `src/pages/Consolidado.tsx` | Alterar — adicionar prop `onDeleteCarga` e mutation que faz `delete().eq('carga_id', cargaId)` |
+| Nova migration SQL | Criar — atualizar política RLS |
+| `src/hooks/useCarregamentos.ts` | Alterar — mensagem de erro |
+| `src/pages/Consolidado.tsx` | Alterar — mensagem de erro |
 
-### Detalhes técnicos
+### Observação
 
-- Usar `supabase.from("carregamentos_dia").delete({ count: "exact" }).eq("carga_id", cargaId)`
-- Verificar `count === 0` para detectar falta de permissão (RLS bloqueou)
-- Optimistic update opcional — preferir invalidação após sucesso para garantir consistência
-- Realtime DELETE já remove os itens do cache automaticamente (hook `useCarregamentos`)
-
-### Visual do rodapé do diálogo
-
-```text
-[Apagar carga]              [Cancelar] [Salvar]
-   (vermelho, esquerda)        (direita, atual)
-```
+Faturamento continua **sem** permissão para deletar (apenas insert/update) — alinhado com a separação operacional Vendas (faturamento) vs Logística.
