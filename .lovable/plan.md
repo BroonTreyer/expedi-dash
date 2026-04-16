@@ -1,46 +1,56 @@
 
+User wants "Apagar carga" to actually **unmake** the load — i.e., return the orders back to the "vendas" stage (so they can be re-grouped into a new load), instead of permanently deleting the orders. This matches their earlier loss event (EDIVAR) and is much safer.
 
-## Diagnóstico
+## Plano: Trocar "Apagar carga" por "Desfazer carga"
 
-**O que aconteceu:**
-- Às 17:05 hoje, logística@frico.ind.br fechou a carga **"EDIVAR ROTA"** com 23 pedidos (vendedor Edivar) → status mudou para etapa "logistica", carga_id = "EDIVAR ROTA".
-- Às 17:49:45, o **mesmo usuário clicou em "Apagar carga"** dentro do diálogo de Editar Carga → o botão funcionou exatamente como projetado: deletou todos os 23 pedidos com `carga_id = 'EDIVAR ROTA'`.
-- Não foi um bug — foi o comportamento intencional do botão "Apagar carga inteira" (que tem confirmação `DeleteConfirmDialog`). O usuário provavelmente confundiu "Apagar carga" com "remover apenas um pedido" ou fechou o aviso sem ler.
+### Comportamento novo
 
-**Por que apagou TUDO:** O botão "Apagar carga" executa `DELETE FROM carregamentos_dia WHERE carga_id = 'EDIVAR ROTA'` — apaga todos os pedidos do agrupamento, não só um item. Isso é diferente do "X" ao lado de cada pedido (que apenas remove o pedido da carga, mantendo-o na etapa Vendas).
+Em vez de `DELETE` dos 23 pedidos, o botão fará um `UPDATE` em todos os pedidos da carga, limpando os dados logísticos e voltando para a etapa "vendas":
 
-**Boa notícia:** o `audit_log` guarda o registro completo de cada pedido em `changes->'novo'` no momento da criação. Conseguimos reconstruir 100% dos 23 pedidos exatamente como estavam.
+```sql
+UPDATE carregamentos_dia
+SET etapa = 'vendas',
+    status = 'Aguardando',
+    carga_id = NULL,
+    nome_carga = NULL,
+    placa = NULL,
+    motorista = NULL,
+    tipo_caminhao = NULL,
+    transportadora = NULL,
+    ordem_entrega = NULL,
+    horario_inicio = NULL,
+    horario_fim = NULL
+WHERE carga_id = '<cargaId>'
+```
 
-## Plano de recuperação + prevenção
+Os pedidos preservam: produto, quantidade, peso, cliente, ruptura, observações, vendedor, data — tudo que veio de Vendas.
 
-### Etapa 1 — Restaurar os 23 pedidos da carga EDIVAR ROTA
+### UI (EditarCargaDialog)
 
-Script SQL que:
-1. Lê os 23 IDs deletados em `audit_log` (action='excluido', entity_type='carregamento', criados em 17:49:45 hoje).
-2. Para cada ID, busca a entrada `criado` correspondente e extrai `changes->'novo'` (o snapshot completo da linha).
-3. Aplica por cima as últimas alterações registradas em audit_log (`carga_id`, `nome_carga`, `etapa`, `placa`, `motorista`, `transportadora`, `tipo_caminhao`, `ordem_entrega`) para restaurar o estado pós-fechamento.
-4. `INSERT` nas mesmas linhas (mesmos UUIDs) em `carregamentos_dia`.
+- Renomear botão: **"Desfazer carga (N pedidos voltam para Vendas)"**
+- Ícone: trocar `Trash2` por `Undo2` (lucide)
+- Variant: trocar `destructive` por `outline` (não é mais ação destrutiva)
+- Confirmação: manter `DeleteConfirmDialog` mas **sem exigir digitar o nome** — basta confirmar. Mensagem nova:
+  > "Os N pedidos da carga "X" voltarão para a etapa Vendas e poderão ser agrupados em uma nova carga. Nenhum dado de produto/cliente será perdido."
+- Renomear prop `onDeleteCarga` → `onDesfazerCarga` (ou manter nome para reduzir diff e só mudar comportamento)
+- Toast sucesso: "Carga desfeita — N pedidos voltaram para Vendas"
 
-Verificação prévia: contar quantos dos 23 IDs têm `changes->'novo'` disponível antes de executar. Se algum estiver faltando, restaurar pelo menos os que têm e reportar os ausentes.
+### Consolidado.tsx
 
-### Etapa 2 — Prevenir novo acidente (mudança no UI)
+- Substituir a chamada que faz `DELETE` em massa (`deleteCargaMut`) por uma mutation `desfazerCargaMut` que executa o UPDATE em batch via Supabase.
+- Após sucesso: invalidar queries `consolidado` e `carregamentos`, fechar diálogo.
 
-No `DeleteConfirmDialog` chamado a partir de "Apagar carga inteira" no `EditarCargaDialog`:
+### O que acontece com a possibilidade real de apagar pedidos?
 
-- **Tornar a confirmação mais explícita**: em vez de só "Confirmar/Cancelar", exigir que o usuário **digite o nome da carga** (ex: "EDIVAR ROTA") em um input para liberar o botão "Apagar".
-- Mudar o texto do botão no rodapé do diálogo de "Apagar carga" para **"Apagar carga inteira (N pedidos)"** mostrando explicitamente quantos pedidos serão removidos.
-- Adicionar variant visualmente mais destacada (já é destructive, mas adicionar um aviso vermelho expandido na descrição: "Esta ação apagará permanentemente os N pedidos. Para remover apenas um pedido, use o ícone X ao lado dele.").
+Permanece disponível, mas item a item: o ícone **X** ao lado de cada pedido na lista do diálogo continua removendo o pedido individualmente da carga (também via update voltando para vendas — comportamento já existente). Não há mais botão para deletar pedidos em massa pelo diálogo. Para deletar de verdade, o usuário usa a ação de exclusão individual já disponível na tabela do painel.
 
 ### Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| Restauração via SQL (insert tool) | Reconstruir 23 linhas em `carregamentos_dia` a partir do `audit_log` |
-| `src/components/dashboard/EditarCargaDialog.tsx` | Mudar texto do botão para incluir contagem; descrição do `DeleteConfirmDialog` mais clara |
-| `src/components/dashboard/DeleteConfirmDialog.tsx` | Suportar prop opcional `confirmText` que exige digitar um texto para liberar o botão Apagar |
+| `src/pages/Consolidado.tsx` | Substituir `deleteCargaMut` por `desfazerCargaMut` (UPDATE em vez de DELETE); novo toast |
+| `src/components/dashboard/EditarCargaDialog.tsx` | Renomear botão, trocar ícone/variant, atualizar texto da confirmação, remover `confirmText` obrigatório |
 
-### Resultado esperado
+### Resultado
 
-- Os 23 pedidos da carga EDIVAR ROTA voltam a aparecer no Consolidado/Painel exatamente como estavam (mesma carga, mesma rota, mesmas ordens de entrega).
-- Próxima vez que alguém clicar "Apagar carga inteira", terá que digitar o nome da carga para confirmar — bloqueia cliques acidentais.
-
+Cliques acidentais não causam mais perda de dados — no pior caso, basta refazer o fechamento da carga com os mesmos pedidos.
