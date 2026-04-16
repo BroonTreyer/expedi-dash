@@ -189,10 +189,9 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
           if (group && onDeleteCarga) onDeleteCarga(group.cargaId);
           setConfirmDeleteCarga(false);
         }}
-        title={`Apagar carga inteira (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""})`}
-        description={`⚠️ Esta ação apagará PERMANENTEMENTE todos os ${group.items.length} pedido(s) da carga "${group.nomeCarga ?? group.cargaId}". Esta ação NÃO pode ser desfeita.\n\nPara remover apenas um pedido específico, use o ícone X ao lado dele na lista.`}
-        confirmText={group.nomeCarga ?? group.cargaId}
-        confirmLabel={`Apagar ${group.items.length} pedido${group.items.length !== 1 ? "s" : ""}`}
+        title={`Desfazer carga "${group.nomeCarga ?? group.cargaId}"`}
+        description={`Os ${group.items.length} pedido${group.items.length !== 1 ? "s" : ""} desta carga voltarão para a etapa Vendas e poderão ser agrupados em uma nova carga. Nenhum dado de produto, cliente ou pedido será perdido.`}
+        confirmLabel={`Desfazer carga (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""})`}
       />
 
       <DeleteConfirmDialog
