@@ -52,7 +52,17 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
 
   if (!group) return null;
 
-  const visibleItems = group.items.filter((i) => !removedIds.has(i.id));
+  const visibleItems = group.items
+    .filter((i) => !removedIds.has(i.id))
+    .slice()
+    .sort((a, b) => {
+      const ao = a.ordem_entrega;
+      const bo = b.ordem_entrega;
+      if (ao == null && bo == null) return 0;
+      if (ao == null) return 1;
+      if (bo == null) return -1;
+      return ao - bo;
+    });
 
   const handleSave = () => {
     const ids = visibleItems.map((i) => i.id);
@@ -108,8 +118,13 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                   visibleItems.map((item) => (
                     <div key={item.id} className="flex items-center justify-between px-3 py-2 text-xs hover:bg-muted/30">
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium flex items-center gap-1">
-                          Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}
+                        <div className="font-medium flex items-center gap-1.5 flex-wrap">
+                          {item.ordem_entrega != null && (
+                            <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-md bg-primary/10 text-primary text-[11px] font-semibold">
+                              #{item.ordem_entrega}
+                            </span>
+                          )}
+                          <span>Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}</span>
                           {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
                         </div>
                         <div className="text-muted-foreground whitespace-normal break-words">

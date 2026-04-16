@@ -250,7 +250,9 @@ export default function Consolidado() {
   const inverterOrdemMut = useMutation({
     mutationFn: async (items: Carregamento[]) => {
       const paradas = [...new Set(items.map((i) => i.ordem_entrega).filter((o): o is number => o != null))].sort((a, b) => a - b);
-      if (paradas.length < 2) return;
+      if (paradas.length < 2) {
+        return { count: paradas.length };
+      }
       const map = new Map(paradas.map((ord, idx) => [ord, paradas[paradas.length - 1 - idx]]));
       const updates = items
         .filter((i) => i.ordem_entrega != null)
@@ -260,13 +262,18 @@ export default function Consolidado() {
           supabase.from("carregamentos_dia").update({ ordem_entrega: u.ordem_entrega }).eq("id", u.id)
         )
       );
+      return { count: paradas.length };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["consolidado"] });
       queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
-      toast.success("Ordem de entrega invertida");
+      if (!result || result.count < 2) {
+        toast.info("Nada a inverter — a carga precisa ter ao menos 2 paradas roteirizadas");
+      } else {
+        toast.success(`Ordem de entrega invertida (${result.count} paradas)`);
+      }
     },
-    onError: () => toast.error("Erro ao inverter ordem"),
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao inverter ordem"),
   });
 
   const handleStatusChange = useCallback(
@@ -314,6 +321,15 @@ export default function Consolidado() {
   }), []);
 
   const groups = useMemo(() => sortData(rawGroups, consolidadoAccessors), [rawGroups, sortData, consolidadoAccessors]);
+
+  // Keep the open edit dialog in sync with the latest data (e.g. after inverting order)
+  useEffect(() => {
+    if (!editGroup) return;
+    const fresh = rawGroups.find((g) => g.cargaId === editGroup.cargaId);
+    if (fresh && fresh !== editGroup) {
+      setEditGroup(fresh);
+    }
+  }, [rawGroups, editGroup]);
 
   const totalVeiculos = groups.length;
   const pesoTotal = groups.reduce((s, g) => s + g.pesoTotal, 0);
