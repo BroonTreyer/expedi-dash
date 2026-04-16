@@ -108,7 +108,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                           {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
                         </div>
                         <div className="text-muted-foreground truncate">
-                          {item.cliente ?? item.codigo_cliente ?? "—"} • {(item.peso ?? 0).toLocaleString("pt-BR")} kg
+                          {item.cliente ?? item.codigo_cliente ?? "—"} • {[item.cidade, item.uf].filter(Boolean).join("/") || "—"} • {(item.peso ?? 0).toLocaleString("pt-BR")} kg
                         </div>
                       </div>
                       <Button
