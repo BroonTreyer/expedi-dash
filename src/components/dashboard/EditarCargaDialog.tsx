@@ -156,7 +156,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                   disabled={saving || deleting || inverting}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
-                  {deleting ? "Apagando…" : "Apagar carga"}
+                  {deleting ? "Apagando…" : `Apagar carga inteira (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""})`}
                 </Button>
               )}
               {onInverterOrdem && (
@@ -188,8 +188,10 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
           if (group && onDeleteCarga) onDeleteCarga(group.cargaId);
           setConfirmDeleteCarga(false);
         }}
-        title="Apagar carga inteira"
-        description={`Esta ação apagará TODOS os ${group.items.length} pedido(s) da carga "${group.nomeCarga ?? group.cargaId}" permanentemente. Esta ação não pode ser desfeita.`}
+        title={`Apagar carga inteira (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""})`}
+        description={`⚠️ Esta ação apagará PERMANENTEMENTE todos os ${group.items.length} pedido(s) da carga "${group.nomeCarga ?? group.cargaId}". Esta ação NÃO pode ser desfeita.\n\nPara remover apenas um pedido específico, use o ícone X ao lado dele na lista.`}
+        confirmText={group.nomeCarga ?? group.cargaId}
+        confirmLabel={`Apagar ${group.items.length} pedido${group.items.length !== 1 ? "s" : ""}`}
       />
 
       <DeleteConfirmDialog
