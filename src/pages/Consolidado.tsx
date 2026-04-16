@@ -495,6 +495,7 @@ export default function Consolidado() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-8" />
+                  <TableHead className="w-8" />
                   <SortableTableHead sort={sort} sortKey="data" onSort={toggleSort}>Data</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="text-center">Status</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="tipoCaminhao" onSort={toggleSort}>Tipo</SortableTableHead>
@@ -517,6 +518,11 @@ export default function Consolidado() {
                       <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(g.cargaId)}>
                         <TableCell className="px-2">
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </TableCell>
+                        <TableCell className="px-1" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditGroup(g)} title="Editar carga">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()} className="text-xs">
                           <Popover>
@@ -564,6 +570,7 @@ export default function Consolidado() {
                       {isOpen && g.items.map((item) => (
                         <TableRow key={item.id} className="bg-muted/20">
                           <TableCell />
+                          <TableCell />
                           <TableCell className="text-xs text-muted-foreground">
                             {format(new Date(item.data + "T12:00:00"), "dd/MM")}
                           </TableCell>
@@ -593,6 +600,14 @@ export default function Consolidado() {
         )}
       </div>
       <ConsolidadoPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
+      <EditarCargaDialog
+        open={!!editGroup}
+        onOpenChange={(o) => !o && setEditGroup(null)}
+        group={editGroup}
+        onSave={(cargaId, fields, itemIds) => editCargaMut.mutate({ itemIds, fields })}
+        onRemoveItem={(id) => removeFromCargaMut.mutate(id)}
+        saving={editCargaMut.isPending}
+      />
     </Layout>
   );
 }
