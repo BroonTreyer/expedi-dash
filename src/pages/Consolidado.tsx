@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle } from "lucide-react";
+import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useSortableTable } from "@/hooks/useSortableTable";
