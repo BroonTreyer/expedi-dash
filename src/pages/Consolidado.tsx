@@ -213,6 +213,24 @@ export default function Consolidado() {
     onError: () => toast.error("Erro ao atualizar carga"),
   });
 
+  const deleteCargaMut = useMutation({
+    mutationFn: async (cargaId: string) => {
+      const { error, count } = await supabase
+        .from("carregamentos_dia")
+        .delete({ count: "exact" })
+        .eq("carga_id", cargaId);
+      if (error) throw error;
+      if (count === 0) throw new Error("Apenas administradores podem apagar cargas.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["consolidado"] });
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success("Carga apagada");
+      setEditGroup(null);
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao apagar carga"),
+  });
+
   const removeFromCargaMut = useMutation({
     mutationFn: async (itemId: string) => {
       const { error } = await supabase
