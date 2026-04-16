@@ -151,12 +151,13 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
             <div className="flex gap-2 sm:mr-auto">
               {onDeleteCarga && (
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   onClick={() => setConfirmDeleteCarga(true)}
                   disabled={saving || deleting || inverting}
+                  title="Os pedidos voltam para Vendas (não são apagados)"
                 >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  {deleting ? "Apagando…" : `Apagar carga inteira (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""})`}
+                  <Undo2 className="h-4 w-4 mr-1" />
+                  {deleting ? "Desfazendo…" : `Desfazer carga (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""} voltam para Vendas)`}
                 </Button>
               )}
               {onInverterOrdem && (
