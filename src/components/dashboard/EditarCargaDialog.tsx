@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, X, Trash2, ArrowUpDown } from "lucide-react";
+import { AlertTriangle, X, Undo2, ArrowUpDown } from "lucide-react";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
@@ -151,12 +151,13 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
             <div className="flex gap-2 sm:mr-auto">
               {onDeleteCarga && (
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   onClick={() => setConfirmDeleteCarga(true)}
                   disabled={saving || deleting || inverting}
+                  title="Os pedidos voltam para Vendas (não são apagados)"
                 >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  {deleting ? "Apagando…" : `Apagar carga inteira (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""})`}
+                  <Undo2 className="h-4 w-4 mr-1" />
+                  {deleting ? "Desfazendo…" : `Desfazer carga (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""} voltam para Vendas)`}
                 </Button>
               )}
               {onInverterOrdem && (
@@ -188,10 +189,9 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
           if (group && onDeleteCarga) onDeleteCarga(group.cargaId);
           setConfirmDeleteCarga(false);
         }}
-        title={`Apagar carga inteira (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""})`}
-        description={`⚠️ Esta ação apagará PERMANENTEMENTE todos os ${group.items.length} pedido(s) da carga "${group.nomeCarga ?? group.cargaId}". Esta ação NÃO pode ser desfeita.\n\nPara remover apenas um pedido específico, use o ícone X ao lado dele na lista.`}
-        confirmText={group.nomeCarga ?? group.cargaId}
-        confirmLabel={`Apagar ${group.items.length} pedido${group.items.length !== 1 ? "s" : ""}`}
+        title={`Desfazer carga "${group.nomeCarga ?? group.cargaId}"`}
+        description={`Os ${group.items.length} pedido${group.items.length !== 1 ? "s" : ""} desta carga voltarão para a etapa Vendas e poderão ser agrupados em uma nova carga. Nenhum dado de produto, cliente ou pedido será perdido.`}
+        confirmLabel={`Desfazer carga (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""})`}
       />
 
       <DeleteConfirmDialog
