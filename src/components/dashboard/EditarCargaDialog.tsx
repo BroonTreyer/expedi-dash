@@ -23,11 +23,13 @@ interface Props {
   onSave: (cargaId: string, fields: { nome_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[]) => void;
   onRemoveItem: (itemId: string) => void;
   onDeleteCarga?: (cargaId: string) => void;
+  onInverterOrdem?: () => void;
   saving?: boolean;
   deleting?: boolean;
+  inverting?: boolean;
 }
 
-export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveItem, onDeleteCarga, saving, deleting }: Props) {
+export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveItem, onDeleteCarga, onInverterOrdem, saving, deleting, inverting }: Props) {
   const [nomeCarga, setNomeCarga] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
