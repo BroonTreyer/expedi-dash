@@ -322,6 +322,15 @@ export default function Consolidado() {
 
   const groups = useMemo(() => sortData(rawGroups, consolidadoAccessors), [rawGroups, sortData, consolidadoAccessors]);
 
+  // Keep the open edit dialog in sync with the latest data (e.g. after inverting order)
+  useEffect(() => {
+    if (!editGroup) return;
+    const fresh = rawGroups.find((g) => g.cargaId === editGroup.cargaId);
+    if (fresh && fresh !== editGroup) {
+      setEditGroup(fresh);
+    }
+  }, [rawGroups, editGroup]);
+
   const totalVeiculos = groups.length;
   const pesoTotal = groups.reduce((s, g) => s + g.pesoTotal, 0);
   const totalPedidos = groups.reduce((s, g) => s + g.qtdPedidos, 0);
