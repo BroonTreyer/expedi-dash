@@ -1,43 +1,40 @@
 
-User wants a button to invert (reverse) the delivery order (`ordem_entrega`) of items in a load. Context: Consolidado page, EditarCargaDialog. Items have `ordem_entrega` field set during routing.
+User says "Inverter ordem" doesn't give feedback whether it worked or what changed. Let me check the current implementation.
 
-## Plano: Botão "Inverter ordem de entrega"
+Looking at recent context: `inverterOrdemMut` exists in `Consolidado.tsx` and invalidates queries on success. But the user doesn't see confirmation.
 
-### O que será feito
+Likely issues:
+1. No success toast after invert
+2. The dialog's `group` prop may not refresh — after mutation, query updates but the open dialog still shows the old `group` snapshot (since `group` is selected/derived state, not re-derived from fresh query data)
+3. User can't see the new order inside the dialog because items aren't displayed with `ordem_entrega`
 
-Adicionar botão "Inverter ordem" no diálogo `EditarCargaDialog` que reverte a sequência de entrega de todos os pedidos da carga.
+## Plano: Feedback visível ao inverter ordem
 
-### Comportamento
+### Problemas
+1. Sem toast de sucesso/erro confirmando a inversão.
+2. A lista de pedidos no diálogo não mostra o número da parada (`ordem_entrega`), então mesmo invertendo não há como visualizar a mudança.
+3. O `group` selecionado pode não refletir os novos valores após o invalidate (depende de como `Consolidado.tsx` deriva o group aberto).
 
-- Botão **"Inverter ordem"** (variant outline, ícone `ArrowUpDown`) no rodapé, ao lado de "Apagar carga"
-- Ao clicar: agrupa os itens por `ordem_entrega` (pedidos com mesmo nº de parada permanecem juntos), inverte a sequência das paradas e reatribui `ordem_entrega` 1..N
-- Items sem `ordem_entrega` (null) permanecem sem ordem
-- Atualização em batch via `useBatchUpdateCarregamento` já existente
-- Toast: "Ordem de entrega invertida"
-- Não fecha o diálogo (usuário pode continuar editando)
+### Mudanças
 
-### Lógica
+**`src/pages/Consolidado.tsx`** — `inverterOrdemMut`:
+- Adicionar `toast.success("Ordem de entrega invertida (N paradas)")` no `onSuccess`.
+- Adicionar `toast.error(...)` no `onError`.
+- Garantir que o `group` aberto seja re-derivado da query atualizada (re-selecionar pelo `cargaId` após invalidação) para que a lista no diálogo reflita a nova ordem.
 
-```ts
-// Agrupar por ordem atual (paradas únicas)
-const paradas = [...new Set(items.map(i => i.ordem_entrega).filter(Boolean))].sort((a,b)=>a-b);
-// Mapa: ordem antiga → ordem nova invertida
-const map = new Map(paradas.map((ord, idx) => [ord, paradas[paradas.length - 1 - idx]]));
-// Atualizar cada item
-const updates = items
-  .filter(i => i.ordem_entrega != null)
-  .map(i => ({ id: i.id, ordem_entrega: map.get(i.ordem_entrega) }));
-```
+**`src/components/dashboard/EditarCargaDialog.tsx`** — lista de pedidos:
+- Mostrar o número da parada na frente de cada item: `#{ordem_entrega} Pedido X — Produto…` quando `ordem_entrega != null`.
+- Ordenar `visibleItems` por `ordem_entrega` (asc, nulls ao fim) para que o usuário veja visualmente a sequência mudar de cabeça para baixo após inverter.
 
-### Visual do rodapé
-
-```text
-[Apagar carga] [Inverter ordem]      [Cancelar] [Salvar]
-```
+### Resultado
+Após clicar "Inverter ordem":
+- Toast verde "Ordem de entrega invertida (5 paradas)".
+- A lista no diálogo reordena imediatamente (parada #1 vira #5, etc.), confirmando visualmente.
+- Em caso de erro, toast vermelho com a mensagem.
 
 ### Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/dashboard/EditarCargaDialog.tsx` | Alterar — adicionar prop `onInverterOrdem`, botão e estado `inverting` |
-| `src/pages/Consolidado.tsx` | Alterar — passar handler que usa `useBatchUpdateCarregamento` para reverter `ordem_entrega` |
+| `src/pages/Consolidado.tsx` | Adicionar toasts e re-derivar `group` aberto após mutação |
+| `src/components/dashboard/EditarCargaDialog.tsx` | Mostrar `#ordem_entrega` em cada item e ordenar lista por parada |
