@@ -220,7 +220,7 @@ export default function Consolidado() {
         .delete({ count: "exact" })
         .eq("carga_id", cargaId);
       if (error) throw error;
-      if (count === 0) throw new Error("Apenas administradores podem apagar cargas.");
+      if (count === 0) throw new Error("Sem permissão. Apenas administradores e logística podem apagar cargas.");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["consolidado"] });

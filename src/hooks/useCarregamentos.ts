@@ -281,7 +281,7 @@ export function useDeleteCarregamento() {
     mutationFn: async (id: string) => {
       const { error, count } = await supabase.from("carregamentos_dia").delete({ count: "exact" }).eq("id", id);
       if (error) throw error;
-      if (count === 0) throw new Error("Sem permissão para excluir. Apenas administradores podem deletar registros.");
+      if (count === 0) throw new Error("Sem permissão para excluir. Apenas administradores e logística podem deletar registros.");
     },
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: ["carregamentos"] });
