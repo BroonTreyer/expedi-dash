@@ -247,6 +247,28 @@ export default function Consolidado() {
     onError: () => toast.error("Erro ao remover pedido"),
   });
 
+  const inverterOrdemMut = useMutation({
+    mutationFn: async (items: Carregamento[]) => {
+      const paradas = [...new Set(items.map((i) => i.ordem_entrega).filter((o): o is number => o != null))].sort((a, b) => a - b);
+      if (paradas.length < 2) return;
+      const map = new Map(paradas.map((ord, idx) => [ord, paradas[paradas.length - 1 - idx]]));
+      const updates = items
+        .filter((i) => i.ordem_entrega != null)
+        .map((i) => ({ id: i.id, ordem_entrega: map.get(i.ordem_entrega as number)! }));
+      await Promise.all(
+        updates.map((u) =>
+          supabase.from("carregamentos_dia").update({ ordem_entrega: u.ordem_entrega }).eq("id", u.id)
+        )
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["consolidado"] });
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success("Ordem de entrega invertida");
+    },
+    onError: () => toast.error("Erro ao inverter ordem"),
+  });
+
   const handleStatusChange = useCallback(
     (group: CargaGroup, newStatus: string) => {
       const ids = group.items.map((i) => i.id);
@@ -625,8 +647,10 @@ export default function Consolidado() {
         onSave={(cargaId, fields, itemIds) => editCargaMut.mutate({ itemIds, fields })}
         onRemoveItem={(id) => removeFromCargaMut.mutate(id)}
         onDeleteCarga={(cargaId) => deleteCargaMut.mutate(cargaId)}
+        onInverterOrdem={() => editGroup && inverterOrdemMut.mutate(editGroup.items)}
         saving={editCargaMut.isPending}
         deleting={deleteCargaMut.isPending}
+        inverting={inverterOrdemMut.isPending}
       />
     </Layout>
   );
