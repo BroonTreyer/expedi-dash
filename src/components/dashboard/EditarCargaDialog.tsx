@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, X, Trash2 } from "lucide-react";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
@@ -22,10 +22,12 @@ interface Props {
   group: CargaGroup | null;
   onSave: (cargaId: string, fields: { nome_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[]) => void;
   onRemoveItem: (itemId: string) => void;
+  onDeleteCarga?: (cargaId: string) => void;
   saving?: boolean;
+  deleting?: boolean;
 }
 
-export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveItem, saving }: Props) {
+export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveItem, onDeleteCarga, saving, deleting }: Props) {
   const [nomeCarga, setNomeCarga] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
@@ -33,6 +35,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [transportadora, setTransportadora] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Carregamento | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteCarga, setConfirmDeleteCarga] = useState(false);
 
   useEffect(() => {
     if (group && open) {
@@ -127,14 +130,38 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving || visibleItems.length === 0}>
-              {saving ? "Salvando…" : "Salvar"}
-            </Button>
+          <DialogFooter className="sm:justify-between gap-2">
+            {onDeleteCarga ? (
+              <Button
+                variant="destructive"
+                onClick={() => setConfirmDeleteCarga(true)}
+                disabled={saving || deleting}
+                className="sm:mr-auto"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                {deleting ? "Apagando…" : "Apagar carga"}
+              </Button>
+            ) : <div />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={saving || deleting || visibleItems.length === 0}>
+                {saving ? "Salvando…" : "Salvar"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={confirmDeleteCarga}
+        onOpenChange={setConfirmDeleteCarga}
+        onConfirm={() => {
+          if (group && onDeleteCarga) onDeleteCarga(group.cargaId);
+          setConfirmDeleteCarga(false);
+        }}
+        title="Apagar carga inteira"
+        description={`Esta ação apagará TODOS os ${group.items.length} pedido(s) da carga "${group.nomeCarga ?? group.cargaId}" permanentemente. Esta ação não pode ser desfeita.`}
+      />
 
       <DeleteConfirmDialog
         open={!!removeTarget}
