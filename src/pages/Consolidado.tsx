@@ -647,8 +647,10 @@ export default function Consolidado() {
         onSave={(cargaId, fields, itemIds) => editCargaMut.mutate({ itemIds, fields })}
         onRemoveItem={(id) => removeFromCargaMut.mutate(id)}
         onDeleteCarga={(cargaId) => deleteCargaMut.mutate(cargaId)}
+        onInverterOrdem={() => editGroup && inverterOrdemMut.mutate(editGroup.items)}
         saving={editCargaMut.isPending}
         deleting={deleteCargaMut.isPending}
+        inverting={inverterOrdemMut.isPending}
       />
     </Layout>
   );
