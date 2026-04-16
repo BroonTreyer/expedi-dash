@@ -24,6 +24,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
+import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
