@@ -131,11 +131,6 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                           {item.cliente ?? item.codigo_cliente ?? "—"} • {[item.cidade, item.uf].filter(Boolean).join("/") || "—"} • {(item.peso ?? 0).toLocaleString("pt-BR")} kg
                         </div>
                       </div>
-                        </div>
-                        <div className="text-muted-foreground whitespace-normal break-words">
-                          {item.cliente ?? item.codigo_cliente ?? "—"} • {[item.cidade, item.uf].filter(Boolean).join("/") || "—"} • {(item.peso ?? 0).toLocaleString("pt-BR")} kg
-                        </div>
-                      </div>
                       <Button
                         variant="ghost"
                         size="icon"
