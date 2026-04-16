@@ -449,7 +449,10 @@ export default function Consolidado() {
                             </button>
                           )}
                         </div>
-                        <div onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditGroup(g)} title="Editar carga">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                           <StatusSelect value={g.status} onChange={(v) => handleStatusChange(g, v)} />
                         </div>
                       </div>
