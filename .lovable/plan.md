@@ -1,24 +1,46 @@
 
 
-## Correção: campo `numero_pedido` ausente na query do período atual
+## Plano: Edição de cargas fechadas no Consolidado
 
-### Problema
-Na query principal do `useAnalytics.ts` (linha 115), o `select` do período atual não inclui `numero_pedido`. O campo só é buscado na query do período anterior. Como resultado, o cálculo de pedidos únicos retorna 0 de 0, e a Taxa de Ruptura aparece como **0%** com **"0 de 0 pedidos"**.
+### O que será feito
 
-### Correção
-Adicionar `numero_pedido` ao `select` da query do período atual.
+Criar um diálogo de edição de carga que abre ao clicar em um botão "Editar" na linha da carga (desktop) ou no card (mobile). O diálogo permitirá:
 
-**Arquivo:** `src/hooks/useAnalytics.ts`
+1. **Editar nome da carga** — campo de texto editável
+2. **Editar placa, motorista, tipo caminhão, transportadora** — campos editáveis da carga
+3. **Ver e remover pedidos** — lista dos pedidos dentro da carga com botão de remover (desvincula o pedido da carga, limpando `carga_id` e `nome_carga`)
 
-**Linha 115 — de:**
-```
-.select("data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, vendedores(nome_vendedor)")
-```
+### Componente novo
 
-**Para:**
-```
-.select("data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, vendedores(nome_vendedor)")
-```
+**`src/components/dashboard/EditarCargaDialog.tsx`**
 
-Uma única linha a alterar. Após isso, o KPI mostrará corretamente a taxa de ruptura por pedido único com o subtítulo detalhado.
+- Recebe a `CargaGroup` com todos os items
+- Formulário com campos: Nome da Carga, Placa, Motorista, Tipo Caminhão, Transportadora
+- Lista de pedidos com botão "X" para remover cada um
+- Ao salvar: batch update de todos os items da carga com os novos valores dos campos compartilhados
+- Ao remover pedido: update individual limpando `carga_id`, `nome_carga`, `etapa` volta para "vendas"
+
+### Alterações em `src/pages/Consolidado.tsx`
+
+- Adicionar state para controlar qual carga está sendo editada
+- Botão "Editar" (ícone lápis) na linha da tabela e no card mobile
+- Importar e renderizar o `EditarCargaDialog`
+- Mutations para:
+  - Update batch dos campos da carga (nome_carga, placa, motorista, tipo_caminhao, transportadora)
+  - Desvincular pedido (limpar carga_id/nome_carga e voltar etapa para "vendas")
+
+### Arquivos
+
+| Arquivo | Ação |
+|---------|------|
+| `src/components/dashboard/EditarCargaDialog.tsx` | Criar |
+| `src/pages/Consolidado.tsx` | Alterar — botão editar + state + dialog |
+
+### Comportamento
+
+- Campos compartilhados (placa, motorista, etc.) são salvos em batch para todos os pedidos da carga
+- Remover pedido desvincula da carga e retorna à etapa "vendas"
+- Confirmação antes de remover pedido
+- Invalidação do cache após salvar/remover
+- Toast de sucesso/erro
 
