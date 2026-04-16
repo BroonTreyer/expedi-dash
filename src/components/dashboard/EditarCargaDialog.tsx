@@ -133,20 +133,32 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
           </div>
 
           <DialogFooter className="sm:justify-between gap-2">
-            {onDeleteCarga ? (
-              <Button
-                variant="destructive"
-                onClick={() => setConfirmDeleteCarga(true)}
-                disabled={saving || deleting}
-                className="sm:mr-auto"
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                {deleting ? "Apagando…" : "Apagar carga"}
-              </Button>
-            ) : <div />}
+            <div className="flex gap-2 sm:mr-auto">
+              {onDeleteCarga && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setConfirmDeleteCarga(true)}
+                  disabled={saving || deleting || inverting}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  {deleting ? "Apagando…" : "Apagar carga"}
+                </Button>
+              )}
+              {onInverterOrdem && (
+                <Button
+                  variant="outline"
+                  onClick={() => onInverterOrdem()}
+                  disabled={saving || deleting || inverting || visibleItems.filter((i) => i.ordem_entrega != null).length < 2}
+                  title="Inverter sequência de entrega"
+                >
+                  <ArrowUpDown className="h-4 w-4 mr-1" />
+                  {inverting ? "Invertendo…" : "Inverter ordem"}
+                </Button>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={saving || deleting || visibleItems.length === 0}>
+              <Button onClick={handleSave} disabled={saving || deleting || inverting || visibleItems.length === 0}>
                 {saving ? "Salvando…" : "Salvar"}
               </Button>
             </div>
