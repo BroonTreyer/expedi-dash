@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { forwardRef, useState, useEffect } from "react";
+import { forwardRef, useState, useEffect, type ReactNode } from "react";
 import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RegistroEntradaBadge } from "@/components/portaria/RegistroEntradaBadge";
 
 type Role = "admin" | "logistica" | "faturamento" | "portaria";
 
@@ -15,6 +16,7 @@ interface NavLeaf {
   label: string;
   icon: any;
   roles: Role[];
+  badge?: (props: { collapsed: boolean }) => ReactNode;
 }
 
 interface NavGroup {
@@ -44,7 +46,7 @@ const navTree: NavNode[] = [
     children: [
       { to: "/portaria/carga-propria", label: "Carga Própria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
       { to: "/portaria/terceirizado", label: "Terceirizados", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
-      { to: "/portaria/registro-entrada", label: "Registro de Entrada", icon: LogIn, roles: ["admin", "logistica", "portaria"] },
+      { to: "/portaria/registro-entrada", label: "Registro de Entrada", icon: LogIn, roles: ["admin", "logistica", "portaria"], badge: ({ collapsed }) => <RegistroEntradaBadge collapsed={collapsed} /> },
       { to: "/cadastros", label: "Cadastros", icon: FolderCog, roles: ["admin", "logistica", "portaria"] },
       { to: "/cadastros?focus=buscar", label: "Buscar/Consultar", icon: Search, roles: ["admin", "logistica", "portaria"] },
       { to: "/motoristas", label: "Motoristas", icon: Contact, roles: ["admin", "logistica", "portaria"] },
@@ -116,7 +118,7 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate 
         to={{ pathname: pathPart, search: searchPart ? `?${searchPart}` : "" }}
         onClick={onNavigate}
         className={cn(
-          "flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
+          "relative flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
           collapsed ? "justify-center px-0 py-2.5" : `${padLeft} py-2.5`,
           active
             ? "bg-sidebar-accent text-sidebar-primary"
@@ -124,7 +126,8 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate 
         )}
       >
         <node.icon className="h-4 w-4 shrink-0" />
-        {!collapsed && node.label}
+        {!collapsed && <span className="flex-1">{node.label}</span>}
+        {node.badge && node.badge({ collapsed })}
       </RefLink>
     );
     if (collapsed) {

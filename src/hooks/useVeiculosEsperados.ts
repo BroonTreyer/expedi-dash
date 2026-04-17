@@ -106,6 +106,32 @@ export function useVeiculosWalkInAtivos() {
  * Porteiro confirma a chegada física do veículo walk-in já liberado.
  * Cria a movimentação de entrada e marca veiculo_esperado como conferido.
  */
+/**
+ * Contagem leve de walk-ins pendentes (para badge no menu).
+ * Retorna { aguardando, liberados, total }.
+ */
+export function useWalkInPendentesCount() {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["veiculos_walkin_pendentes_count"],
+    enabled: !!session,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("veiculos_esperados" as any)
+        .select("status_autorizacao")
+        .eq("walk_in", true)
+        .eq("conferido", false)
+        .in("status_autorizacao", ["aguardando_vinculo", "autorizado"]);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as { status_autorizacao: StatusAutorizacao }[];
+      const aguardando = rows.filter((r) => r.status_autorizacao === "aguardando_vinculo").length;
+      const liberados = rows.filter((r) => r.status_autorizacao === "autorizado").length;
+      return { aguardando, liberados, total: aguardando + liberados };
+    },
+  });
+}
+
 export function useRegistrarChegadaPortaria() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -154,6 +180,7 @@ export function useRegistrarChegadaPortaria() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
@@ -201,6 +228,7 @@ export function useRegistrarChegadaWalkIn() {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
       qc.invalidateQueries({ queryKey: ["veiculos_aguardando_vinculo"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
       toast.success("Entrada registrada — aguardando vínculo de carga pela Logística");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao registrar entrada"),
@@ -245,6 +273,8 @@ export function useAutorizarChegada() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
       toast.success(vars.autorizar ? "Carga vinculada — aguardando Portaria liberar entrada física" : "Entrada recusada");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao processar autorização"),
