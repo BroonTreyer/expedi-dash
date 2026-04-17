@@ -19,6 +19,7 @@ import { Plus, Edit, Trash2, Search, Building2, Upload } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { maskCep, normalizeCep, ufFromCep } from "@/lib/cep-uf";
 
 const PAGE_SIZE = 50;
 
@@ -33,7 +34,7 @@ export default function Clientes() {
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", ativo: true });
+  const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const { sort, toggleSort, sortData } = useSortableTable();
@@ -64,12 +65,21 @@ export default function Clientes() {
   const startItem = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const endItem = Math.min(page * PAGE_SIZE, filtered.length);
 
-  const openNew = () => { setEditing(null); setForm({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", ativo: true }); setOpen(true); };
-  const openEdit = (c: any) => { setEditing(c); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, cidade: c.cidade || "", uf: c.uf || "", ativo: c.ativo }); setOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true }); setOpen(true); };
+  const openEdit = (c: any) => { setEditing(c); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, cidade: c.cidade || "", uf: c.uf || "", cep: c.cep ? maskCep(c.cep) : "", ativo: c.ativo }); setOpen(true); };
+
+  const handleCepBlur = () => {
+    const norm = normalizeCep(form.cep);
+    if (norm && !form.uf) {
+      const inferred = ufFromCep(norm);
+      if (inferred) setForm(f => ({ ...f, uf: inferred }));
+    }
+  };
 
   const isSubmitting = createMut.isPending || updateMut.isPending;
   const handleSubmit = () => {
-    if (editing) { updateMut.mutate({ id: editing.id, ...form }, { onSuccess: () => setOpen(false) }); } else { createMut.mutate(form, { onSuccess: () => setOpen(false) }); }
+    const payload = { ...form, cep: normalizeCep(form.cep) || undefined };
+    if (editing) { updateMut.mutate({ id: editing.id, ...payload }, { onSuccess: () => setOpen(false) }); } else { createMut.mutate(payload, { onSuccess: () => setOpen(false) }); }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
