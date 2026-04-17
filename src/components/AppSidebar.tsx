@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { forwardRef, useState, useEffect } from "react";
-import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog } from "lucide-react";
+import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +45,7 @@ const navTree: NavNode[] = [
       { to: "/portaria/carga-propria", label: "Carga Própria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
       { to: "/portaria/terceirizado", label: "Terceirizados", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
       { to: "/cadastros", label: "Cadastros", icon: FolderCog, roles: ["admin", "logistica", "portaria"] },
+      { to: "/cadastros?focus=buscar", label: "Buscar/Consultar", icon: Search, roles: ["admin", "logistica", "portaria"] },
     ],
   },
   { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },

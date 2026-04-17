@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,8 +22,20 @@ const emptyMot: EditingMotorista = { nome_completo: "", cpf: "", telefone: "" };
 const emptyCam: EditingCaminhao = { placa: "", renavam: "", tipo_caminhao: "", transportadora: "", motorista_id: null };
 
 export default function Cadastros() {
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (searchParams.get("focus") === "buscar") {
+      setTimeout(() => {
+        searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        searchInputRef.current?.focus();
+      }, 100);
+    }
+  }, [searchParams]);
   const [novoTipo, setNovoTipo] = useState("");
   const [mot, setMot] = useState<EditingMotorista>(emptyMot);
   const [cam, setCam] = useState<EditingCaminhao>(emptyCam);
@@ -172,7 +185,7 @@ export default function Cadastros() {
         </div>
 
         {/* Search */}
-        <Card>
+        <Card ref={searchCardRef}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Search className="h-4 w-4" /> Buscar / Consultar
@@ -183,6 +196,7 @@ export default function Cadastros() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchInputRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nome, CPF, placa ou tipo..."
