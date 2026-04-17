@@ -25,6 +25,7 @@ const PortariaCargaPropria = lazy(() => import("./pages/PortariaCargaPropria"));
 const PortariaTerceirizado = lazy(() => import("./pages/PortariaTerceirizado"));
 const Motoristas = lazy(() => import("./pages/Motoristas"));
 const Caminhoes = lazy(() => import("./pages/Caminhoes"));
+const Cadastros = lazy(() => import("./pages/Cadastros"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Backups = lazy(() => import("./pages/Backups"));
 const Relatorios = lazy(() => import("./pages/Relatorios"));
@@ -78,6 +79,7 @@ function AppRoutes() {
           <Route path="/portaria/terceirizado" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><PortariaTerceirizado /></ProtectedRoute>} />
           <Route path="/motoristas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Motoristas /></ProtectedRoute>} />
           <Route path="/caminhoes" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><Caminhoes /></ProtectedRoute>} />
+          <Route path="/cadastros" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Cadastros /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Analytics /></ProtectedRoute>} />
           <Route path="/backups" element={<ProtectedRoute allowedRoles={["admin"]}><Backups /></ProtectedRoute>} />
           <Route path="/relatorios" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Relatorios /></ProtectedRoute>} />
