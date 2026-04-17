@@ -174,7 +174,7 @@ export const VISIBILITY_SAIDA: VisibilityMatrix = {
   conferente:         { carga_propria: "opcional",    terceirizado: "opcional", fornecedor: "opcional", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   ocorrencia:         { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   observacoes:        { carga_propria: "opcional",    terceirizado: "opcional", fornecedor: "opcional", visitante: "oculto", prestador: "oculto", outros: "oculto" },
-  foto_placa_url:     { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
+  foto_placa_url:     { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   foto_documento_url: { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   foto_painel_url:    { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },
   foto_nota_url:      { carga_propria: "oculto",      terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" },

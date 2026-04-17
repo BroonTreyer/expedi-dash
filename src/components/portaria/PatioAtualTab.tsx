@@ -304,6 +304,10 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       {liberandoId === m.id ? <span className="animate-spin">⏳</span> : <LogIn className="h-3 w-3" />}
                       Liberar Entrada
                     </Button>
+                  ) : (m.categoria === "terceirizado" && m.etapa_terceirizado === "no_patio") || m.categoria === "fornecedor" ? (
+                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
+                      <ArrowUpFromLine className="h-3 w-3" /> Saída
+                    </Button>
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-3 animate-in fade-in duration-200">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaidaRapidaId(null)} disabled={isSaving}>
