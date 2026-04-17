@@ -133,7 +133,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
 
   const getCategoriaLabel = (val: string) => CATEGORIAS.find((c) => c.value === val)?.label || val;
 
-  const handleSaidaRapida_unused = null;
+  
   const handleSaidaRapida = async (entrada: MovimentacaoPortaria) => {
     setSavingId(entrada.id);
     try {
