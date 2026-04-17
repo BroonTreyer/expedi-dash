@@ -172,7 +172,7 @@ export default function Clientes() {
     }
   };
 
-
+  const renderPaginationItems = () => {
     const items = [];
     const maxVisible = 5;
     let start = Math.max(1, page - Math.floor(maxVisible / 2));
