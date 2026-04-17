@@ -102,6 +102,12 @@ interface NodeProps {
 
 function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeProps) {
   const padLeft = collapsed ? "" : depth === 0 ? "px-3" : depth === 1 ? "pl-9 pr-3" : "pl-12 pr-3";
+  const groupHasActive = isGroup(node) && containsPath(node, pathname);
+  const [open, setOpen] = useState(groupHasActive);
+
+  useEffect(() => {
+    if (groupHasActive) setOpen(true);
+  }, [groupHasActive]);
 
   if (!isGroup(node)) {
     const active = pathname === node.to;
