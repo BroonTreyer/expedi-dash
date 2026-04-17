@@ -4,6 +4,8 @@ import { useAuth, useSession } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { ParsedRow } from "@/components/portaria/ImportarPlanilhaDialog";
 
+export type StatusAutorizacao = "previsto" | "aguardando_autorizacao" | "autorizado" | "recusado";
+
 export interface VeiculoEsperado {
   id: string;
   data_referencia: string;
@@ -22,6 +24,98 @@ export interface VeiculoEsperado {
   conferido_em: string | null;
   created_at: string;
   criado_por: string | null;
+  walk_in: boolean;
+  status_autorizacao: StatusAutorizacao;
+  autorizado_por: string | null;
+  autorizado_em: string | null;
+  motivo_recusa: string | null;
+  observacoes: string | null;
+}
+
+export function useSolicitacoesPendentes() {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["veiculos_esperados_pendentes"],
+    enabled: !!session,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("veiculos_esperados" as any)
+        .select("*")
+        .eq("status_autorizacao", "aguardando_autorizacao")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as VeiculoEsperado[];
+    },
+  });
+}
+
+export function useRegistrarChegadaWalkIn() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (input: {
+      placa: string;
+      motorista?: string;
+      transportadora?: string;
+      tipo_veiculo?: string;
+      destino?: string;
+      observacoes?: string;
+      grupo?: string;
+    }) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from("veiculos_esperados" as any)
+        .insert({
+          data_referencia: today,
+          grupo: input.grupo || "WALK-IN",
+          placa: input.placa.toUpperCase().trim(),
+          motorista: input.motorista || null,
+          transportadora: input.transportadora || null,
+          tipo_veiculo: input.tipo_veiculo || null,
+          destino: input.destino || null,
+          observacoes: input.observacoes || null,
+          walk_in: true,
+          status_autorizacao: "aguardando_autorizacao",
+          criado_por: user?.id ?? null,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+      toast.success("Chegada registrada — aguardando autorização da Logística");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao registrar chegada"),
+  });
+}
+
+export function useAutorizarChegada() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ id, autorizar, motivo }: { id: string; autorizar: boolean; motivo?: string }) => {
+      const { error } = await supabase
+        .from("veiculos_esperados" as any)
+        .update({
+          status_autorizacao: autorizar ? "autorizado" : "recusado",
+          autorizado_por: user?.id ?? null,
+          autorizado_em: new Date().toISOString(),
+          motivo_recusa: autorizar ? null : (motivo || null),
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+      toast.success(vars.autorizar ? "Entrada autorizada" : "Entrada recusada");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao processar autorização"),
+  });
 }
 
 export function useVeiculosEsperados(dataReferencia: string) {
