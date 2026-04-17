@@ -362,7 +362,7 @@ export default function Portaria({ categoria }: PortariaProps) {
                 <PatioAtualTab
                   movimentacoes={movimentacoes}
                   search={search}
-                  categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
+                  categoriaFilter={categoria}
                   onRegistrarSaida={(entrada, etapa) => openRegistro(entrada, etapa)}
                   isLoading={isLoading}
                     readOnly={false}
@@ -390,7 +390,7 @@ export default function Portaria({ categoria }: PortariaProps) {
                 <HistoricoTab
                   movimentacoes={movimentacoes}
                   search={search}
-                  categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
+                  categoriaFilter={categoria}
                   tipoFilter={tipoFilter === "all" ? "" : tipoFilter}
                   onViewDetails={openDetails}
                   isLoading={isLoading}
