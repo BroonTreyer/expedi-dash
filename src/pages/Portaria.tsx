@@ -26,21 +26,50 @@ import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
-export default function Portaria() {
+interface PortariaProps {
+  /** Restrict the page to a single categoria (creates a sub-page for that team) */
+  categoria: "carga_propria" | "terceirizado";
+}
+
+const CATEGORIA_META = {
+  carga_propria: {
+    label: "Carga Própria",
+    title: "Portaria — Carga Própria",
+    subtitle: "Controle de entrada e saída da frota própria",
+    grupoEsperado: "PRÓPRIA",
+  },
+  terceirizado: {
+    label: "Terceirizado",
+    title: "Portaria — Terceirizado",
+    subtitle: "Controle de entrada e saída de transportadoras terceirizadas",
+    grupoEsperado: "TERCEIRIZADO",
+  },
+} as const;
+
+export default function Portaria({ categoria }: PortariaProps) {
   const { role, user } = useAuth();
   const isPortaria = role === "portaria";
+  const meta = CATEGORIA_META[categoria];
 
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : format(today, "yyyy-MM-dd");
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [search, setSearch] = useState("");
-  const [categoriaFilter, setCategoriaFilter] = useState("all");
   const [tipoFilter, setTipoFilter] = useState("");
 
-  const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
+  const { data: movimentacoesAll = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
+  // Filter strictly by this sub-page's categoria
+  const movimentacoes = useMemo(
+    () => movimentacoesAll.filter((m) => m.categoria === categoria),
+    [movimentacoesAll, categoria]
+  );
   const createMov = useCreateMovimentacao();
-  const { data: veiculosEsperados = [] } = useVeiculosEsperados(dateFromStr);
+  const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateFromStr);
+  const veiculosEsperados = useMemo(
+    () => veiculosEsperadosAll.filter((v) => v.grupo === meta.grupoEsperado),
+    [veiculosEsperadosAll, meta.grupoEsperado]
+  );
   const importarMutation = useImportarVeiculosEsperados();
   const marcarConferidoMutation = useMarcarConferido();
   const limparMutation = useLimparVeiculosEsperados();
@@ -58,11 +87,10 @@ export default function Portaria() {
   const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
   const dateLabel = isToday ? "Hoje" : "no Período";
 
-  const hasActiveFilters = search || (categoriaFilter && categoriaFilter !== "all") || (tipoFilter && tipoFilter !== "all");
+  const hasActiveFilters = !!search || (!!tipoFilter && tipoFilter !== "all");
 
   const clearFilters = () => {
     setSearch("");
-    setCategoriaFilter("all");
     setTipoFilter("all");
   };
 
