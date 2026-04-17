@@ -157,7 +157,22 @@ export default function Clientes() {
     }
   };
 
-  const renderPaginationItems = () => {
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.rpc("sync_clients_to_orders");
+      if (error) throw error;
+      const updated = (data as any)?.updated ?? 0;
+      toast.success(updated > 0 ? `${updated} pedidos sincronizados com o cadastro.` : "Pedidos já estavam sincronizados.");
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+    } catch (err: any) {
+      toast.error("Erro ao sincronizar: " + err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+
     const items = [];
     const maxVisible = 5;
     let start = Math.max(1, page - Math.floor(maxVisible / 2));
