@@ -39,6 +39,7 @@ export default function Clientes() {
   const [importing, setImporting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
   const { sort, toggleSort, sortData } = useSortableTable();
   const fileRef = useRef<HTMLInputElement>(null);
 
