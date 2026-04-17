@@ -199,6 +199,9 @@ export default function Clientes() {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Clientes</h1>
           <div className="flex gap-2">
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+              <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Sincronizando..." : "Sincronizar pedidos"}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={importing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
               <Upload className="h-4 w-4 mr-1" /> {importing ? "Importando..." : "Importar"}
             </Button>
