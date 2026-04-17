@@ -192,6 +192,7 @@ export const BLOCKS = [
 function getMatrix(tipoMovimento: TipoMovimentoPortaria): VisibilityMatrix {
   if (tipoMovimento === "retorno") return VISIBILITY_RETORNO;
   if (tipoMovimento === "lacre") return VISIBILITY_SAIDA;
+  if (tipoMovimento === "saida") return VISIBILITY_SAIDA;
   if (tipoMovimento === "saida_rota") return VISIBILITY; // same fields as normal entrada/saida
   return VISIBILITY;
 }
