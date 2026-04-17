@@ -5,11 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package, Link2 } from "lucide-react";
+import { Truck, MapPin, Package, Link2, LogIn, Clock } from "lucide-react";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
 import { CaminhaoAutocomplete } from "@/components/portaria/CaminhaoAutocomplete";
 import { cn } from "@/lib/utils";
 import { useCaminhoes } from "@/hooks/useCaminhoes";
+import { useVeiculosAguardandoVinculo } from "@/hooks/useVeiculosEsperados";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
 import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
@@ -37,6 +42,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
   const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
+  const [walkInVinculadoId, setWalkInVinculadoId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { data: veiculosNoPatio = [] } = useVeiculosAguardandoVinculo();
 
   // Fetch caminhões cadastrados
   const { data: caminhoesCadastrados = [] } = useCaminhoes();
@@ -91,9 +99,19 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setHorarioPrevisto("");
       setNomeCarga("");
       setVeiculoVinculado("manual");
+      setWalkInVinculadoId(null);
       setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
     }
   }, [open, selectedDate]);
+
+  const handleVincularWalkIn = (v: typeof veiculosNoPatio[number]) => {
+    setPlaca(v.placa);
+    if (v.motorista) setMotorista(v.motorista);
+    if (v.transportadora) setTransportadora(v.transportadora);
+    if (v.tipo_veiculo) setTipoCaminhao(v.tipo_veiculo);
+    setWalkInVinculadoId(v.id);
+    setVeiculoVinculado("manual");
+  };
 
   const totalPeso = useMemo(() => groups.reduce((s, g) => s + g.pesoTotal, 0), [groups]);
   const totalPedidos = useMemo(() => groups.reduce((s, g) => s + g.items.length, 0), [groups]);
@@ -101,7 +119,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
   const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
     const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
@@ -125,6 +143,29 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       }))
     );
     const destinos = groups.filter(g => g.cidade).map(g => `${g.cidade}/${g.uf}`).join(", ");
+
+    // Auto-autorizar veículo no pátio (walk-in) se foi vinculado a esta carga
+    const placaNorm = placa.trim().toUpperCase();
+    const walkInMatch = walkInVinculadoId
+      ? veiculosNoPatio.find((v) => v.id === walkInVinculadoId)
+      : veiculosNoPatio.find((v) => v.placa.trim().toUpperCase() === placaNorm);
+    if (walkInMatch) {
+      try {
+        await supabase
+          .from("veiculos_esperados" as any)
+          .update({
+            status_autorizacao: "autorizado",
+            carga_id: cargaId,
+            autorizado_por: user?.id ?? null,
+            autorizado_em: new Date().toISOString(),
+          } as any)
+          .eq("id", walkInMatch.id);
+      } catch (e) {
+        // Silencioso: fechamento de carga não deve quebrar por isso
+        console.error("Falha ao autorizar walk-in vinculado:", e);
+      }
+    }
+
     onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos });
     onOpenChange(false);
 
@@ -209,6 +250,54 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               coordsCache={roteirizacao?.coordsCache}
             />
           </Suspense>
+        )}
+
+        {/* Veículos no pátio aguardando vínculo */}
+        {veiculosNoPatio.length > 0 && (
+          <div className="border-t border-border pt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <LogIn className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-primary uppercase tracking-wide">
+                Veículos no pátio aguardando vínculo
+              </span>
+              <Badge variant="outline" className="text-[10px] h-5 border-primary/40 bg-primary/10 text-primary">
+                {veiculosNoPatio.length}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {veiculosNoPatio.map((v) => {
+                const selected = walkInVinculadoId === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => handleVincularWalkIn(v)}
+                    className={cn(
+                      "text-left rounded-md border p-2 text-xs transition-colors hover:border-primary hover:bg-primary/5",
+                      selected ? "border-primary bg-primary/10 ring-1 ring-primary" : "bg-card"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold">{v.placa}</span>
+                      <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
+                        <Clock className="h-3 w-3" />
+                        {formatDistanceToNow(new Date(v.created_at), { addSuffix: true, locale: ptBR })}
+                      </Badge>
+                    </div>
+                    <div className="text-muted-foreground mt-0.5 truncate">
+                      {v.motorista || "—"}
+                      {v.tipo_veiculo && <> • {v.tipo_veiculo}</>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {walkInVinculadoId && (
+              <p className="text-[11px] text-primary mt-2">
+                ✓ Veículo vinculado — será automaticamente liberado ao fechar a carga.
+              </p>
+            )}
+          </div>
         )}
 
         {/* Transport fields */}

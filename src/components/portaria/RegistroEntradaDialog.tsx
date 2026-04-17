@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { MotoristaAutocomplete } from "./MotoristaAutocomplete";
 import { CaminhaoAutocomplete } from "./CaminhaoAutocomplete";
 import { useRegistrarChegadaWalkIn } from "@/hooks/useVeiculosEsperados";
-import { AlertCircle } from "lucide-react";
+import { LogIn } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -13,7 +13,7 @@ interface Props {
   grupo: "PRÓPRIA" | "TERCEIRIZADO";
 }
 
-export function RegistroChegadaWalkInDialog({ open, onOpenChange, grupo }: Props) {
+export function RegistroEntradaDialog({ open, onOpenChange, grupo }: Props) {
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
   // Autofill silencioso (enviado ao backend, não exibido como campo)
@@ -78,11 +78,11 @@ export function RegistroChegadaWalkInDialog({ open, onOpenChange, grupo }: Props
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-500" />
-            Chegada sem previsão — {grupo === "PRÓPRIA" ? "Frota Própria" : "Terceirizado"}
+            <LogIn className="h-5 w-5 text-primary" />
+            Registrar Entrada — {grupo === "PRÓPRIA" ? "Frota Própria" : "Terceirizado"}
           </DialogTitle>
           <DialogDescription>
-            Vincule um motorista e um veículo já cadastrados. A Logística será notificada para autorizar a entrada.
+            Vincule motorista e veículo já cadastrados. O veículo ficará disponível para a Logística vincular ao fechar uma carga.
           </DialogDescription>
         </DialogHeader>
 
@@ -119,7 +119,7 @@ export function RegistroChegadaWalkInDialog({ open, onOpenChange, grupo }: Props
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {mut.isPending ? "Enviando..." : "Solicitar autorização"}
+            {mut.isPending ? "Registrando..." : "Registrar Entrada"}
           </Button>
         </DialogFooter>
       </DialogContent>

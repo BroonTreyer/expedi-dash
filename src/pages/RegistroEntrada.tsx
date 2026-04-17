@@ -1,24 +1,24 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Truck, Building2, AlertCircle } from "lucide-react";
-import { RegistroChegadaWalkInDialog } from "@/components/portaria/RegistroChegadaWalkInDialog";
+import { Truck, Building2, LogIn } from "lucide-react";
+import { RegistroEntradaDialog } from "@/components/portaria/RegistroEntradaDialog";
 import { SolicitacoesPendentesPanel } from "@/components/portaria/SolicitacoesPendentesPanel";
 
-export default function ChegadaSemPrevisao() {
+export default function RegistroEntrada() {
   const [grupo, setGrupo] = useState<"PRÓPRIA" | "TERCEIRIZADO" | null>(null);
 
   return (
     <Layout>
       <div className="space-y-6 max-w-5xl mx-auto">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950">
-            <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+          <div className="p-2 rounded-lg bg-primary/10">
+            <LogIn className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Chegada sem previsão</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Registro de Entrada</h1>
             <p className="text-sm text-muted-foreground">
-              Registre veículos que chegaram sem estar na lista de previstos. A Logística será notificada para autorizar a entrada.
+              Registre a entrada de veículos no pátio. A Logística poderá vincular esses veículos no fechamento de carga.
             </p>
           </div>
         </div>
@@ -34,7 +34,7 @@ export default function ChegadaSemPrevisao() {
               </div>
               <div>
                 <h3 className="font-semibold text-lg">Frota Própria</h3>
-                <p className="text-xs text-muted-foreground mt-1">Veículo da empresa que chegou sem previsão</p>
+                <p className="text-xs text-muted-foreground mt-1">Registrar entrada de veículo da empresa</p>
               </div>
             </CardContent>
           </Card>
@@ -49,7 +49,7 @@ export default function ChegadaSemPrevisao() {
               </div>
               <div>
                 <h3 className="font-semibold text-lg">Terceirizado</h3>
-                <p className="text-xs text-muted-foreground mt-1">Veículo de transportadora não prevista</p>
+                <p className="text-xs text-muted-foreground mt-1">Registrar entrada de veículo de transportadora</p>
               </div>
             </CardContent>
           </Card>
@@ -58,7 +58,7 @@ export default function ChegadaSemPrevisao() {
         <SolicitacoesPendentesPanel />
 
         {grupo && (
-          <RegistroChegadaWalkInDialog
+          <RegistroEntradaDialog
             open={!!grupo}
             onOpenChange={(o) => { if (!o) setGrupo(null); }}
             grupo={grupo}
@@ -68,3 +68,4 @@ export default function ChegadaSemPrevisao() {
     </Layout>
   );
 }
+
