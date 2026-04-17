@@ -1,28 +1,34 @@
 
 ## Diagnóstico
 
-`SolicitacoesPendentesPanel` é renderizado em `Portaria.tsx` (usado por `PortariaCargaPropria` e `PortariaTerceirizado`) sem nenhum filtro por categoria. Internamente usa `useVeiculosWalkInAtivos`, que faz `select * from veiculos_esperados where walk_in=true ...` sem filtrar por `grupo`. Resultado: ambas as sub-páginas exibem o mesmo bloco com todos os walk-ins (próprios + terceiros).
-
-A categoria é determinada a partir do campo `grupo` do veículo esperado (linha 140 do hook: `grupo` contém "PROPRIA"/"PRÓPRIA" → carga_propria; senão → terceirizado).
+Hoje `clientes` tem só `codigo_cliente`, `nome_cliente`, `cidade`, `uf`, `ativo`. Você quer que a nova planilha traga também o **CEP** e que o **UF seja inferido automaticamente do CEP** (não precisa endereço completo, número, bairro etc).
 
 ## Plano
 
-### 1. Aceitar prop `categoria` no painel
-`SolicitacoesPendentesPanel` recebe `categoria: "carga_propria" | "terceirizado"`.
+### 1. Schema
+Migration: `ALTER TABLE clientes ADD COLUMN cep text;`
 
-### 2. Filtrar a lista no client
-Após carregar `ativos` via `useVeiculosWalkInAtivos`, filtrar:
-- `carga_propria` → `grupo` contém "PROPRIA" ou "PRÓPRIA" (case-insensitive)
-- `terceirizado` → todo o resto (mesma regra invertida usada no `registrarChegada` do hook, mantém consistência)
+### 2. Importador (`src/pages/Clientes.tsx`)
+- Detectar coluna `CEP` no header da planilha (por nome, não índice fixo) — funciona mesmo se a ordem mudar
+- Manter detecção das já existentes: código, nome, cidade, UF
+- Normalizar CEP: só dígitos, 8 chars, descartando inválidos
+- Para cada linha: se UF veio na planilha, usa direto; **se UF estiver vazio mas CEP existir**, derivar UF do prefixo do CEP via tabela local de faixas dos Correios (estática, sem API — ex: 01000-19999=SP, 20000-28999=RJ, 72800-72999=GO, etc.)
+- Manter `upsert` por `codigo_cliente`
 
-### 3. Passar a prop em `Portaria.tsx`
-`<SolicitacoesPendentesPanel categoria={categoria} />`
+### 3. Hook (`src/hooks/useClientes.ts`)
+- Adicionar `cep?: string` em `useCreateCliente` e `useUpdateCliente`
+- Sem mudança na propagação para `carregamentos_dia` (continua só nome/cidade/UF)
+
+### 4. UI mínima (`src/pages/Clientes.tsx`)
+- Form de cadastro/edição: novo input `CEP` (com máscara `00000-000`); ao sair do campo, se UF estiver vazio, autopreencher UF a partir do CEP
+- Tabela desktop: adicionar coluna **CEP** (compacta, após Cidade)
+- Card mobile: mostrar CEP abaixo de Cidade/UF
 
 ### Sem mudanças
-- Hook `useVeiculosWalkInAtivos` (mantém genérico — pode ser reaproveitado em outras telas)
-- Schema, RLS, fluxo de autorização/recusa, realtime channel
-- Lógica de "Vincular a carga" / "Liberar Entrada no Pátio"
+- RLS, fluxo de cargas, propagação de cliente para pedidos, schema das demais tabelas
 
 ## Arquivos
-- ✏️ `src/components/portaria/SolicitacoesPendentesPanel.tsx` — nova prop `categoria` + filtro por `grupo`
-- ✏️ `src/pages/Portaria.tsx` — passar `categoria={categoria}` ao painel
+- 🆕 migration — `ALTER TABLE clientes ADD COLUMN cep text`
+- 🆕 `src/lib/cep-uf.ts` — função `ufFromCep(cep)` com tabela de faixas dos Correios
+- ✏️ `src/hooks/useClientes.ts` — incluir `cep` nas mutations
+- ✏️ `src/pages/Clientes.tsx` — importador por header + coluna/input CEP + autofill UF
