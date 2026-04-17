@@ -181,6 +181,21 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
         }
       }
 
+      // OCR for lacre photo
+      if (fieldKey === "foto_lacre_url") {
+        setOcrLacreLoading(true);
+        try {
+          const result = await processarOCR(publicUrl, "placa");
+          setTextoLacreLido(result.texto);
+          setConfiancaLacre(result.confianca);
+          if (result.texto) set("numero_lacre", result.texto);
+        } catch (e: any) {
+          toast.error("Erro no OCR do lacre: " + e.message);
+        } finally {
+          setOcrLacreLoading(false);
+        }
+      }
+
     } catch (e: any) {
       toast.error("Erro ao enviar foto: " + e.message);
     }
@@ -302,10 +317,11 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
             etapa_carga_propria: "em_rota",
             horario_real_saida: new Date().toISOString(),
           } : {}),
-          // Terceirizado 3-stage fields
+          // Terceirizado: já entra no pátio (logística autoriza antes)
           ...(categoria === "terceirizado" && tipo === "entrada" ? {
             horario_chegada: new Date().toISOString(),
-            etapa_terceirizado: "aguardando",
+            horario_entrada: new Date().toISOString(),
+            etapa_terceirizado: "no_patio",
           } : {}),
         } as any);
         // Close terceirizado entrada cycle when this is its saída
@@ -419,6 +435,12 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                 <div><span className="text-muted-foreground">Placa:</span> <strong>{prefill.placa}</strong></div>
                 <div><span className="text-muted-foreground">Motorista:</span> <strong>{prefill.motorista || "—"}</strong></div>
                 {prefill.rota && <div><span className="text-muted-foreground">Rota:</span> <strong>{prefill.rota}</strong></div>}
+                {(prefill.peso != null || prefill.qtd_entregas != null) && (
+                  <div className="flex gap-3">
+                    {prefill.peso != null && <span><span className="text-muted-foreground">Peso:</span> <strong>{prefill.peso} kg</strong></span>}
+                    {prefill.qtd_entregas != null && <span><span className="text-muted-foreground">Entregas:</span> <strong>{prefill.qtd_entregas}</strong></span>}
+                  </div>
+                )}
                 {prefillEtapa === "retorno" && prefill.km_inicial != null && (
                   <div><span className="text-muted-foreground">KM Inicial:</span> <strong>{prefill.km_inicial}</strong></div>
                 )}
@@ -445,7 +467,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                               <PlacaInput
                                 value={values.placa || ""}
                                 onChange={(v) => set("placa", v)}
-                              onAutofill={(d) => {
+                                onAutofill={(d) => {
                                   if (d.motorista) set("motorista", d.motorista);
                                   if (d.empresa) set("empresa", d.empresa);
                                   if (d.transportadora) set("empresa", d.transportadora);

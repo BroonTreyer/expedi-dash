@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowDownToLine, ArrowUpFromLine, ParkingCircle, Truck, Clock } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, ParkingCircle } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
 interface Props {
@@ -18,10 +18,7 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     const saidasVinculadas = new Set(
       saidas.filter((m) => m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id!)
     );
-    
-    // Terceirizados aguardando (arrived but not yet entered)
-    const tercAguardando = entradas.filter((m) => m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando").length;
-    
+
     // All vehicles in yard (non-terceirizados without exit + terceirizados with etapa no_patio)
     const noPatio = entradas.filter((e) => {
       if (saidasVinculadas.has(e.id)) return false;
@@ -29,7 +26,7 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
       return true;
     }).length;
 
-    return { entradas: entradas.length, saidas: saidas.length, noPatio, tercAguardando };
+    return { entradas: entradas.length, saidas: saidas.length, noPatio };
   }, [movimentacoes]);
 
   const suffix = dateLabel || "Hoje";
@@ -38,13 +35,12 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     { label: `Entradas ${suffix}`, value: stats.entradas, icon: ArrowDownToLine, color: "text-accent" },
     { label: `Saídas ${suffix}`, value: stats.saidas, icon: ArrowUpFromLine, color: "text-primary" },
     { label: "No Pátio", value: stats.noPatio, icon: ParkingCircle, color: "text-destructive" },
-    ...(stats.tercAguardando > 0 ? [{ label: "Aguardando Entrada", value: stats.tercAguardando, icon: Clock, color: "text-yellow-600 dark:text-yellow-400" }] : []),
   ];
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {[...Array(3)].map((_, i) => (
           <Card key={i}><CardContent className="p-3 sm:p-4"><Skeleton className="h-14 w-full" /></CardContent></Card>
         ))}
       </div>
@@ -52,7 +48,7 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
   }
 
   return (
-    <div className={`grid gap-2 sm:gap-3 ${cards.length > 3 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+    <div className="grid grid-cols-3 gap-2 sm:gap-3">
       {cards.map((c) => (
         <Card key={c.label}>
           <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">

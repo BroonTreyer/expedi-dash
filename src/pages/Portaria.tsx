@@ -53,7 +53,7 @@ export default function Portaria({ categoria }: PortariaProps) {
   const isPortaria = role === "portaria";
   const meta = CATEGORIA_META[categoria];
 
-  const today = new Date();
+  const [today] = useState(() => new Date());
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : format(today, "yyyy-MM-dd");
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
@@ -87,7 +87,7 @@ export default function Portaria({ categoria }: PortariaProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
-  const dateLabel = isToday ? "Hoje" : "no Período";
+  const dateLabel = isToday ? "Hoje" : "no período";
 
   const hasActiveFilters = !!search || (!!tipoFilter && tipoFilter !== "all");
 

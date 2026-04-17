@@ -69,7 +69,7 @@ export function SolicitacoesPendentesPanel() {
           <span className="font-mono font-bold text-sm">{v.placa}</span>
           {kind === "aguardando" ? (
             <Badge variant="outline" className="text-[10px] h-5 bg-amber-500/10 border-amber-500/40 text-amber-700 dark:text-amber-400">
-              NO PÁTIO
+              AGUARDANDO LIBERAÇÃO
             </Badge>
           ) : (
             <Badge variant="outline" className="text-[10px] h-5 gap-1 bg-emerald-500/10 border-emerald-500/40 text-emerald-700 dark:text-emerald-400">

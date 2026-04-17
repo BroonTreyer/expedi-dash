@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,25 +31,23 @@ function isDataPassada(dataRef: string, dataFiltrada?: string): boolean {
   return dataRef < dataFiltrada;
 }
 
-const DataPrevistaBadge = React.forwardRef<HTMLDivElement, { dataRef: string }>(
-  ({ dataRef, ...props }, ref) => (
-    <Badge ref={ref} variant="outline" className="text-[10px] h-5 border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400 gap-0.5" {...props}>
+function DataPrevistaBadge({ dataRef }: { dataRef: string }) {
+  return (
+    <Badge variant="outline" className="text-[10px] h-5 border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400 gap-0.5">
       <CalendarClock className="h-3 w-3" />
       Saída {format(parseISO(dataRef), "dd/MM")}
     </Badge>
-  )
-);
-DataPrevistaBadge.displayName = "DataPrevistaBadge";
+  );
+}
 
-const DataAtrasadaBadge = React.forwardRef<HTMLDivElement, { dataRef: string }>(
-  ({ dataRef, ...props }, ref) => (
-    <Badge ref={ref} variant="outline" className="text-[10px] h-5 border-destructive bg-destructive/10 text-destructive gap-0.5" {...props}>
+function DataAtrasadaBadge({ dataRef }: { dataRef: string }) {
+  return (
+    <Badge variant="outline" className="text-[10px] h-5 border-destructive bg-destructive/10 text-destructive gap-0.5">
       <CalendarClock className="h-3 w-3" />
       Atrasado {format(parseISO(dataRef), "dd/MM")}
     </Badge>
-  )
-);
-DataAtrasadaBadge.displayName = "DataAtrasadaBadge";
+  );
+}
 
 export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, onDeleteSelected, isDeletingSelected, dataFiltrada, readOnly, search }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
