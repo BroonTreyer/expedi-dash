@@ -1,56 +1,83 @@
 
-User wants the sidebar to have a single "Portaria" parent menu item that expands to reveal:
-- Carga Própria
-- Terceirizados
-- Cadastros (which itself groups Motoristas + Caminhões + Tipos de Caminhão)
+User wants:
+1. Sub-grupo "Cadastros" no menu já agrupa as 3 páginas (já está feito) — mas agora ele quer **unificar tudo numa única página de Cadastros** com:
+   - Um campo de busca global (pesquisa motorista OU caminhão OU tipo)
+   - Um único formulário/card que coleta dados de Motorista + Caminhão + Tipo, mas grava nas 3 tabelas separadas no backend.
 
-Currently these are flat items. I'll use a collapsible group pattern in `AppSidebar.tsx`.
+Vou propor uma página nova `/cadastros` que substitui a navegação para 3 páginas separadas.
 
 ## Plano
 
-### Reorganização do menu lateral
+### 1. Nova página `src/pages/Cadastros.tsx`
 
-Agrupar itens relacionados à Portaria em um único item expansível chamado **"Portaria"**, que ao ser clicado abre os subitens.
+Página única com:
 
-**Nova estrutura proposta:**
+**(a) Barra de busca no topo**
+- Input "Buscar por nome, CPF, placa ou tipo..."
+- Debounce 300ms
+- Resultados em 3 listas colapsáveis:
+  - Motoristas encontrados (nome, CPF, telefone)
+  - Caminhões encontrados (placa, tipo, motorista vinculado)
+  - Tipos de caminhão encontrados (nome)
+- Ao clicar num resultado → abre o card preenchido em modo edição
+- Mensagem clara "Já cadastrado" / "Nenhum cadastro encontrado — preencha abaixo para criar"
+
+**(b) Card único "Novo Cadastro" com 3 seções visuais separadas**
 
 ```text
-Painel
-Consolidado
-Rupturas
-Analytics
-Relatórios
-Produtos
-Vendedores
-Clientes
-▾ Portaria                    ← NOVO (expansível)
-   • Carga Própria
-   • Terceirizados
-   • Cadastros              ← sub-grupo
-      ◦ Motoristas
-      ◦ Caminhões
-      ◦ Tipos de Caminhão
-Usuários
-Backups
+┌─ Cadastro Unificado ────────────────┐
+│                                     │
+│ ▸ Motorista                         │
+│   Nome*, CPF, Telefone, Foto Doc    │
+│                                     │
+│ ▸ Caminhão                          │
+│   Placa*, RENAVAM, Transportadora,  │
+│   Tipo (select dos tipos existentes │
+│         + opção "+ Criar novo tipo")│
+│                                     │
+│ ▸ Tipo de Caminhão (opcional)       │
+│   Nome do tipo (só preenche se      │
+│   estiver criando um tipo novo)     │
+│                                     │
+│         [ Cancelar ] [ Salvar ]     │
+└─────────────────────────────────────┘
 ```
 
-### Implementação (1 arquivo)
+**Comportamento ao salvar:**
+1. Se "Tipo de caminhão" preenchido e não existir → INSERT em `tipos_caminhao` primeiro
+2. Se "Motorista" preenchido → INSERT/UPDATE em `motoristas` (incluindo upload da foto se houver)
+3. Se "Caminhão" preenchido → INSERT/UPDATE em `caminhoes`, vinculando ao `motorista_id` recém-criado
+4. Cada seção é independente: usuário pode salvar só motorista, só caminhão, ou os 3 juntos
+5. Validação: pelo menos uma seção precisa ter os campos obrigatórios preenchidos
 
-**`src/components/AppSidebar.tsx`**
-- Substituir a lista plana `allNavItems` por uma estrutura hierárquica suportando `children`.
-- Usar `Collapsible` (já existe em `src/components/ui/collapsible.tsx`) para o grupo "Portaria" e o sub-grupo "Cadastros".
-- Adicionar ícone `ChevronDown` que rotaciona quando aberto.
-- Auto-expandir o grupo se a rota ativa pertencer a ele (usando `location.pathname`).
-- No modo colapsado (sidebar w-14): mostrar apenas o ícone "Portaria" e abrir os subitens via Tooltip+Popover (ou simplesmente manter expansível clicável).
-- Manter filtro por `role` por item e por grupo (grupo só aparece se tiver pelo menos 1 filho permitido).
-- Indentação visual dos subitens (`pl-9` para nível 2, `pl-12` para nível 3).
+### 2. Roteamento (`src/App.tsx`)
+- Adicionar rota `/cadastros` apontando para `Cadastros.tsx` (lazy + ProtectedRoute com roles `admin, logistica, portaria`)
+- Manter `/motoristas`, `/caminhoes`, `/tipos-caminhao` funcionando (não remover — apenas escondê-los do menu)
 
-### Comportamento
-- Estado de expansão controlado por `useState`, inicializado como aberto se a rota atual estiver dentro do grupo.
-- Sem mudanças em rotas, permissões ou páginas — apenas reorganização visual no sidebar.
+### 3. Sidebar (`src/components/AppSidebar.tsx`)
+- Substituir o sub-grupo "Cadastros" (que tinha 3 filhos) por **um único item folha** chamado "Cadastros" → `/cadastros`
+- Estrutura final:
+  ```text
+  Portaria
+    • Carga Própria
+    • Terceirizados
+    • Cadastros            ← agora é um link direto
+  ```
+
+### 4. Reuso de hooks existentes
+- `useMotoristas` (busca/create/update) — já tem busca por nome+CPF
+- `useCaminhoes` (busca/create/update) — já tem busca por placa
+- `useTiposCaminhao` (list/create) — já existe
+- Sem migrations necessárias.
 
 ### Detalhes técnicos
-- Roles preservadas exatamente como hoje:
-  - Carga Própria / Terceirizados / Motoristas: `admin, logistica, portaria`
-  - Caminhões / Tipos de Caminhão: `admin, logistica`
-- Nenhuma alteração em `App.tsx`, rotas, ou banco.
+- Estado local do form gerencia 3 sub-objetos: `{ motorista, caminhao, novoTipo }`
+- Busca dispara 3 queries paralelas filtradas pelo termo
+- Após salvar com sucesso: limpa o form, mostra toast resumindo o que foi criado/atualizado, invalida queries
+- Mantém upload de foto do motorista (storage `portaria/motoristas/{id}/`)
+- Sem alterações em RLS / tabelas / edge functions
+
+### Arquivos alterados
+- ➕ `src/pages/Cadastros.tsx` (novo)
+- ✏️ `src/App.tsx` (nova rota lazy)
+- ✏️ `src/components/AppSidebar.tsx` (Cadastros vira folha em vez de grupo)
