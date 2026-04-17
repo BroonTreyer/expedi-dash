@@ -188,28 +188,51 @@ export default function Clientes() {
 
   const handleEnrichViaCep = async () => {
     setEnriching(true);
-    const tId = toast.loading("Atualizando clientes via ViaCEP...");
+    const tId = toast.loading("Atualizando clientes via ViaCEP (3 lotes paralelos)...");
     try {
-      let cursor: string | null = null;
-      let totalUpdated = 0;
-      let totalResolved = 0;
-      let totalProcessed = 0;
-      for (let pass = 0; pass < 500; pass++) {
-        const { data, error }: any = await supabase.functions.invoke("enrich-clientes-viacep", { body: { cursor } });
-        if (error) throw error;
-        totalUpdated += data?.updated ?? 0;
-        totalResolved += data?.viacep_resolved ?? 0;
-        totalProcessed += data?.processed ?? 0;
-        toast.loading(`ViaCEP: ${totalProcessed} processados, ${totalUpdated} atualizados...`, { id: tId });
-        if (data?.done || !data?.next_cursor) break;
-        cursor = data.next_cursor;
-      }
+      const ranges = [
+        { cep_min: "00000000", cep_max: "30000000" },
+        { cep_min: "30000000", cep_max: "60000000" },
+        { cep_min: "60000000", cep_max: "99999999" },
+      ];
+
+      const totals = { updated: 0, resolved: 0, processed: 0, cacheHits: 0, batchesDone: 0 };
+      const updateToast = () => {
+        toast.loading(
+          `ViaCEP: ${totals.batchesDone}/3 lotes • ${totals.processed} processados • ${totals.updated} atualizados (${totals.cacheHits} via cache)`,
+          { id: tId }
+        );
+      };
+
+      const runRange = async (range: { cep_min: string; cep_max: string }) => {
+        let cursor: string | null = null;
+        let firstPass = true;
+        for (let pass = 0; pass < 200; pass++) {
+          const body: any = firstPass
+            ? { cep_min: range.cep_min, cep_max: range.cep_max }
+            : { cursor, cep_max: range.cep_max };
+          firstPass = false;
+          const { data, error }: any = await supabase.functions.invoke("enrich-clientes-viacep", { body });
+          if (error) throw error;
+          totals.updated += data?.updated ?? 0;
+          totals.resolved += data?.viacep_resolved ?? 0;
+          totals.processed += data?.processed ?? 0;
+          totals.cacheHits += data?.cache_hits ?? 0;
+          updateToast();
+          if (data?.done || !data?.next_cursor) break;
+          cursor = data.next_cursor;
+        }
+        totals.batchesDone += 1;
+        updateToast();
+      };
+
+      await Promise.all(ranges.map(runRange));
 
       const { data: syncData } = await supabase.rpc("sync_clients_to_orders");
       const ordUpdated = (syncData as any)?.updated ?? 0;
 
       toast.success(
-        `ViaCEP: ${totalUpdated} clientes atualizados (${totalResolved} CEPs resolvidos). ${ordUpdated} pedidos sincronizados.`,
+        `ViaCEP concluído: ${totals.updated} clientes atualizados (${totals.resolved} resolvidos, ${totals.cacheHits} via cache). ${ordUpdated} pedidos sincronizados.`,
         { id: tId }
       );
       qc.invalidateQueries({ queryKey: ["clientes"] });
