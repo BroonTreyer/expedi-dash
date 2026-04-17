@@ -4,16 +4,33 @@ import { toast } from "sonner";
 
 export function PwaUpdatePrompt() {
   const {
-    needRefresh: [needRefresh],
-    updateServiceWorker,
+    needRefresh: [needRefresh, setNeedRefresh],
   } = useRegisterSW({
-    onRegisteredSW(swUrl, registration) {
-      if (registration) {
-        // Check for updates every 30 minutes
-        setInterval(() => {
-          registration.update();
-        }, 30 * 60 * 1000);
-      }
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+
+      // Periodic check every 5 minutes
+      const interval = setInterval(() => {
+        registration.update().catch(() => {});
+      }, 5 * 60 * 1000);
+
+      const checkForUpdate = () => {
+        registration.update().catch(() => {});
+      };
+
+      const onVisibility = () => {
+        if (document.visibilityState === "visible") checkForUpdate();
+      };
+
+      document.addEventListener("visibilitychange", onVisibility);
+      window.addEventListener("focus", checkForUpdate);
+
+      // Cleanup not strictly needed (component lives for app lifetime), but safe
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener("visibilitychange", onVisibility);
+        window.removeEventListener("focus", checkForUpdate);
+      };
     },
     onRegisterError(error) {
       console.error("SW registration error:", error);
@@ -23,19 +40,13 @@ export function PwaUpdatePrompt() {
   useEffect(() => {
     if (!needRefresh) return;
 
-    toast("Nova versão disponível", {
-      description: "Atualize para receber as últimas melhorias.",
-      duration: Infinity,
-      action: {
-        label: "Atualizar",
-        onClick: () => updateServiceWorker(true),
-      },
-      cancel: {
-        label: "Depois",
-        onClick: () => {},
-      },
+    // autoUpdate already activated the new SW; show a brief informative toast.
+    toast.success("Aplicativo atualizado", {
+      description: "Nova versão carregada automaticamente.",
+      duration: 4000,
     });
-  }, [needRefresh, updateServiceWorker]);
+    setNeedRefresh(false);
+  }, [needRefresh, setNeedRefresh]);
 
   return null;
 }
