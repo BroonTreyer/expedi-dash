@@ -212,6 +212,27 @@ export type Database = {
           },
         ]
       }
+      cep_cache: {
+        Row: {
+          cep: string
+          cidade: string
+          uf: string
+          updated_at: string
+        }
+        Insert: {
+          cep: string
+          cidade: string
+          uf: string
+          updated_at?: string
+        }
+        Update: {
+          cep?: string
+          cidade?: string
+          uf?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           ativo: boolean
