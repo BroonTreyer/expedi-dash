@@ -1,30 +1,36 @@
 
-User quer que o botão "Chegada sem previsão" saia de dentro das telas de Portaria (Carga Própria / Terceirizado) e vire um item de **menu lateral**, acessível diretamente.
+User quer simplificar drasticamente o `RegistroChegadaWalkInDialog`: remover campos de criação/cadastro (transportadora, tipo veículo, destino, observações livres) e deixar só **2 campos de busca** vinculando registros já existentes:
+
+1. **Buscar motorista** (autocomplete em `motoristas`)
+2. **Buscar veículo/placa** (autocomplete em `caminhoes` — já existe `CaminhaoAutocomplete.tsx`)
+
+Sem digitação livre de placa, sem criação de novo cadastro. Se o motorista/veículo não existir, ele deve ser cadastrado antes em Cadastros (fluxo separado).
 
 ## Plano
 
-### 1. Nova rota dedicada
-Criar `src/pages/ChegadaSemPrevisao.tsx`:
-- Página simples com header "Chegada sem previsão" + descrição.
-- Dois botões grandes (cards): **"Frota Própria"** e **"Terceirizado"** → cada um abre o `RegistroChegadaWalkInDialog` já existente passando o `grupo` correspondente.
-- Abaixo, embute o `SolicitacoesPendentesPanel` para o porteiro acompanhar o status das solicitações que acabou de enviar e logística aprovar/recusar no mesmo lugar.
+### `src/components/portaria/RegistroChegadaWalkInDialog.tsx` — refatoração
+Substituir o conteúdo do form por apenas dois autocompletes:
 
-### 2. Menu lateral (`src/components/AppSidebar.tsx`)
-Dentro do grupo **Portaria**, adicionar novo leaf:
-- `{ to: "/portaria/chegada-sem-previsao", label: "Chegada sem previsão", icon: AlertCircle, roles: ["admin","logistica","portaria"] }`
-- Posicionar logo após "Terceirizados".
+- **Buscar motorista**: usa `MotoristaAutocomplete` existente. Ao selecionar, captura `nome_completo`, `transportadora` e `tipo_caminhao` do motorista (autofill silencioso para enviar ao backend).
+- **Buscar veículo (placa)**: usa `CaminhaoAutocomplete` existente. Ao selecionar, captura `placa`, `tipo_caminhao`, `transportadora` e — se o caminhão tiver motorista vinculado e o campo motorista estiver vazio — preenche também o motorista.
 
-### 3. Rota (`src/App.tsx`)
-- Adicionar lazy import e `<Route path="/portaria/chegada-sem-previsao">` protegido para `admin/logistica/portaria`.
+Remover do dialog: `PlacaInput`, `transportadora` (input), `tipoVeiculo` (select), `destino` (input), `observacoes` (textarea) e o select de `useTiposCaminhao`.
 
-### 4. Remover botão das páginas atuais
-Em `src/pages/Portaria.tsx` (usado por Carga Própria e Terceirizado): remover o botão "Chegada sem previsão" e o estado/dialog associado. O `SolicitacoesPendentesPanel` no topo pode permanecer (continua útil para a logística ver solicitações pendentes do dia), OU mover só para a nova página — vou **manter** no topo da Portaria também, pois a logística precisa ver mesmo sem entrar na nova tela. Apenas o **botão de criação** sai.
+Validação do submit: exigir **placa selecionada** + **motorista selecionado** (ambos vindos de busca, não digitados).
 
-### Arquivos
-- 🆕 `src/pages/ChegadaSemPrevisao.tsx`
-- ✏️ `src/components/AppSidebar.tsx` (item de menu)
-- ✏️ `src/App.tsx` (rota)
-- ✏️ `src/pages/Portaria.tsx` (remover botão)
+Submit envia para `useRegistrarChegadaWalkIn` apenas:
+- `placa` (do veículo selecionado)
+- `motorista` (nome do motorista selecionado)
+- `transportadora` (autofill: prioriza a do veículo, depois a do motorista)
+- `tipo_veiculo` (autofill: prioriza a do veículo, depois a do motorista)
+- `grupo` (`WALK-IN-PROPRIA` ou `WALK-IN-TERCEIRIZADO` conforme escolha do card)
+
+Manter o aviso "Aguardando autorização da Logística".
+
+Adicionar um link/texto auxiliar no rodapé do dialog: *"Motorista ou veículo não encontrado? Cadastre em Cadastros → Motoristas/Caminhões."* (apenas texto, sem navegação automática).
 
 ### Sem mudanças em
-- Banco, hooks, RLS, dialog walk-in, painel de pendentes.
+- Banco, RLS, hook `useVeiculosEsperados.ts` (a mutation já aceita esses campos como opcionais), página `ChegadaSemPrevisao.tsx`, `SolicitacoesPendentesPanel`, fluxo de aprovação.
+
+### Resultado
+Ao clicar em "Frota Própria" ou "Terceirizado", o dialog abre com apenas dois campos de busca claros e diretos — vincula motorista + veículo já cadastrados e envia a solicitação à Logística.
