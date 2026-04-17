@@ -180,6 +180,7 @@ export function useRegistrarChegadaPortaria() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
