@@ -204,7 +204,10 @@ export default function Clientes() {
                   </div>
                   <p className="font-medium text-sm truncate">{c.nome_cliente}</p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{[c.cidade, c.uf].filter(Boolean).join(" - ") || "—"}</span>
+                    <div className="flex flex-col">
+                      <span>{[c.cidade, c.uf].filter(Boolean).join(" - ") || "—"}</span>
+                      {c.cep && <span className="font-mono text-[11px]">{maskCep(c.cep)}</span>}
+                    </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(c)}><Edit className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -222,14 +225,15 @@ export default function Clientes() {
                 <SortableTableHead sort={sort} sortKey="nome_cliente" onSort={toggleSort}>Nome</SortableTableHead>
                 <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
                 <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
+                <SortableTableHead sort={sort} sortKey="cep" onSort={toggleSort}>CEP</SortableTableHead>
                 <SortableTableHead sort={sort} sortKey="ativo" onSort={toggleSort}>Status</SortableTableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
                 ) : paginated.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     <div className="flex flex-col items-center gap-2">
                       <Building2 className="h-8 w-8 text-muted-foreground/40" />
                       <span>Nenhum cliente encontrado</span>
@@ -241,6 +245,7 @@ export default function Clientes() {
                     <TableCell className="text-sm">{c.nome_cliente}</TableCell>
                     <TableCell className="text-sm">{c.cidade || "—"}</TableCell>
                     <TableCell className="text-sm">{c.uf || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{c.cep ? maskCep(c.cep) : "—"}</TableCell>
                     <TableCell><Badge variant={c.ativo ? "default" : "secondary"}>{c.ativo ? "Ativo" : "Inativo"}</Badge></TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -289,6 +294,7 @@ export default function Clientes() {
                 <div><Label className="text-xs">Cidade</Label><Input value={form.cidade} onChange={(e) => setForm(f => ({ ...f, cidade: e.target.value }))} /></div>
                 <div><Label className="text-xs">UF</Label><Input value={form.uf} onChange={(e) => setForm(f => ({ ...f, uf: e.target.value.toUpperCase() }))} maxLength={2} placeholder="Ex: SP" /></div>
               </div>
+              <div><Label className="text-xs">CEP</Label><Input value={form.cep} onChange={(e) => setForm(f => ({ ...f, cep: maskCep(e.target.value) }))} onBlur={handleCepBlur} maxLength={9} placeholder="00000-000" inputMode="numeric" /></div>
               <div className="flex items-center gap-2"><Switch checked={form.ativo} onCheckedChange={(v) => setForm(f => ({ ...f, ativo: v }))} /><Label className="text-xs">Ativo</Label></div>
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Salvando..." : editing ? "Salvar" : "Criar"}</Button></div>
             </div>
