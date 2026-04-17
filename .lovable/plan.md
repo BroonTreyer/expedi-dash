@@ -1,33 +1,34 @@
 
 ## Diagnóstico
 
-Print mostra pedidos onde a coluna "Cidade" está com valores tipo "MIX MATEUS" (nome fantasia) ao invés do nome real da cidade. Isso indica que esses pedidos foram criados/importados com cidade incorreta e **não foram atualizados** quando o cadastro de cliente foi corrigido.
-
-Investigando o código:
-
-1. **`useUpdateCliente`** (linha ~73 de `useClientes.ts`) propaga `cliente`, `cidade` e `uf` para `carregamentos_dia` via `WHERE codigo_cliente = X`. ✅ Funciona se o cliente for editado manualmente.
-
-2. **Importação em massa** (`handleImport` em `Clientes.tsx`) usa `supabase.from("clientes").upsert(...)` direto — **NÃO chama `useUpdateCliente`**, então a propagação para `carregamentos_dia` **NÃO acontece** no upsert da planilha.
-
-3. Existe a função `sync_clients_to_orders()` no banco que faz exatamente essa sincronização global, mas ela **não é chamada em lugar nenhum** após a importação.
-
-**Causa raiz:** quando você importa a base nova de clientes (com cidades corretas), os pedidos antigos em `carregamentos_dia` continuam com a cidade errada (nome fantasia) porque o `upsert` da planilha não dispara a propagação.
+Hoje o sync usa apenas `clientes.cidade` para preencher `carregamentos_dia.cidade`. Se o cadastro do cliente tem `cidade` errado/vazio mas tem CEP, a sincronização ainda propaga o valor errado (ou vazio). A solução: usar **ViaCEP** para enriquecer `clientes.cidade`/`uf` a partir do CEP, e depois rodar o sync já existente.
 
 ## Plano
 
-### 1. Chamar `sync_clients_to_orders` após importação
-Em `Clientes.tsx`, ao final de `handleImport` (após o loop de upsert bem-sucedido), chamar `supabase.rpc("sync_clients_to_orders")`. Isso atualiza todos os pedidos cujo `codigo_cliente` bate com algum cliente cadastrado, sincronizando `cliente`, `cidade` e `uf`.
+### 1. Edge function `enrich-clientes-viacep`
+Nova function que:
+- Lê todos os `clientes` com `cep` válido (8 dígitos)
+- Agrupa por CEP único (deduplica para minimizar chamadas)
+- Para cada CEP, chama `https://viacep.com.br/ws/{cep}/json/` (público, sem key)
+- Processa em lotes paralelos (ex: 20 simultâneos) com pequeno delay para não estourar rate-limit
+- Atualiza `clientes.cidade` (= `localidade` do ViaCEP) e `clientes.uf` quando o CEP é válido
+- Retorna `{ processed, updated, errors }`
 
-### 2. Mostrar resultado no toast
-A função retorna `{ updated: N }`. Exibir: `"X clientes importados. Y pedidos sincronizados."`
+Usa `SUPABASE_SERVICE_ROLE_KEY` para bypass de RLS, valida JWT do chamador via `auth.getUser()` (padrão das outras functions).
 
-### 3. Botão manual de "Sincronizar pedidos"
-Adicionar um botão discreto no header da página `Clientes.tsx` (ao lado de "Importar") que chama `sync_clients_to_orders` sob demanda. Útil para corrigir pedidos antigos sem precisar reimportar a planilha.
+### 2. Botão "Atualizar via CEP" em `Clientes.tsx`
+Novo botão no header (ao lado de "Sincronizar pedidos") que:
+1. Chama `supabase.functions.invoke("enrich-clientes-viacep")`
+2. Em seguida chama `rpc("sync_clients_to_orders")` para propagar para os pedidos
+3. Mostra toast: "X clientes atualizados via ViaCEP. Y pedidos sincronizados."
+4. Invalida queries de `clientes` e `carregamentos`
+
+### 3. Auto-disparar no importador
+Em `handleImport`, após o upsert e antes do `sync_clients_to_orders`, chamar a function de enriquecimento. Assim toda nova base importada é normalizada automaticamente.
 
 ### Sem mudanças
-- Schema, RLS, função `sync_clients_to_orders` (já existe e funciona)
-- Hooks `useCreateCliente`/`useUpdateCliente` (já propagam corretamente em edições individuais)
-- Importador (apenas adicionar a chamada RPC no fim)
+- Schema, RLS, função `sync_clients_to_orders`, hooks de cliente
 
 ## Arquivos
-- ✏️ `src/pages/Clientes.tsx` — chamar `rpc("sync_clients_to_orders")` ao fim de `handleImport` + novo botão "Sincronizar pedidos"
+- 🆕 `supabase/functions/enrich-clientes-viacep/index.ts` — fetch ViaCEP + update em lote
+- ✏️ `src/pages/Clientes.tsx` — novo botão + chamar enrich antes do sync no import
