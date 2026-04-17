@@ -342,7 +342,8 @@ export default function Cadastros() {
                 </div>
                 <div>
                   <Label>Foto do motorista (rosto)</Label>
-                  <Input type="file" accept="image/*" capture="user" onChange={(e) => setMot({ ...mot, fotoMotoristaFile: e.target.files?.[0] })} />
+                  <Input type="file" accept="image/*" capture="environment" onChange={(e) => setMot({ ...mot, fotoMotoristaFile: e.target.files?.[0] })} />
+                  <p className="text-[11px] text-muted-foreground mt-1">Somente câmera traseira</p>
                   {mot.foto_motorista_url && !mot.fotoMotoristaFile && (
                     <a href={mot.foto_motorista_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
                       <img src={mot.foto_motorista_url} alt="Motorista" className="h-16 w-16 rounded-md object-cover border" />
@@ -351,7 +352,8 @@ export default function Cadastros() {
                 </div>
                 <div>
                   <Label>Foto do documento</Label>
-                  <Input type="file" accept="image/*,application/pdf" onChange={(e) => setMot({ ...mot, fotoFile: e.target.files?.[0] })} />
+                  <Input type="file" accept="image/*" capture="environment" onChange={(e) => setMot({ ...mot, fotoFile: e.target.files?.[0] })} />
+                  <p className="text-[11px] text-muted-foreground mt-1">Somente câmera traseira</p>
                   {mot.foto_documento_url && !mot.fotoFile && (
                     <a href={mot.foto_documento_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-primary underline">
                       Ver documento atual
