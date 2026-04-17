@@ -106,7 +106,7 @@ export function useRegistrarChegadaPortaria() {
       };
       if (categoria === "terceirizado") {
         movPayload.empresa = v.transportadora;
-        movPayload.etapa_terceirizado = "aguardando";
+        movPayload.etapa_terceirizado = "no_patio";
       } else {
         movPayload.etapa_carga_propria = "chegou";
       }
