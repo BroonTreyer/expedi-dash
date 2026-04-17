@@ -103,10 +103,9 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeP
 
   if (!isGroup(node)) {
     const [pathPart, searchPart] = node.to.split("?");
-    const currentMatch = searchPart
-      ? pathname + (typeof window !== "undefined" ? window.location.search : "") === node.to
-      : pathname === pathPart;
-    const active = currentMatch;
+    const active = searchPart
+      ? pathname === pathPart && search === `?${searchPart}`
+      : pathname === pathPart && !search.includes("focus=");
     const link = (
       <RefLink
         to={{ pathname: pathPart, search: searchPart ? `?${searchPart}` : "" }}
