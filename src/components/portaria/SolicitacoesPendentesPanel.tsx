@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Check, X, Clock } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { LogIn, X, Clock, Link2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import { useSolicitacoesPendentes, useAutorizarChegada } from "@/hooks/useVeicul
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { Link } from "react-router-dom";
 
 export function SolicitacoesPendentesPanel() {
   const { role } = useAuth();
@@ -49,12 +50,12 @@ export function SolicitacoesPendentesPanel() {
 
   return (
     <>
-      <Card className="border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20">
+      <Card className="border-primary/30 bg-primary/5">
         <CardHeader className="py-3 px-4">
           <CardTitle className="text-sm flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 animate-pulse" />
-            Aguardando autorização da Logística
-            <Badge variant="outline" className="text-[10px] h-5 border-amber-400 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
+            <LogIn className="h-4 w-4 text-primary" />
+            Veículos no pátio aguardando vínculo
+            <Badge variant="outline" className="text-[10px] h-5 border-primary/40 bg-primary/10 text-primary">
               {pendentes.length}
             </Badge>
           </CardTitle>
@@ -68,8 +69,8 @@ export function SolicitacoesPendentesPanel() {
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono font-bold text-sm">{v.placa}</span>
-                  <Badge variant="outline" className="text-[10px] h-5 bg-amber-100 dark:bg-amber-900 border-amber-400 text-amber-800 dark:text-amber-200">
-                    WALK-IN
+                  <Badge variant="outline" className="text-[10px] h-5 bg-primary/10 border-primary/40 text-primary">
+                    NO PÁTIO
                   </Badge>
                   <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
                     <Clock className="h-3 w-3" />
@@ -96,12 +97,13 @@ export function SolicitacoesPendentesPanel() {
               {canDecide ? (
                 <div className="flex gap-2 shrink-0">
                   <Button
+                    asChild
                     size="sm"
-                    className="h-8 text-xs gap-1 bg-green-600 hover:bg-green-700"
-                    onClick={() => autorizar.mutate({ id: v.id, autorizar: true })}
-                    disabled={autorizar.isPending}
+                    className="h-8 text-xs gap-1"
                   >
-                    <Check className="h-3.5 w-3.5" /> Liberar
+                    <Link to="/">
+                      <Link2 className="h-3.5 w-3.5" /> Vincular a carga
+                    </Link>
                   </Button>
                   <Button
                     size="sm"
