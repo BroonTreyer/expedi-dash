@@ -19,9 +19,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
 
-export function SolicitacoesPendentesPanel() {
+interface Props {
+  categoria: "carga_propria" | "terceirizado";
+}
+
+export function SolicitacoesPendentesPanel({ categoria }: Props) {
   const { role } = useAuth();
-  const { data: ativos = [], isLoading } = useVeiculosWalkInAtivos();
+  const { data: ativosRaw = [], isLoading } = useVeiculosWalkInAtivos();
   const autorizar = useAutorizarChegada();
   const registrarChegada = useRegistrarChegadaPortaria();
   const qc = useQueryClient();
@@ -46,6 +50,12 @@ export function SolicitacoesPendentesPanel() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
+
+  const ativos = ativosRaw.filter((v: any) => {
+    const grupo = (v.grupo || "").toUpperCase();
+    const isPropria = grupo.includes("PROPRIA") || grupo.includes("PRÓPRIA");
+    return categoria === "carga_propria" ? isPropria : !isPropria;
+  });
 
   if (isLoading || ativos.length === 0) return null;
 
