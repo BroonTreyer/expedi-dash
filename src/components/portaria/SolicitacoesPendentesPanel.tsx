@@ -20,10 +20,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
 
 interface Props {
-  categoria: "carga_propria" | "terceirizado";
+  categoria?: "carga_propria" | "terceirizado";
 }
 
-export function SolicitacoesPendentesPanel({ categoria }: Props) {
+export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
   const { role } = useAuth();
   const { data: ativosRaw = [], isLoading } = useVeiculosWalkInAtivos();
   const autorizar = useAutorizarChegada();
