@@ -22,7 +22,7 @@ import { ImportarPlanilhaDialog, type ParsedRow } from "@/components/portaria/Im
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
 import { VeiculosEsperadosPanel } from "@/components/portaria/VeiculosEsperadosPanel";
 import { SolicitacoesPendentesPanel } from "@/components/portaria/SolicitacoesPendentesPanel";
-import { RegistroChegadaWalkInDialog } from "@/components/portaria/RegistroChegadaWalkInDialog";
+
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
@@ -78,7 +78,6 @@ export default function Portaria({ categoria }: PortariaProps) {
   const deleteVeiculosMutation = useDeleteVeiculosEsperados();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [walkInOpen, setWalkInOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<MovimentacaoPortaria | null>(null);
   const [prefillEtapa, setPrefillEtapa] = useState<"retorno" | "lacre" | "saida_rota" | null>(null);
@@ -304,9 +303,6 @@ export default function Portaria({ categoria }: PortariaProps) {
             <Button size="sm" className="gap-1.5 text-xs sm:text-sm" onClick={() => openRegistro()}>
               <Plus className="h-3.5 w-3.5" /> Registrar
             </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950" onClick={() => setWalkInOpen(true)}>
-              <Plus className="h-3.5 w-3.5" /> Chegada sem previsão
-            </Button>
             {!isPortaria && (
               <>
                 <Button size="sm" variant="outline" className="gap-1.5 text-xs sm:text-sm" onClick={exportCSV}>
@@ -454,11 +450,6 @@ export default function Portaria({ categoria }: PortariaProps) {
         <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />
       )}
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
-      <RegistroChegadaWalkInDialog
-        open={walkInOpen}
-        onOpenChange={setWalkInOpen}
-        grupo={meta.grupoEsperado as "PRÓPRIA" | "TERCEIRIZADO"}
-      />
     </Layout>
   );
 }
