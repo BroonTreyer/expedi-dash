@@ -10,14 +10,14 @@ export default function RegistroEntrada() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto w-full">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
+          <div className="p-2 rounded-lg bg-primary/10 shrink-0">
             <LogIn className="h-6 w-6 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight">Registro de Entrada</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground max-w-2xl">
               Registre a entrada de veículos no pátio. A Logística poderá vincular esses veículos no fechamento de carga.
             </p>
           </div>
