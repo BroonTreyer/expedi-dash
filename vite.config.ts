@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      injectRegister: false,
-      registerType: "prompt",
+      injectRegister: "auto",
+      registerType: "autoUpdate",
       devOptions: { enabled: false },
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
       manifest: {
@@ -58,8 +58,8 @@ export default defineConfig(({ mode }) => ({
         navigateFallback: "index.html",
         navigateFallbackDenylist: [/^\/~oauth/],
         cleanupOutdatedCaches: true,
-        skipWaiting: false,
-        clientsClaim: false,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
