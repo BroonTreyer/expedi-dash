@@ -1,33 +1,33 @@
 
 ## Diagnóstico
 
-User quer ver, ao lado do item "Registro de Entrada" no menu lateral, um **contador de veículos** (badge numérico) para visibilidade rápida do backlog sem precisar abrir a página.
+A saída de terceirizado não mostra os campos de **Foto do Lacre** e **Número do Lacre** porque:
 
-A pergunta é qual contador faz mais sentido. Olhando o fluxo atual:
-- `SolicitacoesPendentesPanel` mostra dois grupos: **Aguardando vínculo da Logística** e **Liberados aguardando porteiro liberar entrada**.
-- O hook `useVeiculosWalkInAtivos` já retorna ambos os conjuntos.
-
-O contador mais útil para a Portaria é a soma dos dois (total pendente de ação na tela de Registro de Entrada) — preferencialmente com destaque visual quando há "Liberados" (ação imediata do porteiro).
+- Em `portaria-fields-config.ts` L192-197, a função `getMatrix("saida")` retorna a matriz `VISIBILITY` (de entrada) e não `VISIBILITY_SAIDA`. Resultado: ao registrar a saída de terceirizado, o dialog renderiza os campos de **entrada** (Empresa, Foto Placa, Placa, Motorista, Tipo de Caminhão) — exatamente o que aparece no print do usuário.
+- A matriz `VISIBILITY_SAIDA` já está correta: `foto_lacre_url` e `numero_lacre` são **obrigatórios** para terceirizado (L172, L181). Está pronta, só não está sendo usada.
+- O OCR do lacre também já foi implementado (`handleFotoCapture` L185-197) — só falta os campos aparecerem.
 
 ## Plano
 
-### 1. Hook leve de contagem (`useVeiculosEsperados.ts`)
-Criar `useWalkInPendentesCount()` — query enxuta que retorna `{ aguardando, liberados, total }` com mesmo filtro do panel (status `aguardando_vinculo` + `autorizado` ainda sem movimentação). Cache curto (10s) + invalidação realtime já existente.
+### 1. Corrigir `getMatrix` em `portaria-fields-config.ts`
+Adicionar a regra: quando `tipoMovimento === "saida"`, retornar `VISIBILITY_SAIDA`. Isso ativa imediatamente os campos de Lacre na saída de terceirizado/fornecedor/carga_propria sem precisar mexer em mais nada.
 
-### 2. AppSidebar — badge ao lado do item
-- No `NavNodeRenderer` (modo expandido): renderizar um badge numérico à direita do label "Registro de Entrada" quando `total > 0`.
-  - Cor: amber se só "aguardando", verde-pulsante se há "liberados" (ação para o porteiro).
-- No modo colapsado: pequeno dot indicador no canto do ícone `LogIn` (verde se há liberados, amber caso contrário).
-- Tooltip estendido: "X aguardando vínculo · Y liberados".
+```ts
+if (tipoMovimento === "saida") return VISIBILITY_SAIDA;
+```
 
-### 3. Implementação mínima
-- Adicionar campo opcional `badge?: () => ReactNode` em `NavLeaf` para permitir render customizado sem acoplar lógica de Portaria ao sidebar genérico.
-- Passar componente `<RegistroEntradaBadge />` que consome o hook só onde aplicável.
+### 2. Verificar reflexo no fluxo
+- **Saída de terceirizado** (botão "Registrar Saída" no Pátio) → dialog passa `prefill` + `tipo="saida"` → agora vai pedir foto do lacre + nº lacre + foto da placa + observações + conferente. ✅
+- **Saída de fornecedor** → idem, mas com `foto_lacre_url`/`numero_lacre` obrigatórios. Se não fizer sentido para fornecedor (carga simples), podemos deixar opcional — confirmar com user.
+- **Carga própria etapa lacre** continua usando `tipo="lacre"` → `VISIBILITY_SAIDA` (mesma matriz). ✅ sem regressão.
+- **Saída p/ rota carga própria** usa `tipo="saida_rota"` → mantém `VISIBILITY` por design (precisa dos campos de saída inicial). ✅
 
-### Sem mudanças
-Schema, RLS, fluxo de Registro de Entrada, demais itens do menu.
+### 3. Sem outras mudanças
+- UI do dialog, OCR do lacre, persistência (`numero_lacre`, `foto_lacre_url` já são salvos em L309 e L313 do `RegistroMovimentoDialog.tsx`).
+- Schema, RLS, hooks.
 
 ## Arquivos
-- ✏️ `src/hooks/useVeiculosEsperados.ts` — novo `useWalkInPendentesCount`
-- ✨ `src/components/portaria/RegistroEntradaBadge.tsx` — badge consumindo o hook
-- ✏️ `src/components/AppSidebar.tsx` — suporte a `badge` em `NavLeaf` + render expandido/colapsado
+- ✏️ `src/lib/portaria-fields-config.ts` — uma linha em `getMatrix` (L192-197)
+
+## Pergunta
+Foto do lacre + nº lacre devem ser **obrigatórios** também na saída de **fornecedor**, ou apenas terceirizado? Hoje a matriz marca como obrigatório para os dois — confirma ou prefere relaxar para fornecedor?
