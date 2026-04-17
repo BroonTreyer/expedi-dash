@@ -90,14 +90,47 @@ export default function Clientes() {
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data);
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-      const records = rows.slice(1).filter(r => r[0] != null && String(r[0]).trim()).map(r => ({
-        codigo_cliente: String(r[0]).trim(),
-        nome_cliente: String(r[1] || "").trim(),
-        cidade: String(r[2] || "").trim() || null,
-        uf: String(r[3] || "").trim() || null,
-        ativo: true,
-      }));
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
+      if (rows.length < 2) { toast.error("Planilha vazia"); setImporting(false); return; }
+
+      // Detectar índices das colunas pelo cabeçalho (case/acento-insensitive)
+      const norm = (s: any) => String(s ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const header = (rows[0] || []).map(norm);
+      const findIdx = (...candidates: string[]) => {
+        for (const c of candidates) {
+          const idx = header.findIndex(h => h === c || h.includes(c));
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+      const idxCodigo = findIdx("codigo cliente", "codigo", "cod cliente", "cod");
+      const idxNome   = findIdx("nome cliente", "nome", "razao social", "cliente");
+      const idxCidade = findIdx("cidade", "municipio");
+      const idxUf     = findIdx("uf", "estado");
+      const idxCep    = findIdx("cep");
+
+      if (idxCodigo === -1 || idxNome === -1) {
+        toast.error("Cabeçalho deve conter ao menos as colunas 'Código' e 'Nome'");
+        setImporting(false);
+        return;
+      }
+
+      const records = rows.slice(1)
+        .filter(r => r[idxCodigo] != null && String(r[idxCodigo]).trim())
+        .map(r => {
+          const cep = idxCep !== -1 ? normalizeCep(r[idxCep]) : "";
+          let uf = idxUf !== -1 ? String(r[idxUf] || "").trim().toUpperCase().slice(0, 2) : "";
+          if (!uf && cep) uf = ufFromCep(cep);
+          return {
+            codigo_cliente: String(r[idxCodigo]).trim(),
+            nome_cliente: String(r[idxNome] || "").trim(),
+            cidade: idxCidade !== -1 ? (String(r[idxCidade] || "").trim() || null) : null,
+            uf: uf || null,
+            cep: cep || null,
+            ativo: true,
+          };
+        });
+
       let imported = 0;
       for (let i = 0; i < records.length; i += 200) {
         const batch = records.slice(i, i + 200);
