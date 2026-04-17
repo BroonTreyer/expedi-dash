@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck } from "lucide-react";
-import { useMovimentacoes, useCreateMovimentacao, CATEGORIAS, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { useMovimentacoes, useCreateMovimentacao, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados, useDeleteVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
@@ -26,21 +26,50 @@ import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
-export default function Portaria() {
+interface PortariaProps {
+  /** Restrict the page to a single categoria (creates a sub-page for that team) */
+  categoria: "carga_propria" | "terceirizado";
+}
+
+const CATEGORIA_META = {
+  carga_propria: {
+    label: "Carga Própria",
+    title: "Portaria — Carga Própria",
+    subtitle: "Controle de entrada e saída da frota própria",
+    grupoEsperado: "PRÓPRIA",
+  },
+  terceirizado: {
+    label: "Terceirizado",
+    title: "Portaria — Terceirizado",
+    subtitle: "Controle de entrada e saída de transportadoras terceirizadas",
+    grupoEsperado: "TERCEIRIZADO",
+  },
+} as const;
+
+export default function Portaria({ categoria }: PortariaProps) {
   const { role, user } = useAuth();
   const isPortaria = role === "portaria";
+  const meta = CATEGORIA_META[categoria];
 
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : format(today, "yyyy-MM-dd");
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [search, setSearch] = useState("");
-  const [categoriaFilter, setCategoriaFilter] = useState("all");
   const [tipoFilter, setTipoFilter] = useState("");
 
-  const { data: movimentacoes = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
+  const { data: movimentacoesAll = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
+  // Filter strictly by this sub-page's categoria
+  const movimentacoes = useMemo(
+    () => movimentacoesAll.filter((m) => m.categoria === categoria),
+    [movimentacoesAll, categoria]
+  );
   const createMov = useCreateMovimentacao();
-  const { data: veiculosEsperados = [] } = useVeiculosEsperados(dateFromStr);
+  const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateFromStr);
+  const veiculosEsperados = useMemo(
+    () => veiculosEsperadosAll.filter((v) => v.grupo === meta.grupoEsperado),
+    [veiculosEsperadosAll, meta.grupoEsperado]
+  );
   const importarMutation = useImportarVeiculosEsperados();
   const marcarConferidoMutation = useMarcarConferido();
   const limparMutation = useLimparVeiculosEsperados();
@@ -58,11 +87,10 @@ export default function Portaria() {
   const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
   const dateLabel = isToday ? "Hoje" : "no Período";
 
-  const hasActiveFilters = search || (categoriaFilter && categoriaFilter !== "all") || (tipoFilter && tipoFilter !== "all");
+  const hasActiveFilters = !!search || (!!tipoFilter && tipoFilter !== "all");
 
   const clearFilters = () => {
     setSearch("");
-    setCategoriaFilter("all");
     setTipoFilter("all");
   };
 
@@ -100,9 +128,7 @@ export default function Portaria() {
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
     }
 
-    const isCargaPropria = v.grupo === "PRÓPRIA";
-
-    if (isCargaPropria) {
+    if (categoria === "carga_propria") {
       // Direct INSERT — only records arrival time + spreadsheet data (no dialog)
       try {
         await createMov.mutateAsync({
@@ -128,7 +154,7 @@ export default function Portaria() {
       return;
     }
 
-    // Non-carga-própria: open dialog as before
+    // Terceirizado: open dialog as before
     setPrefill(null);
     setPrefillEtapa(null);
     setPrefillFromPlanilha({
@@ -179,7 +205,6 @@ export default function Portaria() {
     }
     const headers = ["Data/Hora", "Tipo", "Categoria", "Placa", "Motorista", "Empresa", "Setor", "Rota", "KM Inicial", "KM Final", "KM Rodado", "Observações"];
     const filtered = movimentacoes.filter((m) => {
-      if (categoriaFilter && categoriaFilter !== "all" && m.categoria !== categoriaFilter) return false;
       if (tipoFilter && tipoFilter !== "all" && m.tipo_movimento !== tipoFilter) return false;
       if (search) {
         const s = search.toLowerCase();
@@ -201,7 +226,7 @@ export default function Portaria() {
     const rows = filtered.map((m) => [
       format(new Date(m.data_hora), "dd/MM/yyyy HH:mm"),
       m.tipo_movimento === "entrada" ? "Entrada" : "Saída",
-      CATEGORIAS.find((c) => c.value === m.categoria)?.label || m.categoria,
+      meta.label,
       m.placa || "",
       m.motorista || m.nome_completo || "",
       m.empresa || "",
@@ -217,11 +242,11 @@ export default function Portaria() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `portaria_${dateFromStr}_${dateToStr}.csv`;
+    a.download = `portaria_${categoria}_${dateFromStr}_${dateToStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exportado com sucesso!");
-  }, [movimentacoes, dateFromStr, dateToStr, categoriaFilter, tipoFilter, search]);
+  }, [movimentacoes, dateFromStr, dateToStr, tipoFilter, search, categoria, meta.label]);
 
   return (
     <Layout>
@@ -232,10 +257,10 @@ export default function Portaria() {
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
                 <Truck className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
-                <span className="truncate">Controle de Portaria</span>
+                <span className="truncate">{meta.title}</span>
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                Registro universal de entrada e saída de veículos
+                {meta.subtitle}
               </p>
             </div>
           </div>
@@ -298,15 +323,6 @@ export default function Portaria() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar placa, motorista, empresa, nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
-          <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {CATEGORIAS.map((c) => (
-                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           {hasActiveFilters && (
             <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground h-9" onClick={clearFilters}>
               <X className="h-3.5 w-3.5" /> Limpar
@@ -346,7 +362,7 @@ export default function Portaria() {
                 <PatioAtualTab
                   movimentacoes={movimentacoes}
                   search={search}
-                  categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
+                  categoriaFilter={categoria}
                   onRegistrarSaida={(entrada, etapa) => openRegistro(entrada, etapa)}
                   isLoading={isLoading}
                     readOnly={false}
@@ -374,7 +390,7 @@ export default function Portaria() {
                 <HistoricoTab
                   movimentacoes={movimentacoes}
                   search={search}
-                  categoriaFilter={categoriaFilter === "all" ? "" : categoriaFilter}
+                  categoriaFilter={categoria}
                   tipoFilter={tipoFilter === "all" ? "" : tipoFilter}
                   onViewDetails={openDetails}
                   isLoading={isLoading}
@@ -423,6 +439,7 @@ export default function Portaria() {
         prefillEtapa={prefillEtapa}
         prefillFromPlanilha={prefillFromPlanilha}
         onCreated={handleMovimentacaoCreated}
+        forcedCategoria={categoria}
       />
       {!isPortaria && (
         <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />

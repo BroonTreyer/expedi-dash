@@ -37,16 +37,18 @@ interface Props {
   prefillEtapa?: "retorno" | "lacre" | "saida_rota" | null;
   prefillFromPlanilha?: Record<string, any> | null;
   onCreated?: (placa: string) => void;
+  /** When set, locks the categoria and skips the categoria-selection step */
+  forcedCategoria?: Categoria;
 }
 
-export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEtapa, prefillFromPlanilha, onCreated }: Props) {
+export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEtapa, prefillFromPlanilha, onCreated, forcedCategoria }: Props) {
   const { user } = useAuth();
   const createMov = useCreateMovimentacao();
   const updateMov = useUpdateMovimentacao();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const [step, setStep] = useState<"categoria" | "form">("categoria");
   const [tipo, setTipo] = useState<TipoMovimentoPortaria>("entrada");
-  const [categoria, setCategoria] = useState<Categoria>("carga_propria");
+  const [categoria, setCategoria] = useState<Categoria>(forcedCategoria ?? "carga_propria");
   const [values, setValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -119,9 +121,17 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
         qtd_entregas: prefillFromPlanilha.qtd_entregas ?? "",
       });
     } else {
-      setStep("categoria");
-      setTipo("entrada");
-      setCategoria("carga_propria");
+      // No prefill: if forcedCategoria is set, skip selector and go straight to form
+      if (forcedCategoria) {
+        setStep("form");
+        setCategoria(forcedCategoria);
+        // Carga própria não tem "entrada" — começa como saída p/ rota
+        setTipo(forcedCategoria === "carga_propria" ? "saida" : "entrada");
+      } else {
+        setStep("categoria");
+        setTipo("entrada");
+        setCategoria("carga_propria");
+      }
       setValues({});
     }
     setOcrLoading(false);
@@ -130,7 +140,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setOcrLacreLoading(false);
     setTextoLacreLido(null);
     setConfiancaLacre(null);
-  }, [open, prefill, prefillEtapa, prefillFromPlanilha]);
+  }, [open, prefill, prefillEtapa, prefillFromPlanilha, forcedCategoria]);
 
   const effectiveTipo = useMemo(() => {
     return tipo;
@@ -382,7 +392,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                {!prefill && (
+                {!prefill && !forcedCategoria && (
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setStep("categoria")}>
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
