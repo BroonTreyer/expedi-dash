@@ -34,7 +34,7 @@ export function useClientes() {
 export function useCreateCliente() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: { codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; ativo: boolean }) => {
+    mutationFn: async (values: { codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; cep?: string; ativo: boolean }) => {
       // Check for duplicate before inserting
       const { data: existing } = await supabase
         .from("clientes")
@@ -59,7 +59,7 @@ export function useCreateCliente() {
 export function useUpdateCliente() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...values }: { id: string; codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; ativo: boolean }) => {
+    mutationFn: async ({ id, ...values }: { id: string; codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; cep?: string; ativo: boolean }) => {
       const { data, error } = await supabase.from("clientes").update(values).eq("id", id).select().single();
       if (error) throw error;
 

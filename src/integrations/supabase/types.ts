@@ -215,6 +215,7 @@ export type Database = {
       clientes: {
         Row: {
           ativo: boolean
+          cep: string | null
           cidade: string | null
           codigo_cliente: string
           created_at: string
@@ -224,6 +225,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cep?: string | null
           cidade?: string | null
           codigo_cliente: string
           created_at?: string
@@ -233,6 +235,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cep?: string | null
           cidade?: string | null
           codigo_cliente?: string
           created_at?: string
