@@ -52,6 +52,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
   }, [qc]);
 
   const ativos = ativosRaw.filter((v: any) => {
+    if (!categoria) return true;
     const grupo = (v.grupo || "").toUpperCase();
     const isPropria = grupo.includes("PROPRIA") || grupo.includes("PRÓPRIA");
     return categoria === "carga_propria" ? isPropria : !isPropria;
