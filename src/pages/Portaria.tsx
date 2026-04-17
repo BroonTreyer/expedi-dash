@@ -320,7 +320,7 @@ export default function Portaria({ categoria }: PortariaProps) {
         <PortariaKpiCards movimentacoes={movimentacoes} isLoading={isLoading} dateLabel={dateLabel} />
 
         {/* Walk-in pending approvals */}
-        <SolicitacoesPendentesPanel />
+        <SolicitacoesPendentesPanel categoria={categoria} />
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
