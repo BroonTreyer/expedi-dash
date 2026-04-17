@@ -185,7 +185,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
       if (fieldKey === "foto_lacre_url") {
         setOcrLacreLoading(true);
         try {
-          const result = await processarOCR(publicUrl, "lacre");
+          const result = await processarOCR(publicUrl, "placa");
           setTextoLacreLido(result.texto);
           setConfiancaLacre(result.confianca);
           if (result.texto) set("numero_lacre", result.texto);
