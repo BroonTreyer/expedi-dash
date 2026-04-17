@@ -128,9 +128,7 @@ export default function Portaria({ categoria }: PortariaProps) {
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
     }
 
-    const isCargaPropria = v.grupo === "PRÓPRIA";
-
-    if (isCargaPropria) {
+    if (categoria === "carga_propria") {
       // Direct INSERT — only records arrival time + spreadsheet data (no dialog)
       try {
         await createMov.mutateAsync({
@@ -156,7 +154,7 @@ export default function Portaria({ categoria }: PortariaProps) {
       return;
     }
 
-    // Non-carga-própria: open dialog as before
+    // Terceirizado: open dialog as before
     setPrefill(null);
     setPrefillEtapa(null);
     setPrefillFromPlanilha({
@@ -207,7 +205,6 @@ export default function Portaria({ categoria }: PortariaProps) {
     }
     const headers = ["Data/Hora", "Tipo", "Categoria", "Placa", "Motorista", "Empresa", "Setor", "Rota", "KM Inicial", "KM Final", "KM Rodado", "Observações"];
     const filtered = movimentacoes.filter((m) => {
-      if (categoriaFilter && categoriaFilter !== "all" && m.categoria !== categoriaFilter) return false;
       if (tipoFilter && tipoFilter !== "all" && m.tipo_movimento !== tipoFilter) return false;
       if (search) {
         const s = search.toLowerCase();
@@ -229,7 +226,7 @@ export default function Portaria({ categoria }: PortariaProps) {
     const rows = filtered.map((m) => [
       format(new Date(m.data_hora), "dd/MM/yyyy HH:mm"),
       m.tipo_movimento === "entrada" ? "Entrada" : "Saída",
-      CATEGORIAS.find((c) => c.value === m.categoria)?.label || m.categoria,
+      meta.label,
       m.placa || "",
       m.motorista || m.nome_completo || "",
       m.empresa || "",
@@ -245,11 +242,11 @@ export default function Portaria({ categoria }: PortariaProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `portaria_${dateFromStr}_${dateToStr}.csv`;
+    a.download = `portaria_${categoria}_${dateFromStr}_${dateToStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exportado com sucesso!");
-  }, [movimentacoes, dateFromStr, dateToStr, categoriaFilter, tipoFilter, search]);
+  }, [movimentacoes, dateFromStr, dateToStr, tipoFilter, search, categoria, meta.label]);
 
   return (
     <Layout>
