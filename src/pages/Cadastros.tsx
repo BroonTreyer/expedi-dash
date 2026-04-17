@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,12 +24,25 @@ const emptyCam: EditingCaminhao = { placa: "", renavam: "", tipo_caminhao: "", t
 export default function Cadastros() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const isBuscarMode = searchParams.get("focus") === "buscar";
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [novoTipo, setNovoTipo] = useState("");
   const [mot, setMot] = useState<EditingMotorista>(emptyMot);
   const [cam, setCam] = useState<EditingCaminhao>(emptyCam);
+
+  // Pickup pre-loaded record from search-mode navigation
+  useEffect(() => {
+    const state = location.state as { motorista?: EditingMotorista; caminhao?: EditingCaminhao } | null;
+    if (state?.motorista) setMot(state.motorista);
+    if (state?.caminhao) setCam(state.caminhao);
+    if (state?.motorista || state?.caminhao) {
+      toast.info("Cadastro carregado para edição");
+      // Clear navigation state so refresh doesn't repopulate
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 300);
