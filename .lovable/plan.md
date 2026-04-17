@@ -1,33 +1,36 @@
 
 ## Diagnóstico
 
-Print mostra: digitando `026` encontra o motorista (CPF `026.168.879-08`); digitando `0261` (sequência real do CPF sem pontos) **não encontra**.
+User reporta que o PWA não atualizou após mudanças recentes. Hoje a config (`vite.config.ts`) usa:
+- `registerType: "prompt"` + `PwaUpdatePrompt.tsx` que mostra toast "Nova versão disponível" via `useRegisterSW`
+- `skipWaiting: false` e `clientsClaim: false` → SW novo fica em "waiting" até user clicar Atualizar
 
-Causa: a busca em `useMotoristas` provavelmente faz `ilike` direto no campo `cpf`, que está armazenado **com máscara** (`026.168.879-08`). Então `0261` não casa porque no banco existe `026.1` (com ponto). Idem para telefone.
+Provável motivo de não estar atualizando:
+1. User não vê/ignora o toast e continua com versão antiga em cache
+2. `index.html` pode estar sendo cacheado pelo SW (NetworkFirst no Supabase, mas navigateFallback usa `index.html` precacheado)
+3. Sem checagem agressiva de update no foco da janela / on visibility change — só a cada 30 min
 
 ## Plano
 
-### 1. Verificar `useMotoristas`
-Confirmar como a query busca por CPF/telefone (provável `ilike '%query%'` no campo formatado).
+### 1. Mudar para autoUpdate silencioso
+Trocar `registerType: "prompt"` → `"autoUpdate"` em `vite.config.ts`. Setar `skipWaiting: true` + `clientsClaim: true` no workbox. Resultado: assim que a build nova é detectada, o SW substitui imediatamente e o conteúdo atualiza no próximo reload de aba — sem depender de clique do user.
 
-### 2. Normalizar busca por dígitos
-Quando o termo digitado for **majoritariamente numérico** (>= 3 dígitos), gerar duas variantes:
-- termo cru (busca por nome)
-- termo só-dígitos comparado contra CPF/telefone **ignorando máscara**
+### 2. Forçar checagem de update mais frequente
+Atualizar `PwaUpdatePrompt.tsx`:
+- Reduzir intervalo de `30 min` → `5 min`
+- Adicionar `registration.update()` em `visibilitychange` (quando user volta para a aba) e em `focus`
+- Como agora é autoUpdate, o toast vira informativo opcional ("Atualizado para nova versão") em vez de exigir clique — ou removemos o prompt e deixamos só silencioso. Vou manter um toast curto de confirmação pós-update.
 
-Como o CPF está salvo com pontos no banco, a forma limpa é usar `regexp_replace(cpf, '\D', '', 'g') ilike '%digitos%'` via RPC, **ou** mais simples: salvar/buscar gerando padrão com curingas entre cada dígito (`0%2%6%1%`) usando `ilike` — funciona com máscara existente sem precisar de RPC.
+### 3. Bump de versão para invalidar cache atual
+Como users já têm o SW antigo instalado com `skipWaiting:false`, eles precisam recarregar uma vez para pegar o novo SW. O novo SW (autoUpdate) garante que daí em diante seja automático. Não há código a mudar para isso — só a build nova já resolve.
 
-Abordagem escolhida (sem migration): construir pattern `ilike` intercalando `%` entre dígitos quando termo é numérico. Aplicar em CPF e telefone. Nome continua busca normal.
-
-### 3. Aplicar mesma lógica onde fizer sentido
-- `useMotoristas` (CPF + telefone)
-- `useCaminhoes` se buscar placa com hífen (verificar)
-- `useClientes` se buscar por código/CNPJ formatado (verificar rapidamente)
-
-Escopo desta tarefa: focar em **motoristas** (problema reportado). Outros ficam como sugestão.
-
-### Sem mudanças
-Schema, RLS, máscara de exibição, componente `MotoristaAutocomplete`.
+### 4. Sem mudanças
+- Manifest, ícones, runtimeCaching de Supabase, guards de iframe/preview em `main.tsx`.
+- `navigateFallbackDenylist` continua com `/~oauth`.
 
 ## Arquivos
-- 🔍 `src/hooks/useMotoristas.ts` — inspecionar e ajustar query de busca para ignorar pontuação em CPF/telefone
+- ✏️ `vite.config.ts` — `registerType: "autoUpdate"`, `skipWaiting: true`, `clientsClaim: true`
+- ✏️ `src/components/PwaUpdatePrompt.tsx` — intervalo 5 min + update em `visibilitychange`/`focus`, toast informativo curto
+
+## Observação
+Após o deploy desta mudança, **o primeiro reload** ainda vai usar o SW antigo (modo prompt). A partir do segundo reload, todas as atualizações futuras serão automáticas e silenciosas. Em produção (`fricotrack.com.br` / `expedi-dash.lovable.app`) basta publicar e abrir o app duas vezes.
