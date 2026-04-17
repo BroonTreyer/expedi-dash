@@ -1,0 +1,1 @@
+ALTER TABLE public.motoristas ADD COLUMN IF NOT EXISTS foto_motorista_url text;

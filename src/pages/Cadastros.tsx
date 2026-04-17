@@ -15,7 +15,7 @@ import { useTiposCaminhao, useCreateTipoCaminhao } from "@/hooks/useTiposCaminha
 import { toast } from "sonner";
 import { maskCPF, maskPhone } from "@/lib/masks";
 
-type EditingMotorista = { id?: string; nome_completo: string; cpf: string; telefone: string; fotoFile?: File };
+type EditingMotorista = { id?: string; nome_completo: string; cpf: string; telefone: string; fotoFile?: File; fotoMotoristaFile?: File; foto_motorista_url?: string | null; foto_documento_url?: string | null };
 type EditingCaminhao = { id?: string; placa: string; renavam: string; tipo_caminhao: string; transportadora: string; motorista_id: string | null };
 
 const emptyMot: EditingMotorista = { nome_completo: "", cpf: "", telefone: "" };
@@ -70,7 +70,7 @@ export default function Cadastros() {
   function selectMotorista(m: Motorista) {
     navigate("/cadastros", {
       state: {
-        motorista: { id: m.id, nome_completo: m.nome_completo, cpf: m.cpf ?? "", telefone: m.telefone ?? "" },
+        motorista: { id: m.id, nome_completo: m.nome_completo, cpf: m.cpf ?? "", telefone: m.telefone ?? "", foto_motorista_url: m.foto_motorista_url, foto_documento_url: m.foto_documento_url },
       },
     });
   }
@@ -132,6 +132,7 @@ export default function Cadastros() {
             cpf: mot.cpf,
             telefone: mot.telefone,
             fotoFile: mot.fotoFile,
+            fotoMotoristaFile: mot.fotoMotoristaFile,
           });
           motoristaIdFinal = mot.id;
         } else {
@@ -140,6 +141,7 @@ export default function Cadastros() {
             cpf: mot.cpf,
             telefone: mot.telefone,
             fotoFile: mot.fotoFile,
+            fotoMotoristaFile: mot.fotoMotoristaFile,
           });
           motoristaIdFinal = novo.id;
         }
@@ -235,10 +237,19 @@ export default function Cadastros() {
                             onClick={() => selectMotorista(m)}
                             className="w-full text-left p-2 rounded-md border hover:bg-accent flex items-center justify-between gap-2"
                           >
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium truncate">{m.nome_completo}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {m.cpf || "—"} · {m.telefone || "—"}
+                            <div className="flex items-center gap-2 min-w-0">
+                              {m.foto_motorista_url ? (
+                                <img src={m.foto_motorista_url} alt={m.nome_completo} className="h-9 w-9 rounded-full object-cover border shrink-0" />
+                              ) : (
+                                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                                  {m.nome_completo.split(" ").slice(0, 2).map(s => s[0]).join("").toUpperCase()}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium truncate">{m.nome_completo}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {m.cpf || "—"} · {m.telefone || "—"}
+                                </div>
                               </div>
                             </div>
                             <Badge variant="secondary" className="shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Cadastrado</Badge>
@@ -329,9 +340,23 @@ export default function Cadastros() {
                   <Label>Telefone</Label>
                   <Input value={mot.telefone} onChange={(e) => setMot({ ...mot, telefone: maskPhone(e.target.value) })} placeholder="(00) 00000-0000" />
                 </div>
-                <div className="md:col-span-2">
-                  <Label>Foto do documento (opcional)</Label>
+                <div>
+                  <Label>Foto do motorista (rosto)</Label>
+                  <Input type="file" accept="image/*" capture="user" onChange={(e) => setMot({ ...mot, fotoMotoristaFile: e.target.files?.[0] })} />
+                  {mot.foto_motorista_url && !mot.fotoMotoristaFile && (
+                    <a href={mot.foto_motorista_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
+                      <img src={mot.foto_motorista_url} alt="Motorista" className="h-16 w-16 rounded-md object-cover border" />
+                    </a>
+                  )}
+                </div>
+                <div>
+                  <Label>Foto do documento</Label>
                   <Input type="file" accept="image/*,application/pdf" onChange={(e) => setMot({ ...mot, fotoFile: e.target.files?.[0] })} />
+                  {mot.foto_documento_url && !mot.fotoFile && (
+                    <a href={mot.foto_documento_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-primary underline">
+                      Ver documento atual
+                    </a>
+                  )}
                 </div>
               </div>
             </section>
