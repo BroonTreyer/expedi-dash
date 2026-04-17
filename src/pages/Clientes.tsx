@@ -140,12 +140,18 @@ export default function Clientes() {
         if (error) { toast.error(`Erro no lote ${i}: ${error.message}`); setImporting(false); return; }
         imported += batch.length;
       }
-      // Enriquecer cidade/UF via ViaCEP antes de propagar
+      // Enriquecer cidade/UF via ViaCEP em chunks (evita timeout/CPU)
       let enrichMsg = "";
+      let enrTotal = 0;
       try {
-        const { data: enrichData } = await supabase.functions.invoke("enrich-clientes-viacep");
-        const enrUpdated = (enrichData as any)?.updated ?? 0;
-        if (enrUpdated > 0) enrichMsg = ` ${enrUpdated} clientes atualizados via ViaCEP.`;
+        let cursor: string | null = null;
+        for (let pass = 0; pass < 200; pass++) {
+          const { data: enrichData }: any = await supabase.functions.invoke("enrich-clientes-viacep", { body: { cursor } });
+          enrTotal += (enrichData?.updated ?? 0);
+          if (enrichData?.done || !enrichData?.next_cursor) break;
+          cursor = enrichData.next_cursor;
+        }
+        if (enrTotal > 0) enrichMsg = ` ${enrTotal} clientes atualizados via ViaCEP.`;
       } catch {}
       // Propagar nome/cidade/UF para os pedidos existentes
       let syncMsg = "";
@@ -182,22 +188,34 @@ export default function Clientes() {
 
   const handleEnrichViaCep = async () => {
     setEnriching(true);
+    const tId = toast.loading("Atualizando clientes via ViaCEP...");
     try {
-      const { data: enrichData, error: enrichErr } = await supabase.functions.invoke("enrich-clientes-viacep");
-      if (enrichErr) throw enrichErr;
-      const enrUpdated = (enrichData as any)?.updated ?? 0;
-      const resolved = (enrichData as any)?.viacep_resolved ?? 0;
+      let cursor: string | null = null;
+      let totalUpdated = 0;
+      let totalResolved = 0;
+      let totalProcessed = 0;
+      for (let pass = 0; pass < 500; pass++) {
+        const { data, error }: any = await supabase.functions.invoke("enrich-clientes-viacep", { body: { cursor } });
+        if (error) throw error;
+        totalUpdated += data?.updated ?? 0;
+        totalResolved += data?.viacep_resolved ?? 0;
+        totalProcessed += data?.processed ?? 0;
+        toast.loading(`ViaCEP: ${totalProcessed} processados, ${totalUpdated} atualizados...`, { id: tId });
+        if (data?.done || !data?.next_cursor) break;
+        cursor = data.next_cursor;
+      }
 
       const { data: syncData } = await supabase.rpc("sync_clients_to_orders");
       const ordUpdated = (syncData as any)?.updated ?? 0;
 
       toast.success(
-        `ViaCEP: ${enrUpdated} clientes atualizados (${resolved} CEPs resolvidos). ${ordUpdated} pedidos sincronizados.`
+        `ViaCEP: ${totalUpdated} clientes atualizados (${totalResolved} CEPs resolvidos). ${ordUpdated} pedidos sincronizados.`,
+        { id: tId }
       );
       qc.invalidateQueries({ queryKey: ["clientes"] });
       qc.invalidateQueries({ queryKey: ["carregamentos"] });
     } catch (err: any) {
-      toast.error("Erro ao atualizar via CEP: " + (err.message || err));
+      toast.error("Erro ao atualizar via CEP: " + (err.message || err), { id: tId });
     } finally {
       setEnriching(false);
     }
