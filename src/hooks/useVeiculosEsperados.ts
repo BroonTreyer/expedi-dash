@@ -273,6 +273,8 @@ export function useAutorizarChegada() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
       toast.success(vars.autorizar ? "Carga vinculada — aguardando Portaria liberar entrada física" : "Entrada recusada");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao processar autorização"),
