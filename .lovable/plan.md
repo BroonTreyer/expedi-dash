@@ -1,34 +1,38 @@
 
-User esclarece o fluxo correto:
+## Diagnóstico
 
-1. **Portaria registra "Registro de Entrada"** → já conta como **chegada** (horário de chegada = agora). Veículo aparece como "aguardando vínculo" para a Logística.
-2. **Logística vincula carga** → status vira `autorizado`. Card continua na lista de Registro de Entrada com badge "LIBERADO".
-3. **Portaria clica "Liberar Entrada"** (renomear de "Registrar Chegada") → cria a movimentação de entrada com `horario_entrada=now()` e `horario_chegada=` o horário em que foi registrado em Registro de Entrada (não agora). Veículo entra no pátio.
-4. Daí em diante, fluxo normal de saída (terceirizado/própria).
+Hoje, na aba **Pátio Atual** → card de terceirizado, ao clicar no botão **"Saída"** o sistema usa `handleSaidaRapida` (PatioAtualTab.tsx:151) — uma confirmação inline rápida que **só cria o registro** sem coletar lacre, foto do lacre e foto da placa.
 
-## Diferença vs hoje
-Hoje `useRegistrarChegadaPortaria` está usando `horario_chegada=now()` e `horario_entrada=now()` no momento do clique. O correto é:
-- `horario_chegada` = `veiculo_esperado.created_at` (quando porteiro registrou em Registro de Entrada)
-- `horario_entrada` = `now()` (quando Logística liberou e porteiro confirmou liberação)
-- `data_hora` = `now()`
-
-E renomear o botão/copy de **"Registrar Chegada"** → **"Liberar Entrada"** (alinhado com o print enviado).
+Já existe o `RegistroMovimentoDialog` com `VISIBILITY_SAIDA` configurado para terceirizado:
+- ✅ `numero_lacre`: **obrigatório**
+- ✅ `foto_lacre_url`: **obrigatório**
+- ❌ `foto_placa_url`: **oculto** (precisa virar `obrigatorio`)
+- ✅ `conferente`/`observacoes`: opcional
 
 ## Plano
 
-### `src/hooks/useVeiculosEsperados.ts`
-Em `useRegistrarChegadaPortaria`:
-- Trocar `horario_chegada: nowIso` por `horario_chegada: v.created_at` (chegada física = momento do Registro de Entrada).
-- Manter `horario_entrada: nowIso` e `data_hora: nowIso`.
-- Toast: *"Entrada liberada — veículo no pátio"*.
+### 1. `src/lib/portaria-fields-config.ts`
+Em `VISIBILITY_SAIDA`:
+- `foto_placa_url`: `terceirizado: "obrigatorio"`, `fornecedor: "obrigatorio"`, `carga_propria: "obrigatorio"` (saída final c/ lacre).
 
-### `src/components/portaria/SolicitacoesPendentesPanel.tsx`
-- Renomear botão **"Registrar Chegada"** → **"Liberar Entrada"** (ícone `LogIn` em vez de `ArrowDownToLine`).
-- Renomear título do grupo **"Liberados — aguardando registro de chegada"** → **"Liberados — aguardando liberação de entrada"**.
+### 2. `src/components/portaria/PatioAtualTab.tsx`
+- Remover o fluxo `handleSaidaRapida` para **terceirizado** (manter para fornecedor/visitante/prestador/outros que não exigem lacre).
+- Botão "Saída" do terceirizado deve disparar `onRegistrarSaida(m)` (abre o dialog completo), igual ao fluxo da carga própria.
+- Mesma mudança no layout mobile e desktop (linhas 302-321 mobile + bloco equivalente na tabela).
+
+### 3. `src/components/portaria/RegistroMovimentoDialog.tsx`
+Quando for saída de terceirizado a partir de `prefill` (com entrada vinculada):
+- Garantir que ao salvar, o registro use os campos `numero_lacre`, `foto_lacre_url`, `foto_placa_url` (já estão no payload de CREATE — linhas 264, 294, 298).
+- Após criar a saída de terceirizado, **atualizar a entrada vinculada** com `etapa_terceirizado="finalizado"` e `horario_real_saida=now()` (mesma lógica do `handleSaidaRapida` linhas 183-188), pois hoje o dialog cria a saída mas não fecha o ciclo da entrada terceirizado.
+- Ajustar título/descrição do dialog quando `prefill?.categoria === "terceirizado"` para **"Registrar Saída — Terceirizado"** com o nome do veículo.
+
+### 4. Texto do botão na ação do dialog
+- `getSaveButtonLabel()`: quando `prefill?.categoria === "terceirizado"` retornar **"Finalizar Saída c/ Lacre"**.
 
 ## Sem mudanças em
-- Schema, RLS, triggers, `RegistroEntradaDialog`, `FechamentoLoteDialog`, rotas, Pátio/Histórico/Esperados.
+- Schema, RLS, triggers, fluxo de Carga Própria, Registro de Entrada, Veículos Esperados.
 
 ## Arquivos
-- ✏️ `src/hooks/useVeiculosEsperados.ts` (origem do `horario_chegada`)
-- ✏️ `src/components/portaria/SolicitacoesPendentesPanel.tsx` (copy do botão e do grupo)
+- ✏️ `src/lib/portaria-fields-config.ts` (visibilidade `foto_placa_url` na saída)
+- ✏️ `src/components/portaria/PatioAtualTab.tsx` (terceirizado abre dialog em vez de saída rápida)
+- ✏️ `src/components/portaria/RegistroMovimentoDialog.tsx` (fechar ciclo da entrada terceirizado + título/botão)
