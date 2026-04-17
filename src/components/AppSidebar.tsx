@@ -44,16 +44,7 @@ const navTree: NavNode[] = [
     children: [
       { to: "/portaria/carga-propria", label: "Carga Própria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
       { to: "/portaria/terceirizado", label: "Terceirizados", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
-      {
-        label: "Cadastros",
-        icon: FolderCog,
-        roles: ["admin", "logistica", "portaria"],
-        children: [
-          { to: "/motoristas", label: "Motoristas", icon: Contact, roles: ["admin", "logistica", "portaria"] },
-          { to: "/caminhoes", label: "Caminhões", icon: Truck, roles: ["admin", "logistica"] },
-          { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck, roles: ["admin", "logistica"] },
-        ],
-      },
+      { to: "/cadastros", label: "Cadastros", icon: FolderCog, roles: ["admin", "logistica", "portaria"] },
     ],
   },
   { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
