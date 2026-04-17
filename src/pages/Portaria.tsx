@@ -257,10 +257,10 @@ export default function Portaria({ categoria }: PortariaProps) {
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
                 <Truck className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
-                <span className="truncate">Controle de Portaria</span>
+                <span className="truncate">{meta.title}</span>
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                Registro universal de entrada e saída de veículos
+                {meta.subtitle}
               </p>
             </div>
           </div>
@@ -323,15 +323,6 @@ export default function Portaria({ categoria }: PortariaProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar placa, motorista, empresa, nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
-          <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {CATEGORIAS.map((c) => (
-                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           {hasActiveFilters && (
             <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground h-9" onClick={clearFilters}>
               <X className="h-3.5 w-3.5" /> Limpar
