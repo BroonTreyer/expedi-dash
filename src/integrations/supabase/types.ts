@@ -727,6 +727,8 @@ export type Database = {
       veiculos_esperados: {
         Row: {
           ajudantes: string | null
+          autorizado_em: string | null
+          autorizado_por: string | null
           carga_id: string | null
           conferido: boolean
           conferido_em: string | null
@@ -737,15 +739,21 @@ export type Database = {
           destino: string | null
           grupo: string
           id: string
+          motivo_recusa: string | null
           motorista: string | null
+          observacoes: string | null
           peso: number | null
           placa: string
           qtd_entregas: number | null
+          status_autorizacao: string
           tipo_veiculo: string | null
           transportadora: string | null
+          walk_in: boolean
         }
         Insert: {
           ajudantes?: string | null
+          autorizado_em?: string | null
+          autorizado_por?: string | null
           carga_id?: string | null
           conferido?: boolean
           conferido_em?: string | null
@@ -756,15 +764,21 @@ export type Database = {
           destino?: string | null
           grupo?: string
           id?: string
+          motivo_recusa?: string | null
           motorista?: string | null
+          observacoes?: string | null
           peso?: number | null
           placa: string
           qtd_entregas?: number | null
+          status_autorizacao?: string
           tipo_veiculo?: string | null
           transportadora?: string | null
+          walk_in?: boolean
         }
         Update: {
           ajudantes?: string | null
+          autorizado_em?: string | null
+          autorizado_por?: string | null
           carga_id?: string | null
           conferido?: boolean
           conferido_em?: string | null
@@ -775,12 +789,16 @@ export type Database = {
           destino?: string | null
           grupo?: string
           id?: string
+          motivo_recusa?: string | null
           motorista?: string | null
+          observacoes?: string | null
           peso?: number | null
           placa?: string
           qtd_entregas?: number | null
+          status_autorizacao?: string
           tipo_veiculo?: string | null
           transportadora?: string | null
+          walk_in?: boolean
         }
         Relationships: []
       }
