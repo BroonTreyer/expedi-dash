@@ -2,12 +2,8 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlacaInput } from "./PlacaInput";
 import { MotoristaAutocomplete } from "./MotoristaAutocomplete";
-import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
+import { CaminhaoAutocomplete } from "./CaminhaoAutocomplete";
 import { useRegistrarChegadaWalkIn } from "@/hooks/useVeiculosEsperados";
 import { AlertCircle } from "lucide-react";
 
@@ -20,37 +16,62 @@ interface Props {
 export function RegistroChegadaWalkInDialog({ open, onOpenChange, grupo }: Props) {
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
-  const [transportadora, setTransportadora] = useState("");
-  const [tipoVeiculo, setTipoVeiculo] = useState<string>("");
-  const [destino, setDestino] = useState("");
-  const [observacoes, setObservacoes] = useState("");
-  const { data: tipos = [] } = useTiposCaminhao();
+  // Autofill silencioso (enviado ao backend, não exibido como campo)
+  const [transportadora, setTransportadora] = useState<string | undefined>(undefined);
+  const [tipoVeiculo, setTipoVeiculo] = useState<string | undefined>(undefined);
+  // Travas: só permite submit se vieram de seleção
+  const [placaSelecionada, setPlacaSelecionada] = useState(false);
+  const [motoristaSelecionado, setMotoristaSelecionado] = useState(false);
+
   const mut = useRegistrarChegadaWalkIn();
 
   const reset = () => {
-    setPlaca(""); setMotorista(""); setTransportadora(""); setTipoVeiculo(""); setDestino(""); setObservacoes("");
+    setPlaca("");
+    setMotorista("");
+    setTransportadora(undefined);
+    setTipoVeiculo(undefined);
+    setPlacaSelecionada(false);
+    setMotoristaSelecionado(false);
+  };
+
+  const handleSelectMotorista = (m: { nome_completo: string; transportadora?: string | null; tipo_caminhao?: string | null }) => {
+    setMotorista(m.nome_completo);
+    setMotoristaSelecionado(true);
+    if (m.transportadora && !transportadora) setTransportadora(m.transportadora);
+    if (m.tipo_caminhao && !tipoVeiculo) setTipoVeiculo(m.tipo_caminhao);
+  };
+
+  const handleSelectCaminhao = (c: {
+    placa: string;
+    tipo_caminhao?: string;
+    motorista?: string;
+    transportadora?: string;
+  }) => {
+    setPlaca(c.placa);
+    setPlacaSelecionada(true);
+    // Veículo prioriza autofill
+    if (c.tipo_caminhao) setTipoVeiculo(c.tipo_caminhao);
+    if (c.transportadora) setTransportadora(c.transportadora);
+    if (c.motorista && !motorista) {
+      setMotorista(c.motorista);
+      setMotoristaSelecionado(true);
+    }
   };
 
   const handleSubmit = async () => {
-    if (!placa.trim() || !motorista.trim()) return;
+    if (!placaSelecionada || !motoristaSelecionado) return;
     await mut.mutateAsync({
       placa: placa.trim(),
       motorista: motorista.trim(),
-      transportadora: transportadora.trim() || undefined,
+      transportadora: transportadora || undefined,
       tipo_veiculo: tipoVeiculo || undefined,
-      destino: destino.trim() || undefined,
-      observacoes: observacoes.trim() || undefined,
       grupo: grupo === "PRÓPRIA" ? "WALK-IN-PROPRIA" : "WALK-IN-TERCEIRIZADO",
     });
     reset();
     onOpenChange(false);
   };
 
-  const handleAutofill = (data: { motorista?: string; tipo_caminhao?: string; transportadora?: string }) => {
-    if (data.motorista && !motorista) setMotorista(data.motorista);
-    if (data.tipo_caminhao && !tipoVeiculo) setTipoVeiculo(data.tipo_caminhao);
-    if (data.transportadora && !transportadora) setTransportadora(data.transportadora);
-  };
+  const canSubmit = placaSelecionada && motoristaSelecionado && !mut.isPending;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
@@ -58,70 +79,46 @@ export function RegistroChegadaWalkInDialog({ open, onOpenChange, grupo }: Props
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-amber-500" />
-            Chegada sem previsão
+            Chegada sem previsão — {grupo === "PRÓPRIA" ? "Frota Própria" : "Terceirizado"}
           </DialogTitle>
           <DialogDescription>
-            Registre o veículo que chegou sem estar na lista. A Logística será notificada para autorizar a entrada.
+            Vincule um motorista e um veículo já cadastrados. A Logística será notificada para autorizar a entrada.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <PlacaInput value={placa} onChange={setPlaca} onAutofill={handleAutofill} />
-
+        <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Motorista *</Label>
+            <Label>Buscar motorista *</Label>
             <MotoristaAutocomplete
               value={motorista}
-              onChange={setMotorista}
-              onSelect={(m) => {
-                setMotorista(m.nome_completo);
-                if (m.transportadora && !transportadora) setTransportadora(m.transportadora);
-                if (m.tipo_caminhao && !tipoVeiculo) setTipoVeiculo(m.tipo_caminhao);
+              onChange={(v) => {
+                setMotorista(v);
+                setMotoristaSelecionado(false);
               }}
+              onSelect={handleSelectMotorista}
             />
           </div>
 
-          {grupo === "TERCEIRIZADO" && (
-            <div className="space-y-1.5">
-              <Label>Transportadora</Label>
-              <Input value={transportadora} onChange={(e) => setTransportadora(e.target.value)} placeholder="Nome da transportadora" />
-            </div>
-          )}
-
           <div className="space-y-1.5">
-            <Label>Tipo de veículo</Label>
-            <Select value={tipoVeiculo} onValueChange={setTipoVeiculo}>
-              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                {tipos.map((t) => (
-                  <SelectItem key={t.id} value={t.nome_tipo}>{t.nome_tipo}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Destino / Rota</Label>
-            <Input value={destino} onChange={(e) => setDestino(e.target.value)} placeholder="Ex.: Centro, Setor Bueno..." />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Motivo / Observações</Label>
-            <Textarea
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-              placeholder="Ex.: veio buscar carga avulsa, retorno antecipado..."
-              rows={3}
+            <Label>Buscar veículo (placa) *</Label>
+            <CaminhaoAutocomplete
+              value={placa}
+              onChange={(v) => {
+                setPlaca(v);
+                setPlacaSelecionada(false);
+              }}
+              onSelect={handleSelectCaminhao}
             />
           </div>
+
+          <p className="text-xs text-muted-foreground border-t pt-3">
+            Motorista ou veículo não encontrado? Cadastre primeiro em <span className="font-medium text-foreground">Cadastros → Motoristas / Caminhões</span> e tente novamente.
+          </p>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={mut.isPending || !placa.trim() || !motorista.trim()}
-          >
+          <Button onClick={handleSubmit} disabled={!canSubmit}>
             {mut.isPending ? "Enviando..." : "Solicitar autorização"}
           </Button>
         </DialogFooter>
