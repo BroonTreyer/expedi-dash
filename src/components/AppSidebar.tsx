@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { forwardRef, useState, useEffect } from "react";
+import { forwardRef, useState, useEffect, type ReactNode } from "react";
 import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RegistroEntradaBadge } from "@/components/portaria/RegistroEntradaBadge";
 
 type Role = "admin" | "logistica" | "faturamento" | "portaria";
 
@@ -15,6 +16,7 @@ interface NavLeaf {
   label: string;
   icon: any;
   roles: Role[];
+  badge?: (props: { collapsed: boolean }) => ReactNode;
 }
 
 interface NavGroup {
