@@ -308,6 +308,14 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
             etapa_terceirizado: "aguardando",
           } : {}),
         } as any);
+        // Close terceirizado entrada cycle when this is its saída
+        if (prefill && prefill.categoria === "terceirizado" && dbTipoMovimento === "saida") {
+          await updateMov.mutateAsync({
+            id: prefill.id,
+            etapa_terceirizado: "finalizado",
+            horario_real_saida: new Date().toISOString(),
+          });
+        }
         const savedPlaca = values.placa?.trim().toUpperCase() || "";
         if (savedPlaca) onCreated?.(savedPlaca);
         onOpenChange(false);
@@ -326,6 +334,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     if (prefillEtapa === "saida_rota" && prefill) return `Registrar saída p/ rota do veículo ${prefill.placa}`;
     if (prefillEtapa === "retorno" && prefill) return `Registrar retorno do veículo ${prefill.placa}`;
     if (prefillEtapa === "lacre" && prefill) return `Registrar lacre e saída final do veículo ${prefill.placa}`;
+    if (prefill && prefill.categoria === "terceirizado") return `Finalizar saída c/ lacre do veículo ${prefill.placa}`;
     if (prefill) return `Registrar saída do veículo ${prefill.placa}`;
     if (prefillFromPlanilha) {
       if (prefillFromPlanilha.categoria === "carga_propria") return `Registrar saída p/ rota do veículo ${prefillFromPlanilha.placa}`;
@@ -338,6 +347,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     if (prefillEtapa === "saida_rota") return "Saída p/ Rota";
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Saída Final — Lacre";
+    if (prefill && prefill.categoria === "terceirizado") return "Registrar Saída — Terceirizado";
     return `Cadastro de ${categoriaLabel}`;
   };
 
@@ -345,6 +355,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     if (prefillEtapa === "saida_rota") return "Registrar Saída p/ Rota";
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Finalizar c/ Lacre";
+    if (prefill && prefill.categoria === "terceirizado") return "Finalizar Saída c/ Lacre";
     if (categoria === "carga_propria" && !prefill) return "Registrar Saída p/ Rota";
     return `Registrar ${tipo === "entrada" ? "Entrada" : "Saída"}`;
   };
