@@ -27,7 +27,19 @@ export function useMotoristas(search?: string) {
         .order("nome_completo");
       if (search?.trim()) {
         const s = search.trim();
-        q = q.or(`nome_completo.ilike.%${s}%,cpf.ilike.%${s}%`);
+        const digits = s.replace(/\D/g, "");
+        // Escapa caracteres especiais do PostgREST (vírgula, parêntesis) no termo de nome
+        const safeName = s.replace(/[,()]/g, " ");
+        const filters: string[] = [`nome_completo.ilike.%${safeName}%`];
+        if (digits.length >= 2) {
+          // Intercala % entre cada dígito p/ casar com CPF/telefone formatados (ex: 0261 -> 0%2%6%1)
+          const pattern = digits.split("").join("%");
+          filters.push(`cpf.ilike.%${pattern}%`);
+          filters.push(`telefone.ilike.%${pattern}%`);
+        } else {
+          filters.push(`cpf.ilike.%${s}%`);
+        }
+        q = q.or(filters.join(","));
       }
       const { data, error } = await q;
       if (error) throw error;
