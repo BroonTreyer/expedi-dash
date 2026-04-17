@@ -9,6 +9,7 @@ export interface Motorista {
   cpf: string | null;
   telefone: string | null;
   foto_documento_url: string | null;
+  foto_motorista_url: string | null;
   ativo: boolean;
   created_at: string;
 }
@@ -38,7 +39,7 @@ export function useMotoristas(search?: string) {
 export function useCreateMotorista() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { nome_completo: string; cpf?: string; telefone?: string; fotoFile?: File }) => {
+    mutationFn: async (input: { nome_completo: string; cpf?: string; telefone?: string; fotoFile?: File; fotoMotoristaFile?: File }) => {
       const { data, error } = await supabase
         .from("motoristas")
         .insert({ nome_completo: input.nome_completo, cpf: input.cpf || null, telefone: input.telefone || null } as any)
@@ -47,6 +48,8 @@ export function useCreateMotorista() {
       if (error) throw error;
       const motorista = data as unknown as Motorista;
 
+      const updates: any = {};
+
       if (input.fotoFile) {
         const ext = input.fotoFile.name.split('.').pop() || 'bin';
         const path = `motoristas/${motorista.id}/documento.${ext}`;
@@ -54,18 +57,33 @@ export function useCreateMotorista() {
           .from("portaria")
           .upload(path, input.fotoFile, { upsert: true });
         if (upErr) throw upErr;
-
         const { data: urlData } = await supabase.storage
           .from("portaria")
           .createSignedUrl(path, 60 * 60 * 24 * 365);
-
         if (urlData?.signedUrl) {
-          await supabase
-            .from("motoristas")
-            .update({ foto_documento_url: urlData.signedUrl } as any)
-            .eq("id", motorista.id);
+          updates.foto_documento_url = urlData.signedUrl;
           motorista.foto_documento_url = urlData.signedUrl;
         }
+      }
+
+      if (input.fotoMotoristaFile) {
+        const ext = input.fotoMotoristaFile.name.split('.').pop() || 'bin';
+        const path = `motoristas/${motorista.id}/rosto.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("portaria")
+          .upload(path, input.fotoMotoristaFile, { upsert: true });
+        if (upErr) throw upErr;
+        const { data: urlData } = await supabase.storage
+          .from("portaria")
+          .createSignedUrl(path, 60 * 60 * 24 * 365);
+        if (urlData?.signedUrl) {
+          updates.foto_motorista_url = urlData.signedUrl;
+          motorista.foto_motorista_url = urlData.signedUrl;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from("motoristas").update(updates).eq("id", motorista.id);
       }
       return motorista;
     },
@@ -80,7 +98,7 @@ export function useCreateMotorista() {
 export function useUpdateMotorista() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; nome_completo: string; cpf?: string; telefone?: string; fotoFile?: File }) => {
+    mutationFn: async (input: { id: string; nome_completo: string; cpf?: string; telefone?: string; fotoFile?: File; fotoMotoristaFile?: File }) => {
       const updates: any = { nome_completo: input.nome_completo, cpf: input.cpf || null, telefone: input.telefone || null };
 
       if (input.fotoFile) {
@@ -90,11 +108,23 @@ export function useUpdateMotorista() {
           .from("portaria")
           .upload(path, input.fotoFile, { upsert: true });
         if (upErr) throw upErr;
-
         const { data: urlData } = await supabase.storage
           .from("portaria")
           .createSignedUrl(path, 60 * 60 * 24 * 365);
         if (urlData?.signedUrl) updates.foto_documento_url = urlData.signedUrl;
+      }
+
+      if (input.fotoMotoristaFile) {
+        const ext = input.fotoMotoristaFile.name.split('.').pop() || 'bin';
+        const path = `motoristas/${input.id}/rosto.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("portaria")
+          .upload(path, input.fotoMotoristaFile, { upsert: true });
+        if (upErr) throw upErr;
+        const { data: urlData } = await supabase.storage
+          .from("portaria")
+          .createSignedUrl(path, 60 * 60 * 24 * 365);
+        if (urlData?.signedUrl) updates.foto_motorista_url = urlData.signedUrl;
       }
 
       const { error } = await supabase
