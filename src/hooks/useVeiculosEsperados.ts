@@ -56,6 +56,11 @@ export function useSolicitacoesPendentes() {
  * - autorizado: Logística vinculou e liberou — aguardando porteiro registrar chegada
  * Sempre filtrado por conferido=false (depois que porteiro registra chegada, sai da lista).
  */
+export interface VeiculoEsperadoEnriquecido extends VeiculoEsperado {
+  autorizado_por_nome?: string | null;
+  autorizado_por_email?: string | null;
+}
+
 export function useVeiculosWalkInAtivos() {
   const session = useSession();
   return useQuery({
@@ -71,7 +76,28 @@ export function useVeiculosWalkInAtivos() {
         .in("status_autorizacao", ["aguardando_vinculo", "autorizado"])
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as VeiculoEsperado[];
+      const rows = (data ?? []) as unknown as VeiculoEsperado[];
+
+      // Resolve nomes/emails dos autorizadores em uma única query
+      const ids = Array.from(
+        new Set(rows.map((r) => r.autorizado_por).filter((v): v is string => !!v))
+      );
+      let profilesMap = new Map<string, { nome: string | null; email: string | null }>();
+      if (ids.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome, email")
+          .in("id", ids);
+        for (const p of profs ?? []) {
+          profilesMap.set(p.id, { nome: p.nome, email: p.email });
+        }
+      }
+
+      return rows.map((r) => ({
+        ...r,
+        autorizado_por_nome: r.autorizado_por ? profilesMap.get(r.autorizado_por)?.nome ?? null : null,
+        autorizado_por_email: r.autorizado_por ? profilesMap.get(r.autorizado_por)?.email ?? null : null,
+      })) as VeiculoEsperadoEnriquecido[];
     },
   });
 }

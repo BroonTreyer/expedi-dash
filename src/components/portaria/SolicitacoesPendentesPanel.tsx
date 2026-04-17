@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogIn, X, Clock, Link2, CheckCircle2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { LogIn, X, Clock, Link2, CheckCircle2, Package, ShieldCheck } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,7 +59,7 @@ export function SolicitacoesPendentesPanel() {
     setMotivoRecusa("");
   };
 
-  const renderItem = (v: VeiculoEsperado, kind: "aguardando" | "liberado") => (
+  const renderItem = (v: any, kind: "aguardando" | "liberado") => (
     <div
       key={v.id}
       className="rounded-md border bg-card p-3 flex flex-col sm:flex-row sm:items-center gap-3"
@@ -81,11 +81,31 @@ export function SolicitacoesPendentesPanel() {
             {formatDistanceToNow(new Date(v.created_at), { addSuffix: true, locale: ptBR })}
           </Badge>
           {v.carga_id && (
-            <Badge variant="secondary" className="text-[10px] h-5 font-mono">
-              Carga {v.carga_id}
+            <Badge variant="secondary" className="text-[10px] h-5 font-mono gap-1">
+              <Package className="h-3 w-3" /> Carga {v.carga_id}
             </Badge>
           )}
         </div>
+
+        {kind === "liberado" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="text-[10px] h-5 gap-1 bg-emerald-500/10 border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+              <ShieldCheck className="h-3 w-3" />
+              OK Logística
+              {v.autorizado_por_nome || v.autorizado_por_email ? (
+                <span className="font-normal opacity-80">
+                  · {v.autorizado_por_nome || v.autorizado_por_email}
+                </span>
+              ) : null}
+              {v.autorizado_em && (
+                <span className="font-normal opacity-80">
+                  · {format(new Date(v.autorizado_em), "dd/MM HH:mm")}
+                </span>
+              )}
+            </Badge>
+          </div>
+        )}
+
         <div className="text-xs">
           <span className="text-muted-foreground">Motorista:</span> {v.motorista || "—"}
           {v.transportadora && (
@@ -106,35 +126,46 @@ export function SolicitacoesPendentesPanel() {
 
       {kind === "aguardando" ? (
         canDecide ? (
-          <div className="flex gap-2 shrink-0">
-            <Button asChild size="sm" className="h-8 text-xs gap-1">
-              <Link to="/">
-                <Link2 className="h-3.5 w-3.5" /> Vincular a carga
-              </Link>
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              className="h-8 text-xs gap-1"
-              onClick={() => setRecusaId(v.id)}
-              disabled={autorizar.isPending}
-            >
-              <X className="h-3.5 w-3.5" /> Recusar
-            </Button>
+          <div className="flex flex-col gap-1.5 shrink-0 sm:items-end">
+            <div className="flex gap-2">
+              <Button asChild size="sm" className="h-8 text-xs gap-1">
+                <Link to="/">
+                  <Link2 className="h-3.5 w-3.5" /> Vincular a carga
+                </Link>
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-8 text-xs gap-1"
+                onClick={() => setRecusaId(v.id)}
+                disabled={autorizar.isPending}
+              >
+                <X className="h-3.5 w-3.5" /> Recusar
+              </Button>
+            </div>
+            <span className="text-[10px] text-muted-foreground">Vincule uma carga para liberar a entrada</span>
           </div>
         ) : (
-          <Badge variant="secondary" className="text-[10px] shrink-0">Aguardando Logística</Badge>
+          <div className="flex flex-col gap-1 shrink-0 sm:items-end">
+            <Badge variant="secondary" className="text-[10px]">Aguardando Logística</Badge>
+            <span className="text-[10px] text-muted-foreground text-right">
+              Aguardando Logística vincular carga para liberar entrada
+            </span>
+          </div>
         )
       ) : canRegistrarChegada ? (
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-col gap-1 shrink-0 sm:items-end">
           <Button
             size="sm"
             className="h-8 text-xs gap-1"
             onClick={() => registrarChegada.mutate(v)}
             disabled={registrarChegada.isPending}
           >
-            <LogIn className="h-3.5 w-3.5" /> Liberar Entrada
+            <LogIn className="h-3.5 w-3.5" /> Liberar Entrada no Pátio
           </Button>
+          <span className="text-[10px] text-muted-foreground text-right">
+            Logística autorizou — confirme entrada física do veículo
+          </span>
         </div>
       ) : (
         <Badge variant="secondary" className="text-[10px] shrink-0">Aguardando Portaria</Badge>
