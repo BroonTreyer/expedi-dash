@@ -228,6 +228,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
               collapsed={!!collapsed}
               depth={0}
               pathname={location.pathname}
+              search={location.search}
               onNavigate={onNavigate}
             />
           ))}
