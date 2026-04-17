@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,19 +23,10 @@ const emptyCam: EditingCaminhao = { placa: "", renavam: "", tipo_caminhao: "", t
 
 export default function Cadastros() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const isBuscarMode = searchParams.get("focus") === "buscar";
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchCardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (searchParams.get("focus") === "buscar") {
-      setTimeout(() => {
-        searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        searchInputRef.current?.focus();
-      }, 100);
-    }
-  }, [searchParams]);
   const [novoTipo, setNovoTipo] = useState("");
   const [mot, setMot] = useState<EditingMotorista>(emptyMot);
   const [cam, setCam] = useState<EditingCaminhao>(emptyCam);
@@ -64,33 +55,29 @@ export default function Cadastros() {
   const hasResults = motoristas.length > 0 || caminhoes.length > 0 || tiposFiltrados.length > 0;
 
   function selectMotorista(m: Motorista) {
-    setMot({
-      id: m.id,
-      nome_completo: m.nome_completo,
-      cpf: m.cpf ?? "",
-      telefone: m.telefone ?? "",
+    navigate("/cadastros", {
+      state: {
+        motorista: { id: m.id, nome_completo: m.nome_completo, cpf: m.cpf ?? "", telefone: m.telefone ?? "" },
+      },
     });
-    toast.info("Motorista carregado para edição");
   }
 
   function selectCaminhao(c: Caminhao) {
-    setCam({
-      id: c.id,
-      placa: c.placa,
-      renavam: c.renavam ?? "",
-      tipo_caminhao: c.tipo_caminhao ?? "",
-      transportadora: c.transportadora ?? "",
-      motorista_id: c.motorista_id ?? null,
+    navigate("/cadastros", {
+      state: {
+        caminhao: {
+          id: c.id,
+          placa: c.placa,
+          renavam: c.renavam ?? "",
+          tipo_caminhao: c.tipo_caminhao ?? "",
+          transportadora: c.transportadora ?? "",
+          motorista_id: c.motorista_id ?? null,
+        },
+        motorista: c.motorista
+          ? { id: c.motorista.id, nome_completo: c.motorista.nome_completo, cpf: c.motorista.cpf ?? "", telefone: c.motorista.telefone ?? "" }
+          : undefined,
+      },
     });
-    if (c.motorista) {
-      setMot({
-        id: c.motorista.id,
-        nome_completo: c.motorista.nome_completo,
-        cpf: c.motorista.cpf ?? "",
-        telefone: c.motorista.telefone ?? "",
-      });
-    }
-    toast.info("Caminhão carregado para edição");
   }
 
   function clearForm() {
