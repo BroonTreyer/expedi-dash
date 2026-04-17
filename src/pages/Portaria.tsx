@@ -439,6 +439,7 @@ export default function Portaria({ categoria }: PortariaProps) {
         prefillEtapa={prefillEtapa}
         prefillFromPlanilha={prefillFromPlanilha}
         onCreated={handleMovimentacaoCreated}
+        forcedCategoria={categoria}
       />
       {!isPortaria && (
         <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />

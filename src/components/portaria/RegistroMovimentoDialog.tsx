@@ -37,6 +37,8 @@ interface Props {
   prefillEtapa?: "retorno" | "lacre" | "saida_rota" | null;
   prefillFromPlanilha?: Record<string, any> | null;
   onCreated?: (placa: string) => void;
+  /** When set, locks the categoria and skips the categoria-selection step */
+  forcedCategoria?: Categoria;
 }
 
 export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEtapa, prefillFromPlanilha, onCreated }: Props) {
