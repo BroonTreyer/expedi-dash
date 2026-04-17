@@ -102,10 +102,14 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeP
   }, [groupHasActive]);
 
   if (!isGroup(node)) {
-    const active = pathname === node.to;
+    const [pathPart, searchPart] = node.to.split("?");
+    const currentMatch = searchPart
+      ? pathname + (typeof window !== "undefined" ? window.location.search : "") === node.to
+      : pathname === pathPart;
+    const active = currentMatch;
     const link = (
       <RefLink
-        to={node.to}
+        to={{ pathname: pathPart, search: searchPart ? `?${searchPart}` : "" }}
         onClick={onNavigate}
         className={cn(
           "flex items-center gap-3 rounded-md text-sm font-medium transition-colors",

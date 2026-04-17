@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,22 +23,26 @@ const emptyCam: EditingCaminhao = { placa: "", renavam: "", tipo_caminhao: "", t
 
 export default function Cadastros() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isBuscarMode = searchParams.get("focus") === "buscar";
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchCardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (searchParams.get("focus") === "buscar") {
-      setTimeout(() => {
-        searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        searchInputRef.current?.focus();
-      }, 100);
-    }
-  }, [searchParams]);
   const [novoTipo, setNovoTipo] = useState("");
   const [mot, setMot] = useState<EditingMotorista>(emptyMot);
   const [cam, setCam] = useState<EditingCaminhao>(emptyCam);
+
+  // Pickup pre-loaded record from search-mode navigation
+  useEffect(() => {
+    const state = location.state as { motorista?: EditingMotorista; caminhao?: EditingCaminhao } | null;
+    if (state?.motorista) setMot(state.motorista);
+    if (state?.caminhao) setCam(state.caminhao);
+    if (state?.motorista || state?.caminhao) {
+      toast.info("Cadastro carregado para edição");
+      // Clear navigation state so refresh doesn't repopulate
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 300);
@@ -64,33 +68,29 @@ export default function Cadastros() {
   const hasResults = motoristas.length > 0 || caminhoes.length > 0 || tiposFiltrados.length > 0;
 
   function selectMotorista(m: Motorista) {
-    setMot({
-      id: m.id,
-      nome_completo: m.nome_completo,
-      cpf: m.cpf ?? "",
-      telefone: m.telefone ?? "",
+    navigate("/cadastros", {
+      state: {
+        motorista: { id: m.id, nome_completo: m.nome_completo, cpf: m.cpf ?? "", telefone: m.telefone ?? "" },
+      },
     });
-    toast.info("Motorista carregado para edição");
   }
 
   function selectCaminhao(c: Caminhao) {
-    setCam({
-      id: c.id,
-      placa: c.placa,
-      renavam: c.renavam ?? "",
-      tipo_caminhao: c.tipo_caminhao ?? "",
-      transportadora: c.transportadora ?? "",
-      motorista_id: c.motorista_id ?? null,
+    navigate("/cadastros", {
+      state: {
+        caminhao: {
+          id: c.id,
+          placa: c.placa,
+          renavam: c.renavam ?? "",
+          tipo_caminhao: c.tipo_caminhao ?? "",
+          transportadora: c.transportadora ?? "",
+          motorista_id: c.motorista_id ?? null,
+        },
+        motorista: c.motorista
+          ? { id: c.motorista.id, nome_completo: c.motorista.nome_completo, cpf: c.motorista.cpf ?? "", telefone: c.motorista.telefone ?? "" }
+          : undefined,
+      },
     });
-    if (c.motorista) {
-      setMot({
-        id: c.motorista.id,
-        nome_completo: c.motorista.nome_completo,
-        cpf: c.motorista.cpf ?? "",
-        telefone: c.motorista.telefone ?? "",
-      });
-    }
-    toast.info("Caminhão carregado para edição");
   }
 
   function clearForm() {
@@ -180,107 +180,125 @@ export default function Cadastros() {
     <Layout>
       <main className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Cadastros</h1>
-          <p className="text-sm text-muted-foreground">Busque ou cadastre motoristas, caminhões e tipos em um único lugar.</p>
+          <h1 className="text-2xl font-bold tracking-tight">{isBuscarMode ? "Buscar / Consultar" : "Cadastros"}</h1>
+          <p className="text-sm text-muted-foreground">
+            {isBuscarMode
+              ? "Verifique se um motorista, caminhão ou tipo já está cadastrado."
+              : "Cadastre motoristas, caminhões e tipos em um único lugar."}
+          </p>
         </div>
 
-        {/* Search */}
-        <Card ref={searchCardRef}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Search className="h-4 w-4" /> Buscar / Consultar
-            </CardTitle>
-            <CardDescription>Digite nome, CPF, placa ou tipo de caminhão.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                ref={searchInputRef}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nome, CPF, placa ou tipo..."
-                className="pl-9"
-              />
-            </div>
-
-            {debounced && (
-              <div className="space-y-3">
-                {!hasResults && (
-                  <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3">
-                    Nenhum cadastro encontrado para "<strong>{debounced}</strong>". Preencha o formulário abaixo para criar.
-                  </div>
-                )}
-
-                {motoristas.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
-                      <User className="h-3 w-3" /> Motoristas ({motoristas.length})
-                    </h3>
-                    <div className="space-y-1">
-                      {motoristas.slice(0, 5).map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => selectMotorista(m)}
-                          className="w-full text-left p-2 rounded-md border hover:bg-accent flex items-center justify-between gap-2"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium truncate">{m.nome_completo}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {m.cpf || "—"} · {m.telefone || "—"}
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Cadastrado</Badge>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {caminhoes.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
-                      <Truck className="h-3 w-3" /> Caminhões ({caminhoes.length})
-                    </h3>
-                    <div className="space-y-1">
-                      {caminhoes.slice(0, 5).map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => selectCaminhao(c)}
-                          className="w-full text-left p-2 rounded-md border hover:bg-accent flex items-center justify-between gap-2"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium truncate">{c.placa} {c.tipo_caminhao && <span className="text-muted-foreground font-normal">· {c.tipo_caminhao}</span>}</div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {c.motorista?.nome_completo ?? "Sem motorista"} {c.transportadora && `· ${c.transportadora}`}
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Cadastrado</Badge>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {tiposFiltrados.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
-                      <Tag className="h-3 w-3" /> Tipos de caminhão ({tiposFiltrados.length})
-                    </h3>
-                    <div className="flex flex-wrap gap-1">
-                      {tiposFiltrados.map((t: any) => (
-                        <Badge key={t.id} variant="outline">{t.nome_tipo}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+        {isBuscarMode && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Search className="h-4 w-4" /> Buscar / Consultar
+              </CardTitle>
+              <CardDescription>Digite nome, CPF, placa ou tipo de caminhão. Clique no resultado para editar.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por nome, CPF, placa ou tipo..."
+                  className="pl-9"
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Unified form */}
-        <Card>
+              {debounced && (
+                <div className="space-y-3">
+                  {!hasResults && (
+                    <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3">
+                      Nenhum cadastro encontrado para "<strong>{debounced}</strong>".{" "}
+                      <button
+                        type="button"
+                        className="text-primary underline underline-offset-2"
+                        onClick={() => navigate("/cadastros")}
+                      >
+                        Criar novo cadastro
+                      </button>
+                    </div>
+                  )}
+
+                  {motoristas.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
+                        <User className="h-3 w-3" /> Motoristas ({motoristas.length})
+                      </h3>
+                      <div className="space-y-1">
+                        {motoristas.slice(0, 5).map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => selectMotorista(m)}
+                            className="w-full text-left p-2 rounded-md border hover:bg-accent flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">{m.nome_completo}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {m.cpf || "—"} · {m.telefone || "—"}
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Cadastrado</Badge>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {caminhoes.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
+                        <Truck className="h-3 w-3" /> Caminhões ({caminhoes.length})
+                      </h3>
+                      <div className="space-y-1">
+                        {caminhoes.slice(0, 5).map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => selectCaminhao(c)}
+                            className="w-full text-left p-2 rounded-md border hover:bg-accent flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">{c.placa} {c.tipo_caminhao && <span className="text-muted-foreground font-normal">· {c.tipo_caminhao}</span>}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {c.motorista?.nome_completo ?? "Sem motorista"} {c.transportadora && `· ${c.transportadora}`}
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Cadastrado</Badge>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {tiposFiltrados.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
+                        <Tag className="h-3 w-3" /> Tipos de caminhão ({tiposFiltrados.length})
+                      </h3>
+                      <div className="flex flex-wrap gap-1">
+                        {tiposFiltrados.map((t: any) => (
+                          <Badge key={t.id} variant="outline">{t.nome_tipo}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="pt-2">
+                <Button variant="outline" size="sm" onClick={() => navigate("/cadastros")}>
+                  <Plus className="h-4 w-4 mr-1" /> Ir para Cadastro
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isBuscarMode && (
+          <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base">Cadastro Unificado</CardTitle>
@@ -377,6 +395,7 @@ export default function Cadastros() {
             </div>
           </CardContent>
         </Card>
+        )}
       </main>
     </Layout>
   );
