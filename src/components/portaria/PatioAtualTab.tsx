@@ -299,14 +299,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                        <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
                     </Button>
-                  ) : m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando" ? (
-                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={liberandoId === m.id}>
-                      {liberandoId === m.id ? <span className="animate-spin">⏳</span> : <LogIn className="h-3 w-3" />}
-                      Liberar Entrada
-                    </Button>
-                  ) : (m.categoria === "terceirizado" && m.etapa_terceirizado === "no_patio") || m.categoria === "fornecedor" ? (
+                  ) : m.categoria === "terceirizado" || m.categoria === "fornecedor" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Saída
+                      <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
                     </Button>
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-3 animate-in fade-in duration-200">
@@ -415,14 +410,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
                       <ArrowDownToLine className="h-3 w-3" /> Retorno
                     </Button>
-                  ) : m.categoria === "terceirizado" && m.etapa_terceirizado === "aguardando" ? (
-                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={liberandoId === m.id}>
-                      {liberandoId === m.id ? <span className="animate-spin">⏳</span> : <LogIn className="h-3 w-3" />}
-                      Liberar Entrada
-                    </Button>
-                  ) : (m.categoria === "terceirizado" && m.etapa_terceirizado === "no_patio") || m.categoria === "fornecedor" ? (
+                  ) : m.categoria === "terceirizado" || m.categoria === "fornecedor" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Saída
+                      <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
                     </Button>
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-3 justify-end animate-in fade-in duration-200">

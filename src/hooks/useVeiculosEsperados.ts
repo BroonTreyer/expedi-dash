@@ -106,7 +106,7 @@ export function useRegistrarChegadaPortaria() {
       };
       if (categoria === "terceirizado") {
         movPayload.empresa = v.transportadora;
-        movPayload.etapa_terceirizado = "aguardando";
+        movPayload.etapa_terceirizado = "no_patio";
       } else {
         movPayload.etapa_carga_propria = "chegou";
       }
@@ -219,7 +219,7 @@ export function useAutorizarChegada() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
-      toast.success(vars.autorizar ? "Entrada autorizada" : "Entrada recusada");
+      toast.success(vars.autorizar ? "Carga vinculada — aguardando Portaria liberar entrada física" : "Entrada recusada");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao processar autorização"),
   });
