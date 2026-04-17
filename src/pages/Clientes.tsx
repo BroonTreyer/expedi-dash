@@ -139,8 +139,16 @@ export default function Clientes() {
         if (error) { toast.error(`Erro no lote ${i}: ${error.message}`); setImporting(false); return; }
         imported += batch.length;
       }
-      toast.success(`${imported} clientes importados com sucesso!`);
+      // Propagar nome/cidade/UF para os pedidos existentes
+      let syncMsg = "";
+      try {
+        const { data: syncData } = await supabase.rpc("sync_clients_to_orders");
+        const updated = (syncData as any)?.updated ?? 0;
+        if (updated > 0) syncMsg = ` ${updated} pedidos sincronizados.`;
+      } catch {}
+      toast.success(`${imported} clientes importados com sucesso!${syncMsg}`);
       qc.invalidateQueries({ queryKey: ["clientes"] });
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
     } catch (err: any) {
       toast.error("Erro ao importar: " + err.message);
     } finally {
