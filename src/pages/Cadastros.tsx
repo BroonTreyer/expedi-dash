@@ -15,7 +15,7 @@ import { useTiposCaminhao, useCreateTipoCaminhao } from "@/hooks/useTiposCaminha
 import { toast } from "sonner";
 import { maskCPF, maskPhone } from "@/lib/masks";
 
-type EditingMotorista = { id?: string; nome_completo: string; cpf: string; telefone: string; fotoFile?: File };
+type EditingMotorista = { id?: string; nome_completo: string; cpf: string; telefone: string; fotoFile?: File; fotoMotoristaFile?: File; foto_motorista_url?: string | null; foto_documento_url?: string | null };
 type EditingCaminhao = { id?: string; placa: string; renavam: string; tipo_caminhao: string; transportadora: string; motorista_id: string | null };
 
 const emptyMot: EditingMotorista = { nome_completo: "", cpf: "", telefone: "" };
@@ -70,7 +70,7 @@ export default function Cadastros() {
   function selectMotorista(m: Motorista) {
     navigate("/cadastros", {
       state: {
-        motorista: { id: m.id, nome_completo: m.nome_completo, cpf: m.cpf ?? "", telefone: m.telefone ?? "" },
+        motorista: { id: m.id, nome_completo: m.nome_completo, cpf: m.cpf ?? "", telefone: m.telefone ?? "", foto_motorista_url: m.foto_motorista_url, foto_documento_url: m.foto_documento_url },
       },
     });
   }
@@ -132,6 +132,7 @@ export default function Cadastros() {
             cpf: mot.cpf,
             telefone: mot.telefone,
             fotoFile: mot.fotoFile,
+            fotoMotoristaFile: mot.fotoMotoristaFile,
           });
           motoristaIdFinal = mot.id;
         } else {
@@ -140,6 +141,7 @@ export default function Cadastros() {
             cpf: mot.cpf,
             telefone: mot.telefone,
             fotoFile: mot.fotoFile,
+            fotoMotoristaFile: mot.fotoMotoristaFile,
           });
           motoristaIdFinal = novo.id;
         }
