@@ -118,7 +118,7 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate 
         to={{ pathname: pathPart, search: searchPart ? `?${searchPart}` : "" }}
         onClick={onNavigate}
         className={cn(
-          "flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
+          "relative flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
           collapsed ? "justify-center px-0 py-2.5" : `${padLeft} py-2.5`,
           active
             ? "bg-sidebar-accent text-sidebar-primary"
@@ -126,7 +126,8 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate 
         )}
       >
         <node.icon className="h-4 w-4 shrink-0" />
-        {!collapsed && node.label}
+        {!collapsed && <span className="flex-1">{node.label}</span>}
+        {node.badge && node.badge({ collapsed })}
       </RefLink>
     );
     if (collapsed) {
