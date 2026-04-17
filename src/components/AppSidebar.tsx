@@ -89,10 +89,11 @@ interface NodeProps {
   collapsed: boolean;
   depth: number;
   pathname: string;
+  search: string;
   onNavigate?: () => void;
 }
 
-function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeProps) {
+function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate }: NodeProps) {
   const padLeft = collapsed ? "" : depth === 0 ? "px-3" : depth === 1 ? "pl-9 pr-3" : "pl-12 pr-3";
   const groupHasActive = isGroup(node) && containsPath(node, pathname);
   const [open, setOpen] = useState(groupHasActive);
@@ -103,10 +104,9 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeP
 
   if (!isGroup(node)) {
     const [pathPart, searchPart] = node.to.split("?");
-    const currentMatch = searchPart
-      ? pathname + (typeof window !== "undefined" ? window.location.search : "") === node.to
-      : pathname === pathPart;
-    const active = currentMatch;
+    const active = searchPart
+      ? pathname === pathPart && search === `?${searchPart}`
+      : pathname === pathPart && !search.includes("focus=");
     const link = (
       <RefLink
         to={{ pathname: pathPart, search: searchPart ? `?${searchPart}` : "" }}
@@ -156,6 +156,7 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeP
             collapsed={collapsed}
             depth={depth + 1}
             pathname={pathname}
+            search={search}
             onNavigate={onNavigate}
           />
         ))}
@@ -187,6 +188,7 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeP
             collapsed={collapsed}
             depth={depth + 1}
             pathname={pathname}
+            search={search}
             onNavigate={onNavigate}
           />
         ))}
@@ -226,6 +228,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
               collapsed={!!collapsed}
               depth={0}
               pathname={location.pathname}
+              search={location.search}
               onNavigate={onNavigate}
             />
           ))}
