@@ -4,7 +4,7 @@ import { useAuth, useSession } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { ParsedRow } from "@/components/portaria/ImportarPlanilhaDialog";
 
-export type StatusAutorizacao = "previsto" | "aguardando_autorizacao" | "autorizado" | "recusado";
+export type StatusAutorizacao = "previsto" | "aguardando_vinculo" | "aguardando_autorizacao" | "autorizado" | "recusado";
 
 export interface VeiculoEsperado {
   id: string;
