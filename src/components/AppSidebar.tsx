@@ -139,12 +139,7 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeP
   }
 
   // Group rendering
-  const hasActive = containsPath(node, pathname);
-  const [open, setOpen] = useState(hasActive);
-
-  useEffect(() => {
-    if (hasActive) setOpen(true);
-  }, [hasActive]);
+  const hasActive = groupHasActive;
 
   if (collapsed) {
     // In collapsed mode, render children as flat icons w/ tooltip
