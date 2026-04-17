@@ -252,6 +252,54 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           </Suspense>
         )}
 
+        {/* Veículos no pátio aguardando vínculo */}
+        {veiculosNoPatio.length > 0 && (
+          <div className="border-t border-border pt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <LogIn className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-primary uppercase tracking-wide">
+                Veículos no pátio aguardando vínculo
+              </span>
+              <Badge variant="outline" className="text-[10px] h-5 border-primary/40 bg-primary/10 text-primary">
+                {veiculosNoPatio.length}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {veiculosNoPatio.map((v) => {
+                const selected = walkInVinculadoId === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => handleVincularWalkIn(v)}
+                    className={cn(
+                      "text-left rounded-md border p-2 text-xs transition-colors hover:border-primary hover:bg-primary/5",
+                      selected ? "border-primary bg-primary/10 ring-1 ring-primary" : "bg-card"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold">{v.placa}</span>
+                      <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
+                        <Clock className="h-3 w-3" />
+                        {formatDistanceToNow(new Date(v.created_at), { addSuffix: true, locale: ptBR })}
+                      </Badge>
+                    </div>
+                    <div className="text-muted-foreground mt-0.5 truncate">
+                      {v.motorista || "—"}
+                      {v.tipo_veiculo && <> • {v.tipo_veiculo}</>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {walkInVinculadoId && (
+              <p className="text-[11px] text-primary mt-2">
+                ✓ Veículo vinculado — será automaticamente liberado ao fechar a carga.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Transport fields */}
         <div className="border-t border-border pt-3">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Dados de Transporte</span>
