@@ -228,6 +228,7 @@ export function useRegistrarChegadaWalkIn() {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
       qc.invalidateQueries({ queryKey: ["veiculos_aguardando_vinculo"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
       toast.success("Entrada registrada — aguardando vínculo de carga pela Logística");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao registrar entrada"),
