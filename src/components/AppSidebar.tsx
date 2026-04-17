@@ -1,27 +1,61 @@
 import { Link, useLocation } from "react-router-dom";
-import { forwardRef } from "react";
-import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database } from "lucide-react";
+import { forwardRef, useState, useEffect } from "react";
+import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const allNavItems = [
+type Role = "admin" | "logistica" | "faturamento" | "portaria";
+
+interface NavLeaf {
+  to: string;
+  label: string;
+  icon: any;
+  roles: Role[];
+}
+
+interface NavGroup {
+  label: string;
+  icon: any;
+  roles: Role[];
+  children: (NavLeaf | NavGroup)[];
+}
+
+type NavNode = NavLeaf | NavGroup;
+
+const isGroup = (n: NavNode): n is NavGroup => (n as NavGroup).children !== undefined;
+
+const navTree: NavNode[] = [
   { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
   { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
   { to: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "logistica", "faturamento"] },
-  
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "logistica", "faturamento"] },
   { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "logistica", "faturamento"] },
   { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "logistica", "faturamento"] },
   { to: "/clientes", label: "Clientes", icon: Building2, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/portaria/carga-propria", label: "Portaria — Própria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
-  { to: "/portaria/terceirizado", label: "Portaria — Terceiros", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
-  { to: "/motoristas", label: "Motoristas", icon: Contact, roles: ["admin", "logistica", "portaria"] },
-  { to: "/caminhoes", label: "Caminhões", icon: Truck, roles: ["admin", "logistica"] },
-  { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck, roles: ["admin", "logistica"] },
+  {
+    label: "Portaria",
+    icon: DoorOpen,
+    roles: ["admin", "logistica", "portaria"],
+    children: [
+      { to: "/portaria/carga-propria", label: "Carga Própria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
+      { to: "/portaria/terceirizado", label: "Terceirizados", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
+      {
+        label: "Cadastros",
+        icon: FolderCog,
+        roles: ["admin", "logistica", "portaria"],
+        children: [
+          { to: "/motoristas", label: "Motoristas", icon: Contact, roles: ["admin", "logistica", "portaria"] },
+          { to: "/caminhoes", label: "Caminhões", icon: Truck, roles: ["admin", "logistica"] },
+          { to: "/tipos-caminhao", label: "Tipos de Caminhão", icon: Truck, roles: ["admin", "logistica"] },
+        ],
+      },
+    ],
+  },
   { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
   { to: "/backups", label: "Backups", icon: Database, roles: ["admin"] },
 ];
@@ -31,17 +65,145 @@ interface Props {
   onNavigate?: () => void;
 }
 
-// forwardRef wrapper for Link to avoid ref warnings with TooltipTrigger
 const RefLink = forwardRef<HTMLAnchorElement, React.ComponentProps<typeof Link>>((props, ref) => (
   <Link ref={ref} {...props} />
 ));
 RefLink.displayName = "RefLink";
 
+// Filter tree by role
+function filterTree(nodes: NavNode[], role: Role | null): NavNode[] {
+  if (!role) return [];
+  const out: NavNode[] = [];
+  for (const n of nodes) {
+    if (!n.roles.includes(role)) continue;
+    if (isGroup(n)) {
+      const kids = filterTree(n.children, role);
+      if (kids.length) out.push({ ...n, children: kids });
+    } else {
+      out.push(n);
+    }
+  }
+  return out;
+}
+
+// Check if any leaf descendant matches the current path
+function containsPath(node: NavNode, path: string): boolean {
+  if (isGroup(node)) return node.children.some((c) => containsPath(c, path));
+  return node.to === path;
+}
+
+interface NodeProps {
+  node: NavNode;
+  collapsed: boolean;
+  depth: number;
+  pathname: string;
+  onNavigate?: () => void;
+}
+
+function NavNodeRenderer({ node, collapsed, depth, pathname, onNavigate }: NodeProps) {
+  const padLeft = collapsed ? "" : depth === 0 ? "px-3" : depth === 1 ? "pl-9 pr-3" : "pl-12 pr-3";
+  const groupHasActive = isGroup(node) && containsPath(node, pathname);
+  const [open, setOpen] = useState(groupHasActive);
+
+  useEffect(() => {
+    if (groupHasActive) setOpen(true);
+  }, [groupHasActive]);
+
+  if (!isGroup(node)) {
+    const active = pathname === node.to;
+    const link = (
+      <RefLink
+        to={node.to}
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
+          collapsed ? "justify-center px-0 py-2.5" : `${padLeft} py-2.5`,
+          active
+            ? "bg-sidebar-accent text-sidebar-primary"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+      >
+        <node.icon className="h-4 w-4 shrink-0" />
+        {!collapsed && node.label}
+      </RefLink>
+    );
+    if (collapsed) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="right">{node.label}</TooltipContent>
+        </Tooltip>
+      );
+    }
+    return link;
+  }
+
+  // Group rendering
+  const hasActive = groupHasActive;
+
+  if (collapsed) {
+    // In collapsed mode, render children as flat icons w/ tooltip
+    return (
+      <>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center justify-center px-0 py-2.5 text-sidebar-foreground/50">
+              <node.icon className="h-4 w-4 shrink-0" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right">{node.label}</TooltipContent>
+        </Tooltip>
+        {node.children.map((child, i) => (
+          <NavNodeRenderer
+            key={isGroup(child) ? `${child.label}-${i}` : child.to}
+            node={child}
+            collapsed={collapsed}
+            depth={depth + 1}
+            pathname={pathname}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger
+        className={cn(
+          "flex w-full items-center gap-3 rounded-md text-sm font-medium transition-colors",
+          padLeft,
+          "py-2.5",
+          hasActive
+            ? "text-sidebar-primary"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+      >
+        <node.icon className="h-4 w-4 shrink-0" />
+        <span className="flex-1 text-left">{node.label}</span>
+        <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-1 mt-1">
+        {node.children.map((child, i) => (
+          <NavNodeRenderer
+            key={isGroup(child) ? `${child.label}-${i}` : child.to}
+            node={child}
+            collapsed={collapsed}
+            depth={depth + 1}
+            pathname={pathname}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function AppSidebar({ collapsed, onNavigate }: Props) {
   const location = useLocation();
   const { role, signOut, user } = useAuth();
 
-  const navItems = allNavItems.filter((item) => role && item.roles.includes(role));
+  const tree = filterTree(navTree, (role as Role) ?? null);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -61,36 +223,16 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-1">
-          {navItems.map((item) => {
-            const active = location.pathname === item.to;
-            const link = (
-              <RefLink
-                key={item.to}
-                to={item.to}
-                onClick={onNavigate}
-                className={cn(
-                  "flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
-                  collapsed ? "justify-center px-0 py-2.5" : "px-3 py-2.5",
-                  active
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && item.label}
-              </RefLink>
-            );
-
-            if (collapsed) {
-              return (
-                <Tooltip key={item.to}>
-                  <TooltipTrigger asChild>{link}</TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                </Tooltip>
-              );
-            }
-            return link;
-          })}
+          {tree.map((node, i) => (
+            <NavNodeRenderer
+              key={isGroup(node) ? `${node.label}-${i}` : node.to}
+              node={node}
+              collapsed={!!collapsed}
+              depth={0}
+              pathname={location.pathname}
+              onNavigate={onNavigate}
+            />
+          ))}
         </nav>
         {user && (
           <div className="p-3 border-t border-sidebar-border">
