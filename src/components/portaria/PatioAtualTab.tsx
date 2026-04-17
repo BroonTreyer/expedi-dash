@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, LogIn } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2 } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -67,7 +67,6 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [liberandoId, setLiberandoId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
   // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
@@ -231,12 +230,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   <div className="flex items-center gap-1">
                     {m.categoria === "carga_propria" && m.etapa_carga_propria && (
                       <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
-                        {m.etapa_carga_propria === "chegou" ? "🟠 Chegou" : m.etapa_carga_propria === "em_rota" ? "🔵 Em Rota" : "🟡 Retornou"}
+                        {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
                       </Badge>
                     )}
-                    {m.categoria === "terceirizado" && m.etapa_terceirizado && (
-                      <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
-                        {m.etapa_terceirizado === "aguardando" ? "🟡 Aguardando" : "🟢 No Pátio"}
+                    {m.categoria === "terceirizado" && m.etapa_terceirizado === "no_patio" && (
+                      <Badge variant="default" className="text-[10px] bg-emerald-600 text-white">
+                        No Pátio
                       </Badge>
                     )}
                     <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[m.categoria] || ""}`}>
@@ -309,7 +308,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         Cancelar
                       </Button>
                       <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleSaidaRapida(m)} disabled={isSaving}>
-                        {isSaving ? <span className="animate-spin">⏳</span> : <ArrowUpFromLine className="h-3 w-3" />}
+                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpFromLine className="h-3 w-3" />}
                         Confirmar Saída
                       </Button>
                     </div>
@@ -373,9 +372,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
                       </Badge>
                     )}
-                    {m.categoria === "terceirizado" && m.etapa_terceirizado && (
-                      <Badge variant={m.etapa_terceirizado === "aguardando" ? "outline" : "default"} className={`text-[10px] ${m.etapa_terceirizado === "aguardando" ? "border-yellow-500 text-yellow-700 dark:text-yellow-400" : "bg-emerald-600 text-white"}`}>
-                        {m.etapa_terceirizado === "aguardando" ? "Aguardando" : "No Pátio"}
+                    {m.categoria === "terceirizado" && m.etapa_terceirizado === "no_patio" && (
+                      <Badge variant="default" className="text-[10px] bg-emerald-600 text-white">
+                        No Pátio
                       </Badge>
                     )}
                   </div>
@@ -420,7 +419,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         Cancelar
                       </Button>
                       <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleSaidaRapida(m)} disabled={isSaving}>
-                        {isSaving ? <span className="animate-spin">⏳</span> : <ArrowUpFromLine className="h-3 w-3" />}
+                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpFromLine className="h-3 w-3" />}
                         Confirmar
                       </Button>
                     </div>
