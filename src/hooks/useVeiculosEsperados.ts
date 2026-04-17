@@ -50,6 +50,93 @@ export function useSolicitacoesPendentes() {
   });
 }
 
+/**
+ * Walk-ins ainda em circulação na página Registro de Entrada:
+ * - aguardando_vinculo: Logística ainda não fechou carga
+ * - autorizado: Logística vinculou e liberou — aguardando porteiro registrar chegada
+ * Sempre filtrado por conferido=false (depois que porteiro registra chegada, sai da lista).
+ */
+export function useVeiculosWalkInAtivos() {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["veiculos_walkin_ativos"],
+    enabled: !!session,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("veiculos_esperados" as any)
+        .select("*")
+        .eq("walk_in", true)
+        .eq("conferido", false)
+        .in("status_autorizacao", ["aguardando_vinculo", "autorizado"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as VeiculoEsperado[];
+    },
+  });
+}
+
+/**
+ * Porteiro confirma a chegada física do veículo walk-in já liberado.
+ * Cria a movimentação de entrada e marca veiculo_esperado como conferido.
+ */
+export function useRegistrarChegadaPortaria() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (v: VeiculoEsperado) => {
+      const isCargaPropria = (v.grupo || "").toUpperCase().includes("PROPRIA") || (v.grupo || "").toUpperCase().includes("PRÓPRIA");
+      const categoria = isCargaPropria ? "carga_propria" : "terceirizado";
+      const nowIso = new Date().toISOString();
+
+      const movPayload: Record<string, any> = {
+        tipo_movimento: "entrada",
+        categoria,
+        placa: v.placa,
+        motorista: v.motorista,
+        tipo_caminhao: v.tipo_veiculo,
+        carga_id: v.carga_id,
+        peso: v.peso,
+        qtd_entregas: v.qtd_entregas,
+        horario_entrada: nowIso,
+        horario_chegada: nowIso,
+        data_hora: nowIso,
+        usuario_id: user?.id ?? null,
+        observacoes: v.observacoes,
+      };
+      if (categoria === "terceirizado") {
+        movPayload.empresa = v.transportadora;
+        movPayload.etapa_terceirizado = "aguardando";
+      } else {
+        movPayload.etapa_carga_propria = "chegou";
+      }
+
+      const { error: movErr } = await supabase
+        .from("movimentacoes_portaria")
+        .insert(movPayload as any);
+      if (movErr) throw movErr;
+
+      const { error: updErr } = await supabase
+        .from("veiculos_esperados" as any)
+        .update({
+          conferido: true,
+          conferido_por: user?.id ?? null,
+          conferido_em: nowIso,
+        } as any)
+        .eq("id", v.id);
+      if (updErr) throw updErr;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      toast.success("Chegada registrada — veículo no pátio");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao registrar chegada"),
+  });
+}
+
 export function useRegistrarChegadaWalkIn() {
   const qc = useQueryClient();
   const { user } = useAuth();
