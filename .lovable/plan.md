@@ -1,46 +1,34 @@
 
+User quer adicionar **captura de foto do motorista** (selfie/rosto) ao cadastro, mantendo a foto do documento que já existe. Hoje o cadastro tem apenas `foto_documento_url`.
 
-## Bugs identificados
+## Plano
 
-Olhando a screenshot e o código de `AppSidebar.tsx`:
+### 1. Banco — adicionar coluna
+Migration na tabela `motoristas`:
+- `foto_motorista_url text` (nullable)
 
-1. **Ambos os itens ficam ativos ao mesmo tempo** (vermelho cheio em "Cadastros" e "Buscar/Consultar"):
-   - "Cadastros" tem `to: "/cadastros"` — a checagem é `pathname === "/cadastros"` → **true** quando estou em `/cadastros?focus=buscar`.
-   - "Buscar/Consultar" tem `to: "/cadastros?focus=buscar"` — a checagem usa `window.location.search` (não reativo ao React Router) e também acerta.
-   - Resultado: os dois ligam o estilo `active`.
+### 2. Hook `src/hooks/useMotoristas.ts`
+- Adicionar `foto_motorista_url` na interface `Motorista`.
+- `useCreateMotorista` e `useUpdateMotorista`: aceitar `fotoMotoristaFile?: File` (além do `fotoFile` que é o documento).
+  - Upload no bucket `portaria` em `motoristas/{id}/rosto.{ext}`.
+  - Gera signed URL (1 ano) e grava em `foto_motorista_url`.
 
-2. **Estilo ativo "vermelho cheio"** vem da classe `bg-sidebar-accent text-sidebar-primary` aplicada — isso é correto, mas como **dois itens** acendem juntos, parece bugado.
+### 3. Página `src/pages/Cadastros.tsx`
+No card de cadastro do motorista, adicionar um segundo `<CapturaFoto>`:
+- **Foto do Motorista** (selfie/rosto) — usa câmera frontal idealmente, mas mantém componente atual (rear) por consistência. Aceita imagem.
+- **Foto do Documento** — já existe.
 
-3. **Uso de `window.location.search`** dentro do render é frágil: não dispara rerender quando muda apenas a query string via `navigate()`.
+Layout: lado a lado em `grid grid-cols-1 sm:grid-cols-2 gap-3` para manter compacto no desktop e empilhar no mobile.
 
-## Correções
+Estado novo: `fotoMotoristaFile`. Passar para `mutateAsync({ ..., fotoMotoristaFile })`.
 
-### `src/components/AppSidebar.tsx`
+### 4. Busca/Consulta (`?focus=buscar`)
+Mostrar miniatura da foto do motorista ao lado do nome no resultado (avatar 8×8 com fallback de iniciais), e botão "Ver foto" abrindo o `PhotoViewerDialog`.
 
-**(a) Substituir `window.location.search` por `useLocation().search`** — passar `search` como prop junto com `pathname` para `NavNodeRenderer`, garantindo reatividade.
-
-**(b) Lógica de "active" exclusiva** quando duas folhas compartilham o mesmo `pathname`:
-- Se o `to` da folha contém `?` → ativo somente quando `pathname + search` bate exatamente.
-- Se o `to` da folha **não** contém `?` → ativo somente quando `pathname` bate **e** não há query string `focus=buscar` (ou seja, a "irmã" mais específica não está ativa).
-
-Implementação simples: dentro do grupo Portaria, verificar se existe alguma folha irmã com query string que case com o location atual; se sim, a folha "base" (`/cadastros` puro) não fica ativa.
-
-Forma genérica e segura:
-```ts
-const fullCurrent = pathname + search;
-const active = node.to.includes("?")
-  ? fullCurrent === node.to
-  : pathname === node.to && !search.includes("focus="); // folha base só ativa quando não há focus
-```
-
-**(c)** Remover dependência de `window.location` (não reativa).
+### Arquivos alterados
+- ✏️ migration SQL (nova coluna `foto_motorista_url`)
+- ✏️ `src/hooks/useMotoristas.ts` (interface + create/update)
+- ✏️ `src/pages/Cadastros.tsx` (campo de captura + preview na busca)
 
 ### Sem mudanças em
-- Rotas, páginas, banco, permissões.
-- Apenas `src/components/AppSidebar.tsx`.
-
-### Resultado esperado
-- Em `/cadastros` → só "Cadastros" fica vermelho.
-- Em `/cadastros?focus=buscar` → só "Buscar/Consultar" fica vermelho.
-- Grupo "Portaria" continua expandido em ambos os casos.
-
+- RLS, bucket (já existe `portaria` privado), permissões, rotas.
