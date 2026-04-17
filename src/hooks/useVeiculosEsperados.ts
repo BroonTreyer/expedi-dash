@@ -42,7 +42,7 @@ export function useSolicitacoesPendentes() {
       const { data, error } = await supabase
         .from("veiculos_esperados" as any)
         .select("*")
-        .eq("status_autorizacao", "aguardando_autorizacao")
+        .in("status_autorizacao", ["aguardando_vinculo", "aguardando_autorizacao"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as VeiculoEsperado[];
@@ -76,7 +76,7 @@ export function useRegistrarChegadaWalkIn() {
           destino: input.destino || null,
           observacoes: input.observacoes || null,
           walk_in: true,
-          status_autorizacao: "aguardando_autorizacao",
+          status_autorizacao: "aguardando_vinculo",
           criado_por: user?.id ?? null,
         } as any)
         .select()
@@ -87,9 +87,29 @@ export function useRegistrarChegadaWalkIn() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
-      toast.success("Chegada registrada — aguardando autorização da Logística");
+      qc.invalidateQueries({ queryKey: ["veiculos_aguardando_vinculo"] });
+      toast.success("Entrada registrada — aguardando vínculo de carga pela Logística");
     },
-    onError: (e: any) => toast.error(e.message || "Erro ao registrar chegada"),
+    onError: (e: any) => toast.error(e.message || "Erro ao registrar entrada"),
+  });
+}
+
+export function useVeiculosAguardandoVinculo() {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["veiculos_aguardando_vinculo"],
+    enabled: !!session,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("veiculos_esperados" as any)
+        .select("*")
+        .eq("walk_in", true)
+        .eq("status_autorizacao", "aguardando_vinculo")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as VeiculoEsperado[];
+    },
   });
 }
 
