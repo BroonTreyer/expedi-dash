@@ -119,7 +119,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
   const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
     const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
@@ -143,6 +143,29 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       }))
     );
     const destinos = groups.filter(g => g.cidade).map(g => `${g.cidade}/${g.uf}`).join(", ");
+
+    // Auto-autorizar veículo no pátio (walk-in) se foi vinculado a esta carga
+    const placaNorm = placa.trim().toUpperCase();
+    const walkInMatch = walkInVinculadoId
+      ? veiculosNoPatio.find((v) => v.id === walkInVinculadoId)
+      : veiculosNoPatio.find((v) => v.placa.trim().toUpperCase() === placaNorm);
+    if (walkInMatch) {
+      try {
+        await supabase
+          .from("veiculos_esperados" as any)
+          .update({
+            status_autorizacao: "autorizado",
+            carga_id: cargaId,
+            autorizado_por: user?.id ?? null,
+            autorizado_em: new Date().toISOString(),
+          } as any)
+          .eq("id", walkInMatch.id);
+      } catch (e) {
+        // Silencioso: fechamento de carga não deve quebrar por isso
+        console.error("Falha ao autorizar walk-in vinculado:", e);
+      }
+    }
+
     onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos });
     onOpenChange(false);
 
