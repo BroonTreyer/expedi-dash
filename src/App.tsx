@@ -21,7 +21,8 @@ const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Rupturas = lazy(() => import("./pages/Rupturas"));
 const Clientes = lazy(() => import("./pages/Clientes"));
 const Consolidado = lazy(() => import("./pages/Consolidado"));
-const Portaria = lazy(() => import("./pages/Portaria"));
+const PortariaCargaPropria = lazy(() => import("./pages/PortariaCargaPropria"));
+const PortariaTerceirizado = lazy(() => import("./pages/PortariaTerceirizado"));
 const Motoristas = lazy(() => import("./pages/Motoristas"));
 const Caminhoes = lazy(() => import("./pages/Caminhoes"));
 const Analytics = lazy(() => import("./pages/Analytics"));
@@ -72,7 +73,9 @@ function AppRoutes() {
           <Route path="/clientes" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Clientes /></ProtectedRoute>} />
           <Route path="/rupturas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Rupturas /></ProtectedRoute>} />
           <Route path="/consolidado" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Consolidado /></ProtectedRoute>} />
-          <Route path="/portaria" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Portaria /></ProtectedRoute>} />
+          <Route path="/portaria" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><PortariaCargaPropria /></ProtectedRoute>} />
+          <Route path="/portaria/carga-propria" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><PortariaCargaPropria /></ProtectedRoute>} />
+          <Route path="/portaria/terceirizado" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><PortariaTerceirizado /></ProtectedRoute>} />
           <Route path="/motoristas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Motoristas /></ProtectedRoute>} />
           <Route path="/caminhoes" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><Caminhoes /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Analytics /></ProtectedRoute>} />

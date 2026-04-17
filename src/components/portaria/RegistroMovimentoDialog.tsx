@@ -392,7 +392,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                {!prefill && (
+                {!prefill && !forcedCategoria && (
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setStep("categoria")}>
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
