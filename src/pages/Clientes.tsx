@@ -39,6 +39,7 @@ export default function Clientes() {
   const [importing, setImporting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
   const { sort, toggleSort, sortData } = useSortableTable();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -244,6 +245,53 @@ export default function Clientes() {
     }
   };
 
+  const handleReprocessPending = async () => {
+    setReprocessing(true);
+    const tId = toast.loading("Reprocessando clientes pendentes...");
+    try {
+      let totalUpdated = 0;
+      let totalResolved = 0;
+      let totalFailed = 0;
+      let totalProcessed = 0;
+      let pass = 0;
+      // Loop até zerar pendentes (sem cursor — função sempre busca os primeiros com cidade null)
+      for (pass = 0; pass < 200; pass++) {
+        const { data, error }: any = await supabase.functions.invoke("enrich-clientes-viacep", {
+          body: { only_missing: true },
+        });
+        if (error) throw error;
+        const upd = data?.updated ?? 0;
+        const res = data?.viacep_resolved ?? 0;
+        const fail = data?.failed ?? 0;
+        const proc = data?.processed ?? 0;
+        totalUpdated += upd;
+        totalResolved += res;
+        totalFailed += fail;
+        totalProcessed += proc;
+        toast.loading(
+          `Reprocessando: passo ${pass + 1} • ${totalProcessed} processados • ${totalUpdated} atualizados • ${totalFailed} falhas`,
+          { id: tId }
+        );
+        // Para se nada foi atualizado neste passo (todos restantes falharam ou acabaram)
+        if (data?.done || upd === 0) break;
+      }
+
+      const { data: syncData } = await supabase.rpc("sync_clients_to_orders");
+      const ordUpdated = (syncData as any)?.updated ?? 0;
+
+      toast.success(
+        `Reprocessamento concluído: ${totalUpdated} atualizados em ${pass + 1} passos. ${totalFailed} CEPs sem retorno. ${ordUpdated} pedidos sincronizados.`,
+        { id: tId }
+      );
+      qc.invalidateQueries({ queryKey: ["clientes"] });
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+    } catch (err: any) {
+      toast.error("Erro ao reprocessar: " + (err.message || err), { id: tId });
+    } finally {
+      setReprocessing(false);
+    }
+  };
+
   const renderPaginationItems = () => {
     const items = [];
     const maxVisible = 5;
@@ -271,8 +319,11 @@ export default function Clientes() {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Clientes</h1>
           <div className="flex gap-2">
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-            <Button variant="outline" size="sm" onClick={handleEnrichViaCep} disabled={enriching} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+            <Button variant="outline" size="sm" onClick={handleEnrichViaCep} disabled={enriching || reprocessing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
               <RefreshCw className={`h-4 w-4 mr-1 ${enriching ? "animate-spin" : ""}`} /> {enriching ? "Atualizando..." : "Atualizar via CEP"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleReprocessPending} disabled={enriching || reprocessing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+              <RefreshCw className={`h-4 w-4 mr-1 ${reprocessing ? "animate-spin" : ""}`} /> {reprocessing ? "Reprocessando..." : "Reprocessar pendentes"}
             </Button>
             <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
               <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Sincronizando..." : "Sincronizar pedidos"}
