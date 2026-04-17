@@ -99,7 +99,7 @@ export function useRegistrarChegadaPortaria() {
         peso: v.peso,
         qtd_entregas: v.qtd_entregas,
         horario_entrada: nowIso,
-        horario_chegada: nowIso,
+        horario_chegada: v.created_at,
         data_hora: nowIso,
         usuario_id: user?.id ?? null,
         observacoes: v.observacoes,
@@ -131,7 +131,7 @@ export function useRegistrarChegadaPortaria() {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
-      toast.success("Chegada registrada — veículo no pátio");
+      toast.success("Entrada liberada — veículo no pátio");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao registrar chegada"),
   });

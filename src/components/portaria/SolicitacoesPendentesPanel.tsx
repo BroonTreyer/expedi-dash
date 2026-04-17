@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogIn, X, Clock, Link2, CheckCircle2, ArrowDownToLine } from "lucide-react";
+import { LogIn, X, Clock, Link2, CheckCircle2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -133,7 +133,7 @@ export function SolicitacoesPendentesPanel() {
             onClick={() => registrarChegada.mutate(v)}
             disabled={registrarChegada.isPending}
           >
-            <ArrowDownToLine className="h-3.5 w-3.5" /> Registrar Chegada
+            <LogIn className="h-3.5 w-3.5" /> Liberar Entrada
           </Button>
         </div>
       ) : (
@@ -166,7 +166,7 @@ export function SolicitacoesPendentesPanel() {
           <CardHeader className="py-3 px-4">
             <CardTitle className="text-sm flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              Liberados — aguardando registro de chegada
+              Liberados — aguardando liberação de entrada
               <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
                 {liberados.length}
               </Badge>
