@@ -106,6 +106,32 @@ export function useVeiculosWalkInAtivos() {
  * Porteiro confirma a chegada física do veículo walk-in já liberado.
  * Cria a movimentação de entrada e marca veiculo_esperado como conferido.
  */
+/**
+ * Contagem leve de walk-ins pendentes (para badge no menu).
+ * Retorna { aguardando, liberados, total }.
+ */
+export function useWalkInPendentesCount() {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["veiculos_walkin_pendentes_count"],
+    enabled: !!session,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("veiculos_esperados" as any)
+        .select("status_autorizacao")
+        .eq("walk_in", true)
+        .eq("conferido", false)
+        .in("status_autorizacao", ["aguardando_vinculo", "autorizado"]);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as { status_autorizacao: StatusAutorizacao }[];
+      const aguardando = rows.filter((r) => r.status_autorizacao === "aguardando_vinculo").length;
+      const liberados = rows.filter((r) => r.status_autorizacao === "autorizado").length;
+      return { aguardando, liberados, total: aguardando + liberados };
+    },
+  });
+}
+
 export function useRegistrarChegadaPortaria() {
   const qc = useQueryClient();
   const { user } = useAuth();
