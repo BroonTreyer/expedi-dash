@@ -10,27 +10,60 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHUNK = 1000;
-const CONCURRENCY = 50;
-const FETCH_TIMEOUT_MS = 2500;
+const CHUNK = 600;
+const CONCURRENCY = 25;
+const FETCH_TIMEOUT_MS = 6000;
 
 function normalizeCep(v: any): string {
   return String(v ?? "").replace(/\D/g, "").slice(0, 8);
 }
 
-async function fetchViaCep(cep: string) {
+async function fetchWithTimeout(url: string, ms: number) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: ctrl.signal });
+    const res = await fetch(url, { signal: ctrl.signal });
+    return res;
+  } finally {
     clearTimeout(t);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data?.erro) return null;
-    return data as { localidade?: string; uf?: string };
-  } catch {
-    return null;
   }
+}
+
+async function fetchViaCep(cep: string): Promise<{ cidade: string; uf: string } | null> {
+  // 1) ViaCEP com 1 retry
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetchWithTimeout(`https://viacep.com.br/ws/${cep}/json/`, FETCH_TIMEOUT_MS);
+      if (res.ok) {
+        const data = await res.json();
+        if (!data?.erro && data?.localidade && data?.uf) {
+          return { cidade: data.localidade, uf: data.uf };
+        }
+        if (data?.erro) return null; // CEP inexistente, não tenta fallback
+      }
+    } catch {}
+  }
+  // 2) Fallback BrasilAPI v2
+  try {
+    const res = await fetchWithTimeout(`https://brasilapi.com.br/api/cep/v2/${cep}`, FETCH_TIMEOUT_MS);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.city && data?.state) {
+        return { cidade: data.city, uf: data.state };
+      }
+    }
+  } catch {}
+  // 3) Fallback BrasilAPI v1
+  try {
+    const res = await fetchWithTimeout(`https://brasilapi.com.br/api/cep/v1/${cep}`, FETCH_TIMEOUT_MS);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.city && data?.state) {
+        return { cidade: data.city, uf: data.state };
+      }
+    }
+  } catch {}
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -59,16 +92,18 @@ Deno.serve(async (req) => {
     const cursor: string | null = body?.cursor ?? null;
     const cepMin: string | null = body?.cep_min ?? null;
     const cepMax: string | null = body?.cep_max ?? null;
+    const onlyMissing: boolean = !!body?.only_missing;
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Buscar próximos clientes com CEP, ordenados por CEP, dentro da faixa e após o cursor
+    // Buscar próximos clientes com CEP. Em modo only_missing, só os com cidade null.
     let query = admin
       .from("clientes")
       .select("id, cep, cidade, uf")
       .not("cep", "is", null)
       .order("cep", { ascending: true })
       .limit(CHUNK * 5);
+    if (onlyMissing) query = query.is("cidade", null);
     if (cursor) query = query.gt("cep", cursor);
     else if (cepMin) query = query.gte("cep", cepMin);
     if (cepMax) query = query.lt("cep", cepMax);
@@ -107,29 +142,31 @@ Deno.serve(async (req) => {
       cepMap.set(row.cep, { cidade: row.cidade, uf: row.uf });
     }
 
-    // 2) CEPs não-cached → ViaCEP em paralelo
+    // 2) CEPs não-cached → ViaCEP/BrasilAPI em paralelo
     const missing = uniqueCeps.filter((c) => !cepMap.has(c));
     const newlyResolved: { cep: string; cidade: string; uf: string }[] = [];
+    const failedCeps: string[] = [];
     let i = 0;
     async function worker() {
       while (i < missing.length) {
         const idx = i++;
         const cep = missing[idx];
         const data = await fetchViaCep(cep);
-        if (data?.localidade && data?.uf) {
-          const entry = { cidade: data.localidade, uf: data.uf };
-          cepMap.set(cep, entry);
-          newlyResolved.push({ cep, ...entry });
+        if (data) {
+          cepMap.set(cep, data);
+          newlyResolved.push({ cep, ...data });
+        } else {
+          failedCeps.push(cep);
         }
       }
     }
     await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
-    // 3) Gravar novos CEPs no cache (fire-and-forget em lotes)
+    // 3) Gravar novos CEPs no cache (await para garantir persistência)
     if (newlyResolved.length > 0) {
       for (let k = 0; k < newlyResolved.length; k += 500) {
         const batch = newlyResolved.slice(k, k + 500);
-        admin.from("cep_cache").upsert(batch, { onConflict: "cep" }).then(() => {});
+        await admin.from("cep_cache").upsert(batch, { onConflict: "cep" });
       }
     }
 
@@ -148,7 +185,6 @@ Deno.serve(async (req) => {
     let updated = 0;
     await Promise.all(
       Array.from(groups.values()).map(async (g) => {
-        // Postgrest .in() suporta listas grandes; quebrar a 500 por segurança
         for (let k = 0; k < g.ids.length; k += 500) {
           const batchIds = g.ids.slice(k, k + 500);
           const { error } = await admin
@@ -166,6 +202,8 @@ Deno.serve(async (req) => {
       unique_ceps: uniqueCeps.length,
       cache_hits: uniqueCeps.length - missing.length,
       viacep_resolved: newlyResolved.length,
+      failed: failedCeps.length,
+      failed_ceps: failedCeps.slice(0, 20),
       updated,
       next_cursor: lastCep,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
