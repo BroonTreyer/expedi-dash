@@ -5,11 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package, Link2 } from "lucide-react";
+import { Truck, MapPin, Package, Link2, LogIn, Clock } from "lucide-react";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
 import { CaminhaoAutocomplete } from "@/components/portaria/CaminhaoAutocomplete";
 import { cn } from "@/lib/utils";
 import { useCaminhoes } from "@/hooks/useCaminhoes";
+import { useVeiculosAguardandoVinculo } from "@/hooks/useVeiculosEsperados";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
 import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
@@ -37,6 +42,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
   const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
+  const [walkInVinculadoId, setWalkInVinculadoId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { data: veiculosNoPatio = [] } = useVeiculosAguardandoVinculo();
 
   // Fetch caminhões cadastrados
   const { data: caminhoesCadastrados = [] } = useCaminhoes();
@@ -91,9 +99,19 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setHorarioPrevisto("");
       setNomeCarga("");
       setVeiculoVinculado("manual");
+      setWalkInVinculadoId(null);
       setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
     }
   }, [open, selectedDate]);
+
+  const handleVincularWalkIn = (v: typeof veiculosNoPatio[number]) => {
+    setPlaca(v.placa);
+    if (v.motorista) setMotorista(v.motorista);
+    if (v.transportadora) setTransportadora(v.transportadora);
+    if (v.tipo_veiculo) setTipoCaminhao(v.tipo_veiculo);
+    setWalkInVinculadoId(v.id);
+    setVeiculoVinculado("manual");
+  };
 
   const totalPeso = useMemo(() => groups.reduce((s, g) => s + g.pesoTotal, 0), [groups]);
   const totalPedidos = useMemo(() => groups.reduce((s, g) => s + g.items.length, 0), [groups]);
