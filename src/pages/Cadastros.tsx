@@ -298,6 +298,7 @@ export default function Cadastros() {
         )}
 
         {!isBuscarMode && (
+          <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base">Cadastro Unificado</CardTitle>
@@ -394,6 +395,7 @@ export default function Cadastros() {
             </div>
           </CardContent>
         </Card>
+        )}
       </main>
     </Layout>
   );
