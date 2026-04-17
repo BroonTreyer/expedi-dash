@@ -156,6 +156,7 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate 
             collapsed={collapsed}
             depth={depth + 1}
             pathname={pathname}
+            search={search}
             onNavigate={onNavigate}
           />
         ))}
@@ -187,6 +188,7 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate 
             collapsed={collapsed}
             depth={depth + 1}
             pathname={pathname}
+            search={search}
             onNavigate={onNavigate}
           />
         ))}
