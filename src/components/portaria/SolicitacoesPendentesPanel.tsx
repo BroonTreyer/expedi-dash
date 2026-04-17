@@ -166,7 +166,7 @@ export function SolicitacoesPendentesPanel() {
           <CardHeader className="py-3 px-4">
             <CardTitle className="text-sm flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              Liberados — aguardando liberação de entrada
+              Carga vinculada — clique para liberar entrada no pátio
               <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
                 {liberados.length}
               </Badge>
