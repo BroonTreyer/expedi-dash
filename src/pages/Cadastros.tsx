@@ -12,7 +12,7 @@ import { useMotoristas, useCreateMotorista, useUpdateMotorista, type Motorista }
 import { useCaminhoes, useCreateCaminhao, useUpdateCaminhao, type Caminhao } from "@/hooks/useCaminhoes";
 import { useTiposCaminhao, useCreateTipoCaminhao } from "@/hooks/useTiposCaminhao";
 import { toast } from "sonner";
-import { maskCPF, maskTelefone } from "@/lib/masks";
+import { maskCPF, maskPhone } from "@/lib/masks";
 
 type EditingMotorista = { id?: string; nome_completo: string; cpf: string; telefone: string; fotoFile?: File };
 type EditingCaminhao = { id?: string; placa: string; renavam: string; tipo_caminhao: string; transportadora: string; motorista_id: string | null };
@@ -295,7 +295,7 @@ export default function Cadastros() {
                 </div>
                 <div>
                   <Label>Telefone</Label>
-                  <Input value={mot.telefone} onChange={(e) => setMot({ ...mot, telefone: maskTelefone(e.target.value) })} placeholder="(00) 00000-0000" />
+                  <Input value={mot.telefone} onChange={(e) => setMot({ ...mot, telefone: maskPhone(e.target.value) })} placeholder="(00) 00000-0000" />
                 </div>
                 <div className="md:col-span-2">
                   <Label>Foto do documento (opcional)</Label>
