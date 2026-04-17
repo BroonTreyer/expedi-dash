@@ -10,39 +10,25 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const CHUNK = 300; // CEPs únicos processados por chamada
+
 function normalizeCep(v: any): string {
-  return String(v ?? "").replace(/\D/g, "").padStart(0, "0").slice(0, 8);
+  return String(v ?? "").replace(/\D/g, "").slice(0, 8);
 }
 
-async function fetchViaCep(cep: string): Promise<{ localidade?: string; uf?: string; erro?: boolean } | null> {
+async function fetchViaCep(cep: string) {
   try {
-    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: ctrl.signal });
+    clearTimeout(t);
     if (!res.ok) return null;
     const data = await res.json();
     if (data?.erro) return null;
-    return data;
+    return data as { localidade?: string; uf?: string };
   } catch {
     return null;
   }
-}
-
-async function processBatch(ceps: string[], concurrency = 15): Promise<Map<string, { cidade: string; uf: string }>> {
-  const result = new Map<string, { cidade: string; uf: string }>();
-  let i = 0;
-  async function worker() {
-    while (i < ceps.length) {
-      const idx = i++;
-      const cep = ceps[idx];
-      const data = await fetchViaCep(cep);
-      if (data && data.localidade && data.uf) {
-        result.set(cep, { cidade: data.localidade, uf: data.uf });
-      }
-      // pequeno delay para não estourar rate-limit
-      await new Promise((r) => setTimeout(r, 30));
-    }
-  }
-  await Promise.all(Array.from({ length: concurrency }, () => worker()));
-  return result;
 }
 
 Deno.serve(async (req) => {
@@ -52,8 +38,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -63,83 +48,96 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let body: any = {};
+    try { body = await req.json(); } catch {}
+    const cursor: string | null = body?.cursor ?? null; // último CEP processado
+
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Buscar próximos clientes com CEP, ordenados por CEP, após o cursor
+    // Pegamos um excedente para garantir CHUNK CEPs únicos válidos
+    let query = admin
+      .from("clientes")
+      .select("id, cep, cidade, uf")
+      .not("cep", "is", null)
+      .order("cep", { ascending: true })
+      .limit(CHUNK * 5);
+    if (cursor) query = query.gt("cep", cursor);
+
+    const { data: rows, error } = await query;
+    if (error) throw error;
+
+    const clientes = (rows || []).map((r: any) => ({
+      ...r,
+      cepNorm: normalizeCep(r.cep),
+    })).filter((r: any) => /^\d{8}$/.test(r.cepNorm));
+
+    if (clientes.length === 0) {
+      return new Response(JSON.stringify({ done: true, updated: 0, processed: 0, next_cursor: null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Carregar todos os clientes com CEP (paginado)
-    let all: { id: string; cep: string | null; cidade: string | null; uf: string | null }[] = [];
-    let from = 0;
-    const pageSize = 1000;
-    while (true) {
-      const { data, error } = await admin
-        .from("clientes")
-        .select("id, cep, cidade, uf")
-        .not("cep", "is", null)
-        .range(from, from + pageSize - 1);
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      all = all.concat(data as any);
-      if (data.length < pageSize) break;
-      from += data.length;
+    // CEPs únicos limitados a CHUNK
+    const uniqueCeps: string[] = [];
+    const seen = new Set<string>();
+    for (const c of clientes) {
+      if (!seen.has(c.cepNorm)) { seen.add(c.cepNorm); uniqueCeps.push(c.cepNorm); }
+      if (uniqueCeps.length >= CHUNK) break;
     }
+    const lastCep = uniqueCeps[uniqueCeps.length - 1];
 
-    // CEPs únicos válidos (8 dígitos)
-    const uniqueCeps = Array.from(
-      new Set(
-        all
-          .map((c) => normalizeCep(c.cep))
-          .filter((c) => /^\d{8}$/.test(c))
-      )
-    );
+    // Filtrar clientes deste lote (cep <= lastCep)
+    const lote = clientes.filter((c: any) => c.cepNorm <= lastCep);
 
-    // Buscar no ViaCEP em paralelo
-    const cepMap = await processBatch(uniqueCeps, 15);
+    // Resolver CEPs em paralelo (concurrency limitada)
+    const cepMap = new Map<string, { cidade: string; uf: string }>();
+    let i = 0;
+    const concurrency = 20;
+    async function worker() {
+      while (i < uniqueCeps.length) {
+        const idx = i++;
+        const cep = uniqueCeps[idx];
+        const data = await fetchViaCep(cep);
+        if (data?.localidade && data?.uf) cepMap.set(cep, { cidade: data.localidade, uf: data.uf });
+      }
+    }
+    await Promise.all(Array.from({ length: concurrency }, () => worker()));
 
-    // Montar updates: somente quando ViaCEP retornou e o valor difere
+    // Aplicar updates
     let updated = 0;
-    let errors = 0;
-    const updates: { id: string; cidade: string; uf: string }[] = [];
-    for (const c of all) {
-      const cep = normalizeCep(c.cep);
-      const info = cepMap.get(cep);
-      if (!info) continue;
-      if (c.cidade === info.cidade && c.uf === info.uf) continue;
-      updates.push({ id: c.id, cidade: info.cidade, uf: info.uf });
+    const updates = lote
+      .map((c: any) => {
+        const info = cepMap.get(c.cepNorm);
+        if (!info) return null;
+        if (c.cidade === info.cidade && c.uf === info.uf) return null;
+        return { id: c.id, cidade: info.cidade, uf: info.uf };
+      })
+      .filter(Boolean) as { id: string; cidade: string; uf: string }[];
+
+    for (let k = 0; k < updates.length; k += 50) {
+      const batch = updates.slice(k, k + 50);
+      await Promise.all(batch.map(async (u) => {
+        const { error } = await admin.from("clientes").update({ cidade: u.cidade, uf: u.uf }).eq("id", u.id);
+        if (!error) updated++;
+      }));
     }
 
-    // Aplicar updates em lotes
-    for (let i = 0; i < updates.length; i += 200) {
-      const batch = updates.slice(i, i + 200);
-      await Promise.all(
-        batch.map(async (u) => {
-          const { error } = await admin
-            .from("clientes")
-            .update({ cidade: u.cidade, uf: u.uf })
-            .eq("id", u.id);
-          if (error) errors++;
-          else updated++;
-        })
-      );
-    }
-
-    return new Response(
-      JSON.stringify({
-        processed: all.length,
-        unique_ceps: uniqueCeps.length,
-        viacep_resolved: cepMap.size,
-        updated,
-        errors,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-    );
+    return new Response(JSON.stringify({
+      done: false,
+      processed: lote.length,
+      unique_ceps: uniqueCeps.length,
+      viacep_resolved: cepMap.size,
+      updated,
+      next_cursor: lastCep,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e?.message || String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
