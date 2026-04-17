@@ -319,8 +319,11 @@ export default function Clientes() {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Clientes</h1>
           <div className="flex gap-2">
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-            <Button variant="outline" size="sm" onClick={handleEnrichViaCep} disabled={enriching} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+            <Button variant="outline" size="sm" onClick={handleEnrichViaCep} disabled={enriching || reprocessing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
               <RefreshCw className={`h-4 w-4 mr-1 ${enriching ? "animate-spin" : ""}`} /> {enriching ? "Atualizando..." : "Atualizar via CEP"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleReprocessPending} disabled={enriching || reprocessing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+              <RefreshCw className={`h-4 w-4 mr-1 ${reprocessing ? "animate-spin" : ""}`} /> {reprocessing ? "Reprocessando..." : "Reprocessar pendentes"}
             </Button>
             <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
               <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Sincronizando..." : "Sincronizar pedidos"}
