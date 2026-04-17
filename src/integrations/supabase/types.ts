@@ -296,6 +296,7 @@ export type Database = {
           cpf: string | null
           created_at: string
           foto_documento_url: string | null
+          foto_motorista_url: string | null
           id: string
           nome_completo: string
           telefone: string | null
@@ -305,6 +306,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           foto_documento_url?: string | null
+          foto_motorista_url?: string | null
           id?: string
           nome_completo: string
           telefone?: string | null
@@ -314,6 +316,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           foto_documento_url?: string | null
+          foto_motorista_url?: string | null
           id?: string
           nome_completo?: string
           telefone?: string | null
