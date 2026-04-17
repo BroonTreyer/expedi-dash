@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Plus, Edit, Trash2, Search, Building2, Upload } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Building2, Upload, RefreshCw } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -37,6 +37,7 @@ export default function Clientes() {
   const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const { sort, toggleSort, sortData } = useSortableTable();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -138,13 +139,36 @@ export default function Clientes() {
         if (error) { toast.error(`Erro no lote ${i}: ${error.message}`); setImporting(false); return; }
         imported += batch.length;
       }
-      toast.success(`${imported} clientes importados com sucesso!`);
+      // Propagar nome/cidade/UF para os pedidos existentes
+      let syncMsg = "";
+      try {
+        const { data: syncData } = await supabase.rpc("sync_clients_to_orders");
+        const updated = (syncData as any)?.updated ?? 0;
+        if (updated > 0) syncMsg = ` ${updated} pedidos sincronizados.`;
+      } catch {}
+      toast.success(`${imported} clientes importados com sucesso!${syncMsg}`);
       qc.invalidateQueries({ queryKey: ["clientes"] });
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
     } catch (err: any) {
       toast.error("Erro ao importar: " + err.message);
     } finally {
       setImporting(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.rpc("sync_clients_to_orders");
+      if (error) throw error;
+      const updated = (data as any)?.updated ?? 0;
+      toast.success(updated > 0 ? `${updated} pedidos sincronizados com o cadastro.` : "Pedidos já estavam sincronizados.");
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+    } catch (err: any) {
+      toast.error("Erro ao sincronizar: " + err.message);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -175,6 +199,9 @@ export default function Clientes() {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Clientes</h1>
           <div className="flex gap-2">
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+              <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Sincronizando..." : "Sincronizar pedidos"}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={importing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
               <Upload className="h-4 w-4 mr-1" /> {importing ? "Importando..." : "Importar"}
             </Button>
