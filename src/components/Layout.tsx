@@ -24,7 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <AppSidebar collapsed={collapsed} onNavigate={() => setMobileOpen(false)} />
       </div>
 
-      <div className={cn("flex-1 flex flex-col h-screen overflow-auto transition-all duration-200", collapsed ? "md:ml-14" : "md:ml-60")}>
+      <div className={cn("flex-1 flex flex-col h-screen overflow-hidden transition-all duration-200", collapsed ? "md:ml-14" : "md:ml-60")}>
         {/* Mobile header */}
         <header className="flex items-center justify-between h-12 border-b border-border px-3 md:hidden">
           <div className="flex items-center">
