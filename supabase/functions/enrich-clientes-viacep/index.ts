@@ -10,7 +10,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHUNK = 300; // CEPs únicos processados por chamada
+const CHUNK = 1000;
+const CONCURRENCY = 50;
+const FETCH_TIMEOUT_MS = 2500;
 
 function normalizeCep(v: any): string {
   return String(v ?? "").replace(/\D/g, "").slice(0, 8);
@@ -19,7 +21,7 @@ function normalizeCep(v: any): string {
 async function fetchViaCep(cep: string) {
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 4000);
+    const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
     const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: ctrl.signal });
     clearTimeout(t);
     if (!res.ok) return null;
@@ -54,12 +56,13 @@ Deno.serve(async (req) => {
 
     let body: any = {};
     try { body = await req.json(); } catch {}
-    const cursor: string | null = body?.cursor ?? null; // último CEP processado
+    const cursor: string | null = body?.cursor ?? null;
+    const cepMin: string | null = body?.cep_min ?? null;
+    const cepMax: string | null = body?.cep_max ?? null;
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Buscar próximos clientes com CEP, ordenados por CEP, após o cursor
-    // Pegamos um excedente para garantir CHUNK CEPs únicos válidos
+    // Buscar próximos clientes com CEP, ordenados por CEP, dentro da faixa e após o cursor
     let query = admin
       .from("clientes")
       .select("id, cep, cidade, uf")
@@ -67,6 +70,8 @@ Deno.serve(async (req) => {
       .order("cep", { ascending: true })
       .limit(CHUNK * 5);
     if (cursor) query = query.gt("cep", cursor);
+    else if (cepMin) query = query.gte("cep", cepMin);
+    if (cepMax) query = query.lt("cep", cepMax);
 
     const { data: rows, error } = await query;
     if (error) throw error;
@@ -90,48 +95,77 @@ Deno.serve(async (req) => {
       if (uniqueCeps.length >= CHUNK) break;
     }
     const lastCep = uniqueCeps[uniqueCeps.length - 1];
-
-    // Filtrar clientes deste lote (cep <= lastCep)
     const lote = clientes.filter((c: any) => c.cepNorm <= lastCep);
 
-    // Resolver CEPs em paralelo (concurrency limitada)
+    // 1) Consultar cache de CEPs
     const cepMap = new Map<string, { cidade: string; uf: string }>();
+    const { data: cached } = await admin
+      .from("cep_cache")
+      .select("cep, cidade, uf")
+      .in("cep", uniqueCeps);
+    for (const row of cached || []) {
+      cepMap.set(row.cep, { cidade: row.cidade, uf: row.uf });
+    }
+
+    // 2) CEPs não-cached → ViaCEP em paralelo
+    const missing = uniqueCeps.filter((c) => !cepMap.has(c));
+    const newlyResolved: { cep: string; cidade: string; uf: string }[] = [];
     let i = 0;
-    const concurrency = 20;
     async function worker() {
-      while (i < uniqueCeps.length) {
+      while (i < missing.length) {
         const idx = i++;
-        const cep = uniqueCeps[idx];
+        const cep = missing[idx];
         const data = await fetchViaCep(cep);
-        if (data?.localidade && data?.uf) cepMap.set(cep, { cidade: data.localidade, uf: data.uf });
+        if (data?.localidade && data?.uf) {
+          const entry = { cidade: data.localidade, uf: data.uf };
+          cepMap.set(cep, entry);
+          newlyResolved.push({ cep, ...entry });
+        }
       }
     }
-    await Promise.all(Array.from({ length: concurrency }, () => worker()));
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
-    // Aplicar updates
-    let updated = 0;
-    const updates = lote
-      .map((c: any) => {
-        const info = cepMap.get(c.cepNorm);
-        if (!info) return null;
-        if (c.cidade === info.cidade && c.uf === info.uf) return null;
-        return { id: c.id, cidade: info.cidade, uf: info.uf };
-      })
-      .filter(Boolean) as { id: string; cidade: string; uf: string }[];
-
-    for (let k = 0; k < updates.length; k += 50) {
-      const batch = updates.slice(k, k + 50);
-      await Promise.all(batch.map(async (u) => {
-        const { error } = await admin.from("clientes").update({ cidade: u.cidade, uf: u.uf }).eq("id", u.id);
-        if (!error) updated++;
-      }));
+    // 3) Gravar novos CEPs no cache (fire-and-forget em lotes)
+    if (newlyResolved.length > 0) {
+      for (let k = 0; k < newlyResolved.length; k += 500) {
+        const batch = newlyResolved.slice(k, k + 500);
+        admin.from("cep_cache").upsert(batch, { onConflict: "cep" }).then(() => {});
+      }
     }
+
+    // 4) Agrupar clientes por (cidade, uf) resolvido e fazer 1 UPDATE por grupo
+    const groups = new Map<string, { cidade: string; uf: string; ids: string[] }>();
+    for (const c of lote) {
+      const info = cepMap.get(c.cepNorm);
+      if (!info) continue;
+      if (c.cidade === info.cidade && c.uf === info.uf) continue;
+      const key = `${info.cidade}|${info.uf}`;
+      const g = groups.get(key);
+      if (g) g.ids.push(c.id);
+      else groups.set(key, { cidade: info.cidade, uf: info.uf, ids: [c.id] });
+    }
+
+    let updated = 0;
+    await Promise.all(
+      Array.from(groups.values()).map(async (g) => {
+        // Postgrest .in() suporta listas grandes; quebrar a 500 por segurança
+        for (let k = 0; k < g.ids.length; k += 500) {
+          const batchIds = g.ids.slice(k, k + 500);
+          const { error } = await admin
+            .from("clientes")
+            .update({ cidade: g.cidade, uf: g.uf })
+            .in("id", batchIds);
+          if (!error) updated += batchIds.length;
+        }
+      })
+    );
 
     return new Response(JSON.stringify({
       done: false,
       processed: lote.length,
       unique_ceps: uniqueCeps.length,
-      viacep_resolved: cepMap.size,
+      cache_hits: uniqueCeps.length - missing.length,
+      viacep_resolved: newlyResolved.length,
       updated,
       next_cursor: lastCep,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
