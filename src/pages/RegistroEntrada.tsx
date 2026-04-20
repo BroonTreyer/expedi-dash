@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Truck, Building2, LogIn } from "lucide-react";
 import { RegistroEntradaDialog } from "@/components/portaria/RegistroEntradaDialog";
 import { SolicitacoesPendentesPanel } from "@/components/portaria/SolicitacoesPendentesPanel";
+import { CargasFechadasAguardandoPanel } from "@/components/portaria/CargasFechadasAguardandoPanel";
 
 export default function RegistroEntrada() {
   const [grupo, setGrupo] = useState<"PRÓPRIA" | "TERCEIRIZADO" | null>(null);
