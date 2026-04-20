@@ -40,6 +40,7 @@ interface Props {
 }
 
 interface Group {
+  key: string;
   codigoCliente: string | null;
   nomeCliente: string | null;
   items: Carregamento[];
@@ -83,15 +84,15 @@ function buildGroups(data: Carregamento[]): Group[] {
   const map = new Map<string, Group>();
   const singles: Group[] = [];
   for (const c of data) {
-    if (c.codigo_cliente) {
-      const key = c.codigo_cliente;
+    if (c.codigo_cliente && c.numero_pedido != null) {
+      const key = `${c.codigo_cliente}__${c.numero_pedido}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
-        map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
+        map.set(key, { key, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
       }
     } else {
-      singles.push({ codigoCliente: null, nomeCliente: null, items: [c] });
+      singles.push({ key: `single-${c.id}`, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
     }
   }
   return [...map.values(), ...singles];
@@ -137,22 +138,25 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
         const isMulti = group.codigoCliente !== null && group.items.length > 1;
         if (isMulti) {
           const first = group.items[0];
-          const isOpen = expanded.has(group.codigoCliente!);
+          const isOpen = expanded.has(group.key);
           const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
           return (
-            <div key={`g-${group.codigoCliente}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
+            <div key={`g-${group.key}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
               <button
                 type="button"
                 className="w-full bg-primary/5 px-3 py-2 flex items-center justify-between gap-2 hover:bg-primary/10 transition-colors"
-                onClick={() => toggle(group.codigoCliente!)}
+                onClick={() => toggle(group.key)}
               >
                 <div className="flex items-center gap-2">
                   {isOpen ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
-                  <span className="text-xs font-mono font-bold text-primary">{group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}</span>
+                  <span className="text-xs font-mono font-bold text-primary">
+                    {group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}
+                    {first.numero_pedido != null && <> · Pedido {first.numero_pedido}</>}
+                  </span>
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
                 </div>
-                <span className="text-xs text-muted-foreground">{group.items.length} itens · {totalPeso.toLocaleString("pt-BR")} kg</span>
+                <span className="text-xs text-muted-foreground">{group.items.length} produtos · {totalPeso.toLocaleString("pt-BR")} kg</span>
               </button>
               {isOpen && (
                 <div className="divide-y divide-border/40">
@@ -570,20 +574,20 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
 
               // Multi-item group
               const first = group.items[0];
-              const isOpen = expanded.has(group.codigoCliente!);
+              const isOpen = expanded.has(group.key);
               const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
               const hasRuptura = group.items.some(i => i.ruptura);
               const groupAllSelected = selectable && group.items.every(i => selectedSet.has(i.id));
 
               return (
-                <Fragment key={`group-${group.codigoCliente}`}>
+                <Fragment key={`group-${group.key}`}>
                   <TableRow
                     className={cn(
                       "hover:bg-muted/30 cursor-pointer border-t-2 border-t-primary/30 bg-primary/[0.03]",
                       hasRuptura && "bg-amber-50/40 dark:bg-amber-950/20",
                       !isOpen && "border-b"
                     )}
-                    onClick={() => toggle(group.codigoCliente!)}
+                    onClick={() => toggle(group.key)}
                   >
                     {selectable && (
                       <TableCell className="w-[40px]" onClick={(e) => e.stopPropagation()}>
@@ -631,8 +635,13 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                     <TableCell><PendingCell value={first.motorista} /></TableCell>
                     <TableCell className="text-sm font-mono font-bold text-primary">
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1.5 flex-wrap">
                         {group.codigoCliente} – {group.nomeCliente ?? ""}
+                        {first.numero_pedido != null && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
+                            Pedido {first.numero_pedido}
+                          </Badge>
+                        )}
                         {first.ordem_entrega != null && (
                           <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold h-5 min-w-5 px-1">
                             {first.ordem_entrega}ª
@@ -681,7 +690,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canEdit && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.codigoCliente!) : onEdit(first)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.key) : onEdit(first)}>
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
