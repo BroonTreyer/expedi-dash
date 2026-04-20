@@ -2,77 +2,41 @@
 
 ## Diagnóstico
 
-O agrupamento "que parece soma" está em `src/components/dashboard/CarregamentoTable.tsx`, função `buildGroups` (linhas 82-96):
+Reli `CarregamentoTable.tsx` linhas 83-99. A chave de agrupamento atual é `${codigo_cliente}__${numero_pedido}` — ou seja:
 
-```ts
-function buildGroups(data: Carregamento[]): Group[] {
-  const map = new Map<string, Group>();
-  for (const c of data) {
-    if (c.codigo_cliente) {
-      const key = c.codigo_cliente;       // ← chave SÓ por cliente
-      if (map.has(key)) map.get(key)!.items.push(c);
-      else map.set(key, { ... items: [c] });
-    } ...
-  }
-}
-```
+- Produtos do **mesmo pedido** (mesmo `numero_pedido`) → **agrupam juntos** ✅
+- Pedidos **diferentes** do mesmo cliente → ficam separados ✅
 
-Quando logística cadastra um **segundo pedido para o mesmo cliente no mesmo dia** (ex: pedido 1234 e pedido 1235 do cliente 001), os dois caem no **mesmo grupo expansível** porque a chave é apenas `codigo_cliente`. Visualmente parece que "somou" — peso total no header soma os dois (`group.items.reduce((s,i) => s + (i.peso ?? 0), 0)`), e o card mostra "X itens".
+Isso é o comportamento que você pediu. Se na sua tela os produtos do mesmo pedido estão aparecendo separados, **o agrupamento não é o culpado** — são os dados que estão divergindo. Causas possíveis:
 
-Isso é **correto para múltiplos produtos do MESMO pedido** (ex: pedido 1234 com 3 produtos), mas **errado para pedidos distintos** do mesmo cliente — devem aparecer separados.
+1. **`numero_pedido` diferente entre os produtos do mesmo pedido** — se logística digitou o pedido em momentos distintos e variou o número (ex: 1234 num produto, 1234.0 noutro, ou um ficou em branco), eles caem em grupos diferentes.
+2. **`numero_pedido` NULL em algum item** — itens sem número viram cards individuais (linha 95 → `singles`).
+3. **`codigo_cliente` divergente entre as linhas** — mesmo cliente mas códigos diferentes (raro, mas possível em importações).
 
-Os dados no banco estão corretos (cada linha tem seu `numero_pedido` próprio). O bug é puramente visual de agrupamento.
+## Investigação necessária antes de mudar código
 
-## Plano
+Preciso ver um caso concreto que está te incomodando. Duas opções:
 
-### Mudança única em `src/components/dashboard/CarregamentoTable.tsx`
+### Opção A — você me passa o número do pedido (ou cliente + data)
+Eu rodo uma query mostrando os campos `numero_pedido`, `codigo_cliente`, `codigo_produto`, `nome_produto`, `created_at` de todos os itens daquele pedido. Em <30s digo se a divergência está em `numero_pedido`/`codigo_cliente` ou se é bug de UI mesmo.
 
-Trocar a chave de agrupamento de `codigo_cliente` para `codigo_cliente + numero_pedido`:
+### Opção B — eu rodo uma varredura geral
+Listo todos os pedidos de hoje onde **o mesmo cliente** tem itens com `numero_pedido` muito próximos (ex: mesmo número escrito de formas diferentes) ou com `numero_pedido` NULL convivendo com não-NULL. Identifica padrão sistêmico.
 
-```ts
-function buildGroups(data: Carregamento[]): Group[] {
-  const map = new Map<string, Group>();
-  const singles: Group[] = [];
-  for (const c of data) {
-    if (c.codigo_cliente && c.numero_pedido != null) {
-      const key = `${c.codigo_cliente}__${c.numero_pedido}`;
-      if (map.has(key)) map.get(key)!.items.push(c);
-      else map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
-    } else {
-      singles.push({ codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
-    }
-  }
-  return [...map.values(), ...singles];
-}
-```
+## Plano (após confirmação do diagnóstico)
 
-Comportamento resultante:
-- **Pedido único do cliente** → 1 linha (igual hoje)
-- **Mesmo pedido com vários produtos** → agrupa expansível (igual hoje, comportamento útil)
-- **Pedidos diferentes do mesmo cliente** → linhas/cards separados (corrige o bug)
-- **Pedidos sem `numero_pedido`** → cada um vira um card individual (sem agrupar por cliente)
+**Se for caso 1 ou 2 (dados divergentes):**
+- Reforçar no `CarregamentoDialog` o preenchimento obrigatório de `numero_pedido` quando o usuário adiciona "+Item" no mesmo pedido (já é obrigatório no form principal, mas validar que itens extras herdam o número automaticamente).
+- Migration corrigindo registros históricos com `numero_pedido` NULL ou inconsistente — só após sua aprovação, caso a caso.
 
-### Ajuste cosmético no header do grupo expansível
-No badge do grupo (linha 151), incluir o número do pedido para deixar claro que é UM pedido do cliente, não vários:
+**Se for caso 3 (`codigo_cliente` divergente):**
+- Mudar a chave de grupo para usar **só `numero_pedido`** quando ele existe (descartar `codigo_cliente` da chave). Pedidos sempre têm número único, então isso é seguro.
 
-```tsx
-<span className="text-xs font-mono font-bold text-primary">
-  {group.codigoCliente} – {group.nomeCliente ?? "Sem nome"} · Pedido {group.items[0].numero_pedido}
-</span>
-```
+**Se na verdade você quer agrupar TUDO do mesmo cliente no mesmo dia (independente de quantos pedidos)** — voltar a chave para só `codigo_cliente` (estado anterior à última mudança). Mas isso conflita com seu pedido anterior de "deixar pedidos separados".
 
-E o resumo "{N} itens" passa a representar "{N} produtos do mesmo pedido" — semanticamente correto agora.
+## Sem mudanças por enquanto
+Não vou tocar em código sem antes confirmar qual dos 3 casos é o seu, porque o agrupamento atual já está implementando exatamente o que você pediu na rodada anterior.
 
-### Sem mudanças
-- Backend / RLS / `useCarregamentos` / triggers
-- `Consolidado.tsx` (agrupa por `carga_id`, não tem esse bug)
-- `KanbanView`, `KpiCards` (já contam por `numero_pedido` único)
-- Lógica de clonagem (continua passando `group.items`, agora corretamente um único pedido)
-
-### Memória
-Atualizar `mem://features/multi-product-logic` para registrar que o agrupamento visual da tabela usa **`codigo_cliente + numero_pedido`** — pedidos distintos do mesmo cliente sempre aparecem separados.
-
-## Arquivos
-- ✏️ `src/components/dashboard/CarregamentoTable.tsx` — `buildGroups` agrupa por `codigo_cliente + numero_pedido`; badge do grupo passa a mostrar "Pedido N"
-- ✏️ `mem://features/multi-product-logic` — refletir nova chave de agrupamento
+## Próximo passo
+Me diga: **qual pedido (número + cliente + data) está aparecendo errado na sua tela agora?** Com isso eu rodo a query de diagnóstico e aí sim aplico a correção certa.
 
