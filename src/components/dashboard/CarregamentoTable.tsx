@@ -83,15 +83,15 @@ function buildGroups(data: Carregamento[]): Group[] {
   const map = new Map<string, Group>();
   const singles: Group[] = [];
   for (const c of data) {
-    if (c.codigo_cliente) {
-      const key = c.codigo_cliente;
+    if (c.codigo_cliente && c.numero_pedido != null) {
+      const key = `${c.codigo_cliente}__${c.numero_pedido}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
         map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
       }
     } else {
-      singles.push({ codigoCliente: null, nomeCliente: null, items: [c] });
+      singles.push({ codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
     }
   }
   return [...map.values(), ...singles];
