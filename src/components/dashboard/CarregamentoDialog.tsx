@@ -476,6 +476,27 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                 ))}
               </div>
 
+              {/* Totais do pedido — derivados em tempo real */}
+              <div className="sm:col-span-2 bg-muted/30 rounded-md p-2.5 flex flex-wrap items-center justify-between gap-2 border">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Total do Pedido
+                </span>
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="font-semibold">
+                    {items.length} <span className="font-normal text-muted-foreground">{items.length === 1 ? "produto" : "produtos"}</span>
+                  </span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="font-semibold">
+                    {items.reduce((s, i) => s + (Number(i.quantidade) || 0), 0).toLocaleString("pt-BR")}{" "}
+                    <span className="font-normal text-muted-foreground">un</span>
+                  </span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="font-semibold">
+                    {items.reduce((s, i) => s + (Number(i.peso) || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                    <span className="font-normal text-muted-foreground">kg</span>
+                  </span>
+                </div>
+              </div>
 
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs">Observações</Label>
