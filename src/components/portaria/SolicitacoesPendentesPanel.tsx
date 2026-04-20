@@ -31,6 +31,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
   const qc = useQueryClient();
   const [recusaId, setRecusaId] = useState<string | null>(null);
   const [motivoRecusa, setMotivoRecusa] = useState("");
+  const [vincularVeiculo, setVincularVeiculo] = useState<{ id: string; placa: string; motorista?: string | null } | null>(null);
 
   const canDecide = role === "admin" || role === "logistica";
   const canRegistrarChegada = role === "admin" || role === "logistica" || role === "portaria";
