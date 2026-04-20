@@ -89,10 +89,10 @@ function buildGroups(data: Carregamento[]): Group[] {
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
-        map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
+        map.set(key, { key, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
       }
     } else {
-      singles.push({ codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
+      singles.push({ key: `single-${c.id}`, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
     }
   }
   return [...map.values(), ...singles];
