@@ -40,6 +40,7 @@ interface Props {
 }
 
 interface Group {
+  key: string;
   codigoCliente: string | null;
   nomeCliente: string | null;
   items: Carregamento[];
