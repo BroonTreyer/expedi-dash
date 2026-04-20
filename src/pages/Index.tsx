@@ -14,7 +14,7 @@ import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialo
 import { RoteirizacaoDialog, type RoteirizacaoResult } from "@/components/dashboard/RoteirizacaoDialog";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
-import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchCreateCarregamento, useBatchUpdateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
+import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchDeleteCarregamento, useBatchCreateCarregamento, useBatchUpdateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
@@ -56,6 +56,7 @@ export default function Index() {
   const [editing, setEditing] = useState<Carregamento | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>("vendas");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [undoCargaId, setUndoCargaId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
@@ -80,6 +81,7 @@ export default function Index() {
   const updateMut = useUpdateCarregamento();
   const batchUpdateMut = useBatchUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
+  const batchDeleteMut = useBatchDeleteCarregamento();
 
   // Derive unique clients from loaded carregamentos — no heavy fetch needed
   const clientesFromData = useMemo(() => {
@@ -278,6 +280,16 @@ export default function Index() {
     if (deleteId) deleteMut.mutate(deleteId);
     setDeleteId(null);
   }, [deleteId, deleteMut]);
+
+  const handleDeleteManyRequest = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    if (ids.length === 1) setDeleteId(ids[0]);
+    else setDeleteIds(ids);
+  }, []);
+  const handleDeleteManyConfirm = useCallback(() => {
+    if (deleteIds && deleteIds.length > 0) batchDeleteMut.mutate(deleteIds);
+    setDeleteIds(null);
+  }, [deleteIds, batchDeleteMut]);
 
   const handleUndoCargaRequest = useCallback((cargaId: string) => setUndoCargaId(cargaId), []);
   const handleUndoCargaConfirm = useCallback(async () => {
@@ -523,6 +535,7 @@ export default function Index() {
             onEdit={handleEdit}
             onClone={handleClone}
             onDelete={handleDeleteRequest}
+            onDeleteMany={handleDeleteManyRequest}
             onUndoCarga={handleUndoCargaRequest}
             onPrintCarga={handlePrintCarga}
             onComplete={handleComplete}
@@ -591,6 +604,15 @@ export default function Index() {
           onOpenChange={(o) => !o && setDeleteId(null)}
           onConfirm={handleDeleteConfirm}
           description="Tem certeza que deseja excluir este carregamento? Esta ação não pode ser desfeita."
+        />
+
+        <DeleteConfirmDialog
+          open={!!deleteIds}
+          onOpenChange={(o) => !o && setDeleteIds(null)}
+          onConfirm={handleDeleteManyConfirm}
+          title="Excluir pedido completo"
+          description={`Tem certeza que deseja excluir este pedido completo (${deleteIds?.length ?? 0} produtos)? Esta ação não pode ser desfeita.`}
+          confirmLabel="Excluir pedido"
         />
 
         <DeleteConfirmDialog
