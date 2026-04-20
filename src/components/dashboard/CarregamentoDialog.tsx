@@ -48,6 +48,7 @@ interface Props {
   selectedDate: string;
   defaultRuptura?: boolean;
   cloneItems?: Carregamento[];
+  isSubmitting?: boolean;
 }
 
 const TITLES: Record<DialogMode, string> = {
@@ -62,7 +63,7 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
   editar: "Edite todos os campos do carregamento",
 };
 
-export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura, cloneItems }: Props) {
+export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura, cloneItems, isSubmitting }: Props) {
   const session = useSession();
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
@@ -71,10 +72,13 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   const clienteDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [items, setItems] = useState<ProductItem[]>([emptyItem()]);
   const lastInitId = useRef<string | null>(null);
+  // Anti double-submit guard: blocks re-entrant submits within the same dialog session
+  const submitGuard = useRef<boolean>(false);
 
   const handleDialogOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
       lastInitId.current = null;
+      submitGuard.current = false;
     }
     onOpenChange(nextOpen);
   }, [onOpenChange]);
@@ -244,6 +248,10 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   };
 
   const handleSubmit = async () => {
+    // Block re-entrant submits (double-click protection)
+    if (submitGuard.current || isSubmitting) return;
+    submitGuard.current = true;
+
     // Clean payload: remove system/read-only fields
     const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada'];
     const basePayload: Record<string, any> = {};
@@ -545,12 +553,18 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           )}
         </div>
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => handleDialogOpenChange(false)} disabled={isSubmitting}>Cancelar</Button>
           <Button
             onClick={handleSubmit}
-            disabled={mode === "vendas" ? !form.vendedor_id : mode === "logistica" ? !form.tipo_caminhao || !form.placa || !form.motorista : !form.vendedor_id}
+            disabled={
+              isSubmitting ||
+              submitGuard.current ||
+              (mode === "vendas" ? !form.vendedor_id : mode === "logistica" ? !form.tipo_caminhao || !form.placa || !form.motorista : !form.vendedor_id)
+            }
           >
-            {mode === "vendas" ? "Criar Pedido" : mode === "logistica" ? "Completar" : "Salvar"}
+            {isSubmitting
+              ? "Salvando…"
+              : mode === "vendas" ? "Criar Pedido" : mode === "logistica" ? "Completar" : "Salvar"}
           </Button>
         </div>
       </DialogContent>
