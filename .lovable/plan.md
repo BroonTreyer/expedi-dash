@@ -1,21 +1,24 @@
 
 
-## Remover funcionalidade de transferência de categoria
+## Bug: Foto do lacre não aparece em Detalhes
 
-### Objetivo
-Remover o botão e toda a lógica de transferência entre "Carga Própria" ↔ "Terceirizado" que foi adicionada anteriormente.
+### Causa
+Em `src/components/portaria/MovimentoDetailsDialog.tsx` (linhas 127-135), o array `allPhotos` inclui placa, documento, painel e nota — mas **omite `foto_lacre_url`**. Como o lacre é o único anexo do fluxo de saída (Carga Própria) e do fluxo Terceirizado/Fornecedor, a foto fica invisível.
 
-### Mudanças
+### Correção
 
-**1. `src/components/portaria/PatioAtualTab.tsx`**
-- Remover import `ArrowRightLeft` do lucide-react (linha 8)
-- Remover import `useTransferirCategoria` (linha 13)
-- Remover state `transferConfirmId` (linha 68)
-- Remover `transferirMov` hook call (linha 67)
-- Remover função `handleTransferir` (linhas 185-189)
-- Remover botão de transferência da view mobile (linhas 280-294)
-- Remover botão de transferência da view desktop (linhas 407-421)
+**Arquivo:** `src/components/portaria/MovimentoDetailsDialog.tsx`
 
-**2. `src/hooks/useMovimentacoesPortaria.ts`**
-- Remover export da função `useTransferirCategoria` (linhas 193-219)
+Adicionar duas linhas no bloco `allPhotos` (após as linhas existentes de painel/nota):
+
+```ts
+if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Entrada)" });
+// ...
+if (s?.foto_lacre_url) allPhotos.push({ url: s.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída)" });
+```
+
+Como o lacre normalmente é capturado na **saída** (etapa "lacre" da Carga Própria) ou no único movimento (Terceirizado/Fornecedor), a foto vai aparecer corretamente seja qual for o registro (`m` ou `s`).
+
+### Arquivos
+- ✏️ `src/components/portaria/MovimentoDetailsDialog.tsx` — incluir `foto_lacre_url` de `m` e `s` no array `allPhotos`
 
