@@ -140,10 +140,12 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
         canDecide ? (
           <div className="flex flex-col gap-1.5 shrink-0 sm:items-end">
             <div className="flex gap-2">
-              <Button asChild size="sm" className="h-8 text-xs gap-1">
-                <Link to="/">
-                  <Link2 className="h-3.5 w-3.5" /> Vincular a carga
-                </Link>
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1"
+                onClick={() => setVincularVeiculo({ id: v.id, placa: v.placa, motorista: v.motorista })}
+              >
+                <Link2 className="h-3.5 w-3.5" /> Vincular a carga
               </Button>
               <Button
                 size="sm"
