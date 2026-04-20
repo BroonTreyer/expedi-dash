@@ -2,41 +2,59 @@
 
 ## Diagnóstico
 
-Reli `CarregamentoTable.tsx` linhas 83-99. A chave de agrupamento atual é `${codigo_cliente}__${numero_pedido}` — ou seja:
+No `CarregamentoTable.tsx`, o botão lixeira do header de grupo multi-item faz:
 
-- Produtos do **mesmo pedido** (mesmo `numero_pedido`) → **agrupam juntos** ✅
-- Pedidos **diferentes** do mesmo cliente → ficam separados ✅
+```ts
+onClick={() => group.items.forEach(i => onDelete(i.id))}
+```
 
-Isso é o comportamento que você pediu. Se na sua tela os produtos do mesmo pedido estão aparecendo separados, **o agrupamento não é o culpado** — são os dados que estão divergindo. Causas possíveis:
+Mas `onDelete` em `Index.tsx` / `Rupturas.tsx` é `setDeleteId(id)` — cada chamada sobrescreve o state, então só o último id fica e o dialog confirma a exclusão de **1 item apenas**. Os outros produtos do pedido sobram.
 
-1. **`numero_pedido` diferente entre os produtos do mesmo pedido** — se logística digitou o pedido em momentos distintos e variou o número (ex: 1234 num produto, 1234.0 noutro, ou um ficou em branco), eles caem em grupos diferentes.
-2. **`numero_pedido` NULL em algum item** — itens sem número viram cards individuais (linha 95 → `singles`).
-3. **`codigo_cliente` divergente entre as linhas** — mesmo cliente mas códigos diferentes (raro, mas possível em importações).
+Resultado prático: para apagar um pedido com 3 produtos, o usuário hoje precisa abrir o grupo, clicar lixeira em cada item e confirmar 3 vezes.
 
-## Investigação necessária antes de mudar código
+## Plano
 
-Preciso ver um caso concreto que está te incomodando. Duas opções:
+Implementar **exclusão do pedido inteiro em 1 clique + 1 confirmação única**, preservando a regra de memória `data-safety` (toda exclusão exige confirm dialog).
 
-### Opção A — você me passa o número do pedido (ou cliente + data)
-Eu rodo uma query mostrando os campos `numero_pedido`, `codigo_cliente`, `codigo_produto`, `nome_produto`, `created_at` de todos os itens daquele pedido. Em <30s digo se a divergência está em `numero_pedido`/`codigo_cliente` ou se é bug de UI mesmo.
+### 1. Novo handler de batch delete
 
-### Opção B — eu rodo uma varredura geral
-Listo todos os pedidos de hoje onde **o mesmo cliente** tem itens com `numero_pedido` muito próximos (ex: mesmo número escrito de formas diferentes) ou com `numero_pedido` NULL convivendo com não-NULL. Identifica padrão sistêmico.
+`src/hooks/useCarregamentos.ts`: adicionar `useBatchDeleteCarregamento` — recebe `string[]` de ids, faz `delete().in("id", ids)` em uma única request, com optimistic update e rollback (mesmo padrão de `useBatchUpdateCarregamento`).
 
-## Plano (após confirmação do diagnóstico)
+### 2. Nova prop `onDeleteMany` em `CarregamentoTable`
 
-**Se for caso 1 ou 2 (dados divergentes):**
-- Reforçar no `CarregamentoDialog` o preenchimento obrigatório de `numero_pedido` quando o usuário adiciona "+Item" no mesmo pedido (já é obrigatório no form principal, mas validar que itens extras herdam o número automaticamente).
-- Migration corrigindo registros históricos com `numero_pedido` NULL ou inconsistente — só após sua aprovação, caso a caso.
+- Assinatura: `onDeleteMany?: (ids: string[]) => void`
+- Header do grupo multi-item (linha 707): troca `group.items.forEach(i => onDelete(i.id))` por `onDeleteMany(group.items.map(i => i.id))`.
+- Mesma troca no mobile (linha 218 quando `groupItems` tem >1 item) — botão lixeira passa a chamar `onDeleteMany(groupItems.map(i => i.id))`.
+- Pedido com 1 item continua usando `onDelete(c.id)` (comportamento atual).
 
-**Se for caso 3 (`codigo_cliente` divergente):**
-- Mudar a chave de grupo para usar **só `numero_pedido`** quando ele existe (descartar `codigo_cliente` da chave). Pedidos sempre têm número único, então isso é seguro.
+### 3. Wire-up nas páginas
 
-**Se na verdade você quer agrupar TUDO do mesmo cliente no mesmo dia (independente de quantos pedidos)** — voltar a chave para só `codigo_cliente` (estado anterior à última mudança). Mas isso conflita com seu pedido anterior de "deixar pedidos separados".
+`Index.tsx` e `Rupturas.tsx`:
+- Novo state `deleteIds: string[] | null`
+- `handleDeleteManyRequest(ids) => setDeleteIds(ids)`
+- `handleDeleteManyConfirm` chama `batchDeleteMut.mutate(deleteIds)`
+- Reaproveita o **mesmo `DeleteConfirmDialog`** existente, apenas com mensagem dinâmica:
+  - 1 item: "Tem certeza que deseja excluir este carregamento?" (texto atual)
+  - N itens: "Tem certeza que deseja excluir este pedido completo (N produtos)? Esta ação não pode ser desfeita."
 
-## Sem mudanças por enquanto
-Não vou tocar em código sem antes confirmar qual dos 3 casos é o seu, porque o agrupamento atual já está implementando exatamente o que você pediu na rodada anterior.
+### 4. Comportamento final
 
-## Próximo passo
-Me diga: **qual pedido (número + cliente + data) está aparecendo errado na sua tela agora?** Com isso eu rodo a query de diagnóstico e aí sim aplico a correção certa.
+- **Pedido com 1 produto** → 1 clique na lixeira → 1 confirmação → deleta (igual hoje).
+- **Pedido com N produtos** → 1 clique na lixeira do header do grupo (sem precisar expandir) → 1 confirmação que diz "N produtos" → deleta tudo numa única request.
+- Botão lixeira **dentro** das linhas filhas (item individual de um grupo expandido) continua deletando só aquele item — útil para remover um produto isolado de um pedido sem apagar o resto.
+
+### Sem mudanças
+- RLS (já permite admin/logística/faturamento)
+- `KanbanView`, `Consolidado`, `EditarCargaDialog`
+- Auditoria (cada DELETE individual gera linha de log via trigger `audit_carregamentos`)
+
+### Memória
+Atualizar `mem://features/data-safety` registrando: exclusão de pedido multi-item usa batch delete com 1 confirmação única, e `mem://features/multi-product-logic` para mencionar que o ícone de lixeira do grupo apaga o pedido inteiro.
+
+## Arquivos
+- ✏️ `src/hooks/useCarregamentos.ts` — novo `useBatchDeleteCarregamento` (`.delete().in("id", ids)` + optimistic update)
+- ✏️ `src/components/dashboard/CarregamentoTable.tsx` — prop `onDeleteMany`; lixeira do header (mobile e desktop) chama batch quando grupo tem >1 item
+- ✏️ `src/pages/Index.tsx` — wire `onDeleteMany`, state `deleteIds[]`, mensagem dinâmica do dialog
+- ✏️ `src/pages/Rupturas.tsx` — mesmo wire-up
+- ✏️ `mem://features/data-safety` e `mem://features/multi-product-logic`
 
