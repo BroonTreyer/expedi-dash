@@ -245,6 +245,12 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <VincularCargaDialog
+        open={!!vincularVeiculo}
+        onOpenChange={(o) => { if (!o) setVincularVeiculo(null); }}
+        veiculoEsperado={vincularVeiculo}
+      />
     </>
   );
 }
