@@ -133,7 +133,21 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
                   </SelectContent>
                 </Select>
               ) : f.type === "select" ? (
-                <Select value={values[f.key] ?? ""} onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}>
+                <Select value={values[f.key] ?? ""} onValueChange={(v) => {
+                  setValues((prev) => {
+                    const next = { ...prev, [f.key]: v };
+                    if (f.key === "categoria") {
+                      if (v === "terceirizado") {
+                        next.etapa_carga_propria = "";
+                        next.etapa_terceirizado = "no_patio";
+                      } else if (v === "carga_propria") {
+                        next.etapa_terceirizado = "";
+                        next.etapa_carga_propria = "chegou";
+                      }
+                    }
+                    return next;
+                  });
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
