@@ -580,14 +580,14 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               const groupAllSelected = selectable && group.items.every(i => selectedSet.has(i.id));
 
               return (
-                <Fragment key={`group-${group.codigoCliente}`}>
+                <Fragment key={`group-${group.key}`}>
                   <TableRow
                     className={cn(
                       "hover:bg-muted/30 cursor-pointer border-t-2 border-t-primary/30 bg-primary/[0.03]",
                       hasRuptura && "bg-amber-50/40 dark:bg-amber-950/20",
                       !isOpen && "border-b"
                     )}
-                    onClick={() => toggle(group.codigoCliente!)}
+                    onClick={() => toggle(group.key)}
                   >
                     {selectable && (
                       <TableCell className="w-[40px]" onClick={(e) => e.stopPropagation()}>
