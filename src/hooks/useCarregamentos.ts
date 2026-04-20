@@ -343,3 +343,166 @@ export function useDeleteCarregamento() {
     },
   });
 }
+
+/**
+ * Cargas fechadas (etapa=logistica) das últimas 48h cujo veículo ainda não chegou na portaria.
+ */
+export interface CargaFechadaAguardando {
+  carga_id: string;
+  nome_carga: string | null;
+  placa: string | null;
+  motorista: string | null;
+  transportadora: string | null;
+  tipo_caminhao: string | null;
+  peso_total: number;
+  qtd_pedidos: number;
+  data: string;
+}
+
+export function useCargasFechadasAguardando() {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["cargas_fechadas_aguardando"],
+    enabled: !!session,
+    refetchInterval: 30000,
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 2);
+      const sinceStr = since.toISOString().slice(0, 10);
+
+      const { data: cargas, error } = await supabase
+        .from("carregamentos_dia")
+        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data")
+        .eq("etapa", "logistica")
+        .not("carga_id", "is", null)
+        .gte("data", sinceStr);
+      if (error) throw error;
+
+      const cargasArr = (cargas ?? []) as any[];
+      if (cargasArr.length === 0) return [] as CargaFechadaAguardando[];
+
+      const cargaIds = Array.from(new Set(cargasArr.map((c) => c.carga_id).filter(Boolean)));
+      const { data: movs } = await supabase
+        .from("movimentacoes_portaria")
+        .select("carga_id")
+        .in("carga_id", cargaIds);
+      const arrived = new Set((movs ?? []).map((m: any) => m.carga_id));
+
+      const grouped = new Map<string, CargaFechadaAguardando>();
+      for (const c of cargasArr) {
+        if (!c.carga_id || arrived.has(c.carga_id)) continue;
+        const g = grouped.get(c.carga_id);
+        if (g) {
+          g.peso_total += Number(c.peso) || 0;
+          g.qtd_pedidos += 1;
+        } else {
+          grouped.set(c.carga_id, {
+            carga_id: c.carga_id,
+            nome_carga: c.nome_carga,
+            placa: c.placa,
+            motorista: c.motorista,
+            transportadora: c.transportadora,
+            tipo_caminhao: c.tipo_caminhao,
+            peso_total: Number(c.peso) || 0,
+            qtd_pedidos: 1,
+            data: c.data,
+          });
+        }
+      }
+      return Array.from(grouped.values()).sort((a, b) => (b.data > a.data ? 1 : -1));
+    },
+  });
+}
+
+/** Lista cargas fechadas das últimas 72h para vincular a um walk-in */
+export function useCargasFechadasParaVincular() {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["cargas_fechadas_para_vincular"],
+    enabled: !!session,
+    refetchInterval: 30000,
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 3);
+      const sinceStr = since.toISOString().slice(0, 10);
+
+      const { data, error } = await supabase
+        .from("carregamentos_dia")
+        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data")
+        .eq("etapa", "logistica")
+        .not("carga_id", "is", null)
+        .gte("data", sinceStr);
+      if (error) throw error;
+      const arr = (data ?? []) as any[];
+
+      const grouped = new Map<string, CargaFechadaAguardando>();
+      for (const c of arr) {
+        if (!c.carga_id) continue;
+        const g = grouped.get(c.carga_id);
+        if (g) {
+          g.peso_total += Number(c.peso) || 0;
+          g.qtd_pedidos += 1;
+        } else {
+          grouped.set(c.carga_id, {
+            carga_id: c.carga_id,
+            nome_carga: c.nome_carga,
+            placa: c.placa,
+            motorista: c.motorista,
+            transportadora: c.transportadora,
+            tipo_caminhao: c.tipo_caminhao,
+            peso_total: Number(c.peso) || 0,
+            qtd_pedidos: 1,
+            data: c.data,
+          });
+        }
+      }
+      return Array.from(grouped.values()).sort((a, b) => (b.data > a.data ? 1 : -1));
+    },
+  });
+}
+
+/** Vincula um veículo walk-in a uma carga fechada */
+export function useVincularWalkInACarga() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      veiculoEsperadoId: string;
+      cargaId: string;
+      placaReal: string;
+      motoristaReal?: string | null;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const nowIso = new Date().toISOString();
+
+      const { error: e1 } = await supabase
+        .from("veiculos_esperados" as any)
+        .update({
+          status_autorizacao: "autorizado",
+          carga_id: input.cargaId,
+          autorizado_por: user?.id ?? null,
+          autorizado_em: nowIso,
+        } as any)
+        .eq("id", input.veiculoEsperadoId);
+      if (e1) throw e1;
+
+      const updateData: Record<string, any> = { placa: input.placaReal };
+      if (input.motoristaReal) updateData.motorista = input.motoristaReal;
+      const { error: e2 } = await supabase
+        .from("carregamentos_dia")
+        .update(updateData)
+        .eq("carga_id", input.cargaId);
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
+      qc.invalidateQueries({ queryKey: ["cargas_fechadas_para_vincular"] });
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+      toast.success("Carga vinculada — veículo liberado para entrada");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao vincular carga"),
+  });
+}
