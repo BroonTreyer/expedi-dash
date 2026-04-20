@@ -190,6 +190,34 @@ export function useCreateMovimentacao() {
   });
 }
 
+export function useTransferirCategoria() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, novaCategoria }: { id: string; novaCategoria: string }) => {
+      const updates: Record<string, any> = { categoria: novaCategoria };
+      if (novaCategoria === "terceirizado") {
+        updates.etapa_carga_propria = null;
+        updates.etapa_terceirizado = "no_patio";
+      } else if (novaCategoria === "carga_propria") {
+        updates.etapa_terceirizado = null;
+        updates.etapa_carga_propria = "chegou";
+      }
+      const { error } = await supabase
+        .from("movimentacoes_portaria")
+        .update(updates as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      toast.success("Categoria transferida com sucesso!");
+    },
+    onError: (e: any) => {
+      toast.error("Erro ao transferir: " + e.message);
+    },
+  });
+}
+
 export async function uploadFotoMovimentacao(file: File, tipo: "placa" | "doc" | "painel" | "nota") {
   const ext = file.name.split(".").pop() || "jpg";
   const path = `movimentacoes/${tipo}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;

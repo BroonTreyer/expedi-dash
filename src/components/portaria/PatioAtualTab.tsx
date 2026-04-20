@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2 } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, ArrowRightLeft } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { CATEGORIAS, useCreateMovimentacao, useUpdateMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS, useCreateMovimentacao, useUpdateMovimentacao, useTransferirCategoria } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -64,6 +64,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
   const updateMov = useUpdateMovimentacao();
+  const transferirMov = useTransferirCategoria();
+  const [transferConfirmId, setTransferConfirmId] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -180,6 +182,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     }
   };
 
+  const handleTransferir = async (m: MovimentacaoPortaria) => {
+    const novaCategoria = m.categoria === "carga_propria" ? "terceirizado" : "carga_propria";
+    await transferirMov.mutateAsync({ id: m.id, novaCategoria });
+    setTransferConfirmId(null);
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
@@ -269,6 +277,21 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </div>
                 {!readOnly && (
                 <div className="flex justify-end pt-1">
+                  {(m.categoria === "carga_propria" || m.categoria === "terceirizado") && (
+                    transferConfirmId === m.id ? (
+                      <div className="flex items-center gap-2 mr-2 animate-in fade-in duration-200">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setTransferConfirmId(null)} disabled={transferirMov.isPending}>Cancelar</Button>
+                        <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleTransferir(m)} disabled={transferirMov.isPending}>
+                          {transferirMov.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRightLeft className="h-3 w-3" />}
+                          Confirmar
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" className="gap-1 h-7 text-xs mr-2" onClick={() => setTransferConfirmId(m.id)}>
+                        <ArrowRightLeft className="h-3 w-3" /> {m.categoria === "carga_propria" ? "→ Terceirizado" : "→ Carga Própria"}
+                      </Button>
+                    )
+                  )}
                   {m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                        <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
@@ -380,7 +403,24 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </TableCell>
                 <TableCell className="text-right">
                   {!readOnly && (
+                  <div className="flex items-center gap-1 justify-end">
+                  {(m.categoria === "carga_propria" || m.categoria === "terceirizado") && (
+                    transferConfirmId === m.id ? (
+                      <div className="flex items-center gap-2 animate-in fade-in duration-200">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setTransferConfirmId(null)} disabled={transferirMov.isPending}>Cancelar</Button>
+                        <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleTransferir(m)} disabled={transferirMov.isPending}>
+                          {transferirMov.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRightLeft className="h-3 w-3" />}
+                          Confirmar
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setTransferConfirmId(m.id)} title={m.categoria === "carga_propria" ? "Transferir p/ Terceirizado" : "Transferir p/ Carga Própria"}>
+                        <ArrowRightLeft className="h-3 w-3" />
+                      </Button>
+                    )
+                  )}
                   m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
+                  {m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
                     </Button>
@@ -417,6 +457,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       </Button>
                     </div>
                   )
+                  }
+                  </div>
                   )}
                 </TableCell>
               </TableRow>
