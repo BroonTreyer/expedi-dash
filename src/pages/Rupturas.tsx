@@ -7,7 +7,7 @@ import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
-import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchCreateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
+import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchDeleteCarregamento, useBatchCreateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
@@ -56,11 +56,13 @@ export default function Rupturas() {
   const batchCreateMut = useBatchCreateCarregamento();
   const updateMut = useUpdateCarregamento();
   const deleteMut = useDeleteCarregamento();
+  const batchDeleteMut = useBatchDeleteCarregamento();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Carregamento | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>("logistica");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
 
   const rupturas = useMemo(() => {
@@ -194,6 +196,16 @@ export default function Rupturas() {
     if (deleteId) deleteMut.mutate(deleteId);
     setDeleteId(null);
   }, [deleteId, deleteMut]);
+
+  const handleDeleteManyRequest = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    if (ids.length === 1) setDeleteId(ids[0]);
+    else setDeleteIds(ids);
+  }, []);
+  const handleDeleteManyConfirm = useCallback(() => {
+    if (deleteIds && deleteIds.length > 0) batchDeleteMut.mutate(deleteIds);
+    setDeleteIds(null);
+  }, [deleteIds, batchDeleteMut]);
 
   const handleSubmit = useCallback((values: Record<string, any>) => {
     if (values.id) {
@@ -473,6 +485,7 @@ export default function Rupturas() {
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
+            onDeleteMany={handleDeleteManyRequest}
             onComplete={handleComplete}
             userRole={role}
             statuses={RUPTURA_STATUSES}
@@ -503,6 +516,15 @@ export default function Rupturas() {
           onOpenChange={(o) => !o && setDeleteId(null)}
           onConfirm={handleDeleteConfirm}
           description="Tem certeza que deseja excluir este carregamento? Esta ação não pode ser desfeita."
+        />
+
+        <DeleteConfirmDialog
+          open={!!deleteIds}
+          onOpenChange={(o) => !o && setDeleteIds(null)}
+          onConfirm={handleDeleteManyConfirm}
+          title="Excluir pedido completo"
+          description={`Tem certeza que deseja excluir este pedido completo (${deleteIds?.length ?? 0} produtos)? Esta ação não pode ser desfeita.`}
+          confirmLabel="Excluir pedido"
         />
 
         <RupturasPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
