@@ -275,6 +275,44 @@ export function useUpdateCarregamento() {
   });
 }
 
+/** Batch delete — deletes multiple carregamentos in a single request */
+export function useBatchDeleteCarregamento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return 0;
+      const { error, count } = await supabase
+        .from("carregamentos_dia")
+        .delete({ count: "exact" })
+        .in("id", ids);
+      if (error) throw error;
+      if (count === 0) throw new Error("Sem permissão para excluir. Apenas administradores, logística e faturamento podem deletar registros.");
+      return count ?? ids.length;
+    },
+    onMutate: async (ids) => {
+      await qc.cancelQueries({ queryKey: ["carregamentos"] });
+      const previousQueries = qc.getQueriesData<Carregamento[]>({ queryKey: ["carregamentos"] });
+      const idSet = new Set(ids);
+      qc.setQueriesData<Carregamento[]>(
+        { queryKey: ["carregamentos"] },
+        (old) => old ? old.filter((item) => !idSet.has(item.id)) : old
+      );
+      return { previousQueries };
+    },
+    onSuccess: (count) => {
+      toast.success(`${count} item(ns) do pedido excluído(s)`);
+    },
+    onError: (e: any, _ids, context) => {
+      if (context?.previousQueries) {
+        for (const [key, data] of context.previousQueries) {
+          qc.setQueryData(key, data);
+        }
+      }
+      toast.error(e.message);
+    },
+  });
+}
+
 export function useDeleteCarregamento() {
   const qc = useQueryClient();
   return useMutation({

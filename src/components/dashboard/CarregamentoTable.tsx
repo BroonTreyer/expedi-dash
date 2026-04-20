@@ -24,6 +24,7 @@ interface Props {
   onStatusChange: (id: string, status: string) => void;
   onEdit: (c: Carregamento) => void;
   onDelete: (id: string) => void;
+  onDeleteMany?: (ids: string[]) => void;
   onComplete: (c: Carregamento) => void;
   onClone?: (items: Carregamento[]) => void;
   onUndoCarga?: (cargaId: string) => void;
