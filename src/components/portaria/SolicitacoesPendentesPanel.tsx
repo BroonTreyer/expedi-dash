@@ -17,7 +17,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { Link } from "react-router-dom";
+import { VincularCargaDialog } from "./VincularCargaDialog";
 
 interface Props {
   categoria?: "carga_propria" | "terceirizado";
