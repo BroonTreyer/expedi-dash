@@ -64,8 +64,6 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
   const updateMov = useUpdateMovimentacao();
-  const transferirMov = useTransferirCategoria();
-  const [transferConfirmId, setTransferConfirmId] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
