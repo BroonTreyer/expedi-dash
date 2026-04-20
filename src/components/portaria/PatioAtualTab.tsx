@@ -381,22 +381,6 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <TableCell className="text-right">
                   {!readOnly && (
                   <div className="flex items-center gap-1 justify-end">
-                  {(m.categoria === "carga_propria" || m.categoria === "terceirizado") && (
-                    transferConfirmId === m.id ? (
-                      <div className="flex items-center gap-2 animate-in fade-in duration-200">
-                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setTransferConfirmId(null)} disabled={transferirMov.isPending}>Cancelar</Button>
-                        <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleTransferir(m)} disabled={transferirMov.isPending}>
-                          {transferirMov.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRightLeft className="h-3 w-3" />}
-                          Confirmar
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setTransferConfirmId(m.id)} title={m.categoria === "carga_propria" ? "Transferir p/ Terceirizado" : "Transferir p/ Carga Própria"}>
-                        <ArrowRightLeft className="h-3 w-3" />
-                      </Button>
-                    )
-                  )}
-                  m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
                   {m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
