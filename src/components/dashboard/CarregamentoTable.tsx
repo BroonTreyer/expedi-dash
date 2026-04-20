@@ -105,7 +105,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
   const isFaturamento = userRole === "faturamento";
   const canChangeStatus = canChangeStatusProp ?? (isAdmin || isLogistica || isFaturamento);
   const canEdit = isAdmin || isFaturamento;
-  const canDelete = isAdmin || isFaturamento;
+  const canDelete = isAdmin || isFaturamento || isLogistica;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const portalMut = useCreatePortalToken();
@@ -295,7 +295,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
   const isFaturamento = userRole === "faturamento";
   const canChangeStatus = canChangeStatusProp ?? (isAdmin || isLogistica || isFaturamento);
   const canEdit = isAdmin || isFaturamento || isLogistica;
-  const canDelete = isAdmin || isFaturamento;
+  const canDelete = isAdmin || isFaturamento || isLogistica;
   const canComplete = isAdmin || isLogistica;
   const hasActions = isAdmin || isLogistica || isFaturamento;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
