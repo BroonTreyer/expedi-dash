@@ -56,6 +56,7 @@ export default function RegistroEntrada() {
           </Card>
         </div>
 
+        <CargasFechadasAguardandoPanel />
         <SolicitacoesPendentesPanel />
 
         {grupo && (
