@@ -1,60 +1,106 @@
 
 
-## Diagnóstico
+## Resumo
 
-No `CarregamentoTable.tsx`, o botão lixeira do header de grupo multi-item faz:
+Duas funcionalidades:
 
-```ts
-onClick={() => group.items.forEach(i => onDelete(i.id))}
+1. **Soma total do pedido** no `CarregamentoDialog` — exibir peso e quantidade totais somados de todos os itens em tempo real enquanto o usuário digita.
+2. **Vínculo posterior carro ↔ pedido na Portaria** — atender os 2 cenários: (a) pedido fechado primeiro e o carro chega depois → portaria vincula; (b) carro chega primeiro (walk-in) e o pedido é fechado depois → logística vincula. O fluxo (b) já existe parcialmente; falta o (a) — botão para vincular um carro **já no pátio sem carga** a uma carga fechada, e o oposto: botão na carga fechada "Aguardando veículo" para vincular um carro que entrou.
+
+---
+
+## 1. Soma total do pedido no diálogo
+
+**Arquivo:** `src/components/dashboard/CarregamentoDialog.tsx`
+
+Adicionar abaixo da lista de itens (linha ~477, antes de "Observações") um rodapé compacto com totais derivados de `items`:
+
+```text
+┌─────────────────────────────────────────────────┐
+│  TOTAL DO PEDIDO    3 produtos · 45 un · 178,5 kg │
+└─────────────────────────────────────────────────┘
 ```
 
-Mas `onDelete` em `Index.tsx` / `Rupturas.tsx` é `setDeleteId(id)` — cada chamada sobrescreve o state, então só o último id fica e o dialog confirma a exclusão de **1 item apenas**. Os outros produtos do pedido sobram.
+- Cálculo: `totalQtd = items.reduce((s,i) => s + (i.quantidade||0), 0)`, `totalPeso = items.reduce((s,i) => s + (i.peso||0), 0)`, `totalProdutos = items.length`.
+- Formatação pt-BR (memória `style/data-formatting`): `totalPeso.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })`.
+- Atualiza automaticamente a cada mudança em peso/quantidade (já reativo via `setItems`).
+- Visual: `bg-muted/30 rounded-md p-2.5` com label uppercase e valores em fonte semibold.
 
-Resultado prático: para apagar um pedido com 3 produtos, o usuário hoje precisa abrir o grupo, clicar lixeira em cada item e confirmar 3 vezes.
+Nada de schema novo — totalmente derivado no client.
 
-## Plano
+---
 
-Implementar **exclusão do pedido inteiro em 1 clique + 1 confirmação única**, preservando a regra de memória `data-safety` (toda exclusão exige confirm dialog).
+## 2. Vínculo carro ↔ pedido na Portaria (ambos os sentidos)
 
-### 1. Novo handler de batch delete
+### Estado atual
+- ✅ **Walk-in (carro chega antes do pedido):** carro entra como `walk_in=true, status=aguardando_vinculo` → Logística vê em `SolicitacoesPendentesPanel` e vincula via botão "Vincular a carga" (que hoje só leva pra `/`). Após vincular, status vira `autorizado` e Portaria libera entrada.
+- ❌ **Pedido fechado antes (carro chega depois):** quando uma carga é fechada (`etapa=logistica`, `carga_id` definido), nada acontece se nenhum veículo esperado foi cadastrado. Quando o carro chega, Portaria registra entrada manual sem nenhum link automático com a carga já fechada. Falta vínculo bidirecional.
 
-`src/hooks/useCarregamentos.ts`: adicionar `useBatchDeleteCarregamento` — recebe `string[]` de ids, faz `delete().in("id", ids)` em uma única request, com optimistic update e rollback (mesmo padrão de `useBatchUpdateCarregamento`).
+### Mudanças
 
-### 2. Nova prop `onDeleteMany` em `CarregamentoTable`
+#### 2a. Vincular walk-in a uma carga fechada (melhorar o fluxo existente)
 
-- Assinatura: `onDeleteMany?: (ids: string[]) => void`
-- Header do grupo multi-item (linha 707): troca `group.items.forEach(i => onDelete(i.id))` por `onDeleteMany(group.items.map(i => i.id))`.
-- Mesma troca no mobile (linha 218 quando `groupItems` tem >1 item) — botão lixeira passa a chamar `onDeleteMany(groupItems.map(i => i.id))`.
-- Pedido com 1 item continua usando `onDelete(c.id)` (comportamento atual).
+**Arquivo:** `src/components/portaria/SolicitacoesPendentesPanel.tsx` (botão "Vincular a carga", linha ~146)
 
-### 3. Wire-up nas páginas
+Hoje: `<Link to="/">Vincular a carga</Link>` — leva pra dashboard sem contexto.
 
-`Index.tsx` e `Rupturas.tsx`:
-- Novo state `deleteIds: string[] | null`
-- `handleDeleteManyRequest(ids) => setDeleteIds(ids)`
-- `handleDeleteManyConfirm` chama `batchDeleteMut.mutate(deleteIds)`
-- Reaproveita o **mesmo `DeleteConfirmDialog`** existente, apenas com mensagem dinâmica:
-  - 1 item: "Tem certeza que deseja excluir este carregamento?" (texto atual)
-  - N itens: "Tem certeza que deseja excluir este pedido completo (N produtos)? Esta ação não pode ser desfeita."
+Trocar por um **diálogo de seleção de carga fechada** (`VincularCargaDialog` novo):
+- Lista cargas com `etapa='logistica'` e `carga_id IS NOT NULL` da data atual + 3 dias anteriores.
+- Mostra: `nome_carga`, `placa prevista`, `motorista`, peso total, qtd pedidos.
+- Filtro de busca por nome da carga ou placa.
+- Ao selecionar: chama nova mutação `useVincularWalkInACarga({ veiculoEsperadoId, cargaId, nomeCarga, placaCarga })` que:
+  1. Atualiza `veiculos_esperados`: `status_autorizacao='autorizado'`, `carga_id`, `autorizado_por/em`.
+  2. Se a placa da carga for diferente da placa que chegou, atualiza `carregamentos_dia.placa` e `motorista` para os dados reais (linhas com aquele `carga_id`).
+- Após vincular, o card pula automaticamente para "LIBERADO" (lógica existente) e Portaria libera entrada.
 
-### 4. Comportamento final
+#### 2b. Painel "Cargas fechadas aguardando veículo" na página de Registro de Entrada
 
-- **Pedido com 1 produto** → 1 clique na lixeira → 1 confirmação → deleta (igual hoje).
-- **Pedido com N produtos** → 1 clique na lixeira do header do grupo (sem precisar expandir) → 1 confirmação que diz "N produtos" → deleta tudo numa única request.
-- Botão lixeira **dentro** das linhas filhas (item individual de um grupo expandido) continua deletando só aquele item — útil para remover um produto isolado de um pedido sem apagar o resto.
+**Arquivo novo:** `src/components/portaria/CargasFechadasAguardandoPanel.tsx`
+**Hook novo:** `useCargasFechadasAguardando` em `src/hooks/useCarregamentos.ts`
 
-### Sem mudanças
-- RLS (já permite admin/logística/faturamento)
-- `KanbanView`, `Consolidado`, `EditarCargaDialog`
-- Auditoria (cada DELETE individual gera linha de log via trigger `audit_carregamentos`)
+Lista cargas onde:
+- `etapa='logistica'`
+- `carga_id IS NOT NULL`
+- Não existe entrada em `movimentacoes_portaria` com aquele `carga_id` (ou seja, veículo ainda não chegou)
+- Data nas últimas 48h
 
-### Memória
-Atualizar `mem://features/data-safety` registrando: exclusão de pedido multi-item usa batch delete com 1 confirmação única, e `mem://features/multi-product-logic` para mencionar que o ícone de lixeira do grupo apaga o pedido inteiro.
+Por carga mostra: `nome_carga`, `placa prevista`, `motorista previsto`, `tipo_caminhao`, peso total, qtd pedidos. Ações:
+- **"Registrar chegada deste veículo"** → abre `RegistroEntradaDialog` pré-preenchido com placa/motorista/transportadora/tipo_caminhão da carga **e já com `carga_id` vinculado**, criando direto a entrada na portaria + atualiza `veiculos_esperados` se houver.
+- **"Veio outro veículo"** → abre o mesmo diálogo em branco, mas mantém o `carga_id` selecionado para amarrar à entrada.
+
+Renderizar este painel em `src/pages/RegistroEntrada.tsx` (acima de `SolicitacoesPendentesPanel`) e em `src/pages/Portaria.tsx` (acima de `VeiculosEsperadosPanel`).
+
+#### 2c. Notificação automática quando carga é fechada sem veículo esperado
+
+Trigger SQL `on_carga_fechada` (já existe) — adicionar lógica:
+- Se ao virar `etapa='logistica'` não houver `veiculos_esperados` para aquele `carga_id`, criar registro em `veiculos_esperados`:
+  - `data_referencia = CURRENT_DATE`, `grupo` = derivado do `tipo_caminhao` (PRÓPRIA/TERCEIRO), `placa`, `motorista`, `transportadora`, `tipo_veiculo`, `carga_id`, `status_autorizacao='previsto'`, `walk_in=false`.
+- Já notifica Portaria via `notify_role` (adicionar nova chamada).
+
+Assim, toda carga fechada aparece automaticamente em "Veículos Esperados" da Portaria — não depende de import de planilha.
+
+### Permissões (memória `auth/role-management` e `auth/portaria-granular-permissions`)
+- **Vincular walk-in a carga**: `admin` + `logistica` (já é).
+- **Registrar chegada de carga fechada**: `admin` + `logistica` + `portaria`.
+- RLS atual de `veiculos_esperados` e `carregamentos_dia` já cobre.
+
+---
 
 ## Arquivos
-- ✏️ `src/hooks/useCarregamentos.ts` — novo `useBatchDeleteCarregamento` (`.delete().in("id", ids)` + optimistic update)
-- ✏️ `src/components/dashboard/CarregamentoTable.tsx` — prop `onDeleteMany`; lixeira do header (mobile e desktop) chama batch quando grupo tem >1 item
-- ✏️ `src/pages/Index.tsx` — wire `onDeleteMany`, state `deleteIds[]`, mensagem dinâmica do dialog
-- ✏️ `src/pages/Rupturas.tsx` — mesmo wire-up
-- ✏️ `mem://features/data-safety` e `mem://features/multi-product-logic`
+
+**Funcionalidade 1**
+- ✏️ `src/components/dashboard/CarregamentoDialog.tsx` — bloco de totais (qtd, peso, nº produtos) abaixo da lista de itens
+
+**Funcionalidade 2**
+- 🆕 `src/components/portaria/VincularCargaDialog.tsx` — modal para escolher carga fechada e vincular ao walk-in
+- ✏️ `src/components/portaria/SolicitacoesPendentesPanel.tsx` — botão "Vincular a carga" abre `VincularCargaDialog` (em vez de navegar para `/`)
+- 🆕 `src/components/portaria/CargasFechadasAguardandoPanel.tsx` — lista cargas fechadas sem veículo na portaria + botões de chegada
+- ✏️ `src/hooks/useCarregamentos.ts` — `useCargasFechadasAguardando` + `useVincularWalkInACarga`
+- ✏️ `src/components/portaria/RegistroEntradaDialog.tsx` — aceitar prop `prefill` (placa, motorista, transportadora, tipo_caminhao, carga_id) para pré-preencher
+- ✏️ `src/pages/RegistroEntrada.tsx` e `src/pages/Portaria.tsx` — incluir `CargasFechadasAguardandoPanel`
+- 🆕 Migration SQL — atualizar `on_carga_fechada` para criar `veiculos_esperados` automaticamente quando carga fecha sem veículo previsto + notificar portaria
+
+**Memória**
+- ✏️ `mem://features/portaria-expected-vehicles-workflow` — documentar criação automática de veículo esperado ao fechar carga + vínculo bidirecional walk-in/carga
+- ✏️ `mem://features/operational-workflow` — total do pedido visível no diálogo de criação
 
