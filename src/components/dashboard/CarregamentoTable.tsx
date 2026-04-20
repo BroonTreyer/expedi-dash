@@ -574,7 +574,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
 
               // Multi-item group
               const first = group.items[0];
-              const isOpen = expanded.has(group.codigoCliente!);
+              const isOpen = expanded.has(group.key);
               const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
               const hasRuptura = group.items.some(i => i.ruptura);
               const groupAllSelected = selectable && group.items.every(i => selectedSet.has(i.id));
