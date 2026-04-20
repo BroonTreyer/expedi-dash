@@ -547,6 +547,7 @@ export default function Index() {
           clientes={clientesFromData}
           selectedDate={dateFromStr}
           cloneItems={cloneItems}
+          isSubmitting={createMut.isPending || batchCreateMut.isPending || updateMut.isPending || batchUpdateMut.isPending}
         />
 
         <RoteirizacaoDialog

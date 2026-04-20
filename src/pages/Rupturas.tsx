@@ -495,6 +495,7 @@ export default function Rupturas() {
           clientes={clientes}
           selectedDate={dateFromStr}
           defaultRuptura
+          isSubmitting={createMut.isPending || batchCreateMut.isPending || updateMut.isPending}
         />
 
         <DeleteConfirmDialog
