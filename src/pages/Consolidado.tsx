@@ -196,12 +196,14 @@ export default function Consolidado() {
   });
 
   const editCargaMut = useMutation({
-    mutationFn: async ({ itemIds, fields }: { itemIds: string[]; fields: Record<string, string> }) => {
-      if (itemIds.length === 0) return;
+    mutationFn: async ({ cargaId, fields }: { cargaId: string; fields: Record<string, string> }) => {
+      if (!cargaId) return;
+      // Cascade: propaga para TODOS os itens da carga (mesmo carga_id),
+      // garantindo que cargas fechadas sejam atualizadas em todos os lugares.
       const { error } = await supabase
         .from("carregamentos_dia")
         .update(fields)
-        .in("id", itemIds);
+        .eq("carga_id", cargaId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -673,7 +675,7 @@ export default function Consolidado() {
         open={!!editGroup}
         onOpenChange={(o) => !o && setEditGroup(null)}
         group={editGroup}
-        onSave={(cargaId, fields, itemIds) => editCargaMut.mutate({ itemIds, fields })}
+        onSave={(cargaId, fields) => editCargaMut.mutate({ cargaId, fields })}
         onRemoveItem={(id) => removeFromCargaMut.mutate(id)}
         onDeleteCarga={(cargaId) => deleteCargaMut.mutate(cargaId)}
         onInverterOrdem={() => editGroup && inverterOrdemMut.mutate(editGroup.items)}
