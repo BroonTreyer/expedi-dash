@@ -22,6 +22,7 @@ import { ImportarPlanilhaDialog, type ParsedRow } from "@/components/portaria/Im
 import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDialog";
 import { VeiculosEsperadosPanel } from "@/components/portaria/VeiculosEsperadosPanel";
 import { SolicitacoesPendentesPanel } from "@/components/portaria/SolicitacoesPendentesPanel";
+import { CargasFechadasAguardandoPanel } from "@/components/portaria/CargasFechadasAguardandoPanel";
 
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
