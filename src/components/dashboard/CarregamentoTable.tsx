@@ -105,7 +105,7 @@ function buildGroups(data: Carregamento[]): Group[] {
 
 // ─── Mobile ───
 
-function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, onClone, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
+function MobileCardView({ data, onStatusChange, onEdit, onDelete, onDeleteMany, onComplete, onClone, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp }: Props) {
   const isAdmin = userRole === "admin";
   const isLogistica = userRole === "logistica";
   const isFaturamento = userRole === "faturamento";
@@ -166,7 +166,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
               {isOpen && (
                 <div className="divide-y divide-border/40">
                   {group.items.map((c, idx) => (
-                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} groupItems={group.items} />
+                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onDeleteMany={onDeleteMany} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} groupItems={group.items} />
                   ))}
                 </div>
               )}
@@ -174,18 +174,27 @@ function MobileCardView({ data, onStatusChange, onEdit, onDelete, onComplete, on
           );
         }
         const c = group.items[0];
-        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} groupItems={group.items} />;
+        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onDeleteMany={onDeleteMany} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} groupItems={group.items} />;
       })}
     </div>
   );
 }
 
-function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onComplete, onClone, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped, groupItems }: {
+function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onDeleteMany, onComplete, onClone, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped, groupItems }: {
   c: Carregamento; isAdmin: boolean; canEdit: boolean; canDelete: boolean; canComplete: boolean; hasActions: boolean; canChangeStatus: boolean;
-  onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onComplete: (c: Carregamento) => void;
+  onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onDeleteMany?: (ids: string[]) => void; onComplete: (c: Carregamento) => void;
   onClone?: (items: Carregamento[]) => void;
   statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean; groupItems?: Carregamento[];
 }) {
+  // When this is the header row of a multi-item group, the trash icon deletes the whole order
+  const isGroupHeader = !isGrouped && (groupItems?.length ?? 0) > 1;
+  const handleDeleteClick = () => {
+    if (isGroupHeader && onDeleteMany && groupItems) {
+      onDeleteMany(groupItems.map(i => i.id));
+    } else {
+      onDelete(c.id);
+    }
+  };
   return (
     <CardContent className="p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
@@ -216,7 +225,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
               </Button>
             )}
             {canDelete && (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title={isGroupHeader ? `Excluir pedido completo (${groupItems!.length} produtos)` : "Excluir"} onClick={handleDeleteClick}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -296,7 +305,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
 
 // ─── Desktop ───
 
-export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, onDelete, onComplete, onClone, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
+export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, onDelete, onDeleteMany, onComplete, onClone, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
   const isMobile = useIsMobile();
   const portalMut = useCreatePortalToken();
   const isAdmin = userRole === "admin";
@@ -385,7 +394,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
   const handleBottomProxyScroll = useCallback(() => syncScroll(bottomProxyRef.current), [syncScroll]);
 
   if (isMobile) {
-    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onComplete={onComplete} onClone={onClone} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} canChangeStatus={canChangeStatus} />;
+    return <MobileCardView data={data} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onDeleteMany={onDeleteMany} onComplete={onComplete} onClone={onClone} userRole={userRole} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} canChangeStatus={canChangeStatus} />;
   }
 
   const toggle = (key: string) => {
@@ -705,7 +714,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canDelete && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => group.items.forEach(i => onDelete(i.id))}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title={`Excluir pedido completo (${group.items.length} produtos)`} onClick={() => onDeleteMany ? onDeleteMany(group.items.map(i => i.id)) : group.items.forEach(i => onDelete(i.id))}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
