@@ -420,6 +420,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     )
                   )}
                   m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
+                  {m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
                     </Button>
@@ -456,8 +457,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       </Button>
                     </div>
                   )
-                  )}
+                  }
                   </div>
+                  )}
                 </TableCell>
               </TableRow>
             );
