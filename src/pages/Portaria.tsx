@@ -322,6 +322,7 @@ export default function Portaria({ categoria }: PortariaProps) {
 
         {/* Walk-in pending approvals */}
         <SolicitacoesPendentesPanel categoria={categoria} />
+        <CargasFechadasAguardandoPanel categoria={categoria} />
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
