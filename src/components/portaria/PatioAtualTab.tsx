@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2 } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, ArrowRightLeft } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { CATEGORIAS, useCreateMovimentacao, useUpdateMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS, useCreateMovimentacao, useUpdateMovimentacao, useTransferirCategoria } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -64,6 +64,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
   const updateMov = useUpdateMovimentacao();
+  const transferirMov = useTransferirCategoria();
+  const [transferConfirmId, setTransferConfirmId] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -178,6 +180,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     } finally {
       setSavingId(null);
     }
+  };
+
+  const handleTransferir = async (m: MovimentacaoPortaria) => {
+    const novaCategoria = m.categoria === "carga_propria" ? "terceirizado" : "carga_propria";
+    await transferirMov.mutateAsync({ id: m.id, novaCategoria });
+    setTransferConfirmId(null);
   };
 
   if (isLoading) {
