@@ -180,12 +180,6 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     }
   };
 
-  const handleTransferir = async (m: MovimentacaoPortaria) => {
-    const novaCategoria = m.categoria === "carga_propria" ? "terceirizado" : "carga_propria";
-    await transferirMov.mutateAsync({ id: m.id, novaCategoria });
-    setTransferConfirmId(null);
-  };
-
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
