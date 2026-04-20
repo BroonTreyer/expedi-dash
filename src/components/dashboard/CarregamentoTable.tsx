@@ -635,8 +635,13 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
                     <TableCell><PendingCell value={first.motorista} /></TableCell>
                     <TableCell className="text-sm font-mono font-bold text-primary">
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1.5 flex-wrap">
                         {group.codigoCliente} – {group.nomeCliente ?? ""}
+                        {first.numero_pedido != null && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
+                            Pedido {first.numero_pedido}
+                          </Badge>
+                        )}
                         {first.ordem_entrega != null && (
                           <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold h-5 min-w-5 px-1">
                             {first.ordem_entrega}ª
