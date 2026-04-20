@@ -84,8 +84,12 @@ function buildGroups(data: Carregamento[]): Group[] {
   const map = new Map<string, Group>();
   const singles: Group[] = [];
   for (const c of data) {
-    if (c.codigo_cliente && c.numero_pedido != null) {
-      const key = `${c.codigo_cliente}__${c.numero_pedido}`;
+    if (c.codigo_cliente) {
+      // Quando há numero_pedido, agrupa por cliente+pedido (separa pedidos distintos do mesmo cliente).
+      // Quando não há, agrupa por cliente+data (fallback: pedidos legados sem número ficam juntos por dia).
+      const key = c.numero_pedido != null
+        ? `${c.codigo_cliente}__p${c.numero_pedido}`
+        : `${c.codigo_cliente}__d${c.data}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
