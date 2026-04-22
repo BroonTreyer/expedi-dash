@@ -825,13 +825,24 @@ export default function Analytics() {
                   </ChartCard>
 
                   {/* Ranking produtos rupturas */}
-                  <ChartCard title="Produtos com Mais Rupturas" subtitle="Top 10 produtos por quantidade de rupturas">
+                  <ChartCard title="Produtos com Mais Rupturas" subtitle="Top 10 produtos por peso não carregado" headerAction={
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => {
+                      if (!a?.produtoRupturas) return;
+                      exportCsv(
+                        ["Produto", "Ocorrências", "Peso Não Carregado (kg)"],
+                        a.produtoRupturas.map((p) => [p.produto, p.rupturas, Math.round(p.pesoNaoCarregado)]),
+                        "produtos_ruptura.csv"
+                      );
+                    }}>
+                      <Download className="h-3 w-3" /> CSV
+                    </Button>
+                  }>
                     <div className="h-72">
                       {(a?.produtoRupturas?.length ?? 0) === 0 ? <EmptyState message="Nenhuma ruptura no período" /> : (
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={a?.produtoRupturas ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
-                            <XAxis type="number" tick={AXIS_STYLE} />
+                            <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
                             <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
                             <Tooltip
                               content={({ active, payload, label }: any) => {
@@ -842,12 +853,12 @@ export default function Analytics() {
                                     <p className="font-semibold text-foreground mb-2 pb-1.5 border-b border-border/40 text-[11px]">{d?.produto}</p>
                                     <div className="space-y-1.5">
                                       <div className="flex items-center justify-between gap-4">
-                                        <span className="text-muted-foreground text-[11px]">Rupturas</span>
-                                        <span className="font-bold text-foreground tabular-nums text-[11px]">{d?.rupturas}</span>
+                                        <span className="text-muted-foreground text-[11px]">Não carregado</span>
+                                        <span className="font-bold text-amber-700 tabular-nums text-[11px]">{Math.round(d?.pesoNaoCarregado ?? 0).toLocaleString("pt-BR")} <span className="text-muted-foreground font-normal">kg</span></span>
                                       </div>
                                       <div className="flex items-center justify-between gap-4">
-                                        <span className="text-muted-foreground text-[11px]">Peso</span>
-                                        <span className="font-bold text-foreground tabular-nums text-[11px]">{(d?.peso ?? 0).toLocaleString("pt-BR")} <span className="text-muted-foreground font-normal">kg</span></span>
+                                        <span className="text-muted-foreground text-[11px]">Ocorrências</span>
+                                        <span className="font-bold text-foreground tabular-nums text-[11px]">{d?.rupturas}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -855,7 +866,7 @@ export default function Analytics() {
                               }}
                               cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }}
                             />
-                            <Bar dataKey="rupturas" name="Rupturas" fill="#EF5350" radius={[0, 5, 5, 0]} animationDuration={800} />
+                            <Bar dataKey="pesoNaoCarregado" name="Peso não carregado" fill="#D97706" radius={[0, 5, 5, 0]} animationDuration={800} />
                           </BarChart>
                         </ResponsiveContainer>
                       )}
@@ -863,8 +874,147 @@ export default function Analytics() {
                   </ChartCard>
                 </div>
 
+                {/* Clientes Afetados + Cargas com Pendência */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <ChartCard title="Clientes Afetados" subtitle="Top 10 clientes por peso não carregado" headerAction={
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => {
+                      if (!a?.clienteRupturas) return;
+                      exportCsv(
+                        ["Código", "Cliente", "Ocorrências", "Peso Não Carregado (kg)", "Produtos"],
+                        a.clienteRupturas.map((c) => [c.codigo, c.nome, c.ocorrencias, Math.round(c.pesoNaoCarregado), c.produtos.join(" | ")]),
+                        "clientes_ruptura.csv"
+                      );
+                    }}>
+                      <Download className="h-3 w-3" /> CSV
+                    </Button>
+                  }>
+                    {(a?.clienteRupturas?.length ?? 0) === 0 ? (
+                      <EmptyState message="Nenhum cliente afetado" />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Cliente</TableHead>
+                            <TableHead className="text-right text-xs">Ocorr.</TableHead>
+                            <TableHead className="text-right text-xs">Não Carreg.</TableHead>
+                            <TableHead className="text-xs">Produtos</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {a!.clienteRupturas.slice(0, 10).map((c) => (
+                            <TableRow key={c.codigo + c.nome} className="hover:bg-muted/30">
+                              <TableCell className="py-2.5">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-xs truncate max-w-[180px]">{c.nome}</span>
+                                  {c.codigo !== "S/CÓD" && <span className="text-[10px] text-muted-foreground tabular-nums">#{c.codigo}</span>}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs py-2.5">{c.ocorrencias}</TableCell>
+                              <TableCell className="text-right tabular-nums text-xs font-bold text-amber-700 py-2.5">
+                                {Math.round(c.pesoNaoCarregado).toLocaleString("pt-BR")} kg
+                              </TableCell>
+                              <TableCell className="py-2.5">
+                                <span className="text-[10px] text-muted-foreground line-clamp-2">{c.produtos.slice(0, 3).join(", ")}{c.produtos.length > 3 ? ` +${c.produtos.length - 3}` : ""}</span>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </ChartCard>
+
+                  <ChartCard title="Cargas com Pendência" subtitle="Cargas que tiveram itens não carregados" headerAction={
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => {
+                      if (!a?.cargasComPendencia) return;
+                      exportCsv(
+                        ["Carga", "Ocorrências", "Peso Não Carregado (kg)", "Motoristas"],
+                        a.cargasComPendencia.map((c) => [c.nomeCarga, c.ocorrencias, Math.round(c.pesoNaoCarregado), c.motoristas.join(" | ")]),
+                        "cargas_pendencia.csv"
+                      );
+                    }}>
+                      <Download className="h-3 w-3" /> CSV
+                    </Button>
+                  }>
+                    {(a?.cargasComPendencia?.length ?? 0) === 0 ? (
+                      <EmptyState message="Nenhuma carga com pendência" />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Carga</TableHead>
+                            <TableHead className="text-right text-xs">Ocorr.</TableHead>
+                            <TableHead className="text-right text-xs">Não Carreg.</TableHead>
+                            <TableHead className="text-xs"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {a!.cargasComPendencia.slice(0, 10).map((c) => (
+                            <TableRow key={c.cargaId} className="hover:bg-muted/30">
+                              <TableCell className="py-2.5">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-xs truncate max-w-[180px]">{c.nomeCarga}</span>
+                                  {c.motoristas.length > 0 && <span className="text-[10px] text-muted-foreground truncate max-w-[180px]">{c.motoristas.join(", ")}</span>}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs py-2.5">{c.ocorrencias}</TableCell>
+                              <TableCell className="text-right tabular-nums text-xs font-bold text-amber-700 py-2.5">
+                                {Math.round(c.pesoNaoCarregado).toLocaleString("pt-BR")} kg
+                              </TableCell>
+                              <TableCell className="py-2.5">
+                                <a
+                                  href={`/rupturas?carga=${encodeURIComponent(c.nomeCarga)}`}
+                                  className="text-[10px] text-primary hover:underline whitespace-nowrap"
+                                >
+                                  Ver →
+                                </a>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </ChartCard>
+                </div>
+
+                {/* Motivos */}
+                <ChartCard title="Motivos da Ruptura" subtitle="Distribuição de peso não carregado por motivo informado">
+                  {(a?.motivoBreakdown?.length ?? 0) === 0 ? (
+                    <EmptyState message="Sem motivos informados no período" />
+                  ) : (
+                    <div className="space-y-2.5 py-2">
+                      {(() => {
+                        const max = a!.motivoBreakdown[0]?.peso ?? 1;
+                        return a!.motivoBreakdown.map((m, i) => {
+                          const pct = max > 0 ? (m.peso / max) * 100 : 0;
+                          return (
+                            <div key={m.motivo}>
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold text-muted-foreground w-5 text-right tabular-nums">{i + 1}.</span>
+                                  <span className="text-xs font-medium capitalize">{m.motivo}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] text-muted-foreground tabular-nums">{m.count} ocorr.</span>
+                                  <span className="text-xs font-bold tabular-nums text-amber-700">{Math.round(m.peso).toLocaleString("pt-BR")} kg</span>
+                                </div>
+                              </div>
+                              <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-700 ease-out"
+                                  style={{ width: `${pct}%`, backgroundColor: "#D97706", opacity: Math.max(0.4, 1 - i * 0.1) }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </ChartCard>
+
               </div>
-            )}
+              );
+            })()}
           </TabsContent>
 
           {/* ═══════ TAB: GEOGRAFIA ═══════ */}
