@@ -175,7 +175,7 @@ export default function Lixeira() {
                     </div>
                     <p className="text-sm font-medium truncate">{describeDeleted(entry)}</p>
                     {!hasSnapshot && (
-                      <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
                         <AlertTriangle className="h-3 w-3" /> Sem snapshot completo (registro antigo) — não pode ser restaurado
                       </p>
                     )}
