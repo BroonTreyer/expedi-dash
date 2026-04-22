@@ -61,6 +61,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const [confiancaLacre, setConfiancaLacre] = useState<number | null>(null);
   const [regularizar, setRegularizar] = useState(false);
   const [motivoRegularizacao, setMotivoRegularizacao] = useState("");
+  const [fotoViaArquivo, setFotoViaArquivo] = useState(false);
 
   const set = useCallback((key: string, val: any) => {
     setValues((prev) => ({ ...prev, [key]: val }));
