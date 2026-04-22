@@ -104,7 +104,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
       const dTo = new Date(dMov); dTo.setDate(dTo.getDate() + windowDays);
       let q = supabase
         .from("movimentacoes_portaria")
-        .select("id, tipo_movimento, etapa_carga_propria, etapa_terceirizado, foto_placa_url, foto_documento_url, foto_painel_url, foto_nota_url, foto_lacre_url, texto_placa_lido, confianca_placa, data_hora, carga_id, categoria, placa")
+        .select("id, tipo_movimento, etapa_carga_propria, etapa_terceirizado, foto_placa_url, foto_documento_url, foto_painel_url, foto_painel_saida_url, foto_nota_url, foto_lacre_url, texto_placa_lido, confianca_placa, data_hora, carga_id, categoria, placa")
         .ilike("placa", placaBusca)
         .eq("categoria", categoriaBusca)
         .gte("data_hora", dFrom.toISOString())
@@ -208,7 +208,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
       const suffix = stageLabel ? ` (${stageLabel})` : "";
       pushPhoto(r.foto_placa_url, "Placa", `${prefix}📷 Foto da Placa${suffix}`, r.texto_placa_lido, r.confianca_placa);
       pushPhoto(r.foto_documento_url, "Documento", `${prefix}📄 Documento${suffix}`);
-      pushPhoto(r.foto_painel_url, "Painel KM", `${prefix}🛞 Painel KM${suffix}`);
+      if (isCargaPropria) {
+        pushPhoto(r.foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`);
+        pushPhoto(r.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`);
+      } else {
+        pushPhoto(r.foto_painel_url, "Painel KM", `${prefix}🛞 Painel KM${suffix}`);
+      }
       pushPhoto(r.foto_nota_url, "Nota Fiscal", `${prefix}📋 Nota Fiscal${suffix}`);
       pushPhoto(r.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`);
     }
@@ -223,7 +228,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
       const suffix = ` (${stage})`;
       pushPhoto(s.foto_placa_url, "Placa", `📤 📷 Foto da Placa${suffix}`, s.texto_placa_lido, s.confianca_placa);
       pushPhoto(s.foto_documento_url, "Documento", `📤 📄 Documento${suffix}`);
-      pushPhoto(s.foto_painel_url, "Painel KM", `📤 🛞 Painel KM${suffix}`);
+      if (isCargaPropria) {
+        pushPhoto((s as any).foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`);
+        pushPhoto(s.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`);
+      } else {
+        pushPhoto(s.foto_painel_url, "Painel KM", `📤 🛞 Painel KM${suffix}`);
+      }
       pushPhoto(s.foto_nota_url, "Nota Fiscal", `📤 📋 Nota Fiscal${suffix}`);
       pushPhoto(s.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`);
     }
