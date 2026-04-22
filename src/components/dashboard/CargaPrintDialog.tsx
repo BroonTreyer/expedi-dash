@@ -34,6 +34,7 @@ interface Props {
 }
 
 export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
+  const [modo, setModo] = useState<"entrega" | "carregamento">("entrega");
   const cleanup = useCallback(() => {
     document.body.classList.remove("printing-carga");
     const root = document.getElementById("carga-print-root");
@@ -47,7 +48,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
 
   if (!data) return null;
 
-  const handlePrint = () => {
+  const doPrint = () => {
     const source = document.getElementById("carga-print-content");
     if (!source) return;
 
@@ -76,12 +77,25 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
     });
   };
 
+  const handlePrintMode = (next: "entrega" | "carregamento") => {
+    setModo(next);
+    // Wait re-render before cloning the DOM
+    setTimeout(doPrint, 60);
+  };
+
   const dataFormatada = (() => {
     const [y, m, d] = data.data.split("-");
     return `${d}/${m}/${y}`;
   })();
 
   const sortedGroups = [...data.groups].sort((a, b) => a.ordem - b.ordem);
+  const total = sortedGroups.length;
+  const displayGroups = modo === "entrega"
+    ? sortedGroups
+    : [...sortedGroups].sort((a, b) => b.ordem - a.ordem);
+  const tituloRomaneio = modo === "entrega"
+    ? "Romaneio — Sequência de Entrega"
+    : "Romaneio — Sequência de Carregamento";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
