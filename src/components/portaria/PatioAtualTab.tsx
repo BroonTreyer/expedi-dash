@@ -343,13 +343,14 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         </TableHeader>
         <TableBody>
           {sortedVeiculos.map((m) => {
-            const minutos = differenceInMinutes(now, new Date(m.data_hora));
+            const emRota = isEmRota(m);
+            const minutos = getMinutosNoPatio(m, now);
             const isSaidaRapida = saidaRapidaId === m.id;
             const isSaving = savingId === m.id;
             const infoExtra = getInfoExtra(m);
 
             return (
-              <TableRow key={m.id} className={minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
+              <TableRow key={m.id} className={emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
                 <TableCell className="text-sm">
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -357,9 +358,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className={`flex items-center gap-1 text-sm ${getTempoClass(minutos)}`}>
-                    {minutos >= 480 && <AlertTriangle className="h-3 w-3" />}
-                    {formatTempo(minutos)}
+                  <div className={`flex items-center gap-1 text-sm ${emRota ? "text-muted-foreground" : getTempoClass(minutos)}`}>
+                    {!emRota && minutos >= 480 && <AlertTriangle className="h-3 w-3" />}
+                    {emRota ? `em rota há ${formatTempo(minutos)}` : formatTempo(minutos)}
                   </div>
                 </TableCell>
                 <TableCell>
