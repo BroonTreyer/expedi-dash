@@ -1,101 +1,110 @@
 
-## Auditoria — Relatórios e Analytics
+## Corrigir Analytics — todos os bugs e inconsistências reais
 
-Foco: o que **a diretoria pede e hoje não tem**, ou tem mas vem errado/incompleto. Sem features inventadas.
+### Bugs e conflitos identificados (objetivos, no código)
 
----
+**1. KPI "Total Pedidos" mostra número inflado (errado)**
+Em `useAnalytics.ts` linha 300: `totalPedidos = filtered.length` — conta **linhas de produto**, não pedidos. Carga com 5 itens = 5 "pedidos". A "Taxa de Ruptura" usa `totalPedidosUnicos` (correto), mas o KPI ao lado mostra outro número. **Dois números diferentes para a mesma coisa na mesma tela.**
 
-### 1. Relatórios — o que existe hoje
+**2. KPI "Peso Total" inclui pedidos cancelados/problema**
+Não filtra por `status`. Linhas com status `Pendente / Problema` (visíveis nos logs de rede) são somadas no peso total. Diretoria vê peso "expedido" que nunca saiu.
 
-Apenas **4 relatórios fixos** em Excel:
-1. Resumo Diário de Expedição
-2. Rupturas
-3. Performance por Vendedor
-4. Tempo Médio de Pátio
+**3. Comparativo com período anterior está errado**
+Linha 105: `prevFrom = subDays(dateFrom, daysDiff + 1)` — em "30 dias" calcula 31 dias para trás. Off-by-one. Período "1–30/abr" compara com "30/mar–31/mar" (2 dias) em vez de "1–30/mar". **Toda variação % está errada.**
 
-### Problemas reais identificados
+**4. Comparativo do período anterior também não filtra por vendedor/UF/tipo**
+Linha 122: query `previous` traz só `data, peso, status, ruptura, numero_pedido` — sem vendedor/uf/tipo. Quando você aplica filtro "vendedor X", o período atual é filtrado mas o anterior é o total da empresa. **Variação compara coisas diferentes.**
 
-**A. Relatórios incompletos / errados**
-- **Resumo Diário** mostra "qtd_pedidos" contando *linhas de produto*, não pedidos únicos. Carga com 1 pedido de 5 itens vira "5 pedidos". Diretoria recebe número inflado.
-- **Resumo Diário** não tem coluna de **transportadora vs frota própria**, **tipo de frete (CIF/FOB)**, **horário de saída/retorno**, **KM rodado**, **qtd entregas**. Tudo isso já está no banco.
-- **Rupturas** não tem **valor financeiro estimado**, **vendedor responsável pela ruptura**, **status de resolução** — diretoria pergunta "quanto perdemos?" e ninguém responde.
-- **Performance Vendedores** não tem **comparativo período anterior** (cresceu/caiu vs mês passado).
-- **Tempo de Pátio** filtra `> 1440 min` silenciosamente. Veículo que ficou 25h some do relatório — exatamente o caso que a diretoria quer ver.
+**5. Filtros não funcionam para nada que use dados do período anterior**
+Mesmo problema do #4: as variações dos KPIs ignoram filtros.
 
-**B. Relatórios que faltam (a diretoria pede ou vai pedir)**
-- **Faturamento diário/mensal por cliente** (top clientes, ABC) — não existe.
-- **Faturamento por região (UF/cidade)** — Analytics tem mapa, relatório não tem.
-- **Cargas por transportadora** com peso, custo médio, % de atraso — não existe.
-- **Histórico por placa/motorista** (quantas viagens, KM total, ocorrências) — não existe.
-- **Pedidos cancelados / devolvidos** — sequer há campo para isso.
-- **Comparativo mês a mês** (peso, pedidos, rupturas, ticket médio) — não existe.
-- **DRE operacional simplificado** (peso expedido × custo de frete estimado por km) — não existe.
+**6. "Média Diária" divide por dias com lançamento, não dias do período**
+Linha 305: `mediaDiaria = totalPeso / diasUnicos`. Se lançou em 10 dias dos 30, divide por 10. Diretoria interpreta como "média dos 30 dias". Inflado.
 
-**C. Como os relatórios são entregues**
-- **Não há agendamento**: alguém precisa lembrar de gerar toda 2ª-feira manualmente.
-- **Não há e-mail automático**: gera Excel → baixa → anexa no WhatsApp/e-mail manualmente.
-- **Não há histórico**: ninguém sabe qual versão foi enviada quando.
-- **Só formato Excel**: diretoria normalmente lê no celular → PDF ou imagem seria muito melhor.
-- **Sem "favoritos" de período**: cada vez que abre, refaz a seleção.
+**7. "Média Semanal" de rupturas não é semanal**
+Linha 314: divide total de rupturas por `Math.ceil(dailyComRuptura.length / 7)` — usa apenas dias com lançamento, não semanas reais do período.
 
-**D. Personalização**
-- Filtros são **só data**. Não dá para filtrar por: vendedor, transportadora, UF, tipo de carga, cliente.
-- Não dá para escolher **quais colunas** sair no Excel.
-- Não dá para **salvar um modelo** ("relatório do João", "fechamento mensal RH").
+**8. "Pior Dia" considera dias com 1 pedido só**
+1 ruptura em 1 pedido = 100% — vence sempre dias com volume real e taxa pior. Precisa exigir mínimo de pedidos (ex: ≥10) para entrar no ranking.
 
----
+**9. "Total Sinalizadas" inclui resolvidas mas KPI está em laranja sem distinção**
+Confunde — número grande mas pode ser tudo já resolvido. Faltam dois números separados (sinalizadas atualmente abertas vs total histórico).
 
-### 2. Analytics — o que existe hoje
+**10. Limite de 5000 linhas silencioso**
+Linhas 119 e 125: `.limit(5000)`. Em 30 dias com volume real, **estoura sem aviso** e os números ficam incompletos. Sem indicação na UI.
 
-Página tem 5 abas (Visão Geral, Expedição, Vendedores, Rupturas, Geografia) com KPIs e gráficos.
+**11. Erros de console (React refs)**
+Console mostra warning em `KpiCard` e `StatusMiniCards` por uso de ref em function component. Não quebra mas polui logs.
 
-### Problemas reais
+**12. Heatmap não é renderizado em lugar nenhum**
+`heatmap` é calculado em `useAnalytics.ts` (linhas 285–296) mas a página nunca consome. Código morto.
 
-- **Não exporta nada** que esteja ali na tela. Vê o gráfico bonito → diretoria pede em planilha → ninguém consegue extrair direto.
-- **Comparativo de período** (ex: "este mês vs anterior") não aparece de forma clara nos KPIs — só número absoluto.
-- **Sem drill-down**: clica num número (ex: "23 rupturas") e nada acontece. Deveria abrir a lista.
-- **Sem "enviar essa visão"**: gestor não consegue mandar o print/PDF da aba para alguém.
-- **Filtros não persistem** entre abas.
+**13. CSV exportado usa `;` mas Excel BR pode interpretar errado dependendo do locale**
+Linha 111 do Analytics.tsx — funciona, mas valores numéricos com vírgula brasileira não são tratados; números grandes vão como `12345` sem formatação. OK manter `;` mas adicionar BOM (já tem) e formatar números.
+
+**14. Distribuição por UF agrupa "N/I" junto com UFs reais**
+Mistura linhas sem UF no ranking — uma "UF" inexistente pode aparecer no top, distorcendo participação. Deve ser separada (ou excluída do total para % de participação).
+
+**15. Ranking de Vendedores: "pedidos" também é linha de produto, não pedido**
+Linha 181: `entry.pedidos += 1` por linha. Mesmo erro do #1.
+
+**16. "Participação %" do vendedor usa peso total **incluindo** linhas sem vendedor ("Sem vendedor")**
+Linha 188: divisor é `totalPesoAll` que inclui linhas sem `vendedor_id`. Vendedor com 100% real do faturado mostra 80% porque tem 20% "sem vendedor" no denominador.
 
 ---
 
-### 3. Plano de correção (3 fases enxutas, sem invenção)
+### Plano de correção (1 entrega, sem fases)
 
-**Fase A — Corrigir o que está errado e completar os 4 relatórios atuais** (alta prioridade)
+Tudo é bug fix em **2 arquivos**: `src/hooks/useAnalytics.ts` e `src/pages/Analytics.tsx`.
 
-- Resumo Diário: contar **pedidos únicos** (`numero_pedido` distinto), adicionar colunas de frete/transportadora/horários/KM/entregas, adicionar **linha de totalizadores por dia**.
-- Rupturas: adicionar **vendedor**, **valor estimado** (peso × ticket médio do produto), agrupamento por produto e por cliente em abas separadas da mesma planilha.
-- Performance Vendedores: adicionar coluna **vs período anterior** (% crescimento), e aba secundária com detalhe diário.
-- Tempo de Pátio: **deixar de esconder veículos > 24h** — eles devem aparecer marcados em vermelho (são justamente o problema).
+**Em `useAnalytics.ts`:**
 
-**Fase B — Os 5 relatórios que faltam** (a diretoria já pede)
+1. **Corrigir off-by-one do período anterior** — usar `subDays(dateFrom, daysDiff + 1)` → `subDays(dateFrom, daysDiff)` e `subDays(dateFrom, 1)` para `prevTo`.
+2. **Período anterior puxa as mesmas colunas** (vendedor, uf, tipo) e aplica os mesmos filtros antes de calcular comparativos.
+3. **Total Pedidos** passa a usar `totalPedidosUnicos` em todos os KPIs e rankings (contagem por `numero_pedido` distinto, fallback para linha quando `numero_pedido` é null).
+4. **Peso Total / Carregado** filtram status válidos (excluir `Pendente / Problema` e cancelados — adicionar lista explícita de status que somam).
+5. **Média Diária** divide por **dias do período** (`differenceInDays + 1`), não por dias com lançamento. Adicionar segundo número opcional "média por dia útil ativo" se necessário.
+6. **Média Semanal de rupturas** divide por semanas do período real (`periodDays / 7`).
+7. **Pior Dia** filtra dias com pelo menos N pedidos (configurável, default 10). Se nenhum atende, mostra "—" com texto explicativo.
+8. **Sinalizadas vs Resolvidas** — separar os dois números no card.
+9. **Detectar truncamento**: se `data.length === 5000`, retornar flag `truncated: true` e mostrar aviso visual. Aumentar limite para 20000 ou paginar (em 30d tipicamente cabe).
+10. **Limpar `heatmap`** se não for usar, ou implementar a visualização (recomendo remover já que tem o gráfico de taxa diária — duplicaria).
+11. **Vendedor `participacao`** divide pelo total **com vendedor identificado** (excluir "Sem vendedor" do denominador, mantê-lo na lista marcado).
+12. **UF "N/I"** removida do top 10 e mostrada separada no rodapé como "Sem UF: X kg".
+13. **Vendedor `pedidos`** usa Set de `numero_pedido`.
 
-1. **Faturamento por Cliente** (ranking ABC, top 20, peso e qtd pedidos, % do total).
-2. **Faturamento por Região** (UF e cidade, com participação % e ranking).
-3. **Performance por Transportadora** (peso, viagens, tempo médio pátio, taxa de atraso).
-4. **Histórico por Placa** (todas as viagens, KM total, ocorrências, motoristas que dirigiram).
-5. **Comparativo Mensal** (mês atual vs anterior vs mesmo mês ano passado, em uma tela só).
+**Em `Analytics.tsx`:**
 
-**Fase C — Entrega automática e personalização** (tira retrabalho recorrente)
-
-- **Filtros por vendedor / UF / transportadora / cliente** em todos os relatórios.
-- **Escolher colunas** antes de gerar.
-- **Salvar "Meu relatório"** (preset com nome + período + filtros + colunas).
-- **Exportar em PDF** (não só Excel) — leitura no celular.
-- **Agendamento**: "envie esse relatório toda 2ª-feira 7h para diretoria@frico" via Resend (ou WhatsApp via Twilio se preferir). Histórico de envios fica registrado.
-- **Botão "Exportar visão atual" no Analytics**: gera PDF da aba aberta exatamente como está na tela.
+14. Corrigir warnings React (envolver `KpiCard`, `StatusMiniCards`, `VarBadge` em `forwardRef` ou remover ref implícito do parent).
+15. Banner de aviso quando `analytics.truncated === true`: "Resultado limitado a 5000 registros — refine o período".
+16. KPI "Total Pedidos" passa a mostrar o subtítulo "(pedidos únicos)" para deixar claro.
+17. KPI "Média Diária" subtítulo: "média sobre {N} dias do período".
+18. Card "Total Sinalizadas" vira dois mini-cards: "Abertas agora" + "Resolvidas no período".
+19. Tooltip do "Pior Dia" mostra também `X rupturas em Y pedidos`.
+20. Remover código morto do `heatmap` (ou implementar — a definir; recomendação: **remover**, já existe gráfico de taxa diária).
+21. CSV exportado formata números com `toLocaleString("pt-BR")` para abrir bonito no Excel BR.
 
 ---
 
-### Como prosseguir
+### Resultado esperado
 
-Por favor escolha **uma**:
+- Todos os números da página passam a bater entre si (Total Pedidos = base do Taxa de Ruptura, etc).
+- Variação % vs período anterior fica matematicamente correta.
+- Filtros afetam **tudo**, inclusive comparativos.
+- Peso/pedidos cancelados não inflam mais os KPIs.
+- Aviso visível quando dados são truncados (não some silenciosamente).
+- Sem warnings no console.
+- Sem código morto.
 
-1. **"Começa pela Fase A"** — corrijo os 4 relatórios existentes que estão com defeito/incompletos. ~1-2 dias de trabalho real, impacto imediato.
-2. **"Pula para Fase B"** — crio os 5 relatórios novos. ~3-4 dias.
-3. **"Quero Fase C antes"** — agendamento + e-mail + filtros. Resolve a dor do retrabalho semanal.
-4. **"Faz tudo na ordem A → B → C"** — entrego em incrementos, validando cada um.
+### Arquivos
+- ✏️ `src/hooks/useAnalytics.ts` — correções 1–13.
+- ✏️ `src/pages/Analytics.tsx` — correções 14–21.
 
-> Recomendação: **Fase A primeiro**. Se a diretoria está reclamando de relatório, é mais provável que os números **estejam errados** (pedido contado como linha, veículos sumindo do tempo de pátio) do que faltando — corrigir isso primeiro reconquista a confiança no sistema. Depois vamos para B e C.
+### Pergunta única antes de implementar
+Há **um ponto de decisão** que preciso confirmar:
 
-E me diga também: **qual relatório específico a diretoria mais cobra hoje?** (ex: "fechamento mensal de cargas", "ranking de cliente", "rupturas da semana"). Se você apontar, eu priorizo esse antes dos outros.
+> Quando o usuário lança um pedido com status **"Pendente / Problema"**, ele deve aparecer no **Peso Total** do Analytics ou não?
+> - **Não (recomendado)**: Peso Total = só status válidos (`Aguardando`, `Pronto`, `Carregando`, `Carregado`). É o que a diretoria entende como "expedição".
+> - **Sim**: mantém como está hoje (soma tudo) — mas aí precisa renomear o KPI para "Peso Lançado".
+
+Responda **"não"** (mais comum) ou **"sim"** e eu implemento tudo de uma vez.
