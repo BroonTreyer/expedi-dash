@@ -26,6 +26,7 @@ import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { pesoEfetivo } from "@/lib/peso-utils";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
@@ -44,8 +45,12 @@ export interface RotaGroup {
   nomeCliente: string | null;
   cidade: string | null;
   uf: string | null;
-  items: { id: string; peso: number; numeroPedido: number | null }[];
+  items: { id: string; peso: number; numeroPedido: number | null; ruptura: boolean }[];
   pesoTotal: number;
+  /** Soma do peso planejado (inclui itens em ruptura). Útil para mostrar divergência. */
+  pesoPlanejado: number;
+  /** Quantos itens deste grupo estão em ruptura. */
+  rupturaCount: number;
   ordem: number;
 }
 
@@ -155,11 +160,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       items.forEach((c) => {
         const key = c.codigo_cliente ?? "__sem_cliente__";
         if (!map.has(key)) {
-          map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, cidade: c.cidade, uf: c.uf, items: [], pesoTotal: 0, ordem: 0 });
+          map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, cidade: c.cidade, uf: c.uf, items: [], pesoTotal: 0, pesoPlanejado: 0, rupturaCount: 0, ordem: 0 });
         }
         const g = map.get(key)!;
-        g.items.push({ id: c.id, peso: c.peso ?? 0, numeroPedido: c.numero_pedido });
-        g.pesoTotal += c.peso ?? 0;
+        const ruptura = !!c.ruptura;
+        g.items.push({ id: c.id, peso: c.peso ?? 0, numeroPedido: c.numero_pedido, ruptura });
+        g.pesoPlanejado += c.peso ?? 0;
+        g.pesoTotal += pesoEfetivo({ peso: c.peso, ruptura });
+        if (ruptura) g.rupturaCount += 1;
       });
       const arr = Array.from(map.values()).map((g, idx) => ({ ...g, ordem: idx + 1 }));
       setGroups(arr);
