@@ -135,7 +135,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const sortedVeiculos = useMemo(() => {
     return sortData(veiculosNoPatio, {
       data_hora: (m) => new Date(m.data_hora).getTime(),
-      tempo: (m) => differenceInMinutes(now, new Date(m.data_hora)),
+      tempo: (m) => getMinutosNoPatio(m, now),
       categoria: (m) => m.categoria,
       placa: (m) => m.placa,
       motorista: (m) => m.motorista,
