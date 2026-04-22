@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 
 // ── Period options ──
 const PERIOD_OPTIONS = [
+  { value: "hoje", label: "Hoje" },
+  { value: "ontem", label: "Ontem" },
   { value: "7d", label: "Últimos 7 dias" },
   { value: "15d", label: "Últimos 15 dias" },
   { value: "30d", label: "Últimos 30 dias" },
@@ -78,6 +80,11 @@ const STATUS_PROGRESS_COLOR: Record<string, string> = {
 function getDateRange(period: string) {
   const today = new Date();
   switch (period) {
+    case "hoje": return { from: format(today, "yyyy-MM-dd"), to: format(today, "yyyy-MM-dd") };
+    case "ontem": {
+      const y = subDays(today, 1);
+      return { from: format(y, "yyyy-MM-dd"), to: format(y, "yyyy-MM-dd") };
+    }
     case "7d": return { from: format(subDays(today, 7), "yyyy-MM-dd"), to: format(today, "yyyy-MM-dd") };
     case "15d": return { from: format(subDays(today, 15), "yyyy-MM-dd"), to: format(today, "yyyy-MM-dd") };
     case "30d": return { from: format(subDays(today, 30), "yyyy-MM-dd"), to: format(today, "yyyy-MM-dd") };

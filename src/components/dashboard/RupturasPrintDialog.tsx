@@ -21,6 +21,9 @@ interface RupturaItem {
   cliente: string | null;
   codigo_cliente: string | null;
   peso: number | null;
+  peso_original?: number | null;
+  ruptura?: boolean;
+  motivo_ruptura?: string | null;
 }
 
 export interface RupturasPrintData {
@@ -166,19 +169,33 @@ export function RupturasPrintDialog({ open, onOpenChange, data }: Props) {
                   <th className="text-left py-1.5 pr-2 font-semibold">Código</th>
                   <th className="text-left py-1.5 pr-2 font-semibold">Produto</th>
                   <th className="text-left py-1.5 pr-2 font-semibold">Cliente</th>
-                  <th className="text-right py-1.5 font-semibold">Peso (kg)</th>
+                  <th className="text-left py-1.5 pr-2 font-semibold">Tipo</th>
+                  <th className="text-right py-1.5 pr-2 font-semibold">Original</th>
+                  <th className="text-right py-1.5 pr-2 font-semibold">Carregado</th>
+                  <th className="text-right py-1.5 pr-2 font-semibold">Diferença</th>
+                  <th className="text-left py-1.5 font-semibold">Motivo</th>
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((item) => (
-                  <tr key={item.id} className="border-b border-foreground/5">
-                    <td className="py-1 pr-2 font-mono">{item.numero_pedido ?? "—"}</td>
-                    <td className="py-1 pr-2 font-mono">{item.codigo_produto ?? "—"}</td>
-                    <td className="py-1 pr-2">{item.nome_produto ?? "—"}</td>
-                    <td className="py-1 pr-2">{item.cliente ?? item.codigo_cliente ?? "—"}</td>
-                    <td className="py-1 text-right font-mono">{(item.peso ?? 0).toLocaleString("pt-BR")}</td>
-                  </tr>
-                ))}
+                {data.items.map((item) => {
+                  const original = item.peso_original ?? item.peso ?? 0;
+                  const carregado = item.ruptura ? 0 : (item.peso ?? 0);
+                  const diff = Math.max(0, original - carregado);
+                  const tipo = item.ruptura ? "Total" : "Parcial";
+                  return (
+                    <tr key={item.id} className="border-b border-foreground/5">
+                      <td className="py-1 pr-2 font-mono">{item.numero_pedido ?? "—"}</td>
+                      <td className="py-1 pr-2 font-mono">{item.codigo_produto ?? "—"}</td>
+                      <td className="py-1 pr-2">{item.nome_produto ?? "—"}</td>
+                      <td className="py-1 pr-2">{item.cliente ?? item.codigo_cliente ?? "—"}</td>
+                      <td className="py-1 pr-2 font-semibold">{tipo}</td>
+                      <td className="py-1 pr-2 text-right font-mono">{original.toLocaleString("pt-BR")}</td>
+                      <td className="py-1 pr-2 text-right font-mono">{carregado.toLocaleString("pt-BR")}</td>
+                      <td className="py-1 pr-2 text-right font-mono">{diff.toLocaleString("pt-BR")}</td>
+                      <td className="py-1">{item.motivo_ruptura ?? "—"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
