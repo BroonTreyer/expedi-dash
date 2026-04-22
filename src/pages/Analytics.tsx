@@ -463,13 +463,13 @@ export default function Analytics() {
     <Layout>
       <div className="p-4 sm:p-6 space-y-5">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Analytics</h1>
             <p className="text-xs text-muted-foreground">Painel gerencial de expedição — visão comparativa com período anterior</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1 mr-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button
                 variant={period === "hoje" ? "default" : "outline"}
                 size="sm"
@@ -497,7 +497,7 @@ export default function Analytics() {
               setFilterUfs={setFilterUfs}
             />
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-44 h-8 text-xs min-w-[10rem]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
