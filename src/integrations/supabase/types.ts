@@ -366,6 +366,7 @@ export type Database = {
           foto_documento_url: string | null
           foto_lacre_url: string | null
           foto_nota_url: string | null
+          foto_painel_saida_url: string | null
           foto_painel_url: string | null
           foto_placa_url: string | null
           horario_chegada: string | null
@@ -422,6 +423,7 @@ export type Database = {
           foto_documento_url?: string | null
           foto_lacre_url?: string | null
           foto_nota_url?: string | null
+          foto_painel_saida_url?: string | null
           foto_painel_url?: string | null
           foto_placa_url?: string | null
           horario_chegada?: string | null
@@ -478,6 +480,7 @@ export type Database = {
           foto_documento_url?: string | null
           foto_lacre_url?: string | null
           foto_nota_url?: string | null
+          foto_painel_saida_url?: string | null
           foto_painel_url?: string | null
           foto_placa_url?: string | null
           horario_chegada?: string | null
