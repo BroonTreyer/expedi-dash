@@ -124,6 +124,11 @@ function SortableDestinationCard({
             {group.items.length} {group.items.length === 1 ? "pedido" : "pedidos"} · {group.pesoTotal.toLocaleString("pt-BR")} kg
             {pedidoNums.length > 0 && <span className="ml-1.5 text-foreground/60">{pedidoNums.join(", ")}</span>}
           </div>
+          {group.rupturaCount > 0 && (
+            <div className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+              {group.rupturaCount} {group.rupturaCount === 1 ? "item" : "itens"} em ruptura — não embarcado (planejado {group.pesoPlanejado.toLocaleString("pt-BR")} kg)
+            </div>
+          )}
           {trecho && (
             <div className="text-xs text-muted-foreground mt-0.5 font-mono">
               {/* BUG 6 FIX: Convert minutes to hours when >= 60 */}

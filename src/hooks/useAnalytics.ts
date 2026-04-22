@@ -193,7 +193,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
     const prevPedidosUnicos = countUniquePedidos(prevFiltered);
     const prevPedidosComRuptura = uniquePedidosWithRuptura(prevFiltered);
     const prevCarregado = prevValid
-      .filter((r) => r.status === LOADED_STATUS)
+      .filter((r) => r.status === LOADED_STATUS && !r.ruptura)
       .reduce((s, r) => s + (r.peso ?? 0), 0);
     const prevMedia = periodDays > 0 ? Math.round(prevPeso / periodDays) : 0;
     const prevTaxaRuptura = prevPedidosUnicos > 0
@@ -368,7 +368,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
     // === 9. KPIs (com comparativo correto) ===
     const totalPeso = filteredValid.reduce((s, r) => s + (r.peso ?? 0), 0);
     const totalCarregado = filteredValid
-      .filter((r) => r.status === LOADED_STATUS)
+      .filter((r) => r.status === LOADED_STATUS && !r.ruptura)
       .reduce((s, r) => s + (r.peso ?? 0), 0);
     const diasUnicos = new Set(filtered.map((r) => r.data)).size;
     const mediaDiaria = periodDays > 0 ? Math.round(totalPeso / periodDays) : 0;

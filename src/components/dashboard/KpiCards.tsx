@@ -13,8 +13,13 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
   const source = selectedData ?? data;
   const totalClientes = new Set(source.filter(c => c.codigo_cliente).map(c => c.codigo_cliente)).size;
   const pesoTotal = source.reduce((s, c) => s + (c.peso ?? 0), 0);
-  const pesoCarregado = source.filter(c => c.status === "Carregado").reduce((s, c) => s + (c.peso ?? 0), 0);
-  const pesoCarregando = source.filter(c => c.status === "Carregando").reduce((s, c) => s + (c.peso ?? 0), 0);
+  // Peso efetivo: ignora itens em ruptura (não foram fisicamente carregados).
+  const pesoCarregado = source
+    .filter(c => c.status === "Carregado" && !c.ruptura)
+    .reduce((s, c) => s + (c.peso ?? 0), 0);
+  const pesoCarregando = source
+    .filter(c => c.status === "Carregando" && !c.ruptura)
+    .reduce((s, c) => s + (c.peso ?? 0), 0);
   const totalVeiculos = new Set(source.filter(c => c.placa).map(c => c.placa)).size;
   const pendentesLogistica = new Set(source.filter(c => c.etapa === "vendas" && c.numero_pedido).map(c => c.numero_pedido)).size;
   // Rupturas por pedido único
@@ -26,8 +31,8 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
     { label: selectedData ? "Clientes (sel.)" : "Clientes", value: totalClientes, icon: Package, color: "text-primary", tooltip: "Quantidade de clientes distintos nos pedidos" },
     { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500", tooltip: "Pedidos na etapa de vendas aguardando logística" },
     { label: "Rupturas", value: rupturas, icon: AlertTriangle, color: "text-amber-600", tooltip: `${pedidosComRuptura} de ${totalPedidosUnicos} pedidos únicos com ao menos 1 produto em ruptura` },
-    { label: selectedData ? "Peso Sel." : "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground", tooltip: "Soma do peso de todos os pedidos exibidos" },
-    { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado", tooltip: "Peso dos pedidos com status 'Carregado'" },
+    { label: selectedData ? "Peso Sel." : "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground", tooltip: "Soma do peso planejado (pedido). Para o peso fisicamente embarcado, veja 'Peso Carregado'." },
+    { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado", tooltip: "Peso efetivo embarcado nos status 'Carregado' (desconsidera itens em ruptura)." },
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary", tooltip: "Quantidade de veículos (placas) distintos" },
   ];
 
