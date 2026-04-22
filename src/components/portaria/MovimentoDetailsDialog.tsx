@@ -184,6 +184,11 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 </Badge>
               )}
               {m.tipo_operacao && <Badge variant="outline" className="text-[11px]">{m.tipo_operacao}</Badge>}
+              {(m.observacoes?.includes("[REGULARIZADO") || sDistinct?.observacoes?.includes("[REGULARIZADO")) && (
+                <Badge variant="outline" className="gap-1 text-[11px] border-amber-500 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3" /> Regularizado
+                </Badge>
+              )}
               {dataBadge && (
                 <Badge
                   variant={dataBadge.variant}
