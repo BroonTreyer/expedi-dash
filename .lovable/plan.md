@@ -1,24 +1,35 @@
 
 
-## Bug: Foto do lacre não aparece em Detalhes
+## Bug: Registro de Carga Própria pedindo Lacre na entrada
 
 ### Causa
-Em `src/components/portaria/MovimentoDetailsDialog.tsx` (linhas 127-135), o array `allPhotos` inclui placa, documento, painel e nota — mas **omite `foto_lacre_url`**. Como o lacre é o único anexo do fluxo de saída (Carga Própria) e do fluxo Terceirizado/Fornecedor, a foto fica invisível.
+Em `src/components/portaria/RegistroMovimentoDialog.tsx`, ao iniciar um novo registro de Carga Própria (tanto via `forcedCategoria` quanto via seletor de categoria), o `tipo` do movimento é definido como `"saida"`. Isso faz o formulário usar a matriz `VISIBILITY_SAIDA` (`portaria-fields-config.ts`), onde `foto_lacre_url` e `numero_lacre` são **obrigatórios** para `carga_propria`.
+
+A 1ª etapa de Carga Própria (Saída p/ Rota) deveria mostrar apenas: foto da placa, placa, motorista, foto do painel, KM inicial, rota — sem lacre.
 
 ### Correção
 
-**Arquivo:** `src/components/portaria/MovimentoDetailsDialog.tsx`
+**Arquivo:** `src/components/portaria/RegistroMovimentoDialog.tsx`
 
-Adicionar duas linhas no bloco `allPhotos` (após as linhas existentes de painel/nota):
+Trocar `setTipo("saida")` por `setTipo("saida_rota")` nos dois pontos onde um novo registro de Carga Própria é iniciado:
 
-```ts
-if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Entrada)" });
-// ...
-if (s?.foto_lacre_url) allPhotos.push({ url: s.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída)" });
-```
+1. **Linha 129** (path `forcedCategoria`):
+   ```ts
+   setTipo(forcedCategoria === "carga_propria" ? "saida_rota" : "entrada");
+   ```
 
-Como o lacre normalmente é capturado na **saída** (etapa "lacre" da Carga Própria) ou no único movimento (Terceirizado/Fornecedor), a foto vai aparecer corretamente seja qual for o registro (`m` ou `s`).
+2. **Linha 157** (path do seletor de categoria — função `handleSelectCategoria`):
+   ```ts
+   if (cat === "carga_propria" && tipo === "entrada") {
+     setTipo("saida_rota");
+   }
+   ```
+
+A função `getMatrix()` já mapeia `"saida_rota"` → `VISIBILITY` (mesma matriz da entrada normal), em que `foto_lacre_url`/`numero_lacre` são `oculto` para `carga_propria` e `rota`/`km_inicial`/`foto_painel_url` são obrigatórios.
+
+### Salvamento
+A lógica de `handleSave` (linhas 263-268) já trata `isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && !prefillEtapa` e força `dbTipoMovimento = "saida"` no banco com `etapa_carga_propria: "em_rota"`. Como a checagem é por `categoria` (não por `tipo`), continua funcionando após a troca.
 
 ### Arquivos
-- ✏️ `src/components/portaria/MovimentoDetailsDialog.tsx` — incluir `foto_lacre_url` de `m` e `s` no array `allPhotos`
+- ✏️ `src/components/portaria/RegistroMovimentoDialog.tsx` — usar `tipo = "saida_rota"` para nova entrada de Carga Própria nos dois fluxos (forcedCategoria e seletor)
 
