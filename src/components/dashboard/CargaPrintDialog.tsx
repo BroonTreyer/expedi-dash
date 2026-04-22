@@ -1,7 +1,7 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, X } from "lucide-react";
+import { Truck, PackageCheck, X } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 
 interface ClienteGroup {
@@ -34,6 +34,7 @@ interface Props {
 }
 
 export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
+  const [modo, setModo] = useState<"entrega" | "carregamento">("entrega");
   const cleanup = useCallback(() => {
     document.body.classList.remove("printing-carga");
     const root = document.getElementById("carga-print-root");
@@ -47,7 +48,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
 
   if (!data) return null;
 
-  const handlePrint = () => {
+  const doPrint = () => {
     const source = document.getElementById("carga-print-content");
     if (!source) return;
 
@@ -76,12 +77,25 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
     });
   };
 
+  const handlePrintMode = (next: "entrega" | "carregamento") => {
+    setModo(next);
+    // Wait re-render before cloning the DOM
+    setTimeout(doPrint, 60);
+  };
+
   const dataFormatada = (() => {
     const [y, m, d] = data.data.split("-");
     return `${d}/${m}/${y}`;
   })();
 
   const sortedGroups = [...data.groups].sort((a, b) => a.ordem - b.ordem);
+  const total = sortedGroups.length;
+  const displayGroups = modo === "entrega"
+    ? sortedGroups
+    : [...sortedGroups].sort((a, b) => b.ordem - a.ordem);
+  const tituloRomaneio = modo === "entrega"
+    ? "Romaneio — Sequência de Entrega"
+    : "Romaneio — Sequência de Carregamento";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,13 +106,36 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
         </DialogHeader>
 
         {/* Screen-only buttons */}
-        <div className="flex justify-end gap-2 mb-4 print:hidden">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            <X className="h-4 w-4 mr-1" /> Fechar
-          </Button>
-          <Button size="sm" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-1" /> Imprimir / PDF
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 print:hidden">
+          <div className="inline-flex rounded-md border p-0.5 bg-muted/40">
+            <Button
+              variant={modo === "entrega" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setModo("entrega")}
+              className="h-7 px-2 text-xs"
+            >
+              <Truck className="h-3.5 w-3.5 mr-1" /> Entrega
+            </Button>
+            <Button
+              variant={modo === "carregamento" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setModo("carregamento")}
+              className="h-7 px-2 text-xs"
+            >
+              <PackageCheck className="h-3.5 w-3.5 mr-1" /> Carregamento
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              <X className="h-4 w-4 mr-1" /> Fechar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => handlePrintMode("entrega")}>
+              <Truck className="h-4 w-4 mr-1" /> Imprimir Entrega
+            </Button>
+            <Button size="sm" onClick={() => handlePrintMode("carregamento")}>
+              <PackageCheck className="h-4 w-4 mr-1" /> Imprimir Carregamento
+            </Button>
+          </div>
         </div>
 
         {/* Printable content */}
@@ -107,7 +144,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
           <div className="flex items-center justify-between border-b-2 border-foreground/20 pb-3">
             <img src={fricoLogo} alt="Frico" className="h-12 object-contain" width={48} height={48} />
             <div className="text-right">
-              <h1 className="text-lg font-bold uppercase tracking-wide">Romaneio de Carga</h1>
+              <h1 className="text-lg font-bold uppercase tracking-wide">{tituloRomaneio}</h1>
               <p className="text-sm text-muted-foreground">{data.cargaId}</p>
             </div>
           </div>
@@ -131,18 +168,21 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
 
           {/* Legenda ordens */}
           <p className="text-[11px] text-muted-foreground -mt-2">
-            <span className="font-semibold">E</span> = ordem de entrega · <span className="font-semibold">C</span> = ordem de carregamento (sequência inversa para empilhar no caminhão)
+            <span className="font-semibold">E</span> = ordem de entrega · <span className="font-semibold">C</span> = ordem de carregamento (inverso da entrega).
+            {modo === "carregamento" && (
+              <> A sequência abaixo é a <span className="font-semibold">ordem de empilhamento no caminhão</span> (do fundo para a porta).</>
+            )}
           </p>
 
-          {/* Groups by delivery order */}
+          {/* Groups by selected mode */}
           <div className="space-y-3">
-            {sortedGroups.map((group) => (
+            {displayGroups.map((group) => (
               <div key={group.codigoCliente ?? group.ordem} className="border border-foreground/10 rounded-md p-3 break-inside-avoid">
                 <div className="flex items-baseline justify-between mb-1">
                   <h3 className="text-sm font-bold flex items-baseline gap-2 flex-wrap">
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold">
                       <span className="px-1.5 py-0.5 rounded bg-foreground/10">E:{group.ordem}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-foreground/10">C:{sortedGroups.length - group.ordem + 1}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-foreground/10">C:{total - group.ordem + 1}</span>
                     </span>
                     <span>{group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}</span>
                   </h3>
@@ -166,7 +206,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
 
           {/* Footer totals */}
           <div className="border-t-2 border-foreground/20 pt-3 flex justify-between items-center text-sm font-bold">
-            <span>{data.totalPedidos} {data.totalPedidos === 1 ? "pedido" : "pedidos"} · {sortedGroups.length} {sortedGroups.length === 1 ? "cliente" : "clientes"}</span>
+            <span>{data.totalPedidos} {data.totalPedidos === 1 ? "pedido" : "pedidos"} · {total} {total === 1 ? "cliente" : "clientes"}</span>
             <span>{data.totalPeso.toLocaleString("pt-BR")} kg</span>
           </div>
           {data.totalRuptura != null && data.totalRuptura > 0 && (
