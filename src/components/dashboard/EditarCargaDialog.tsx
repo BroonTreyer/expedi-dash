@@ -84,7 +84,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl w-[calc(100vw-1rem)] max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Carga</DialogTitle>
           </DialogHeader>
@@ -157,7 +157,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                           </div>
                           {/* Linha de peso + motivo */}
                           {!item.ruptura && (
-                            <div className="flex flex-wrap items-center gap-2 pl-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_1fr] sm:items-center gap-2 pl-1">
                               <div className="flex items-center gap-1.5">
                                 <Label htmlFor={`peso-${item.id}`} className="text-[10px] text-muted-foreground">Peso (kg)</Label>
                                 <Input
@@ -177,12 +177,12 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                                   }}
                                 />
                               </div>
-                              <span className="text-[10px] text-muted-foreground">
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                 Pedido original: <span className="font-mono font-medium text-foreground">{original.toLocaleString("pt-BR")} kg</span>
                               </span>
                               {parcial && (
-                                <>
-                                  <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                  <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
                                     → Ruptura parcial: {diff.toLocaleString("pt-BR")} kg
                                   </span>
                                   <Select
@@ -202,7 +202,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                                       <SelectItem value="outro">Outro</SelectItem>
                                     </SelectContent>
                                   </Select>
-                                </>
+                                </div>
                               )}
                             </div>
                           )}
@@ -220,17 +220,23 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
             </div>
           </div>
 
-          <DialogFooter className="sm:justify-between gap-2">
-            <div className="flex gap-2 sm:mr-auto">
+          <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 sm:mr-auto w-full sm:w-auto">
               {onDeleteCarga && (
                 <Button
                   variant="outline"
                   onClick={() => setConfirmDeleteCarga(true)}
                   disabled={saving || deleting || inverting}
                   title="Os pedidos voltam para Vendas (não são apagados)"
+                  className="w-full sm:w-auto"
                 >
                   <Undo2 className="h-4 w-4 mr-1" />
-                  {deleting ? "Desfazendo…" : `Desfazer carga (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""} voltam para Vendas)`}
+                  {deleting ? "Desfazendo…" : (
+                    <>
+                      <span className="md:hidden">Desfazer carga ({group.items.length})</span>
+                      <span className="hidden md:inline">{`Desfazer carga (${group.items.length} pedido${group.items.length !== 1 ? "s" : ""} voltam para Vendas)`}</span>
+                    </>
+                  )}
                 </Button>
               )}
               {onInverterOrdem && (
@@ -239,15 +245,16 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                   onClick={() => onInverterOrdem()}
                   disabled={saving || deleting || inverting || visibleItems.filter((i) => i.ordem_entrega != null).length < 2}
                   title="Inverter sequência de entrega"
+                  className="w-full sm:w-auto"
                 >
                   <ArrowUpDown className="h-4 w-4 mr-1" />
                   {inverting ? "Invertendo…" : "Inverter ordem"}
                 </Button>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={saving || deleting || inverting || visibleItems.length === 0}>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancelar</Button>
+              <Button onClick={handleSave} disabled={saving || deleting || inverting || visibleItems.length === 0} className="w-full sm:w-auto">
                 {saving ? "Salvando…" : "Salvar"}
               </Button>
             </div>
