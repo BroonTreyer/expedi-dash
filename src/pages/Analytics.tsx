@@ -465,6 +465,24 @@ export default function Analytics() {
             <p className="text-xs text-muted-foreground">Painel gerencial de expedição — visão comparativa com período anterior</p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1 mr-1">
+              <Button
+                variant={period === "hoje" ? "default" : "outline"}
+                size="sm"
+                className="h-8 px-3 text-xs"
+                onClick={() => setPeriod("hoje")}
+              >
+                Hoje
+              </Button>
+              <Button
+                variant={period === "ontem" ? "default" : "outline"}
+                size="sm"
+                className="h-8 px-3 text-xs"
+                onClick={() => setPeriod("ontem")}
+              >
+                Ontem
+              </Button>
+            </div>
             <FilterPopover
               filterOptions={a?.filterOptions}
               filterVendedores={filterVendedores}
