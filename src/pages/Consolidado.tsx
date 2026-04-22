@@ -539,7 +539,15 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Data: </span>{format(new Date(g.data + "T12:00:00"), "dd/MM")}</div>
                         <div><span className="text-muted-foreground">Motorista: </span><span className="truncate">{g.motorista ?? "—"}</span></div>
                         <div><span className="text-muted-foreground">Carga: </span><span className="truncate">{g.nomeCarga ?? "—"}</span></div>
-                        <div><span className="text-muted-foreground">Peso: </span><span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span></div>
+                        <div>
+                          <span className="text-muted-foreground">Peso: </span>
+                          <span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span>
+                          {g.pesoPlanejado > g.pesoTotal && (
+                            <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400" title="Peso planejado / Peso embarcado">
+                              (pl. {g.pesoPlanejado.toLocaleString("pt-BR")})
+                            </span>
+                          )}
+                        </div>
                         <div><span className="text-muted-foreground">Pedidos: </span>{g.qtdPedidos}</div>
                         <div><span className="text-muted-foreground">Frete: </span>{g.tipoFrete}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
@@ -626,7 +634,17 @@ export default function Consolidado() {
                             ? <Badge variant="secondary" className="font-mono text-xs">{g.nomeCarga}</Badge>
                             : <span className="text-muted-foreground/50">—</span>}
                         </TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{g.pesoTotal.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-right text-xs font-semibold">
+                          {g.pesoTotal.toLocaleString("pt-BR")}
+                          {g.pesoPlanejado > g.pesoTotal && (
+                            <span
+                              className="block text-[10px] font-normal text-amber-600 dark:text-amber-400"
+                              title={`Planejado ${g.pesoPlanejado.toLocaleString("pt-BR")} kg / Embarcado ${g.pesoTotal.toLocaleString("pt-BR")} kg`}
+                            >
+                              pl. {g.pesoPlanejado.toLocaleString("pt-BR")}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                           {g.rupturaCount > 0 ? (
