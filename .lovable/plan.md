@@ -1,30 +1,36 @@
 
 
-## Imprimir romaneio individual a partir do Consolidado
+## Romaneio: dois modos de impressão (Entrega vs Carregamento)
 
 ### O que muda
 
-Hoje na página **Consolidado** o botão "Imprimir" gera o `ConsolidadoPrintDialog` — um relatório resumo de várias cargas em uma linha cada (status, placa, motorista, peso total). Você quer poder, **na linha de cada carga**, abrir o **mesmo romaneio detalhado** que aparece no fechamento (clientes em ordem de entrega + ordem de carregamento, peso por cliente, rupturas riscadas) — ou seja, o `CargaPrintDialog` que já existe.
+Hoje o romaneio mostra os badges `E:` e `C:` em cada cliente, mas a lista está sempre ordenada por **entrega** (E:1, E:2, E:3…). Você quer poder imprimir a lista **reordenada de fato** conforme o uso:
+
+- **Modo Entrega** (motorista na rota): E:1 → E:2 → E:3… (ordem atual)
+- **Modo Carregamento** (conferente do armazém): C:1 → C:2 → C:3… (inverso — primeiro a carregar é o último a entregar)
 
 ### Solução
 
-Adicionar um botão **"Romaneio"** (ícone `Printer` ou `FileText`) em cada linha/card de carga no `Consolidado.tsx`, ao lado dos botões já existentes (Editar, Inverter ordem, etc.). Ao clicar, monta o `CargaPrintData` daquela carga específica (agrupando por cliente, ordenando por `ordem_entrega`, calculando peso efetivo via `peso-utils`, marcando rupturas) e abre o `CargaPrintDialog` já existente — exatamente o mesmo componente usado em Fechar Carga, então a visualização é idêntica (com E:/C: lado a lado, legenda, totais, rupturas riscadas).
+Adicionar dois botões no `CargaPrintDialog`, substituindo o botão único "Imprimir / PDF":
+
+- **"Imprimir Entrega"** (ícone `Truck`) — lista ordenada por `E` ascendente, título do romaneio: *"Romaneio — Sequência de Entrega"*
+- **"Imprimir Carregamento"** (ícone `PackageCheck`) — lista ordenada por `C` ascendente (= `E` descendente), título: *"Romaneio — Sequência de Carregamento"*
+
+A ordem ativa também muda a visualização **na tela** (preview espelha o que será impresso), com um toggle visual indicando qual modo está selecionado. Os badges `E:` e `C:` continuam visíveis em ambos os modos pra dar contexto cruzado.
 
 ### Mudanças concretas
 
-- ✏️ `src/pages/Consolidado.tsx`:
-  - Importar `CargaPrintDialog` e tipo `CargaPrintData`.
-  - Adicionar estado `printCargaData: CargaPrintData | null` e `printOpen: boolean`.
-  - Helper `buildCargaPrintData(carga)` que: agrupa pedidos da carga por `codigo_cliente`+`nome_cliente`, ordena por `ordem_entrega`, calcula `pesoTotal` por cliente usando peso efetivo (ignorando rupturas no total mas listando-as como riscadas), monta header com data, tipo caminhão, placa, motorista, transportadora.
-  - Botão **"Romaneio"** em cada carga (mesmo bloco onde estão Editar/Inverter), que chama o helper e abre o dialog.
-  - Renderizar `<CargaPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printCargaData} />` no final do componente.
-
-- ✏️ Opcional: o botão atual "Imprimir" (relatório consolidado) continua igual, sem mudança — fica como visão macro. O novo botão "Romaneio" é a visão micro de uma carga.
+- ✏️ `src/components/dashboard/CargaPrintDialog.tsx`:
+  - Estado local `modo: "entrega" | "carregamento"` (default `"entrega"`).
+  - `displayGroups` derivado: se `entrega`, ordena por `group.ordem` asc; se `carregamento`, ordena por `(total - group.ordem + 1)` asc (equivale a `group.ordem` desc).
+  - Substituir botão único por dois botões: **"Imprimir Entrega"** e **"Imprimir Carregamento"** — cada um seta o modo e dispara `handlePrint()` na sequência (com pequeno `setTimeout` de 50ms pra garantir re-render antes do clone DOM).
+  - Toggle visual no topo (mesmo padrão dos botões, com `variant="default"` no modo ativo) pra trocar a visualização sem imprimir.
+  - Título do romaneio dinâmico: *"Romaneio de Carga — Entrega"* ou *"Romaneio de Carga — Carregamento"*.
+  - Legenda explicativa ajustada conforme o modo: no Carregamento, destacar que *"a sequência abaixo é a ordem de empilhamento no caminhão (do fundo para a porta)"*.
 
 ### O que NÃO muda
 
-- `CargaPrintDialog.tsx` continua igual — reaproveitamento total.
-- `ConsolidadoPrintDialog` continua igual.
-- Sem migration, sem mexer em hooks de dados (a página já carrega os pedidos completos de cada carga).
-- Lógica de peso efetivo e rupturas vem de `peso-utils`, igual ao Fechamento.
+- Sem migration, sem mexer em hook ou banco — `ordem_entrega` continua sendo a única coluna; `C` é cálculo derivado.
+- `Consolidado.tsx` e `FechamentoLoteDialog` não mudam — ambos abrem o mesmo `CargaPrintDialog` que agora tem os dois modos.
+- Badges `E:` / `C:` permanecem visíveis em ambos os modos pra leitura cruzada.
 
