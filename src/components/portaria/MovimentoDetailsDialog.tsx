@@ -241,6 +241,26 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   
   const hasFotos = allPhotos.length > 0;
 
+  // For Carga Própria: track which painel KM photos are missing so we can show explicit placeholders
+  const cpMissing: { label: string; reason: string }[] = [];
+  if (isCargaPropria) {
+    const allSources: any[] = [
+      ...((relatedRecords && relatedRecords.length > 0) ? relatedRecords : [m, sDistinct].filter(Boolean)),
+      ...(s ? [s] : []),
+    ];
+    const hasSaida = allSources.some((r: any) => !!r?.foto_painel_saida_url);
+    const hasRetorno = allSources.some((r: any) => !!r?.foto_painel_url);
+    const etapa = m.etapa_carga_propria;
+    // Show "Saída" placeholder once the vehicle has left to route or beyond
+    if (!hasSaida && (etapa === "em_rota" || etapa === "retornou" || etapa === "finalizado")) {
+      cpMissing.push({ label: "🛞 Painel KM (Saída p/ Rota)", reason: "Não capturada nesta saída" });
+    }
+    // Show "Retorno" placeholder once the vehicle has returned
+    if (!hasRetorno && (etapa === "retornou" || etapa === "finalizado")) {
+      cpMissing.push({ label: "🛞 Painel KM (Retorno)", reason: "Não capturada no retorno" });
+    }
+  }
+
   const handleDelete = async () => {
     await deleteMov.mutateAsync(m.id);
     onOpenChange(false);
