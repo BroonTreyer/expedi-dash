@@ -18,8 +18,9 @@ import {
 import { processarOCR } from "@/hooks/useRegistrosPortaria";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   type Categoria,
   type TipoMovimentoPortaria,
@@ -42,7 +43,8 @@ interface Props {
 }
 
 export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEtapa, prefillFromPlanilha, onCreated, forcedCategoria }: Props) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const canRegularizar = role === "admin" || role === "logistica";
   const createMov = useCreateMovimentacao();
   const updateMov = useUpdateMovimentacao();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
@@ -57,6 +59,8 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const [ocrLacreLoading, setOcrLacreLoading] = useState(false);
   const [textoLacreLido, setTextoLacreLido] = useState<string | null>(null);
   const [confiancaLacre, setConfiancaLacre] = useState<number | null>(null);
+  const [regularizar, setRegularizar] = useState(false);
+  const [motivoRegularizacao, setMotivoRegularizacao] = useState("");
 
   const set = useCallback((key: string, val: any) => {
     setValues((prev) => ({ ...prev, [key]: val }));
