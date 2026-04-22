@@ -721,7 +721,12 @@ export default function Analytics() {
 
           {/* ═══════ TAB: RUPTURAS ═══════ */}
           <TabsContent value="rupturas">
-            {!hasData && !isLoading ? <EmptyState /> : (
+            {(() => {
+              const totalRupturas = (a?.rupturaKpis?.totalRupturasTotais ?? 0) + (a?.rupturaKpis?.totalRupturasParciais ?? 0);
+              if (totalRupturas === 0 && !isLoading) {
+                return <EmptyState message="Nenhuma ruptura no período selecionado" />;
+              }
+              return (
               <div className="space-y-4">
                 {/* Ruptura KPIs */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
