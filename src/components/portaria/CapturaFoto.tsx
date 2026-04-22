@@ -90,7 +90,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
           type="file"
           accept={accept.includes("pdf") ? accept : "image/*,application/pdf"}
           className="hidden"
-          onChange={handleChange}
+          onChange={(e) => handleChange(e, true)}
           disabled={disabled}
         />
       )}
