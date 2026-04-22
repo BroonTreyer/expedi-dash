@@ -1,111 +1,68 @@
 
-## Aba "Manual" na Portaria
+## Atualizar Manual da Portaria — alinhar 100% com o sistema
 
 ### Objetivo
-Adicionar uma nova aba **📖 Manual** dentro das páginas de Portaria (Carga Própria e Terceirizado) com um guia completo, didático e ilustrado de todas as funcionalidades — explicado de forma tão simples que qualquer pessoa entenda na primeira leitura.
+Reescrever `ManualTab.tsx` para refletir fielmente o que existe hoje no sistema, incluindo as 15 lacunas identificadas na análise anterior.
 
-### Onde aparece
-- `/portaria/carga-propria` → nova aba "Manual" ao lado de Pátio, Histórico e Esperados
-- `/portaria/terceirizado` → mesma aba, com conteúdo adaptado ao fluxo de terceirizados
+### O que será corrigido / incluído
 
-A aba se adapta automaticamente à categoria (`carga_propria` ou `terceirizado`) mostrando apenas o conteúdo relevante para aquele time.
+**1. KPIs (corrigir)**
+- Remover menção a "Tempo médio".
+- Documentar apenas os 3 reais: **Entradas hoje**, **Saídas hoje**, **No Pátio agora**.
+- Para Terceirizado, adicionar o KPI extra **Aguardando Entrada**.
 
-### Estrutura do Manual
+**2. Fluxo Terceirizado (corrigir)**
+- Trocar "3 etapas" por **2 etapas**: Entrada (com nota fiscal, doca, tipo carga) → Saída c/ Lacre (foto + OCR do lacre).
 
-O manual será organizado em **seções colapsáveis** (accordion), para o usuário abrir só o que precisa sem ficar com muito texto na tela. Cada seção tem:
-- 🎯 **O que é** — explicação em 1 frase simples
-- 👣 **Passo a passo** — numerado, com palavras simples
-- 💡 **Dica** — atalhos e boas práticas
-- ⚠️ **Atenção** — erros comuns a evitar
+**3. Fluxo Carga Própria (refinar)**
+- Manter as 4 etapas (Chegada → Saída p/ Rota → Retorno → Saída Final c/ Lacre).
+- Esclarecer que tudo fica em **um único registro** atualizado a cada etapa (corrige a confusão antiga).
 
-### Seções do Manual
+**4. OCR (expandir)**
+- Documentar que o OCR funciona em **3 tipos**: Placa (Plate Recognizer), KM do painel (Gemini) e Número do Lacre (Gemini).
+- Explicar o indicador de confiança (verde ≥ 85%, amarelo 60–84%, vermelho < 60%) e como confirmar/corrigir manualmente.
 
-**1. 🚪 Bem-vindo à Portaria**
-- O que essa tela faz (controlar quem entra e sai)
-- Tour rápido: cabeçalho, KPIs, abas, botões
+**5. Alertas visuais de tempo no pátio (incluir)**
+- 🟢 até 4h • 🟡 4–8h • 🔴 mais de 8h.
 
-**2. 📅 Filtro de Datas**
-- Como escolher um dia, uma semana ou um mês
-- Atalhos "Hoje", "Últimos 7 dias", "Este mês"
+**6. Aba Pátio Atual (incluir)**
+- Lista de quem está dentro, busca por placa, ação "Registrar Saída" rápida, indicadores de tempo.
 
-**3. 📊 Os Cartões de Resumo (KPIs)**
-- O que cada número significa (Entradas, Saídas, No Pátio, etc.)
+**7. Aba Histórico (incluir)**
+- Paginação de **25 por página**, ordenação por colunas (clicar no cabeçalho), filtros, busca, exportação.
+- **Deletar selecionados** (somente admin) e botão **Limpar filtros**.
 
-**4. ➕ Registrar uma Movimentação** (conteúdo varia por categoria)
+**8. Aba Esperados (incluir)**
+- Janela de ±3 dias, autorização/recusa, marcar como conferido, importar planilha.
 
-  **Carga Própria** (4 etapas explicadas com diagrama ASCII):
-  ```
-  🟠 Chegada → 🔵 Saída p/ Rota → 🟡 Retorno → 🔒 Saída Final c/ Lacre
-  ```
-  - Etapa 1: Como registrar a chegada do caminhão (pela aba Esperados ou botão Registrar)
-  - Etapa 2: Saída para rota — preencher rota, KM inicial, foto do painel
-  - Etapa 3: Retorno — KM final, foto do painel
-  - Etapa 4: Saída final — número e foto do lacre
+**9. Saída Rápida (incluir)**
+- Fluxo simplificado para Visitante / Fornecedor / Prestador / Outros (entrada → saída em 1 clique).
 
-  **Terceirizado** (3 etapas):
-  ```
-  🟠 Chegada → 📦 Carregamento → 🚛 Saída
-  ```
-  - Como vincular a uma carga fechada
-  - Quando preencher cada campo
+**10. Categorias adicionais (incluir)**
+- Seções dedicadas para **Fornecedor, Visitante, Prestador, Outros** com campos obrigatórios de cada um (pessoa visitada, motivo, serviço, responsável interno, etc.).
 
-**5. 🅿️ Aba Pátio**
-- O que mostra (veículos que ainda estão dentro)
-- Como dar baixa (registrar a próxima etapa)
-- Cores e badges (o que cada cor quer dizer)
+**11. Autocomplete & Cadastros (incluir)**
+- Como o sistema sugere motorista/empresa ao digitar a placa (vinculação Placa↔Motorista↔Transportadora) e quando criar cadastro novo.
 
-**6. 📜 Aba Histórico**
-- Lista completa do período
-- Como filtrar por tipo (entrada/saída)
-- Como ver detalhes de um registro
-- Como exportar para Excel/CSV
+**12. Evidências fotográficas (incluir)**
+- Fotos suportadas: placa, documento, painel (KM), nota fiscal, lacre. Suporte também a PDF. Visualizador com zoom.
 
-**7. 🔍 Detalhes de um Registro**
-- O que aparece no popup de detalhes
-- Linha do tempo (Carga Própria mostra 4 marcos)
-- Como ver e baixar fotos (placa, painel, lacre, documento, nota)
+**13. Permissões (incluir)**
+- Tabela rápida: o que **Portaria**, **Logística** e **Admin** podem fazer (registrar, editar, deletar, autorizar).
 
-**8. 📋 Aba Esperados**
-- O que é a planilha de esperados
-- Como importar (botão Importar — só admin/logística)
-- Como marcar um veículo como "chegou" (1 clique na carga própria)
-- Janela de ±3 dias
+**14. Solução de problemas (incluir)**
+- "OCR leu errado?" → confirmar manualmente.
+- "Veículo não aparece em Esperados?" → usar walk-in.
+- "Preciso apagar registro duplicado?" → pedir admin.
+- "Foto não abre?" → URL assinada renovada automaticamente.
 
-**9. 🔔 Solicitações Pendentes & Cargas Aguardando**
-- Painéis acima das abas
-- Como aprovar uma solicitação walk-in
-- Como dar entrada numa carga já fechada
-
-**10. 📷 Fotos e Documentos**
-- Como tirar foto pelo celular
-- Como anexar PDF (nota fiscal)
-- O que o OCR faz automaticamente (lê a placa)
-
-**11. 🔎 Busca**
-- Campo de busca: o que ele procura (placa, motorista, empresa, nome)
-
-**12. 🆘 Problemas Comuns / FAQ**
-- "Não consigo achar um caminhão"
-- "Tirei foto errada, e agora?"
-- "Esqueci de registrar a chegada"
-- "Apareceu erro vermelho"
-- Quem chamar (admin/logística)
-
-**13. 🎨 Legenda de Cores e Ícones**
-- Tabela com todos os badges, cores de etapa, ícones e o que significam
-
-### Design
-
-- Mesmo padrão visual do resto do app (Card, Accordion, Badge do shadcn)
-- Ícones grandes (lucide-react) em cada seção para escaneabilidade
-- Blocos coloridos suaves para Dica (azul), Atenção (amarelo), Passo (cinza)
-- Diagramas ASCII em `<pre>` com fundo `bg-muted` para os fluxos
-- Totalmente responsivo (mobile-first, igual às outras abas)
-- Sem necessidade de banco de dados — conteúdo estático em JSX
+**15. Layout didático**
+- Cards numerados com ícones, blocos coloridos "💡 Dica", "⚠️ Atenção", "✅ Resultado esperado".
+- Diagramas ASCII dos fluxos dentro de `<pre>` com `font-mono`.
+- Linguagem simples (criança de 8 anos), passos curtos, exemplos reais.
 
 ### Arquivos
-- 🆕 `src/components/portaria/ManualTab.tsx` — componente da aba com todo o conteúdo, recebe `categoria` como prop e mostra blocos condicionais por fluxo
-- ✏️ `src/pages/Portaria.tsx` — adicionar `<TabsTrigger value="manual">` e `<TabsContent value="manual">` renderizando `<ManualTab categoria={categoria} />`
+- ✏️ `src/components/portaria/ManualTab.tsx` — reescrita completa com todas as seções acima, condicional por `categoria` (carga_propria | terceirizado), mais blocos comuns (KPIs, Pátio, Histórico, Esperados, Saída Rápida, OCR, Permissões, FAQ).
 
 ### Resultado
-Qualquer porteiro novo (ou veterano com dúvida) abre a aba **Manual** na própria tela onde trabalha e encontra a resposta sem precisar pedir ajuda — explicado com palavras simples, passos numerados e diagramas visuais.
+O Manual passa a descrever exatamente o sistema que está no ar — sem etapas inventadas, sem KPIs inexistentes — e cobre todos os fluxos, alertas, atalhos administrativos e categorias suportadas.
