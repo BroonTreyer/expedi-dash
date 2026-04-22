@@ -118,6 +118,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   };
 
   const totalPeso = useMemo(() => groups.reduce((s, g) => s + g.pesoTotal, 0), [groups]);
+  const totalPlanejado = useMemo(() => groups.reduce((s, g) => s + (g.pesoPlanejado ?? g.pesoTotal), 0), [groups]);
+  const totalRuptura = Math.max(0, totalPlanejado - totalPeso);
+  const totalRupturaItems = useMemo(() => groups.reduce((s, g) => s + (g.rupturaCount ?? 0), 0), [groups]);
   const totalPedidos = useMemo(() => groups.reduce((s, g) => s + g.items.length, 0), [groups]);
   const ufsUnicas = useMemo(() => { const set = new Set<string>(); groups.forEach((g) => { if (g.uf) set.add(g.uf); }); return Array.from(set).sort(); }, [groups]);
 
@@ -185,11 +188,13 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         groups: groups.map((g) => ({
           codigoCliente: g.codigoCliente,
           nomeCliente: g.nomeCliente,
-          items: g.items.map((i) => ({ id: i.id, nomeProduto: null, peso: i.peso })),
+          items: g.items.map((i) => ({ id: i.id, nomeProduto: null, peso: i.peso, ruptura: i.ruptura })),
           pesoTotal: g.pesoTotal,
+          rupturaCount: g.rupturaCount,
           ordem: g.ordem,
         })),
         totalPeso,
+        totalRuptura,
         totalPedidos,
       });
     }
@@ -214,7 +219,12 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             <Package className="h-4 w-4 text-primary" />
             <span>{totalPedidos} pedidos</span>
           </div>
-          <span className="text-muted-foreground">{totalPeso.toLocaleString("pt-BR")} kg</span>
+          <span className="font-medium">{totalPeso.toLocaleString("pt-BR")} kg embarcados</span>
+          {totalRuptura > 0 && (
+            <span className="text-xs text-amber-600 dark:text-amber-400">
+              ↳ {totalRuptura.toLocaleString("pt-BR")} kg em ruptura ({totalRupturaItems} {totalRupturaItems === 1 ? "item" : "itens"} — não embarcado)
+            </span>
+          )}
           {roteirizacao?.distanciaTotal != null && roteirizacao.distanciaTotal > 0 && (
             // BUG 20 FIX: Format with locale number separator
             <span className="font-medium">{roteirizacao.distanciaTotal.toLocaleString("pt-BR")} km</span>
