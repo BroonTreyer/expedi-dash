@@ -3,9 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, X, Undo2, ArrowUpDown } from "lucide-react";
+import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
+import { isRupturaParcial } from "@/lib/peso-utils";
 
 interface CargaGroup {
   cargaId: string;
@@ -20,7 +22,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   group: CargaGroup | null;
-  onSave: (cargaId: string, fields: { nome_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[]) => void;
+  onSave: (cargaId: string, fields: { nome_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[], itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }>) => void;
   onRemoveItem: (itemId: string) => void;
   onDeleteCarga?: (cargaId: string) => void;
   onInverterOrdem?: () => void;
@@ -38,6 +40,8 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [removeTarget, setRemoveTarget] = useState<Carregamento | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteCarga, setConfirmDeleteCarga] = useState(false);
+  // Edições pontuais por item (peso e motivo de ruptura parcial)
+  const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; motivo_ruptura?: string | null }>>({});
 
   useEffect(() => {
     if (group && open) {
@@ -47,6 +51,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       setTipoCaminhao(group.tipoCaminhao ?? "");
       setTransportadora(group.items[0]?.transportadora ?? "");
       setRemovedIds(new Set());
+      setItemEdits({});
     }
   }, [group, open]);
 
@@ -66,7 +71,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
 
   const handleSave = () => {
     const ids = visibleItems.map((i) => i.id);
-    onSave(group.cargaId, { nome_carga: nomeCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids);
+    onSave(group.cargaId, { nome_carga: nomeCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, itemEdits);
   };
 
   const confirmRemove = () => {
@@ -116,31 +121,99 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                   <p className="text-xs text-muted-foreground p-3 text-center">Nenhum pedido restante</p>
                 ) : (
                   visibleItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between px-3 py-2 text-xs hover:bg-muted/30">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium flex items-center gap-1.5 flex-wrap">
-                          {item.ordem_entrega != null && (
-                            <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-md bg-primary/10 text-primary text-[11px] font-semibold">
-                              #{item.ordem_entrega}
-                            </span>
+                    (() => {
+                      const edit = itemEdits[item.id] ?? {};
+                      const pesoAtual = edit.peso ?? item.peso ?? 0;
+                      const original = item.peso_original ?? item.peso ?? 0;
+                      const diff = Math.max(0, original - pesoAtual);
+                      const parcial = !item.ruptura && diff > 0 && original > 0;
+                      return (
+                        <div key={item.id} className="flex flex-col gap-1.5 px-3 py-2 text-xs hover:bg-muted/30">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium flex items-center gap-1.5 flex-wrap">
+                                {item.ordem_entrega != null && (
+                                  <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-md bg-primary/10 text-primary text-[11px] font-semibold">
+                                    #{item.ordem_entrega}
+                                  </span>
+                                )}
+                                <span>Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}</span>
+                                {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                                {parcial && <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-400"><MinusCircle className="h-2.5 w-2.5" /> Parcial</span>}
+                              </div>
+                              <div className="text-muted-foreground whitespace-normal break-words">
+                                {item.cliente ?? item.codigo_cliente ?? "—"} • {[item.cidade, item.uf].filter(Boolean).join("/") || "—"}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => setRemoveTarget(item)}
+                              title="Remover pedido da carga"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          {/* Linha de peso + motivo */}
+                          {!item.ruptura && (
+                            <div className="flex flex-wrap items-center gap-2 pl-1">
+                              <div className="flex items-center gap-1.5">
+                                <Label htmlFor={`peso-${item.id}`} className="text-[10px] text-muted-foreground">Peso (kg)</Label>
+                                <Input
+                                  id={`peso-${item.id}`}
+                                  type="number"
+                                  inputMode="decimal"
+                                  step="0.01"
+                                  min="0"
+                                  className="h-7 w-24 text-xs"
+                                  value={pesoAtual}
+                                  onChange={(e) => {
+                                    const v = parseFloat(e.target.value);
+                                    setItemEdits((prev) => ({
+                                      ...prev,
+                                      [item.id]: { ...prev[item.id], peso: isNaN(v) ? 0 : v },
+                                    }));
+                                  }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">
+                                Pedido original: <span className="font-mono font-medium text-foreground">{original.toLocaleString("pt-BR")} kg</span>
+                              </span>
+                              {parcial && (
+                                <>
+                                  <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                                    → Ruptura parcial: {diff.toLocaleString("pt-BR")} kg
+                                  </span>
+                                  <Select
+                                    value={edit.motivo_ruptura ?? item.motivo_ruptura ?? ""}
+                                    onValueChange={(v) => setItemEdits((prev) => ({
+                                      ...prev,
+                                      [item.id]: { ...prev[item.id], motivo_ruptura: v || null },
+                                    }))}
+                                  >
+                                    <SelectTrigger className="h-7 w-32 text-[10px]">
+                                      <SelectValue placeholder="Motivo" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="estoque">Estoque</SelectItem>
+                                      <SelectItem value="qualidade">Qualidade</SelectItem>
+                                      <SelectItem value="logistica">Logística</SelectItem>
+                                      <SelectItem value="outro">Outro</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                            </div>
                           )}
-                          <span>Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}</span>
-                          {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                          {item.ruptura && (
+                            <div className="text-[10px] text-muted-foreground pl-1">
+                              {(item.peso ?? 0).toLocaleString("pt-BR")} kg (em ruptura total)
+                            </div>
+                          )}
                         </div>
-                        <div className="text-muted-foreground whitespace-normal break-words">
-                          {item.cliente ?? item.codigo_cliente ?? "—"} • {[item.cidade, item.uf].filter(Boolean).join("/") || "—"} • {(item.peso ?? 0).toLocaleString("pt-BR")} kg
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => setRemoveTarget(item)}
-                        title="Remover pedido da carga"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                      );
+                    })()
                   ))
                 )}
               </div>

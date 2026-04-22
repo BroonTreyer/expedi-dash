@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { AlertTriangle, Weight, Package, Plus, Printer, CalendarIcon, Truck } from "lucide-react";
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS, isPorUnidade } from "@/lib/constants";
+import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +68,8 @@ export default function Rupturas() {
 
   const rupturas = useMemo(() => {
     return carregamentos.filter((c) => {
-      if (!c.ruptura) return false;
+      // Inclui rupturas totais E parciais (peso < peso_original sem flag ruptura)
+      if (!c.ruptura && !isRupturaParcial(c)) return false;
       if (vendedorFilter !== "todos" && c.vendedor_id !== vendedorFilter) return false;
       if (cargaFilter !== "todos" && c.nome_carga !== cargaFilter) return false;
       if (busca) {
@@ -85,21 +87,42 @@ export default function Rupturas() {
   }, [carregamentos, vendedorFilter, cargaFilter, busca]);
 
   // Dynamic filter options — only items with rupturas
-  const rupturaVendedorIds = useMemo(() => new Set(carregamentos.filter(c => c.ruptura).map(c => c.vendedor_id).filter(Boolean)), [carregamentos]);
+  const rupturaVendedorIds = useMemo(() => new Set(carregamentos.filter(c => c.ruptura || isRupturaParcial(c)).map(c => c.vendedor_id).filter(Boolean)), [carregamentos]);
   const filteredVendedores = useMemo(() => vendedores.filter(v => rupturaVendedorIds.has(v.id)), [vendedores, rupturaVendedorIds]);
-  const rupturaCargas = useMemo(() => [...new Set(carregamentos.filter(c => c.ruptura && c.nome_carga).map(c => c.nome_carga!))].sort(), [carregamentos]);
+  const rupturaCargas = useMemo(() => [...new Set(carregamentos.filter(c => (c.ruptura || isRupturaParcial(c)) && c.nome_carga).map(c => c.nome_carga!))].sort(), [carregamentos]);
 
-  const totalPeso = useMemo(() => rupturas.reduce((s, c) => s + (c.peso ?? 0), 0), [rupturas]);
+  // Totais
+  const totaisRupturas = useMemo(() => {
+    let totais = 0;
+    let parciais = 0;
+    let pesoTotalNaoCarregado = 0;
+    let pesoPerdidoTotais = 0;
+    let pesoPerdidoParciais = 0;
+    for (const c of rupturas) {
+      const perdido = pesoNaoCarregado(c);
+      pesoTotalNaoCarregado += perdido;
+      if (c.ruptura) {
+        totais++;
+        pesoPerdidoTotais += perdido;
+      } else {
+        parciais++;
+        pesoPerdidoParciais += perdido;
+      }
+    }
+    return { totais, parciais, pesoTotalNaoCarregado, pesoPerdidoTotais, pesoPerdidoParciais };
+  }, [rupturas]);
+  const totalPeso = totaisRupturas.pesoTotalNaoCarregado;
 
   // Group by product — include cargas set
   const productSummary = useMemo(() => {
     const map = new Map<string, { codigo: string; nome: string; count: number; peso: number; qtd: number; porUnidade: boolean; cargas: Set<string> }>();
     for (const c of rupturas) {
       const key = c.codigo_produto || "SEM_COD";
+      const perdido = pesoNaoCarregado(c);
       const existing = map.get(key);
       if (existing) {
         existing.count += 1;
-        existing.peso += c.peso ?? 0;
+        existing.peso += perdido;
         existing.qtd += c.quantidade ?? 0;
         if (c.nome_carga) existing.cargas.add(c.nome_carga);
       } else {
@@ -109,7 +132,7 @@ export default function Rupturas() {
           codigo: c.codigo_produto || "—",
           nome: c.nome_produto || "—",
           count: 1,
-          peso: c.peso ?? 0,
+          peso: perdido,
           qtd: c.quantidade ?? 0,
           porUnidade: isPorUnidade(c.nome_produto),
           cargas,
@@ -130,7 +153,7 @@ export default function Rupturas() {
       statuses: Set<string>;
     }>();
     for (const c of carregamentos) {
-      if (!c.ruptura || !c.carga_id) continue;
+      if ((!c.ruptura && !isRupturaParcial(c)) || !c.carga_id) continue;
       const key = c.carga_id;
       if (!map.has(key)) {
         map.set(key, {
@@ -143,7 +166,7 @@ export default function Rupturas() {
       }
       const g = map.get(key)!;
       g.count++;
-      g.peso += c.peso ?? 0;
+      g.peso += pesoNaoCarregado(c);
       g.statuses.add(c.status);
       const pk = c.codigo_produto || "SEM_COD";
       const existing = g.produtos.get(pk);
@@ -168,6 +191,9 @@ export default function Rupturas() {
         cliente: c.cliente,
         codigo_cliente: c.codigo_cliente,
         peso: c.peso,
+        peso_original: c.peso_original,
+        ruptura: c.ruptura,
+        motivo_ruptura: c.motivo_ruptura,
       })),
     };
   }, [rupturas, dateFromStr, dateToStr, totalPeso, productSummary]);
@@ -304,13 +330,34 @@ export default function Rupturas() {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
             <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
               <Package className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
               <div className="min-w-0">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Rupturas</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Rupturas Totais</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{totaisRupturas.totais}</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{totaisRupturas.pesoPerdidoTotais.toLocaleString("pt-BR")} kg</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Rupturas Parciais</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{totaisRupturas.parciais}</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{totaisRupturas.pesoPerdidoParciais.toLocaleString("pt-BR")} kg</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
                 <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{rupturas.length}</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">itens</p>
               </div>
             </CardContent>
           </Card>
@@ -318,8 +365,9 @@ export default function Rupturas() {
             <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
               <Weight className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
               <div className="min-w-0">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Peso Total</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Não Carregado</p>
                 <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400 truncate">{(totalPeso / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{totalPeso.toLocaleString("pt-BR")} kg</p>
               </div>
             </CardContent>
           </Card>

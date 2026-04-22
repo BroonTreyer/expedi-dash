@@ -36,6 +36,9 @@ export type Carregamento = {
   carga_id: string | null;
   nome_carga: string | null;
   ordem_entrega: number | null;
+  peso_original: number | null;
+  quantidade_original: number | null;
+  motivo_ruptura: string | null;
   created_at: string;
   updated_at: string;
   vendedores?: { nome_vendedor: string } | null;

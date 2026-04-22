@@ -73,6 +73,7 @@ export interface ProdutoRuptura {
   produto: string;
   rupturas: number;
   peso: number;
+  pesoNaoCarregado: number;
 }
 
 export interface KpiComparison {
@@ -139,7 +140,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
       // Mesmas colunas nos dois períodos para que filtros (vendedor/uf/tipo)
       // afetem o comparativo corretamente.
       const cols =
-        "data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, vendedores(nome_vendedor)";
+        "data, peso, peso_original, motivo_ruptura, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, vendedores(nome_vendedor)";
       const [currentRes, prevRes] = await Promise.all([
         supabase
           .from("carregamentos_dia")
@@ -352,18 +353,60 @@ export function useAnalytics(filters: AnalyticsFilters) {
     const tipoKeys = Array.from(allTipos);
 
     // === 8. Produto rupturas (independe de status) ===
-    const prodRuptMap = new Map<string, { count: number; peso: number }>();
-    filtered.filter((r) => r.ruptura).forEach((r) => {
+    const prodRuptMap = new Map<string, { count: number; peso: number; pesoNaoCarregado: number }>();
+    const isParcial = (r: any) => !r.ruptura && (r.peso_original ?? 0) > (r.peso ?? 0);
+    filtered.filter((r) => r.ruptura || isParcial(r)).forEach((r) => {
       const prod = r.nome_produto || "N/I";
-      const e = prodRuptMap.get(prod) || { count: 0, peso: 0 };
+      const e = prodRuptMap.get(prod) || { count: 0, peso: 0, pesoNaoCarregado: 0 };
       e.count += 1;
       e.peso += r.peso ?? 0;
+      const original = r.peso_original ?? r.peso ?? 0;
+      const perdido = r.ruptura ? original : Math.max(0, original - (r.peso ?? 0));
+      e.pesoNaoCarregado += perdido;
       prodRuptMap.set(prod, e);
     });
     const produtoRupturas: ProdutoRuptura[] = Array.from(prodRuptMap.entries())
-      .map(([produto, v]) => ({ produto, rupturas: v.count, peso: v.peso }))
-      .sort((a, b) => b.rupturas - a.rupturas)
+      .map(([produto, v]) => ({ produto, rupturas: v.count, peso: v.peso, pesoNaoCarregado: v.pesoNaoCarregado }))
+      .sort((a, b) => b.pesoNaoCarregado - a.pesoNaoCarregado)
       .slice(0, 10);
+
+    // === Peso não carregado por dia (totais + parciais) ===
+    const naoCarregadoMap = new Map<string, { planejado: number; efetivo: number; perdido: number }>();
+    filtered.forEach((r) => {
+      const e = naoCarregadoMap.get(r.data) || { planejado: 0, efetivo: 0, perdido: 0 };
+      const original = r.peso_original ?? r.peso ?? 0;
+      const efetivo = r.ruptura ? 0 : (r.peso ?? 0);
+      e.planejado += original;
+      e.efetivo += efetivo;
+      e.perdido += Math.max(0, original - efetivo);
+      naoCarregadoMap.set(r.data, e);
+    });
+    const dailyPlanejadoVsEfetivo = Array.from(naoCarregadoMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({ date, planejado: v.planejado, efetivo: v.efetivo, perdido: v.perdido }));
+
+    // === Breakdown por motivo ===
+    const motivoMap = new Map<string, { count: number; peso: number }>();
+    filtered.filter((r) => r.ruptura || isParcial(r)).forEach((r) => {
+      const motivo = r.motivo_ruptura || "Não informado";
+      const e = motivoMap.get(motivo) || { count: 0, peso: 0 };
+      e.count += 1;
+      const original = r.peso_original ?? r.peso ?? 0;
+      e.peso += r.ruptura ? original : Math.max(0, original - (r.peso ?? 0));
+      motivoMap.set(motivo, e);
+    });
+    const motivoBreakdown = Array.from(motivoMap.entries())
+      .map(([motivo, v]) => ({ motivo, count: v.count, peso: v.peso }))
+      .sort((a, b) => b.peso - a.peso);
+
+    // === Totais de ruptura no período ===
+    const totalPesoNaoCarregado = filtered.reduce((s, r) => {
+      const original = r.peso_original ?? r.peso ?? 0;
+      const efetivo = r.ruptura ? 0 : (r.peso ?? 0);
+      return s + Math.max(0, original - efetivo);
+    }, 0);
+    const totalRupturasParciais = filtered.filter(isParcial).length;
+    const totalRupturasTotais = filtered.filter((r) => r.ruptura).length;
 
     // === 9. KPIs (com comparativo correto) ===
     const totalPeso = filteredValid.reduce((s, r) => s + (r.peso ?? 0), 0);
@@ -438,7 +481,12 @@ export function useAnalytics(filters: AnalyticsFilters) {
         totalSinalizadas,
         sinalizadasAbertas,
         sinalizadasResolvidas,
+        totalPesoNaoCarregado,
+        totalRupturasParciais,
+        totalRupturasTotais,
       },
+      dailyPlanejadoVsEfetivo,
+      motivoBreakdown,
       filterOptions: { uniqueVendedores, uniqueTipos, uniqueUfs },
       truncated,
     };
