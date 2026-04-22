@@ -407,6 +407,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
             const isSaidaRapida = saidaRapidaId === m.id;
             const isSaving = savingId === m.id;
             const infoExtra = getInfoExtra(m);
+            const isReabrir = reabrirId === m.id;
+            const podeReabrir = podeReabrirRegistro(m);
 
             return (
               <TableRow key={m.id} className={emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
