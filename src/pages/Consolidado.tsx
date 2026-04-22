@@ -25,6 +25,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
+import { pesoEfetivo } from "@/lib/peso-utils";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -95,7 +96,10 @@ interface CargaGroup {
   motorista: string | null;
   tipoCaminhao: string | null;
   tipoFrete: string;
+  /** Peso fisicamente embarcado (desconsidera ruptura). */
   pesoTotal: number;
+  /** Peso planejado original (inclui ruptura). */
+  pesoPlanejado: number;
   qtdPedidos: number;
   rupturaCount: number;
   clientes: Set<string>;
@@ -120,6 +124,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         tipoCaminhao: item.tipo_caminhao,
         tipoFrete: "",
         pesoTotal: 0,
+        pesoPlanejado: 0,
         qtdPedidos: 0,
         rupturaCount: 0,
         clientes: new Set(),
@@ -131,7 +136,8 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
       map.set(item.carga_id, g);
       freteMap.set(item.carga_id, new Set());
     }
-    g.pesoTotal += item.peso ?? 0;
+    g.pesoPlanejado += item.peso ?? 0;
+    g.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
     if (item.ruptura) g.rupturaCount += 1;
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
@@ -372,6 +378,7 @@ export default function Consolidado() {
         tipoFrete: g.tipoFrete,
         status: g.status,
         pesoTotal: g.pesoTotal,
+        pesoPlanejado: g.pesoPlanejado,
         qtdPedidos: g.qtdPedidos,
         qtdClientes: g.clientes.size,
         ufs: [...g.ufs].sort().join(", ") || "—",
@@ -532,7 +539,15 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Data: </span>{format(new Date(g.data + "T12:00:00"), "dd/MM")}</div>
                         <div><span className="text-muted-foreground">Motorista: </span><span className="truncate">{g.motorista ?? "—"}</span></div>
                         <div><span className="text-muted-foreground">Carga: </span><span className="truncate">{g.nomeCarga ?? "—"}</span></div>
-                        <div><span className="text-muted-foreground">Peso: </span><span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span></div>
+                        <div>
+                          <span className="text-muted-foreground">Peso: </span>
+                          <span className="font-semibold">{g.pesoTotal.toLocaleString("pt-BR")} kg</span>
+                          {g.pesoPlanejado > g.pesoTotal && (
+                            <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400" title="Peso planejado / Peso embarcado">
+                              (pl. {g.pesoPlanejado.toLocaleString("pt-BR")})
+                            </span>
+                          )}
+                        </div>
                         <div><span className="text-muted-foreground">Pedidos: </span>{g.qtdPedidos}</div>
                         <div><span className="text-muted-foreground">Frete: </span>{g.tipoFrete}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
@@ -619,7 +634,17 @@ export default function Consolidado() {
                             ? <Badge variant="secondary" className="font-mono text-xs">{g.nomeCarga}</Badge>
                             : <span className="text-muted-foreground/50">—</span>}
                         </TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{g.pesoTotal.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-right text-xs font-semibold">
+                          {g.pesoTotal.toLocaleString("pt-BR")}
+                          {g.pesoPlanejado > g.pesoTotal && (
+                            <span
+                              className="block text-[10px] font-normal text-amber-600 dark:text-amber-400"
+                              title={`Planejado ${g.pesoPlanejado.toLocaleString("pt-BR")} kg / Embarcado ${g.pesoTotal.toLocaleString("pt-BR")} kg`}
+                            >
+                              pl. {g.pesoPlanejado.toLocaleString("pt-BR")}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                           {g.rupturaCount > 0 ? (

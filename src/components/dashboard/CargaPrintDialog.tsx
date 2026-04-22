@@ -7,8 +7,9 @@ import fricoLogo from "@/assets/frico-logo-optimized.webp";
 interface ClienteGroup {
   codigoCliente: string | null;
   nomeCliente: string | null;
-  items: { id: string; nomeProduto: string | null; peso: number }[];
+  items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean }[];
   pesoTotal: number;
+  rupturaCount?: number;
   ordem: number;
 }
 
@@ -22,6 +23,7 @@ export interface CargaPrintData {
   horarioPrevisto?: string;
   groups: ClienteGroup[];
   totalPeso: number;
+  totalRuptura?: number;
   totalPedidos: number;
 }
 
@@ -139,6 +141,16 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                     {group.pesoTotal.toLocaleString("pt-BR")} kg
                   </span>
                 </div>
+                {group.items.some((i) => i.ruptura) && (
+                  <ul className="mt-1 space-y-0.5 text-[11px]">
+                    {group.items.filter((i) => i.ruptura).map((i) => (
+                      <li key={i.id} className="flex justify-between text-muted-foreground line-through decoration-destructive/70 decoration-2">
+                        <span>RUPTURA — {i.nomeProduto ?? "item"} (não carregado)</span>
+                        <span>{i.peso.toLocaleString("pt-BR")} kg</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
@@ -148,6 +160,11 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
             <span>{data.totalPedidos} {data.totalPedidos === 1 ? "pedido" : "pedidos"} · {sortedGroups.length} {sortedGroups.length === 1 ? "cliente" : "clientes"}</span>
             <span>{data.totalPeso.toLocaleString("pt-BR")} kg</span>
           </div>
+          {data.totalRuptura != null && data.totalRuptura > 0 && (
+            <div className="text-[11px] text-muted-foreground -mt-2">
+              ↳ {data.totalRuptura.toLocaleString("pt-BR")} kg em ruptura não embarcado (peso planejado: {(data.totalPeso + data.totalRuptura).toLocaleString("pt-BR")} kg)
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
