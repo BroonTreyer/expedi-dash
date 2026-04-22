@@ -18,8 +18,9 @@ import {
 import { processarOCR } from "@/hooks/useRegistrosPortaria";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   type Categoria,
   type TipoMovimentoPortaria,
@@ -42,7 +43,8 @@ interface Props {
 }
 
 export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEtapa, prefillFromPlanilha, onCreated, forcedCategoria }: Props) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const canRegularizar = role === "admin" || role === "logistica";
   const createMov = useCreateMovimentacao();
   const updateMov = useUpdateMovimentacao();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
@@ -57,6 +59,8 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const [ocrLacreLoading, setOcrLacreLoading] = useState(false);
   const [textoLacreLido, setTextoLacreLido] = useState<string | null>(null);
   const [confiancaLacre, setConfiancaLacre] = useState<number | null>(null);
+  const [regularizar, setRegularizar] = useState(false);
+  const [motivoRegularizacao, setMotivoRegularizacao] = useState("");
 
   const set = useCallback((key: string, val: any) => {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -140,6 +144,8 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setOcrLacreLoading(false);
     setTextoLacreLido(null);
     setConfiancaLacre(null);
+    setRegularizar(false);
+    setMotivoRegularizacao("");
   }, [open, prefill, prefillEtapa, prefillFromPlanilha, forcedCategoria]);
 
   const effectiveTipo = useMemo(() => {
@@ -147,7 +153,23 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   }, [tipo]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, effectiveTipo), [categoria, effectiveTipo]);
-  const canSave = useMemo(() => validateForm(categoria, values, effectiveTipo), [categoria, values, effectiveTipo]);
+  // Fields skipped during regularization (no photos available + KM Inicial pode entrar manual)
+  const REGULARIZAR_SKIP = ["foto_painel_url", "foto_lacre_url", "foto_placa_url"];
+  const canSave = useMemo(() => {
+    if (regularizar) {
+      // Validate everything except skipped fields, AND require motivo
+      if (!motivoRegularizacao.trim() || motivoRegularizacao.trim().length < 5) return false;
+      const valuesForCheck = { ...values };
+      REGULARIZAR_SKIP.forEach((k) => { valuesForCheck[k] = valuesForCheck[k] || "__skip__"; });
+      return validateForm(categoria, valuesForCheck, effectiveTipo);
+    }
+    return validateForm(categoria, values, effectiveTipo);
+  }, [categoria, values, effectiveTipo, regularizar, motivoRegularizacao]);
+
+  // Show regularizar checkbox only on carga_propria stages where photos block the flow
+  const showRegularizarOption = canRegularizar && categoria === "carga_propria" && (
+    prefillEtapa === "saida_rota" || prefillEtapa === "retorno" || prefillEtapa === "lacre"
+  );
 
   const handleSelectCategoria = (cat: Categoria) => {
     setCategoria(cat);
@@ -206,6 +228,16 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setSaving(true);
 
     try {
+      // Build regularization prefix to append to observacoes (preserves audit)
+      const regPrefix = regularizar
+        ? `[REGULARIZADO por ${user?.email || "usuário"} em ${new Date().toLocaleString("pt-BR")}: ${motivoRegularizacao.trim()}]`
+        : "";
+      const appendReg = (existing: string | null | undefined) => {
+        const base = (existing || "").trim();
+        if (!regPrefix) return base || null;
+        return base ? `${regPrefix}\n${base}` : regPrefix;
+      };
+
       if (isCargaPropriaUpdate && prefill) {
         // UPDATE existing record for saida_rota, retorno or lacre stages
         const updates: Record<string, any> = {};
@@ -221,10 +253,15 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.placa_confirmada = values.placa?.trim().toUpperCase() || null;
           updates.horario_real_saida = new Date().toISOString();
           updates.etapa_carga_propria = "em_rota";
+          if (regularizar) {
+            updates.observacoes = appendReg(prefill.observacoes);
+          }
         } else if (prefillEtapa === "retorno") {
           updates.foto_painel_url = values.foto_painel_url || null;
           updates.km_final = values.km_final ? Number(values.km_final) : null;
-          updates.observacoes = values.observacoes?.trim() || prefill.observacoes || null;
+          updates.observacoes = regularizar
+            ? appendReg(values.observacoes?.trim() || prefill.observacoes)
+            : (values.observacoes?.trim() || prefill.observacoes || null);
           updates.ocorrencia = values.ocorrencia?.trim() || null;
           updates.horario_real_retorno = new Date().toISOString();
           updates.etapa_carga_propria = "retornou";
@@ -236,7 +273,13 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.foto_lacre_url = values.foto_lacre_url || null;
           updates.numero_lacre = values.numero_lacre?.trim() || null;
           updates.conferente = values.conferente?.trim() || null;
-          if (values.observacoes?.trim()) {
+          if (regularizar) {
+            const lacreObs = values.observacoes?.trim();
+            const baseObs = lacreObs ? `[Lacre] ${lacreObs}` : "";
+            const existing = prefill.observacoes || "";
+            const combined = [existing, baseObs].filter(Boolean).join("\n");
+            updates.observacoes = appendReg(combined);
+          } else if (values.observacoes?.trim()) {
             // Append to existing observacoes
             const existing = prefill.observacoes || "";
             const novo = values.observacoes.trim();
@@ -444,6 +487,43 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                 )}
                 {prefillEtapa === "retorno" && prefill.km_inicial != null && (
                   <div><span className="text-muted-foreground">KM Inicial:</span> <strong>{prefill.km_inicial}</strong></div>
+                )}
+              </div>
+            )}
+
+            {showRegularizarOption && (
+              <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="regularizar"
+                    checked={regularizar}
+                    onCheckedChange={(v) => setRegularizar(v === true)}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="regularizar" className="text-sm font-medium cursor-pointer flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                      Regularizar sem foto
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Use quando a portaria deixou o veículo passar sem capturar a evidência. Fica registrado quem regularizou e por quê.
+                    </p>
+                  </div>
+                </div>
+                {regularizar && (
+                  <div className="space-y-1.5 pl-6">
+                    <Label htmlFor="motivo-reg" className="text-xs">Motivo da regularização <span className="text-destructive">*</span></Label>
+                    <Textarea
+                      id="motivo-reg"
+                      value={motivoRegularizacao}
+                      onChange={(e) => setMotivoRegularizacao(e.target.value)}
+                      placeholder="Ex: Portaria liberou sem fotografar o painel — KM informado pelo motorista por telefone."
+                      rows={2}
+                      className="text-sm"
+                    />
+                    {motivoRegularizacao.trim().length > 0 && motivoRegularizacao.trim().length < 5 && (
+                      <p className="text-[11px] text-destructive">Motivo muito curto.</p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
