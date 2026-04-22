@@ -147,6 +147,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setConfiancaLacre(null);
     setRegularizar(false);
     setMotivoRegularizacao("");
+    setFotoViaArquivo(false);
   }, [open, prefill, prefillEtapa, prefillFromPlanilha, forcedCategoria]);
 
   const effectiveTipo = useMemo(() => {
