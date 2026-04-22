@@ -1,9 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
 import { forwardRef, useState, useEffect, type ReactNode } from "react";
-import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn, BookOpen } from "lucide-react";
+import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn, BookOpen, History, Trash2, ShieldCheck } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -55,8 +56,20 @@ const navTree: NavNode[] = [
       { to: "/portaria/manual", label: "Manual", icon: BookOpen, roles: ["admin", "logistica", "portaria"] },
     ],
   },
-  { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
-  { to: "/backups", label: "Backups", icon: Database, roles: ["admin"] },
+];
+
+const superAdminTree: NavNode[] = [
+  {
+    label: "Super Admin",
+    icon: ShieldCheck,
+    roles: ["admin"],
+    children: [
+      { to: "/usuarios", label: "Usuários", icon: UserCog, roles: ["admin"] },
+      { to: "/logs", label: "Logs", icon: History, roles: ["admin"] },
+      { to: "/lixeira", label: "Lixeira", icon: Trash2, roles: ["admin"] },
+      { to: "/backups", label: "Backups", icon: Database, roles: ["admin"] },
+    ],
+  },
 ];
 
 interface Props {
@@ -208,8 +221,11 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate 
 export function AppSidebar({ collapsed, onNavigate }: Props) {
   const location = useLocation();
   const { role, signOut, user } = useAuth();
+  const { isSuperAdmin } = useSuperAdmin();
 
-  const tree = filterTree(navTree, (role as Role) ?? null);
+  const baseTree = filterTree(navTree, (role as Role) ?? null);
+  const superTree = isSuperAdmin ? filterTree(superAdminTree, (role as Role) ?? null) : [];
+  const tree = [...baseTree, ...superTree];
 
   return (
     <TooltipProvider delayDuration={0}>

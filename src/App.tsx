@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuthState, AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import { PwaUpdatePrompt } from "@/components/PwaUpdatePrompt";
 import { Loader2 } from "lucide-react";
 
@@ -31,6 +32,8 @@ const Cadastros = lazy(() => import("./pages/Cadastros"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Backups = lazy(() => import("./pages/Backups"));
 const Relatorios = lazy(() => import("./pages/Relatorios"));
+const Logs = lazy(() => import("./pages/Logs"));
+const Lixeira = lazy(() => import("./pages/Lixeira"));
 const PortalMotorista = lazy(() => import("./pages/PortalMotorista"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -72,7 +75,7 @@ function AppRoutes() {
           <Route path="/produtos" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Produtos /></ProtectedRoute>} />
           <Route path="/vendedores" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Vendedores /></ProtectedRoute>} />
           <Route path="/tipos-caminhao" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><TiposCaminhao /></ProtectedRoute>} />
-          <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["admin"]}><Usuarios /></ProtectedRoute>} />
+          <Route path="/usuarios" element={<SuperAdminRoute><Usuarios /></SuperAdminRoute>} />
           <Route path="/clientes" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Clientes /></ProtectedRoute>} />
           <Route path="/rupturas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Rupturas /></ProtectedRoute>} />
           <Route path="/consolidado" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Consolidado /></ProtectedRoute>} />
@@ -86,7 +89,9 @@ function AppRoutes() {
           <Route path="/caminhoes" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><Caminhoes /></ProtectedRoute>} />
           <Route path="/cadastros" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Cadastros /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Analytics /></ProtectedRoute>} />
-          <Route path="/backups" element={<ProtectedRoute allowedRoles={["admin"]}><Backups /></ProtectedRoute>} />
+          <Route path="/backups" element={<SuperAdminRoute><Backups /></SuperAdminRoute>} />
+          <Route path="/logs" element={<SuperAdminRoute><Logs /></SuperAdminRoute>} />
+          <Route path="/lixeira" element={<SuperAdminRoute><Lixeira /></SuperAdminRoute>} />
           <Route path="/relatorios" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Relatorios /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
