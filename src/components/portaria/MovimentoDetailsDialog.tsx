@@ -598,7 +598,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
             )}
 
             {/* Fotos */}
-            {hasFotos && (
+            {(hasFotos || cpMissing.length > 0) && (
               <div className="space-y-1.5">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">📸 Evidências <span className="font-normal text-[10px]">(clique para ampliar)</span></h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -608,6 +608,15 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                       {photo.ocrText && (
                         <p className="text-xs mt-1">OCR: <strong>{photo.ocrText}</strong> ({photo.ocrConf}%)</p>
                       )}
+                    </div>
+                  ))}
+                  {cpMissing.map((miss, i) => (
+                    <div key={`miss-${i}`}>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">{miss.label}</p>
+                      <div className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1 bg-muted/30 ring-1 ring-dashed ring-border">
+                        <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-[11px] text-muted-foreground">{miss.reason}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
