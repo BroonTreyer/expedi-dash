@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Camera, RotateCcw, Check, FileText } from "lucide-react";
+import { Camera, RotateCcw, Check, FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PhotoViewerDialog } from "./PhotoViewerDialog";
@@ -11,10 +11,14 @@ interface Props {
   previewUrl?: string | null;
   accept?: string;
   cameraOnly?: boolean;
+  /** Quando true, exibe botão extra "Enviar arquivo" (sem capture=camera).
+   *  Use para perfis Admin/Logística regularizarem fotos sem ter a câmera no momento. */
+  allowFileUpload?: boolean;
 }
 
-export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*", cameraOnly = true }: Props) {
+export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*", cameraOnly = true, allowFileUpload = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
