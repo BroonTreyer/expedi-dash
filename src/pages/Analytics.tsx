@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { useAnalytics, type AnalyticsFilters } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // ── Period options ──
 const PERIOD_OPTIONS = [
