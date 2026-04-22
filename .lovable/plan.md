@@ -1,72 +1,86 @@
 
 
-## Super Admin + Tela de Logs + Lixeira
+## Ruptura no fechamento de carga: peso real ≠ peso planejado
 
-### O que vai mudar
+### Problema
 
-Hoje qualquer usuário com nível **Admin** acessa **Backups** e **Usuários** (telas críticas — pode apagar tudo, mudar permissões, restaurar snapshots). Você quer que **só você e seu sócio** tenham esse poder, mantendo os demais admins limitados ao operacional.
+Hoje, quando um produto de um pedido é marcado como **Ruptura** (faltou no estoque ou foi cancelado na hora de carregar), o sistema mantém o `peso` original do item no banco. Isso causa três distorções:
 
-Solução: criar o conceito de **Super Admin** restrito por email (`matheuscarneiro004@gmail.com` e `matheuss-s@hotmail.com`), com duas telas exclusivas — **Logs de Auditoria** (tudo que foi alterado) e **Lixeira** (tudo que foi apagado, com possibilidade de restaurar).
+1. **Roteirização**: o `pesoTotal` por cliente soma itens em ruptura → carga aparece mais pesada do que realmente é.
+2. **Fechamento de Carga**: o `totalPeso` enviado pra `veiculos_esperados.peso` (e exibido no romaneio, no card da portaria, no analytics) inclui o que **não foi carregado**.
+3. **Relatórios e KPIs** ("Peso Carregado", performance de vendedor, peso da carga no Consolidado) — todos batem com o planejado, não com o expedido.
 
-### 1. Super Admin (acesso restrito por email)
+Resultado prático: o motorista sai com 12 toneladas, mas o sistema diz que ele saiu com 13,5 t. Diretoria, portaria e faturamento veem números diferentes da realidade física.
 
-- Hook `useSuperAdmin()` simples: retorna `true` se `user.email` estiver na lista `["matheuscarneiro004@gmail.com", "matheuss-s@hotmail.com"]` **E** o role for `admin`.
-- Lista fica em `src/lib/super-admins.ts` (constante exportada). Fácil de adicionar/remover email no futuro.
-- Rotas protegidas no `App.tsx` ganham um wrapper `<SuperAdminRoute>` (igual ao `ProtectedRoute`, mas valida email também).
-- **Telas movidas para Super Admin only**: `/usuarios`, `/backups`, `/logs` (nova), `/lixeira` (nova).
-- Sidebar (`AppSidebar.tsx`): os itens "Usuários", "Backups", "Logs" e "Lixeira" só aparecem se `isSuperAdmin === true`. Para outros admins, simplesmente somem do menu.
+### Conceito-chave da solução
 
-### 2. Tela de Logs de Auditoria — `/logs`
+Hoje só existe **um peso** por item (`peso`). Vou separar em dois conceitos:
 
-Hoje a tabela `audit_log` já existe e é populada automaticamente pelos triggers `audit_carregamentos` e `audit_movimentacoes` (ambos gravam quem fez, quando, o que mudou — `de → para`). Os dados já estão lá; falta uma **tela central** para você ver tudo.
+- **Peso planejado** = `peso` (já existe, intocado). É o que o vendedor pediu.
+- **Peso efetivo** = `peso` se `ruptura = false`; **0** se `ruptura = true`. É o que realmente vai no caminhão.
 
-Nova página `src/pages/Logs.tsx` com:
-- **Filtros**: período (data início/fim — default últimos 7 dias), tipo de entidade (Carregamento / Movimentação Portaria / Backup), ação (criado / alterado / excluído / restore / wipe_orders), usuário (email — autocomplete), busca livre (placa, pedido, cliente).
-- **Tabela** ordenada por data desc, paginada de 100 em 100:
-  - Data/hora · Usuário · Ação (badge colorido) · Entidade · ID · Resumo das mudanças.
-- **Linha expansível** mostrando o JSON `changes` formatado bonito (campo: de → para), reaproveitando o componente `AuditTimeline` que já existe.
-- **Exportar CSV** dos logs filtrados (botão no topo) — útil pra auditoria externa / arquivo.
-- **KPIs no topo**: Total de eventos no período, Exclusões, Usuários ativos, Top 5 usuários por volume de alterações (para você identificar de cara quem está mexendo demais).
+Toda agregação que representa **carga física** (roteirização, fechamento, romaneio, KPI "Peso Carregado", peso enviado pra portaria, analytics de expedição) passa a usar **peso efetivo**.
 
-### 3. Tela de Lixeira — `/lixeira` (recuperação de itens apagados)
+Toda agregação que representa **demanda comercial** (KPI "Peso Total" do dashboard de vendas, relatórios de pedidos, performance do vendedor por volume vendido) continua usando **peso planejado**.
 
-A tabela `audit_log` já guarda **todos os DELETEs** com snapshot dos dados (`changes.excluido`). Mas hoje só guarda **resumo** (pedido, produto, cliente para carregamentos; tipo, placa para movimentações). Para conseguir **restaurar** preciso do registro completo.
+Sem mudança de schema. Sem migration. É decisão de qual `reduce` usar em cada local.
 
-**Mudança nos triggers** (uma migração):
-- `audit_carregamentos`: ao deletar, gravar `changes.deleted_row = to_jsonb(OLD)` (registro inteiro, não só resumo).
-- `audit_movimentacoes`: idem.
-- Adicionar trigger `audit_clientes`, `audit_produtos`, `audit_motoristas`, `audit_caminhoes`, `audit_vendedores`, `audit_veiculos_esperados` — hoje **essas tabelas não têm log nenhum**. Sem isso, se alguém apagar um cliente ou caminhão, some sem rastro. Os triggers vão ser cópia simplificada do `audit_movimentacoes`.
+### Mudanças concretas
 
-Página `src/pages/Lixeira.tsx`:
-- Lista todos os eventos `action = 'excluido'` da `audit_log`.
-- Filtro por entidade (Carregamento, Cliente, Produto, Motorista, Caminhão, Vendedor, Movimentação Portaria, Veículo Esperado), por usuário e por período.
-- Cada item mostra: o que era (resumo legível), quem apagou, quando, e botão **"Restaurar"**.
-- **Restaurar** → edge function `restore-deleted` (nova): valida super admin, lê `changes.deleted_row` do log, faz `INSERT` de volta na tabela original (com o ID antigo, se ainda livre — senão gera novo). Grava no próprio `audit_log` um evento `action = 'restaurado'` com referência ao log original.
-- Dialog de confirmação antes do restore.
+**1. Helper central** — `src/lib/peso-utils.ts` (novo)
+```ts
+export const pesoEfetivo = (c: { peso: number | null; ruptura: boolean }) =>
+  c.ruptura ? 0 : (c.peso ?? 0);
+export const somaPesoEfetivo = (arr) => arr.reduce((s, c) => s + pesoEfetivo(c), 0);
+export const somaPesoPlanejado = (arr) => arr.reduce((s, c) => s + (c.peso ?? 0), 0);
+```
 
-### 4. Mudanças concretas (resumo)
+**2. Roteirização (`RoteirizacaoDialog.tsx`)**
+- Ao agrupar por cliente, calcular `pesoTotal` com **peso efetivo**.
+- Itens em ruptura aparecem no card do cliente com badge "Ruptura — não embarcado" e peso riscado (visual de transparência), mas **não somam** no total da carga nem no envio pra rota.
+- Distância/rota não muda — cliente com 100% de ruptura permanece na rota só se sobrar algum item; se zerou tudo, é avisado e excluído da rota.
 
-**Backend:**
-- ➕ Migration: triggers `audit_*` para clientes, produtos, motoristas, caminhoes, vendedores, veiculos_esperados.
-- ✏️ Migration: ajustar `audit_carregamentos` e `audit_movimentacoes` para gravar `deleted_row = to_jsonb(OLD)` no DELETE.
-- ➕ Edge function `restore-deleted`: valida super admin por email, restaura registro do log.
+**3. Fechamento de Carga (`FechamentoLoteDialog.tsx`)**
+- `totalPeso` e `g.pesoTotal` usam **peso efetivo**.
+- O `meta.totalPeso` enviado pro `onSubmit` (que vai pra `veiculos_esperados.peso`) reflete o peso real.
+- Resumo no topo mostra: `12.450 kg embarcados` + se houver rupturas, linha extra discreta `↳ 850 kg em ruptura (não embarcado)`.
 
-**Frontend:**
-- ➕ `src/lib/super-admins.ts` — lista de emails super admin.
-- ➕ `src/hooks/useSuperAdmin.ts` — hook que valida email + role.
-- ➕ `src/components/SuperAdminRoute.tsx` — wrapper de rota.
-- ➕ `src/pages/Logs.tsx` — tela de auditoria completa (filtros, KPIs, tabela expansível, export CSV).
-- ➕ `src/pages/Lixeira.tsx` — tela de itens apagados com restore.
-- ✏️ `src/App.tsx` — registrar rotas `/logs` e `/lixeira` com `SuperAdminRoute`. Trocar `<ProtectedRoute>` de `/usuarios` e `/backups` para `<SuperAdminRoute>`.
-- ✏️ `src/components/AppSidebar.tsx` — esconder Usuários/Backups/Logs/Lixeira para não-super-admins; mostrar os 4 num grupo "Super Admin" no final do menu.
+**4. Romaneio impresso (`CargaPrintDialog.tsx`)**
+- Peso total da carga = peso efetivo.
+- Itens em ruptura aparecem riscados na lista de produtos do cliente, marcados "RUPTURA — NÃO CARREGADO". Motorista assina sabendo o que falta. Sem isso, ele recebe um romaneio que não bate com a nota.
 
-### O que NÃO vai mudar
+**5. Consolidado (`Consolidado.tsx` / `ConsolidadoPrintDialog.tsx`)**
+- Coluna "Peso" e "Peso Total" usam peso efetivo.
+- Coluna nova opcional "Pl./Ef." mostrando `13.300 / 12.450` quando houver divergência (só aparece se a carga teve ruptura).
 
-- Outros admins continuam acessando todo o operacional (Painel, Consolidado, Rupturas, Analytics, Relatórios, Portaria, Cadastros). Só perdem Usuários e Backups.
-- Os logs já existentes continuam válidos — a tela só consolida e expõe o que já está no banco.
-- Nenhum dado é apagado/movido. Tudo aditivo.
+**6. Dashboard KPIs (`KpiCards.tsx`)**
+- "Peso Total" = continua planejado (é métrica comercial — quanto foi pedido).
+- "Peso Carregado" = peso efetivo dos status `Carregado` (já filtra status, só passa a desconsiderar ruptura também). Hoje, se um item está marcado Carregado **e** Ruptura ao mesmo tempo (caso possível), ele ainda soma — vou consertar.
+- Tooltip do "Peso Total" ganha nota: "Soma do peso pedido. Para peso embarcado, veja 'Peso Carregado'."
 
-### Observação importante
+**7. Analytics (`useAnalytics.ts`)**
+- `totalPeso` (visão geral) = continua planejado.
+- `totalCarregado` = peso efetivo de quem está em status Carregado (mudança mínima).
+- Aba Expedição: gráficos de "kg expedidos por dia/vendedor/transportadora" passam a usar peso efetivo. Rupturas continuam contando na aba Rupturas com sua métrica própria.
 
-A lista de super admins fica **no código**, não no banco. Vantagem: ninguém com acesso ao DB consegue se auto-promover a super admin sem subir um deploy. Desvantagem: trocar email exige editar o código. Para 2 emails fixos é o trade-off correto — se um dia quiser virar uma tabela `super_admins` com RLS, a gente migra depois.
+**8. Portaria — peso esperado vs. peso real**
+- O campo `veiculos_esperados.peso` passa a receber o peso efetivo (resolve o problema-raiz do print que a diretoria vê).
+- Sem mudar fluxo da portaria.
+
+### O que NÃO muda
+
+- Nenhuma coluna nova no banco. O "peso efetivo" é calculado em runtime.
+- Vendedor continua marcando ruptura do mesmo jeito.
+- O peso original do item permanece intocado — é dado histórico (quanto foi pedido). Se a ruptura for desmarcada depois (produto chegou), o peso volta a contar automaticamente.
+- Rupturas continuam aparecendo em todos os lugares atuais (página Rupturas, badges, etc).
+
+### Pergunta única antes de implementar
+
+Quando uma carga é fechada com 1 item em ruptura, o que você quer que aconteça com aquele item específico no banco?
+
+**Opção A** *(recomendada)*: o item permanece na carga (`carga_id` setado, `etapa = logistica`), mas com `ruptura = true`. Aparece no romaneio riscado, mas conta como histórico. Vantagem: rastreabilidade — você sabe que aquele cliente teve ruptura naquela carga.
+
+**Opção B**: o item em ruptura é "soltado" da carga no momento do fechamento (`carga_id = null`, volta pra etapa `vendas`), pra ser refaturado depois. Vantagem: a carga só carrega o que foi efetivamente embarcado. Desvantagem: perde o vínculo histórico e mistura com pedidos novos.
+
+Confirma A ou prefere B?
 
