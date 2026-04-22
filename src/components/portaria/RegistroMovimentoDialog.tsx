@@ -229,6 +229,12 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
   const handleSave = async () => {
     if (!canSave) return;
+    // Hard guard: never advance carga_propria to "em_rota" without the panel KM photo
+    // (unless the operator explicitly checked "Regularizar sem foto")
+    if (categoria === "carga_propria" && (prefillEtapa === "saida_rota" || (!prefill && !prefillEtapa)) && !values.foto_painel_saida_url && !regularizar) {
+      toast.error("Tire a foto do Painel KM (Saída p/ Rota) ou marque 'Regularizar sem foto'.");
+      return;
+    }
     setSaving(true);
 
     try {
