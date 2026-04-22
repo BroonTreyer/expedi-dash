@@ -491,6 +491,43 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
               </div>
             )}
 
+            {showRegularizarOption && (
+              <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="regularizar"
+                    checked={regularizar}
+                    onCheckedChange={(v) => setRegularizar(v === true)}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="regularizar" className="text-sm font-medium cursor-pointer flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                      Regularizar sem foto
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Use quando a portaria deixou o veículo passar sem capturar a evidência. Fica registrado quem regularizou e por quê.
+                    </p>
+                  </div>
+                </div>
+                {regularizar && (
+                  <div className="space-y-1.5 pl-6">
+                    <Label htmlFor="motivo-reg" className="text-xs">Motivo da regularização <span className="text-destructive">*</span></Label>
+                    <Textarea
+                      id="motivo-reg"
+                      value={motivoRegularizacao}
+                      onChange={(e) => setMotivoRegularizacao(e.target.value)}
+                      placeholder="Ex: Portaria liberou sem fotografar o painel — KM informado pelo motorista por telefone."
+                      rows={2}
+                      className="text-sm"
+                    />
+                    {motivoRegularizacao.trim().length > 0 && motivoRegularizacao.trim().length < 5 && (
+                      <p className="text-[11px] text-destructive">Motivo muito curto.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-5">
               {blocks.map((block) => {
                 const fields = getBlockFields(categoria, block.key, effectiveTipo);
