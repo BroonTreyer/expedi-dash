@@ -460,18 +460,18 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
             )}
 
             {/* Observações */}
-            {(m.observacoes || s?.observacoes) && (
+            {(m.observacoes || sDistinct?.observacoes) && (
               <div className="text-sm space-y-1">
                 {m.observacoes && (
                   <div>
-                    <span className="text-muted-foreground">Observações{s?.observacoes ? " (Entrada)" : ""}:</span>
+                    <span className="text-muted-foreground">Observações{sDistinct?.observacoes ? " (Entrada)" : ""}:</span>
                     <p className="mt-1">{m.observacoes}</p>
                   </div>
                 )}
-                {s?.observacoes && (
+                {sDistinct?.observacoes && (
                   <div>
                     <span className="text-muted-foreground">Observações (Saída):</span>
-                    <p className="mt-1">{s.observacoes}</p>
+                    <p className="mt-1">{sDistinct.observacoes}</p>
                   </div>
                 )}
               </div>
