@@ -597,9 +597,10 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                             <div key={field.key} className="space-y-1.5">
                               <CapturaFoto
                                 label={field.label}
-                                onCapture={(file) => handleFotoCapture(field.key, file)}
+                                onCapture={(file, viaArquivo) => handleFotoCapture(field.key, file, viaArquivo)}
                                 previewUrl={values[field.key] || null}
                                 disabled={saving}
+                                allowFileUpload={canRegularizar}
                               />
                               {field.required && !values[field.key] && (
                                 <p className="text-[11px] text-destructive">* Obrigatório</p>
