@@ -1,55 +1,94 @@
 
 
-## Corrigir Rupturas + filtro "Hoje" no Analytics
+## Correções de layout e responsividade
 
-### Bugs encontrados
+### Problemas identificados
 
-1. **Aba Rupturas do Analytics está incompleta**: mostra KPIs e taxa diária, mas não diz **qual produto** nem **qual cliente** deixou de ser carregado. O gráfico "Produtos com Mais Rupturas" exibe contagem (`rupturas`) e tooltip mostra `peso` planejado em vez do **peso não carregado** (que é o que importa).
-2. **Sem visão de clientes afetados**: não há lista de clientes que sofreram ruptura no período — informação central do pedido do usuário.
-3. **Hook `useAnalytics` não busca `cliente`/`codigo_cliente`/`carga_id`**: sem esses campos, é impossível montar a quebra por cliente/carga, mesmo que a UI peça.
-4. **Filtro "Hoje" pode aparentar "vazio"**: hoje (22/04) tem 133 linhas (65 Carregado, 46 Pendente/Problema, 14 Prontos, 8 Aguardando) — está OK, mas o problema é que **Pendente/Problema** entra no `filteredValid = false` e isso reduz `dailyWeight`. A aba Rupturas hoje renderiza, mas em datas com SOMENTE rupturas (sem nenhum status válido) ela cai em `EmptyState` — bug real. Vou desacoplar a aba Rupturas dessa checagem.
+**1. Analytics — Header (mobile)**
+- Botões "Hoje/Ontem" estão `hidden sm:flex` → invisíveis no mobile mesmo sendo o filtro mais pedido pelo usuário.
+- Select de período tem `w-44` fixo → pode estourar a linha em telas pequenas.
 
-### O que muda
+**2. Analytics — TabsList (mobile)**
+- 5 abas com ícone + texto em uma única linha sem scroll horizontal → estoura ou comprime ilegível em telas <640px.
 
-#### 1. `useAnalytics.ts` — buscar cliente e ampliar dados de ruptura
+**3. Analytics — KPIs Rupturas (mobile)**
+- Grid `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6` com cards de `p-4` e `text-2xl` → números longos como `123.456 kg` quebram/transbordam.
+- Falta `truncate` / tabular tight nos valores grandes.
 
-Adicionar ao SELECT: `cliente, codigo_cliente, carga_id, nome_carga, quantidade, quantidade_original`.
+**4. Analytics — Tabela "Clientes Afetados" / "Cargas com Pendência" (mobile <1024px)**
+- Tabelas com 4 colunas dentro de Card sem `overflow-x-auto` → conteúdo é cortado/comprimido.
+- Coluna "Produtos" com `line-clamp-2` ainda pode empurrar layout.
 
-Construir três novas estruturas no `useMemo`:
+**5. Analytics — BarChart vertical "Top Produtos" (mobile)**
+- `YAxis width={120}` é grande demais em telas estreitas — sobra pouquíssimo espaço para a barra.
+- Mesmo problema no chart de Vendedores (`width={100}`).
 
-- **`clienteRupturas`** — top 15 clientes por `pesoNaoCarregado` no período. Inclui código, nome, qtd de ocorrências, peso perdido e produtos afetados.
-- **`produtoRupturasDetalhado`** — substitui o atual: ordena por `pesoNaoCarregado` desc, inclui `pesoNaoCarregado` (numérico) como métrica principal, mantém `count`. O gráfico passa a plotar peso perdido, não contagem.
-- **`cargasComPendencia`** — top cargas afetadas (igual ao já existente em Rupturas.tsx, mas dentro do hook para reuso).
+**6. EditarCargaDialog — Linha de peso/motivo (mobile)**
+- Layout `flex flex-wrap items-center gap-2` com Label inline + Input + texto + Select dispara quebras feias.
+- Em telas estreitas, "→ Ruptura parcial: 3000 kg" e o Select de motivo ficam "soltos" abaixo do peso.
+- Diálogo `max-w-4xl max-h-[90vh]` OK, mas footer com 3 botões grandes (`Desfazer carga (5 pedidos voltam para Vendas)`) estoura no mobile — texto não trunca.
 
-#### 2. `Analytics.tsx` — aba Rupturas reformulada
+**7. Rupturas — KPIs (mobile)**
+- Card "Não Carregado" tem `text-2xl` + "TON" + linha extra "kg" → estoura altura comparada aos outros 3 cards (alinhamento ruim).
+- `truncate` no valor pode cortar "1.234,5 TON" em 360px.
 
-Manter os 6 KPIs atuais. Adicionar abaixo:
+**8. Rupturas — Tabela "Resumo por Produto" desktop**
+- Coluna "Cargas Afetadas" com vários `Badge` lado a lado pode estourar a largura, sem max-width nem wrap controlado (já tem `mr-1 mb-0.5` mas falta limite).
 
-- **Gráfico "Top Produtos por Peso Não Carregado"** (substitui o atual): barras horizontais usando `pesoNaoCarregado`, tooltip mostrando `peso perdido (kg)` + `nº ocorrências` + `motivo principal`.
-- **Card "Clientes Afetados"**: tabela compacta — Cliente | Ocorrências | Peso Não Carregado | Produtos. Top 10, com botão CSV.
-- **Card "Cargas com Pendência"** (se houver `carga_id`): mostra carga, qtde rupturas, kg perdidos, status. Linka para `/rupturas?carga=...`.
-- **Card "Motivos"**: barras horizontais com `motivoBreakdown` (já existe no hook), mostrando peso por motivo (Estoque, Qualidade, Logística, Outro, Não informado).
+**9. Layout — header desktop ocioso**
+- `src/components/Layout.tsx` desktop header tem `h-10` mas só contém o toggle e o sino — espaço desperdiçado, e não tem padding lateral consistente com o sidebar colapsado.
 
-Tirar a checagem `if (!hasData) <EmptyState />` da aba Rupturas — usar checagem própria: `(rupturaKpis.totalRupturasTotais + rupturaKpis.totalRupturasParciais) === 0`. Assim o filtro "Hoje" sempre mostra rupturas mesmo se nenhuma linha tiver status válido.
+### Mudanças
 
-#### 3. `Analytics.tsx` — botão rápido "Hoje/Ontem" reforçado
+#### `src/pages/Analytics.tsx`
 
-O `PERIOD_OPTIONS` já tem "Hoje" e "Ontem". Garantir que o `getDateRange("hoje")` use `format(today,'yyyy-MM-dd')` para from e to (já está correto). Adicionar ao lado do select dois botões pílula "Hoje" e "Ontem" para um clique direto, em destaque.
+- **Header:** trocar `hidden sm:flex` dos botões Hoje/Ontem por sempre visível em uma segunda linha no mobile. Estrutura nova: 2 linhas no mobile (título + linha de ações com `flex-wrap`); 1 linha no desktop.
+- **Select período:** `w-full sm:w-44` para crescer no mobile.
+- **TabsList:** envolver em `<div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">` com `flex-nowrap`, e nas TabsTrigger esconder o texto no mobile (`<span className="hidden sm:inline">Visão Geral</span>`) deixando só o ícone — padrão já usado no projeto.
+- **KPIs Rupturas:** mudar para `grid-cols-2 sm:grid-cols-3 xl:grid-cols-6` (igual aos KPIs principais) com `text-xl sm:text-2xl`, `p-3 sm:p-4`, `truncate` no número e `tabular-nums tracking-tight`.
+- **Tabelas Clientes/Cargas:** envolver `<Table>` em `<div className="overflow-x-auto">` e adicionar `min-w-[460px]` na Table para forçar scroll horizontal limpo no mobile em vez de quebrar células.
+- **BarChart vertical:** `YAxis width={typeof window !== 'undefined' && window.innerWidth < 640 ? 80 : 120}` ou usar hook `useIsMobile` (já existe) para reduzir width a 70 no mobile e fontSize 8.
+- **Tooltip cliente:** truncar nome longo + mostrar código abaixo (já está OK, só ajustar `max-w` para `max-w-[140px] sm:max-w-[180px]`).
 
-### Arquivos afetados
+#### `src/components/dashboard/EditarCargaDialog.tsx`
 
-- `src/hooks/useAnalytics.ts` — novos campos no SELECT, novas estruturas `clienteRupturas`, `cargasComPendencia` e ajuste em `produtoRupturas` para retornar `pesoNaoCarregado`.
-- `src/pages/Analytics.tsx` — aba "Rupturas" ganha 3 cards novos (Clientes Afetados, Cargas com Pendência, Motivos), gráfico de produtos passa a usar peso perdido, checagem de empty isolada, atalho rápido Hoje/Ontem.
+- **Linha de peso/motivo:** trocar `flex flex-wrap items-center gap-2` por grid responsivo:
+  ```text
+  Mobile: empilhado (peso input full | original em linha | parcial+select em linha)
+  Desktop: tudo em linha (peso | original | →ruptura parcial | motivo)
+  ```
+  Estrutura: `<div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] sm:items-center gap-2 pl-1">`.
+- **Diálogo:** `max-w-4xl w-[calc(100vw-1rem)]` e `max-h-[95vh]` no mobile para usar mais espaço.
+- **Footer:** `sm:justify-between` mantido; trocar texto longo "Desfazer carga (5 pedidos voltam para Vendas)" por versão curta no mobile via `<span className="hidden md:inline">…</span>` e "Desfazer carga" sozinho no mobile. Mesma coisa para "Inverter ordem".
+- **Botões Salvar/Cancelar:** `flex-col-reverse sm:flex-row gap-2` para empilhar no mobile.
+
+#### `src/pages/Rupturas.tsx`
+
+- **Card KPI "Não Carregado":** quebrar em 2 linhas balanceadas — valor principal `text-base sm:text-xl` (cabe melhor) com unidade " TON" inline, segunda linha em kg em texto auxiliar. Adicionar `min-h-[68px] sm:min-h-[88px]` em todos os 4 cards para alinhar alturas mesmo com conteúdo diferente.
+- **Tabela "Cargas Afetadas":** wrapper da coluna `<div className="flex flex-wrap gap-1 max-w-[260px]">` para limitar quebra horizontal.
+
+#### `src/components/Layout.tsx`
+
+- **Header desktop:** reduzir altura para `h-9`, dar padding consistente `px-3` e dar a opção de mostrar título da página (deixar só o toggle + sino atual, mas ajustar padding).
 
 ### O que NÃO muda
 
-- Banco: nada. Tudo usa colunas já existentes (`peso_original`, `motivo_ruptura`, `cliente`, `codigo_cliente`, `carga_id`).
-- Página Rupturas (`/rupturas`): já mostra clientes na tabela completa (último bloco). Sem alteração.
-- Hooks de carregamentos, RLS, auth.
-- Outras abas do Analytics.
+- Hooks, queries, lógica de cálculos, banco, RLS.
+- Layout das demais abas do Analytics (Visão Geral, Expedição, Vendedores, Geografia) — já estão bem.
+- Página Portaria, Caminhões, Cadastros, etc.
+- Comportamento dos filtros e exports CSV.
+
+### Arquivos afetados
+
+- `src/pages/Analytics.tsx` — header responsivo, TabsList scrollável, KPIs Rupturas, tabelas com scroll, charts mais compactos no mobile.
+- `src/components/dashboard/EditarCargaDialog.tsx` — linha de peso/motivo responsiva, footer enxuto no mobile.
+- `src/pages/Rupturas.tsx` — alinhamento de KPIs, badges com max-width.
+- `src/components/Layout.tsx` — pequeno ajuste no header desktop.
 
 ### Resultado
 
-- Filtro **Hoje** no Analytics → aba Rupturas mostra: 14 totais + 2 parciais (4.641 kg perdidos hoje) com lista de produtos, clientes e cargas afetados.
-- Possível responder em segundos: "qual produto faltou hoje, para qual cliente, em qual carga, por qual motivo".
+- Mobile (320–640px): TabsList rolável horizontalmente; KPIs sem estouro; tabelas com scroll lateral próprio; botões Hoje/Ontem visíveis.
+- Tablet (640–1024px): grid 3 colunas para KPIs Rupturas; tabelas lado a lado.
+- Desktop (≥1024px): inalterado, apenas refinos de espaçamento.
+- EditarCargaDialog usável no celular sem quebra do form de peso/motivo.
 
