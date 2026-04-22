@@ -289,15 +289,15 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                       <strong>{format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
                     </div>
                   )}
-                  {s && (
+                  {sDistinct && (
                     <>
                       <div className="flex items-center gap-2">
                         <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-muted-foreground">Saída:</span>
-                        <strong>{format(new Date(s.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
+                        <strong>{format(new Date(sDistinct.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
                       </div>
                       {m.tipo_movimento === "entrada" && (() => {
-                        const mins = differenceInMinutes(new Date(s.data_hora), new Date(m.data_hora));
+                        const mins = differenceInMinutes(new Date(sDistinct.data_hora), new Date(m.data_hora));
                         const h = Math.floor(mins / 60);
                         const min = mins % 60;
                         return (
@@ -309,7 +309,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                       })()}
                     </>
                   )}
-                  {!s && m.tipo_movimento === "saida" && (
+                  {!sDistinct && m.tipo_movimento === "saida" && (
                     <div className="flex items-center gap-2">
                       <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-muted-foreground">Saída:</span>
