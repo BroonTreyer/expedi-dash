@@ -228,6 +228,16 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setSaving(true);
 
     try {
+      // Build regularization prefix to append to observacoes (preserves audit)
+      const regPrefix = regularizar
+        ? `[REGULARIZADO por ${user?.email || "usuário"} em ${new Date().toLocaleString("pt-BR")}: ${motivoRegularizacao.trim()}]`
+        : "";
+      const appendReg = (existing: string | null | undefined) => {
+        const base = (existing || "").trim();
+        if (!regPrefix) return base || null;
+        return base ? `${regPrefix}\n${base}` : regPrefix;
+      };
+
       if (isCargaPropriaUpdate && prefill) {
         // UPDATE existing record for saida_rota, retorno or lacre stages
         const updates: Record<string, any> = {};
@@ -243,10 +253,15 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.placa_confirmada = values.placa?.trim().toUpperCase() || null;
           updates.horario_real_saida = new Date().toISOString();
           updates.etapa_carga_propria = "em_rota";
+          if (regularizar) {
+            updates.observacoes = appendReg(prefill.observacoes);
+          }
         } else if (prefillEtapa === "retorno") {
           updates.foto_painel_url = values.foto_painel_url || null;
           updates.km_final = values.km_final ? Number(values.km_final) : null;
-          updates.observacoes = values.observacoes?.trim() || prefill.observacoes || null;
+          updates.observacoes = regularizar
+            ? appendReg(values.observacoes?.trim() || prefill.observacoes)
+            : (values.observacoes?.trim() || prefill.observacoes || null);
           updates.ocorrencia = values.ocorrencia?.trim() || null;
           updates.horario_real_retorno = new Date().toISOString();
           updates.etapa_carga_propria = "retornou";
@@ -258,7 +273,13 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.foto_lacre_url = values.foto_lacre_url || null;
           updates.numero_lacre = values.numero_lacre?.trim() || null;
           updates.conferente = values.conferente?.trim() || null;
-          if (values.observacoes?.trim()) {
+          if (regularizar) {
+            const lacreObs = values.observacoes?.trim();
+            const baseObs = lacreObs ? `[Lacre] ${lacreObs}` : "";
+            const existing = prefill.observacoes || "";
+            const combined = [existing, baseObs].filter(Boolean).join("\n");
+            updates.observacoes = appendReg(combined);
+          } else if (values.observacoes?.trim()) {
             // Append to existing observacoes
             const existing = prefill.observacoes || "";
             const novo = values.observacoes.trim();
