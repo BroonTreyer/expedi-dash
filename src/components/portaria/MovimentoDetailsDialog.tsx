@@ -189,6 +189,11 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                   <AlertTriangle className="h-3 w-3" /> Regularizado
                 </Badge>
               )}
+              {(m.observacoes?.includes("[FOTO via upload") || sDistinct?.observacoes?.includes("[FOTO via upload")) && (
+                <Badge variant="outline" className="gap-1 text-[11px] border-sky-500 text-sky-700 dark:text-sky-400">
+                  <AlertTriangle className="h-3 w-3" /> Foto via upload
+                </Badge>
+              )}
               {dataBadge && (
                 <Badge
                   variant={dataBadge.variant}

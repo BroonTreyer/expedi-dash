@@ -61,6 +61,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const [confiancaLacre, setConfiancaLacre] = useState<number | null>(null);
   const [regularizar, setRegularizar] = useState(false);
   const [motivoRegularizacao, setMotivoRegularizacao] = useState("");
+  const [fotoViaArquivo, setFotoViaArquivo] = useState(false);
 
   const set = useCallback((key: string, val: any) => {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -146,6 +147,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setConfiancaLacre(null);
     setRegularizar(false);
     setMotivoRegularizacao("");
+    setFotoViaArquivo(false);
   }, [open, prefill, prefillEtapa, prefillFromPlanilha, forcedCategoria]);
 
   const effectiveTipo = useMemo(() => {
@@ -181,12 +183,13 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setStep("form");
   };
 
-  const handleFotoCapture = async (fieldKey: string, file: File) => {
+  const handleFotoCapture = async (fieldKey: string, file: File, viaArquivo = false) => {
     const tipoFotoMap: Record<string, string> = { foto_placa_url: "placa", foto_painel_url: "painel", foto_nota_url: "nota", foto_documento_url: "doc", foto_lacre_url: "lacre" };
     const tipoFoto = (tipoFotoMap[fieldKey] || "doc") as "placa" | "doc" | "painel" | "nota";
     try {
       const publicUrl = await uploadFotoMovimentacao(file, tipoFoto);
       set(fieldKey, publicUrl);
+      if (viaArquivo) setFotoViaArquivo(true);
 
       // OCR for placa photo
       if (fieldKey === "foto_placa_url") {
@@ -229,9 +232,13 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
     try {
       // Build regularization prefix to append to observacoes (preserves audit)
-      const regPrefix = regularizar
+      const regPrefixReg = regularizar
         ? `[REGULARIZADO por ${user?.email || "usuário"} em ${new Date().toLocaleString("pt-BR")}: ${motivoRegularizacao.trim()}]`
         : "";
+      const regPrefixUpload = fotoViaArquivo
+        ? `[FOTO via upload por ${user?.email || "usuário"} em ${new Date().toLocaleString("pt-BR")}]`
+        : "";
+      const regPrefix = [regPrefixReg, regPrefixUpload].filter(Boolean).join("\n");
       const appendReg = (existing: string | null | undefined) => {
         const base = (existing || "").trim();
         if (!regPrefix) return base || null;
@@ -253,13 +260,13 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.placa_confirmada = values.placa?.trim().toUpperCase() || null;
           updates.horario_real_saida = new Date().toISOString();
           updates.etapa_carga_propria = "em_rota";
-          if (regularizar) {
+          if (regularizar || fotoViaArquivo) {
             updates.observacoes = appendReg(prefill.observacoes);
           }
         } else if (prefillEtapa === "retorno") {
           updates.foto_painel_url = values.foto_painel_url || null;
           updates.km_final = values.km_final ? Number(values.km_final) : null;
-          updates.observacoes = regularizar
+          updates.observacoes = (regularizar || fotoViaArquivo)
             ? appendReg(values.observacoes?.trim() || prefill.observacoes)
             : (values.observacoes?.trim() || prefill.observacoes || null);
           updates.ocorrencia = values.ocorrencia?.trim() || null;
@@ -273,7 +280,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.foto_lacre_url = values.foto_lacre_url || null;
           updates.numero_lacre = values.numero_lacre?.trim() || null;
           updates.conferente = values.conferente?.trim() || null;
-          if (regularizar) {
+          if (regularizar || fotoViaArquivo) {
             const lacreObs = values.observacoes?.trim();
             const baseObs = lacreObs ? `[Lacre] ${lacreObs}` : "";
             const existing = prefill.observacoes || "";
@@ -325,7 +332,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           confianca_placa: confiancaPlaca,
           placa_confirmada: values.placa?.trim().toUpperCase() || null,
           foto_documento_url: values.foto_documento_url || null,
-          observacoes: values.observacoes?.trim() || null,
+          observacoes: appendReg(values.observacoes?.trim() || null),
           usuario_id: user?.id ?? null,
           movimento_vinculado_id: prefill?.id || null,
           // New fields
@@ -594,9 +601,10 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                             <div key={field.key} className="space-y-1.5">
                               <CapturaFoto
                                 label={field.label}
-                                onCapture={(file) => handleFotoCapture(field.key, file)}
+                                onCapture={(file, viaArquivo) => handleFotoCapture(field.key, file, viaArquivo)}
                                 previewUrl={values[field.key] || null}
                                 disabled={saving}
+                                allowFileUpload={canRegularizar}
                               />
                               {field.required && !values[field.key] && (
                                 <p className="text-[11px] text-destructive">* Obrigatório</p>

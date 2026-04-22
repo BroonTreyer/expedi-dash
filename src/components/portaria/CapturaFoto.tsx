@@ -1,20 +1,24 @@
 import { useRef, useState, useEffect } from "react";
-import { Camera, RotateCcw, Check, FileText } from "lucide-react";
+import { Camera, RotateCcw, Check, FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PhotoViewerDialog } from "./PhotoViewerDialog";
 
 interface Props {
   label: string;
-  onCapture: (file: File) => void;
+  onCapture: (file: File, viaArquivo?: boolean) => void;
   disabled?: boolean;
   previewUrl?: string | null;
   accept?: string;
   cameraOnly?: boolean;
+  /** Quando true, exibe botão extra "Enviar arquivo" (sem capture=camera).
+   *  Use para perfis Admin/Logística regularizarem fotos sem ter a câmera no momento. */
+  allowFileUpload?: boolean;
 }
 
-export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*", cameraOnly = true }: Props) {
+export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "image/*", cameraOnly = true, allowFileUpload = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -42,7 +46,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
           if (localPreview) URL.revokeObjectURL(localPreview);
           setIsPdf(false);
           setLocalPreview(URL.createObjectURL(file));
-          onCapture(file);
+          onCapture(file, true);
           break;
         }
       }
@@ -51,13 +55,13 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
     return () => document.removeEventListener("paste", handlePaste);
   }, [disabled, onCapture, localPreview, shouldCapture]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, viaArquivo = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (localPreview) URL.revokeObjectURL(localPreview);
     setIsPdf(file.type === "application/pdf");
     setLocalPreview(URL.createObjectURL(file));
-    onCapture(file);
+    onCapture(file, viaArquivo);
     e.target.value = "";
   };
 
@@ -80,6 +84,16 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
         onChange={handleChange}
         disabled={disabled}
       />
+      {allowFileUpload && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept.includes("pdf") ? accept : "image/*,application/pdf"}
+          className="hidden"
+          onChange={(e) => handleChange(e, true)}
+          disabled={disabled}
+        />
+      )}
       {preview ? (
         <div className="relative rounded-lg overflow-hidden border border-border">
           {showAsPdf ? (
@@ -100,6 +114,11 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
             />
           )}
           <div className="absolute bottom-2 right-2 flex gap-1">
+            {allowFileUpload && (
+              <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={disabled}>
+                <Upload className="h-3 w-3 mr-1" /> Arquivo
+              </Button>
+            )}
             <Button size="sm" variant="secondary" onClick={handleRetake} disabled={disabled}>
               <RotateCcw className="h-3 w-3 mr-1" /> Refazer
             </Button>
@@ -111,19 +130,33 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={disabled}
-          className={cn(
-            "w-full h-48 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 transition-colors",
-            "hover:border-primary/50 hover:bg-muted/50",
-            disabled && "opacity-50 cursor-not-allowed"
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={disabled}
+            className={cn(
+              "w-full h-48 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 transition-colors",
+              "hover:border-primary/50 hover:bg-muted/50",
+              disabled && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <Camera className="h-8 w-8 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">{shouldCapture ? "Toque para fotografar" : "Toque para fotografar ou cole (Ctrl+V)"}</span>
+          </button>
+          {allowFileUpload && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+            >
+              <Upload className="h-4 w-4 mr-2" /> Enviar arquivo (Admin/Logística)
+            </Button>
           )}
-        >
-          <Camera className="h-8 w-8 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">{shouldCapture ? "Toque para fotografar" : "Toque para fotografar ou cole (Ctrl+V)"}</span>
-        </button>
+        </div>
       )}
       <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={preview} alt={label} />
     </div>
