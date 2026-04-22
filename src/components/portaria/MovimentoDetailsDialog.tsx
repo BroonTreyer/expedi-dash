@@ -241,6 +241,26 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   
   const hasFotos = allPhotos.length > 0;
 
+  // For Carga Própria: track which painel KM photos are missing so we can show explicit placeholders
+  const cpMissing: { label: string; reason: string }[] = [];
+  if (isCargaPropria) {
+    const allSources: any[] = [
+      ...((relatedRecords && relatedRecords.length > 0) ? relatedRecords : [m, sDistinct].filter(Boolean)),
+      ...(s ? [s] : []),
+    ];
+    const hasSaida = allSources.some((r: any) => !!r?.foto_painel_saida_url);
+    const hasRetorno = allSources.some((r: any) => !!r?.foto_painel_url);
+    const etapa = m.etapa_carga_propria;
+    // Show "Saída" placeholder once the vehicle has left to route or beyond
+    if (!hasSaida && (etapa === "em_rota" || etapa === "retornou" || etapa === "finalizado")) {
+      cpMissing.push({ label: "🛞 Painel KM (Saída p/ Rota)", reason: "Não capturada nesta saída" });
+    }
+    // Show "Retorno" placeholder once the vehicle has returned
+    if (!hasRetorno && (etapa === "retornou" || etapa === "finalizado")) {
+      cpMissing.push({ label: "🛞 Painel KM (Retorno)", reason: "Não capturada no retorno" });
+    }
+  }
+
   const handleDelete = async () => {
     await deleteMov.mutateAsync(m.id);
     onOpenChange(false);
@@ -578,7 +598,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
             )}
 
             {/* Fotos */}
-            {hasFotos && (
+            {(hasFotos || cpMissing.length > 0) && (
               <div className="space-y-1.5">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">📸 Evidências <span className="font-normal text-[10px]">(clique para ampliar)</span></h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -588,6 +608,15 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                       {photo.ocrText && (
                         <p className="text-xs mt-1">OCR: <strong>{photo.ocrText}</strong> ({photo.ocrConf}%)</p>
                       )}
+                    </div>
+                  ))}
+                  {cpMissing.map((miss, i) => (
+                    <div key={`miss-${i}`}>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">{miss.label}</p>
+                      <div className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1 bg-muted/30 ring-1 ring-dashed ring-border">
+                        <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-[11px] text-muted-foreground">{miss.reason}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
