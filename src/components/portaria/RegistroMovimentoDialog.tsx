@@ -332,7 +332,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           confianca_placa: confiancaPlaca,
           placa_confirmada: values.placa?.trim().toUpperCase() || null,
           foto_documento_url: values.foto_documento_url || null,
-          observacoes: values.observacoes?.trim() || null,
+          observacoes: appendReg(values.observacoes?.trim() || null),
           usuario_id: user?.id ?? null,
           movimento_vinculado_id: prefill?.id || null,
           // New fields
