@@ -1,68 +1,101 @@
 
-## Atualizar Manual da Portaria — alinhar 100% com o sistema
+## Auditoria — Relatórios e Analytics
 
-### Objetivo
-Reescrever `ManualTab.tsx` para refletir fielmente o que existe hoje no sistema, incluindo as 15 lacunas identificadas na análise anterior.
+Foco: o que **a diretoria pede e hoje não tem**, ou tem mas vem errado/incompleto. Sem features inventadas.
 
-### O que será corrigido / incluído
+---
 
-**1. KPIs (corrigir)**
-- Remover menção a "Tempo médio".
-- Documentar apenas os 3 reais: **Entradas hoje**, **Saídas hoje**, **No Pátio agora**.
-- Para Terceirizado, adicionar o KPI extra **Aguardando Entrada**.
+### 1. Relatórios — o que existe hoje
 
-**2. Fluxo Terceirizado (corrigir)**
-- Trocar "3 etapas" por **2 etapas**: Entrada (com nota fiscal, doca, tipo carga) → Saída c/ Lacre (foto + OCR do lacre).
+Apenas **4 relatórios fixos** em Excel:
+1. Resumo Diário de Expedição
+2. Rupturas
+3. Performance por Vendedor
+4. Tempo Médio de Pátio
 
-**3. Fluxo Carga Própria (refinar)**
-- Manter as 4 etapas (Chegada → Saída p/ Rota → Retorno → Saída Final c/ Lacre).
-- Esclarecer que tudo fica em **um único registro** atualizado a cada etapa (corrige a confusão antiga).
+### Problemas reais identificados
 
-**4. OCR (expandir)**
-- Documentar que o OCR funciona em **3 tipos**: Placa (Plate Recognizer), KM do painel (Gemini) e Número do Lacre (Gemini).
-- Explicar o indicador de confiança (verde ≥ 85%, amarelo 60–84%, vermelho < 60%) e como confirmar/corrigir manualmente.
+**A. Relatórios incompletos / errados**
+- **Resumo Diário** mostra "qtd_pedidos" contando *linhas de produto*, não pedidos únicos. Carga com 1 pedido de 5 itens vira "5 pedidos". Diretoria recebe número inflado.
+- **Resumo Diário** não tem coluna de **transportadora vs frota própria**, **tipo de frete (CIF/FOB)**, **horário de saída/retorno**, **KM rodado**, **qtd entregas**. Tudo isso já está no banco.
+- **Rupturas** não tem **valor financeiro estimado**, **vendedor responsável pela ruptura**, **status de resolução** — diretoria pergunta "quanto perdemos?" e ninguém responde.
+- **Performance Vendedores** não tem **comparativo período anterior** (cresceu/caiu vs mês passado).
+- **Tempo de Pátio** filtra `> 1440 min` silenciosamente. Veículo que ficou 25h some do relatório — exatamente o caso que a diretoria quer ver.
 
-**5. Alertas visuais de tempo no pátio (incluir)**
-- 🟢 até 4h • 🟡 4–8h • 🔴 mais de 8h.
+**B. Relatórios que faltam (a diretoria pede ou vai pedir)**
+- **Faturamento diário/mensal por cliente** (top clientes, ABC) — não existe.
+- **Faturamento por região (UF/cidade)** — Analytics tem mapa, relatório não tem.
+- **Cargas por transportadora** com peso, custo médio, % de atraso — não existe.
+- **Histórico por placa/motorista** (quantas viagens, KM total, ocorrências) — não existe.
+- **Pedidos cancelados / devolvidos** — sequer há campo para isso.
+- **Comparativo mês a mês** (peso, pedidos, rupturas, ticket médio) — não existe.
+- **DRE operacional simplificado** (peso expedido × custo de frete estimado por km) — não existe.
 
-**6. Aba Pátio Atual (incluir)**
-- Lista de quem está dentro, busca por placa, ação "Registrar Saída" rápida, indicadores de tempo.
+**C. Como os relatórios são entregues**
+- **Não há agendamento**: alguém precisa lembrar de gerar toda 2ª-feira manualmente.
+- **Não há e-mail automático**: gera Excel → baixa → anexa no WhatsApp/e-mail manualmente.
+- **Não há histórico**: ninguém sabe qual versão foi enviada quando.
+- **Só formato Excel**: diretoria normalmente lê no celular → PDF ou imagem seria muito melhor.
+- **Sem "favoritos" de período**: cada vez que abre, refaz a seleção.
 
-**7. Aba Histórico (incluir)**
-- Paginação de **25 por página**, ordenação por colunas (clicar no cabeçalho), filtros, busca, exportação.
-- **Deletar selecionados** (somente admin) e botão **Limpar filtros**.
+**D. Personalização**
+- Filtros são **só data**. Não dá para filtrar por: vendedor, transportadora, UF, tipo de carga, cliente.
+- Não dá para escolher **quais colunas** sair no Excel.
+- Não dá para **salvar um modelo** ("relatório do João", "fechamento mensal RH").
 
-**8. Aba Esperados (incluir)**
-- Janela de ±3 dias, autorização/recusa, marcar como conferido, importar planilha.
+---
 
-**9. Saída Rápida (incluir)**
-- Fluxo simplificado para Visitante / Fornecedor / Prestador / Outros (entrada → saída em 1 clique).
+### 2. Analytics — o que existe hoje
 
-**10. Categorias adicionais (incluir)**
-- Seções dedicadas para **Fornecedor, Visitante, Prestador, Outros** com campos obrigatórios de cada um (pessoa visitada, motivo, serviço, responsável interno, etc.).
+Página tem 5 abas (Visão Geral, Expedição, Vendedores, Rupturas, Geografia) com KPIs e gráficos.
 
-**11. Autocomplete & Cadastros (incluir)**
-- Como o sistema sugere motorista/empresa ao digitar a placa (vinculação Placa↔Motorista↔Transportadora) e quando criar cadastro novo.
+### Problemas reais
 
-**12. Evidências fotográficas (incluir)**
-- Fotos suportadas: placa, documento, painel (KM), nota fiscal, lacre. Suporte também a PDF. Visualizador com zoom.
+- **Não exporta nada** que esteja ali na tela. Vê o gráfico bonito → diretoria pede em planilha → ninguém consegue extrair direto.
+- **Comparativo de período** (ex: "este mês vs anterior") não aparece de forma clara nos KPIs — só número absoluto.
+- **Sem drill-down**: clica num número (ex: "23 rupturas") e nada acontece. Deveria abrir a lista.
+- **Sem "enviar essa visão"**: gestor não consegue mandar o print/PDF da aba para alguém.
+- **Filtros não persistem** entre abas.
 
-**13. Permissões (incluir)**
-- Tabela rápida: o que **Portaria**, **Logística** e **Admin** podem fazer (registrar, editar, deletar, autorizar).
+---
 
-**14. Solução de problemas (incluir)**
-- "OCR leu errado?" → confirmar manualmente.
-- "Veículo não aparece em Esperados?" → usar walk-in.
-- "Preciso apagar registro duplicado?" → pedir admin.
-- "Foto não abre?" → URL assinada renovada automaticamente.
+### 3. Plano de correção (3 fases enxutas, sem invenção)
 
-**15. Layout didático**
-- Cards numerados com ícones, blocos coloridos "💡 Dica", "⚠️ Atenção", "✅ Resultado esperado".
-- Diagramas ASCII dos fluxos dentro de `<pre>` com `font-mono`.
-- Linguagem simples (criança de 8 anos), passos curtos, exemplos reais.
+**Fase A — Corrigir o que está errado e completar os 4 relatórios atuais** (alta prioridade)
 
-### Arquivos
-- ✏️ `src/components/portaria/ManualTab.tsx` — reescrita completa com todas as seções acima, condicional por `categoria` (carga_propria | terceirizado), mais blocos comuns (KPIs, Pátio, Histórico, Esperados, Saída Rápida, OCR, Permissões, FAQ).
+- Resumo Diário: contar **pedidos únicos** (`numero_pedido` distinto), adicionar colunas de frete/transportadora/horários/KM/entregas, adicionar **linha de totalizadores por dia**.
+- Rupturas: adicionar **vendedor**, **valor estimado** (peso × ticket médio do produto), agrupamento por produto e por cliente em abas separadas da mesma planilha.
+- Performance Vendedores: adicionar coluna **vs período anterior** (% crescimento), e aba secundária com detalhe diário.
+- Tempo de Pátio: **deixar de esconder veículos > 24h** — eles devem aparecer marcados em vermelho (são justamente o problema).
 
-### Resultado
-O Manual passa a descrever exatamente o sistema que está no ar — sem etapas inventadas, sem KPIs inexistentes — e cobre todos os fluxos, alertas, atalhos administrativos e categorias suportadas.
+**Fase B — Os 5 relatórios que faltam** (a diretoria já pede)
+
+1. **Faturamento por Cliente** (ranking ABC, top 20, peso e qtd pedidos, % do total).
+2. **Faturamento por Região** (UF e cidade, com participação % e ranking).
+3. **Performance por Transportadora** (peso, viagens, tempo médio pátio, taxa de atraso).
+4. **Histórico por Placa** (todas as viagens, KM total, ocorrências, motoristas que dirigiram).
+5. **Comparativo Mensal** (mês atual vs anterior vs mesmo mês ano passado, em uma tela só).
+
+**Fase C — Entrega automática e personalização** (tira retrabalho recorrente)
+
+- **Filtros por vendedor / UF / transportadora / cliente** em todos os relatórios.
+- **Escolher colunas** antes de gerar.
+- **Salvar "Meu relatório"** (preset com nome + período + filtros + colunas).
+- **Exportar em PDF** (não só Excel) — leitura no celular.
+- **Agendamento**: "envie esse relatório toda 2ª-feira 7h para diretoria@frico" via Resend (ou WhatsApp via Twilio se preferir). Histórico de envios fica registrado.
+- **Botão "Exportar visão atual" no Analytics**: gera PDF da aba aberta exatamente como está na tela.
+
+---
+
+### Como prosseguir
+
+Por favor escolha **uma**:
+
+1. **"Começa pela Fase A"** — corrijo os 4 relatórios existentes que estão com defeito/incompletos. ~1-2 dias de trabalho real, impacto imediato.
+2. **"Pula para Fase B"** — crio os 5 relatórios novos. ~3-4 dias.
+3. **"Quero Fase C antes"** — agendamento + e-mail + filtros. Resolve a dor do retrabalho semanal.
+4. **"Faz tudo na ordem A → B → C"** — entrego em incrementos, validando cada um.
+
+> Recomendação: **Fase A primeiro**. Se a diretoria está reclamando de relatório, é mais provável que os números **estejam errados** (pedido contado como linha, veículos sumindo do tempo de pátio) do que faltando — corrigir isso primeiro reconquista a confiança no sistema. Depois vamos para B e C.
+
+E me diga também: **qual relatório específico a diretoria mais cobra hoje?** (ex: "fechamento mensal de cargas", "ranking de cliente", "rupturas da semana"). Se você apontar, eu priorizo esse antes dos outros.
