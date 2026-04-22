@@ -1,33 +1,30 @@
 
 
-## Adicionar upload de foto por arquivo (Admin/Logística) na Portaria
+## Ajustar alerta de tempo no Pátio Atual — não alarmar veículos "Em Rota"
 
-### O que vai mudar
+### Problema
 
-Hoje, no `RegistroMovimentoDialog`, as fotos (placa, painel, lacre, nota, documento) são capturadas **apenas pela câmera** via componente `PhotoCapture`. Para resolver casos onde a portaria esqueceu de tirar a foto na hora mas o admin/logística tem o arquivo (ex: foto que o motorista mandou por WhatsApp), vou adicionar **upload de arquivo** como alternativa — restrito a **Admin** e **Logística**.
+Na aba **Pátio Atual**, a coluna **Tempo** colore em **amarelo (≥4h)** e **vermelho (≥8h)** com base no tempo desde a chegada (`data_hora`), sem considerar a etapa atual do Carga Própria.
 
-### Como vai funcionar
+Resultado: veículos que já saíram para rota (`etapa_carga_propria === "em_rota"`) aparecem em vermelho/amarelo só porque a entrega demora — o que **é o esperado**, não uma anomalia. O alerta perde sentido porque dispara para o caso normal.
 
-1. No `PhotoCapture`, quando o usuário for **Admin ou Logística**, aparece um botão extra **"Enviar arquivo"** ao lado de "Tirar Foto".
-2. O botão abre o seletor de arquivos (aceita `image/*` e `application/pdf` — mesmo padrão do sistema atual de mídia).
-3. O arquivo selecionado é enviado para o **mesmo bucket `portaria`** (privado), no mesmo formato de path já usado pelo PhotoCapture (`{tipo}/{timestamp}-{random}.{ext}`).
-4. A URL retornada é tratada igual à da câmera — gravada no campo correspondente (`foto_painel_url`, `foto_lacre_url`, etc.).
-5. Para **Portaria comum** (perfil padrão), o botão **não aparece** — continua obrigada a tirar foto na hora pela câmera.
-6. Para rastreabilidade: quando o upload for feito por arquivo (e não câmera), gravo um marcador discreto no `observacoes` do registro: `[FOTO via upload por <usuário> em <data>]` — assim a diretoria sabe que aquela foto não foi capturada na portaria em tempo real.
+O alerta deveria sinalizar **veículos parados muito tempo dentro do pátio**, não veículos que estão fora rodando.
 
-### Por que essa abordagem
+### Solução
 
-- **Reutiliza o `PhotoCapture` existente** — não cria componente novo nem duplica lógica de upload para o bucket.
-- **Mesma restrição de perfil da regularização sem foto** (Admin/Logística) — coerente com o que já implementamos. Portaria não pode mandar arquivo pra burlar a câmera.
-- **Marcador no `observacoes`** — diretoria diferencia foto "ao vivo" de foto "regularizada por arquivo" sem precisar de coluna nova no banco.
-- **Sem mudança de banco / migration** — só ajuste de UI + lógica de upload no componente que já existe.
+Em `src/components/portaria/PatioAtualTab.tsx`:
 
-### Arquivos afetados
+1. Para Carga Própria com `etapa_carga_propria === "em_rota"`, a coluna **Tempo** deixa de usar o esquema de alerta amarelo/vermelho. Fica neutra (`text-muted-foreground`), sem ícone de `AlertTriangle`, sem destacar a linha (sem `border-destructive/40` no card mobile).
+2. Para todas as outras situações (Chegou, Retornou, Terceirizado, Fornecedor, Visitante etc — veículos efetivamente **dentro do pátio**), o alerta continua igual: amarelo ≥4h, vermelho ≥8h.
+3. Opcional/leve: trocar o rótulo do tempo da linha "Em Rota" pelo tempo desde a **saída p/ rota** (`horario_saida_rota`) em vez de desde a chegada — assim a coluna passa a mostrar "há quanto tempo está rodando", que é a informação útil para essa etapa. Se o campo não existir no registro, mantém o tempo desde `data_hora` mas sempre neutro.
 
-- ✏️ `src/components/portaria/PhotoCapture.tsx` — adicionar prop `allowFileUpload?: boolean`, botão "Enviar arquivo" com `<input type="file" accept="image/*,application/pdf" hidden>`, handler que faz upload pro bucket `portaria` (mesmo path/format que a câmera) e chama `onChange(url)` igual.
-- ✏️ `src/components/portaria/RegistroMovimentoDialog.tsx` — passar `allowFileUpload={isAdmin || isLogistica}` para todas as instâncias de `PhotoCapture` (placa, painel, lacre, nota, documento). Quando upload por arquivo for usado em qualquer foto, marcar uma flag local `fotoViaArquivo = true` e, no `handleSave`, prefixar `observacoes` com `[FOTO via upload por <user> em <data>]` se a flag estiver ativa.
+### Mudanças concretas
 
-### Pergunta única antes de implementar
+- ✏️ `src/components/portaria/PatioAtualTab.tsx`:
+  - Helper `getTempoClass(minutos, isEmRota)` — quando `isEmRota=true`, retorna sempre `text-muted-foreground`.
+  - Render desktop (linha ~347): passar `m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota"`. Esconder ícone `AlertTriangle` quando em rota.
+  - Render mobile (linha ~213): mesma condição — não aplicar `border-destructive/40` / `border-yellow-500/40` no `<Card>` quando em rota. Esconder ícone `AlertTriangle` no bloco de tempo.
+  - Cálculo de `minutos`: se `m.etapa_carga_propria === "em_rota"` e existir `m.horario_saida_rota`, usar `differenceInMinutes(now, new Date(m.horario_saida_rota))`. Caso contrário, mantém o cálculo atual.
 
-Quando o admin/logística enviar foto por arquivo, você quer que apareça um **badge "Foto via upload"** nos detalhes do movimento (no `MovimentoDetailsDialog`, junto do badge "Regularizado" que já tem)? Recomendo **sim** — diretoria identifica na hora que aquela evidência não veio da câmera da portaria. Confirma?
+Sem mudança de banco. Sem nova feature. Apenas ajusta o critério visual do alerta para parar de gritar com o cenário normal (veículo em rota).
 
