@@ -142,11 +142,11 @@ const VarBadge = forwardRef<HTMLSpanElement, { value: number | null }>(({ value 
 VarBadge.displayName = "VarBadge";
 
 // ── KPI Card ──
-function KpiCard({ label, value, icon: Icon, variation, loading, accent, subtitle }: {
+const KpiCard = forwardRef<HTMLDivElement, {
   label: string; value: string; icon: any; variation: number | null; loading: boolean; accent?: string; subtitle?: string;
-}) {
+}>(({ label, value, icon: Icon, variation, loading, accent, subtitle }, ref) => {
   if (loading) return (
-    <Card className="border-border/40">
+    <Card ref={ref} className="border-border/40">
       <CardContent className="p-4 space-y-2">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-7 w-28" />
@@ -154,7 +154,7 @@ function KpiCard({ label, value, icon: Icon, variation, loading, accent, subtitl
     </Card>
   );
   return (
-    <Card className="border-border/40 hover:shadow-md transition-all duration-300 group">
+    <Card ref={ref} className="border-border/40 hover:shadow-md transition-all duration-300 group">
       <CardContent className="p-4 flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium text-muted-foreground tracking-wide">{label}</span>
@@ -172,7 +172,8 @@ function KpiCard({ label, value, icon: Icon, variation, loading, accent, subtitl
       </CardContent>
     </Card>
   );
-}
+});
+KpiCard.displayName = "KpiCard";
 
 // ── Rich Tooltip ──
 function RichTooltip({ active, payload, label, suffix = "kg", formatLabel }: any) {
@@ -438,12 +439,12 @@ export default function Analytics() {
   const xAxisHeight = manyDays ? 50 : 30;
 
   const kpiCards = [
-    { label: "Peso Total", value: fmtKg(kpis.totalPeso), icon: Weight, variation: kpis.varPeso, accent: "bg-primary/10" },
-    { label: "Total Pedidos", value: kpis.totalPedidos.toLocaleString("pt-BR"), icon: Package, variation: kpis.varPedidos, accent: "bg-blue-500/10" },
+    { label: "Peso Total", value: fmtKg(kpis.totalPeso), icon: Weight, variation: kpis.varPeso, accent: "bg-primary/10", subtitle: "exclui Pendente/Cancelado" },
+    { label: "Total Pedidos", value: kpis.totalPedidos.toLocaleString("pt-BR"), icon: Package, variation: kpis.varPedidos, accent: "bg-blue-500/10", subtitle: "pedidos únicos" },
     { label: "Peso Carregado", value: fmtKg(kpis.totalCarregado), icon: CheckCircle2, variation: kpis.varCarregado, accent: "bg-emerald-500/10" },
-    { label: "Média Diária", value: fmtKg(kpis.mediaDiaria), icon: TrendingUp, variation: kpis.varMediaDiaria, accent: "bg-violet-500/10" },
+    { label: "Média Diária", value: fmtKg(kpis.mediaDiaria), icon: TrendingUp, variation: kpis.varMediaDiaria, accent: "bg-violet-500/10", subtitle: `sobre ${kpis.diasPeriodo ?? 0} dias do período` },
     { label: "Taxa Ruptura", value: `${kpis.taxaRuptura}%`, icon: AlertTriangle, variation: kpis.varTaxaRuptura, accent: "bg-amber-500/10", subtitle: `${kpis.pedidosComRuptura ?? 0} de ${kpis.totalPedidosUnicos ?? 0} pedidos` },
-    { label: "Dias no Período", value: String(kpis.diasUnicos), icon: Calendar, variation: null, accent: "bg-slate-500/10" },
+    { label: "Dias com Movim.", value: `${kpis.diasUnicos}/${kpis.diasPeriodo ?? 0}`, icon: Calendar, variation: null, accent: "bg-slate-500/10", subtitle: "ativos / totais" },
   ];
 
   const maxVendPeso = a?.vendedorRanking?.[0]?.peso ?? 1;
@@ -808,10 +809,6 @@ export default function Analytics() {
                   </ChartCard>
                 </div>
 
-                {/* Heatmap semanal */}
-                <ChartCard title="Heatmap Semanal de Rupturas" subtitle="Intensidade de rupturas por dia da semana">
-                  <HeatmapGrid data={a?.heatmap ?? []} />
-                </ChartCard>
               </div>
             )}
           </TabsContent>
