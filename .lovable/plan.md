@@ -1,86 +1,51 @@
 
 
-## Ruptura no fechamento de carga: peso real ≠ peso planejado
+## Botão "Enviar pra Registro de Entrada" no Pátio Atual
 
-### Problema
+### Contexto
 
-Hoje, quando um produto de um pedido é marcado como **Ruptura** (faltou no estoque ou foi cancelado na hora de carregar), o sistema mantém o `peso` original do item no banco. Isso causa três distorções:
+O Welliton (terceirizado, placa RMB0C89, MOREIRA TRANSPORTES) está hoje na aba **Pátio Atual** porque alguém na portaria já registrou a entrada dele como movimentação de portaria (`movimentacoes_portaria` com `tipo_movimento=entrada`, `etapa_terceirizado=no_patio`). Nessa situação, ele **não tem carga vinculada** e a Logística não consegue mais fechar uma carga e amarrar a esse veículo, porque o fluxo de "vincular carga a walk-in" só funciona com registros que estejam em `veiculos_esperados` com status `aguardando_vinculo`.
 
-1. **Roteirização**: o `pesoTotal` por cliente soma itens em ruptura → carga aparece mais pesada do que realmente é.
-2. **Fechamento de Carga**: o `totalPeso` enviado pra `veiculos_esperados.peso` (e exibido no romaneio, no card da portaria, no analytics) inclui o que **não foi carregado**.
-3. **Relatórios e KPIs** ("Peso Carregado", performance de vendedor, peso da carga no Consolidado) — todos batem com o planejado, não com o expedido.
+### O que vai mudar
 
-Resultado prático: o motorista sai com 12 toneladas, mas o sistema diz que ele saiu com 13,5 t. Diretoria, portaria e faturamento veem números diferentes da realidade física.
+Adicionar um botão **"Enviar pra Registro de Entrada"** (ícone `Link2` ou `Undo2`) no card/linha do Pátio Atual, disponível **somente para terceirizados sem `carga_id`** (caso do Welliton). Não aparece em carga própria (que tem fluxo próprio com etapas) nem em terceirizado já vinculado a uma carga.
 
-### Conceito-chave da solução
+Quem vê o botão: admin e logística (não portaria — quem precisa "consertar" esse caso é a Logística pra depois conseguir vincular a carga).
 
-Hoje só existe **um peso** por item (`peso`). Vou separar em dois conceitos:
+### Comportamento ao clicar
 
-- **Peso planejado** = `peso` (já existe, intocado). É o que o vendedor pediu.
-- **Peso efetivo** = `peso` se `ruptura = false`; **0** se `ruptura = true`. É o que realmente vai no caminhão.
+Confirmação inline (mesmo padrão do "Saída Rápida" que já existe — Cancelar / Confirmar) e em seguida:
 
-Toda agregação que representa **carga física** (roteirização, fechamento, romaneio, KPI "Peso Carregado", peso enviado pra portaria, analytics de expedição) passa a usar **peso efetivo**.
+1. Cria um registro em `veiculos_esperados` com:
+   - `placa`, `motorista`, `transportadora`, `tipo_veiculo` copiados da movimentação
+   - `walk_in = true`
+   - `status_autorizacao = 'aguardando_vinculo'`
+   - `data_referencia = hoje`
+   - `grupo = 'WALK-IN-TERCEIRIZADO'`
+   - `observacoes = "Reaberto do Pátio Atual em <data> por <usuário> — entrada registrada às <hora>"`
+2. Deleta a movimentação de entrada da portaria (o trigger de auditoria já registra quem apagou e o snapshot completo, então fica rastreável na Lixeira/Logs).
+3. Invalida as queries relevantes (`movimentacoes_portaria`, `veiculos_walkin_ativos`, `veiculos_esperados`).
+4. Toast: *"Veículo enviado para Registro de Entrada — disponível para vínculo de carga"*.
 
-Toda agregação que representa **demanda comercial** (KPI "Peso Total" do dashboard de vendas, relatórios de pedidos, performance do vendedor por volume vendido) continua usando **peso planejado**.
+Resultado: o veículo desaparece do Pátio Atual e reaparece em **Registro de Entrada → "Aguardando vínculo da Logística"**, onde a Logística clica em **Vincular a carga**, escolhe a carga (que pode ser fechada agora ou depois), e o veículo retorna ao Pátio com a carga amarrada.
 
-Sem mudança de schema. Sem migration. É decisão de qual `reduce` usar em cada local.
+### Por que não só "vincular carga direto no Pátio Atual"
+
+Cogitei adicionar um botão "Vincular carga" direto na linha do Pátio Atual, reaproveitando o `VincularCargaDialog`. Mas o vínculo atual só atualiza `veiculos_esperados` — não atualiza a `movimentacoes_portaria` que já existe no Pátio. Ia gerar inconsistência (carga aparecendo em `veiculos_esperados.carga_id` mas a entrada no Pátio sem `carga_id`). O caminho "voltar pra Registro de Entrada → vincular → liberar entrada de novo" reaproveita 100% do fluxo existente (que já cuida de propagar o `carga_id` na criação da nova movimentação) e fica auditável.
 
 ### Mudanças concretas
 
-**1. Helper central** — `src/lib/peso-utils.ts` (novo)
-```ts
-export const pesoEfetivo = (c: { peso: number | null; ruptura: boolean }) =>
-  c.ruptura ? 0 : (c.peso ?? 0);
-export const somaPesoEfetivo = (arr) => arr.reduce((s, c) => s + pesoEfetivo(c), 0);
-export const somaPesoPlanejado = (arr) => arr.reduce((s, c) => s + (c.peso ?? 0), 0);
-```
-
-**2. Roteirização (`RoteirizacaoDialog.tsx`)**
-- Ao agrupar por cliente, calcular `pesoTotal` com **peso efetivo**.
-- Itens em ruptura aparecem no card do cliente com badge "Ruptura — não embarcado" e peso riscado (visual de transparência), mas **não somam** no total da carga nem no envio pra rota.
-- Distância/rota não muda — cliente com 100% de ruptura permanece na rota só se sobrar algum item; se zerou tudo, é avisado e excluído da rota.
-
-**3. Fechamento de Carga (`FechamentoLoteDialog.tsx`)**
-- `totalPeso` e `g.pesoTotal` usam **peso efetivo**.
-- O `meta.totalPeso` enviado pro `onSubmit` (que vai pra `veiculos_esperados.peso`) reflete o peso real.
-- Resumo no topo mostra: `12.450 kg embarcados` + se houver rupturas, linha extra discreta `↳ 850 kg em ruptura (não embarcado)`.
-
-**4. Romaneio impresso (`CargaPrintDialog.tsx`)**
-- Peso total da carga = peso efetivo.
-- Itens em ruptura aparecem riscados na lista de produtos do cliente, marcados "RUPTURA — NÃO CARREGADO". Motorista assina sabendo o que falta. Sem isso, ele recebe um romaneio que não bate com a nota.
-
-**5. Consolidado (`Consolidado.tsx` / `ConsolidadoPrintDialog.tsx`)**
-- Coluna "Peso" e "Peso Total" usam peso efetivo.
-- Coluna nova opcional "Pl./Ef." mostrando `13.300 / 12.450` quando houver divergência (só aparece se a carga teve ruptura).
-
-**6. Dashboard KPIs (`KpiCards.tsx`)**
-- "Peso Total" = continua planejado (é métrica comercial — quanto foi pedido).
-- "Peso Carregado" = peso efetivo dos status `Carregado` (já filtra status, só passa a desconsiderar ruptura também). Hoje, se um item está marcado Carregado **e** Ruptura ao mesmo tempo (caso possível), ele ainda soma — vou consertar.
-- Tooltip do "Peso Total" ganha nota: "Soma do peso pedido. Para peso embarcado, veja 'Peso Carregado'."
-
-**7. Analytics (`useAnalytics.ts`)**
-- `totalPeso` (visão geral) = continua planejado.
-- `totalCarregado` = peso efetivo de quem está em status Carregado (mudança mínima).
-- Aba Expedição: gráficos de "kg expedidos por dia/vendedor/transportadora" passam a usar peso efetivo. Rupturas continuam contando na aba Rupturas com sua métrica própria.
-
-**8. Portaria — peso esperado vs. peso real**
-- O campo `veiculos_esperados.peso` passa a receber o peso efetivo (resolve o problema-raiz do print que a diretoria vê).
-- Sem mudar fluxo da portaria.
+- ✏️ `src/components/portaria/PatioAtualTab.tsx`:
+  - Helper `podeReabrirRegistro(m)` → `m.categoria === 'terceirizado' && !m.carga_id && (role === 'admin' || role === 'logistica')`.
+  - Estado local `reabrirId` (mesmo padrão do `saidaRapidaId`) com confirmação inline.
+  - Handler `handleReabrirRegistro(m)` que faz o INSERT em `veiculos_esperados` + DELETE em `movimentacoes_portaria` (sequencial, com rollback de toast em caso de erro).
+  - Render: botão "Enviar pra Registro" antes do botão "Registrar Saída" no bloco de ações de terceirizado, só quando a condição bate.
+- ➕ Pequeno hook `useReabrirComoWalkIn` em `src/hooks/useVeiculosEsperados.ts` (encapsula o INSERT+DELETE+invalidates+toast pra ficar testável e não inflar o componente).
 
 ### O que NÃO muda
 
-- Nenhuma coluna nova no banco. O "peso efetivo" é calculado em runtime.
-- Vendedor continua marcando ruptura do mesmo jeito.
-- O peso original do item permanece intocado — é dado histórico (quanto foi pedido). Se a ruptura for desmarcada depois (produto chegou), o peso volta a contar automaticamente.
-- Rupturas continuam aparecendo em todos os lugares atuais (página Rupturas, badges, etc).
-
-### Pergunta única antes de implementar
-
-Quando uma carga é fechada com 1 item em ruptura, o que você quer que aconteça com aquele item específico no banco?
-
-**Opção A** *(recomendada)*: o item permanece na carga (`carga_id` setado, `etapa = logistica`), mas com `ruptura = true`. Aparece no romaneio riscado, mas conta como histórico. Vantagem: rastreabilidade — você sabe que aquele cliente teve ruptura naquela carga.
-
-**Opção B**: o item em ruptura é "soltado" da carga no momento do fechamento (`carga_id = null`, volta pra etapa `vendas`), pra ser refaturado depois. Vantagem: a carga só carrega o que foi efetivamente embarcado. Desvantagem: perde o vínculo histórico e mistura com pedidos novos.
-
-Confirma A ou prefere B?
+- Sem migration, sem mexer no schema.
+- Carga própria continua intocada (tem fluxo próprio Chegou → Em Rota → Retornou → Saída).
+- Terceirizado **com carga já vinculada** não ganha o botão (já está no fluxo correto).
+- Auditoria automática: o DELETE da movimentação cai no trigger `audit_movimentacoes` com snapshot completo, então o registro fica recuperável na Lixeira do Super Admin se algo der errado.
 
