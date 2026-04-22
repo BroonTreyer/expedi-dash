@@ -196,6 +196,34 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     }
   };
 
+  const podeReabrirRegistro = (m: MovimentacaoPortaria): boolean => {
+    return (
+      m.categoria === "terceirizado" &&
+      !m.carga_id &&
+      m.etapa_terceirizado === "no_patio" &&
+      (role === "admin" || role === "logistica")
+    );
+  };
+
+  const handleReabrirRegistro = async (m: MovimentacaoPortaria) => {
+    setSavingId(m.id);
+    try {
+      await reabrirWalkIn.mutateAsync({
+        id: m.id,
+        placa: m.placa,
+        motorista: m.motorista,
+        empresa: m.empresa,
+        tipo_caminhao: m.tipo_caminhao,
+        data_hora: m.data_hora,
+      });
+      setReabrirId(null);
+    } catch {
+      // toast already shown by hook
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
