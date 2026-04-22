@@ -525,13 +525,15 @@ export default function Analytics() {
 
         {/* Tabs */}
         <Tabs defaultValue="visao" className="space-y-4">
-          <TabsList className="bg-muted/40 border border-border/30">
-            <TabsTrigger value="visao" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><Eye className="h-3.5 w-3.5" /> Visão Geral</TabsTrigger>
-            <TabsTrigger value="expedicao" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><Truck className="h-3.5 w-3.5" /> Expedição</TabsTrigger>
-            <TabsTrigger value="vendedores" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><Users className="h-3.5 w-3.5" /> Vendedores</TabsTrigger>
-            <TabsTrigger value="rupturas" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><AlertTriangle className="h-3.5 w-3.5" /> Rupturas</TabsTrigger>
-            <TabsTrigger value="geografia" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><MapPin className="h-3.5 w-3.5" /> Geografia</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="bg-muted/40 border border-border/30 inline-flex w-max sm:w-auto">
+              <TabsTrigger value="visao" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Visão Geral</span><span className="sm:hidden">Visão</span></TabsTrigger>
+              <TabsTrigger value="expedicao" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><Truck className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Expedição</span><span className="sm:hidden">Exped.</span></TabsTrigger>
+              <TabsTrigger value="vendedores" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><Users className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Vendedores</span><span className="sm:hidden">Vend.</span></TabsTrigger>
+              <TabsTrigger value="rupturas" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><AlertTriangle className="h-3.5 w-3.5" /> Rupturas</TabsTrigger>
+              <TabsTrigger value="geografia" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><MapPin className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Geografia</span><span className="sm:hidden">Geo.</span></TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ═══════ TAB: VISÃO GERAL ═══════ */}
           <TabsContent value="visao">
