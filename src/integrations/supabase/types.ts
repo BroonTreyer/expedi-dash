@@ -102,6 +102,7 @@ export type Database = {
           horario_inicio: string | null
           horario_previsto: string | null
           id: string
+          motivo_ruptura: string | null
           motorista: string | null
           nome_carga: string | null
           nome_produto: string | null
@@ -110,8 +111,10 @@ export type Database = {
           ordem_entrega: number | null
           peso: number | null
           peso_manual: boolean
+          peso_original: number | null
           placa: string | null
           quantidade: number | null
+          quantidade_original: number | null
           ruptura: boolean
           ruptura_sinalizada: boolean
           status: string
@@ -135,6 +138,7 @@ export type Database = {
           horario_inicio?: string | null
           horario_previsto?: string | null
           id?: string
+          motivo_ruptura?: string | null
           motorista?: string | null
           nome_carga?: string | null
           nome_produto?: string | null
@@ -143,8 +147,10 @@ export type Database = {
           ordem_entrega?: number | null
           peso?: number | null
           peso_manual?: boolean
+          peso_original?: number | null
           placa?: string | null
           quantidade?: number | null
+          quantidade_original?: number | null
           ruptura?: boolean
           ruptura_sinalizada?: boolean
           status?: string
@@ -168,6 +174,7 @@ export type Database = {
           horario_inicio?: string | null
           horario_previsto?: string | null
           id?: string
+          motivo_ruptura?: string | null
           motorista?: string | null
           nome_carga?: string | null
           nome_produto?: string | null
@@ -176,8 +183,10 @@ export type Database = {
           ordem_entrega?: number | null
           peso?: number | null
           peso_manual?: boolean
+          peso_original?: number | null
           placa?: string | null
           quantidade?: number | null
+          quantidade_original?: number | null
           ruptura?: boolean
           ruptura_sinalizada?: boolean
           status?: string
