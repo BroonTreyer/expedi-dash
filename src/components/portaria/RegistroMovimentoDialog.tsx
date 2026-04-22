@@ -153,7 +153,23 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   }, [tipo]);
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, effectiveTipo), [categoria, effectiveTipo]);
-  const canSave = useMemo(() => validateForm(categoria, values, effectiveTipo), [categoria, values, effectiveTipo]);
+  // Fields skipped during regularization (no photos available + KM Inicial pode entrar manual)
+  const REGULARIZAR_SKIP = ["foto_painel_url", "foto_lacre_url", "foto_placa_url"];
+  const canSave = useMemo(() => {
+    if (regularizar) {
+      // Validate everything except skipped fields, AND require motivo
+      if (!motivoRegularizacao.trim() || motivoRegularizacao.trim().length < 5) return false;
+      const valuesForCheck = { ...values };
+      REGULARIZAR_SKIP.forEach((k) => { valuesForCheck[k] = valuesForCheck[k] || "__skip__"; });
+      return validateForm(categoria, valuesForCheck, effectiveTipo);
+    }
+    return validateForm(categoria, values, effectiveTipo);
+  }, [categoria, values, effectiveTipo, regularizar, motivoRegularizacao]);
+
+  // Show regularizar checkbox only on carga_propria stages where photos block the flow
+  const showRegularizarOption = canRegularizar && categoria === "carga_propria" && (
+    prefillEtapa === "saida_rota" || prefillEtapa === "retorno" || prefillEtapa === "lacre"
+  );
 
   const handleSelectCategoria = (cat: Categoria) => {
     setCategoria(cat);
