@@ -163,6 +163,8 @@ export default function Consolidado() {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
+  const [romaneioData, setRomaneioData] = useState<CargaPrintData | null>(null);
+  const [romaneioOpen, setRomaneioOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<CargaGroup | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable();
   const isMobile = useIsMobile();
