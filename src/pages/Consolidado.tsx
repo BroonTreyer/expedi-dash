@@ -25,6 +25,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
+import { pesoEfetivo } from "@/lib/peso-utils";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -95,7 +96,10 @@ interface CargaGroup {
   motorista: string | null;
   tipoCaminhao: string | null;
   tipoFrete: string;
+  /** Peso fisicamente embarcado (desconsidera ruptura). */
   pesoTotal: number;
+  /** Peso planejado original (inclui ruptura). */
+  pesoPlanejado: number;
   qtdPedidos: number;
   rupturaCount: number;
   clientes: Set<string>;
@@ -120,6 +124,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         tipoCaminhao: item.tipo_caminhao,
         tipoFrete: "",
         pesoTotal: 0,
+        pesoPlanejado: 0,
         qtdPedidos: 0,
         rupturaCount: 0,
         clientes: new Set(),
@@ -131,7 +136,8 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
       map.set(item.carga_id, g);
       freteMap.set(item.carga_id, new Set());
     }
-    g.pesoTotal += item.peso ?? 0;
+    g.pesoPlanejado += item.peso ?? 0;
+    g.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
     if (item.ruptura) g.rupturaCount += 1;
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
@@ -372,6 +378,7 @@ export default function Consolidado() {
         tipoFrete: g.tipoFrete,
         status: g.status,
         pesoTotal: g.pesoTotal,
+        pesoPlanejado: g.pesoPlanejado,
         qtdPedidos: g.qtdPedidos,
         qtdClientes: g.clientes.size,
         ufs: [...g.ufs].sort().join(", ") || "—",
