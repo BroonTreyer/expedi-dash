@@ -36,8 +36,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <NotificationBell />
         </header>
         {/* Desktop toggle */}
-        <header className="hidden md:flex items-center justify-between h-10 border-b border-border px-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(c => !c)}>
+        <header className="hidden md:flex items-center justify-between h-9 border-b border-border px-3">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCollapsed(c => !c)}>
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
           <NotificationBell />

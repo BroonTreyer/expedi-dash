@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { useAnalytics, type AnalyticsFilters } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // ── Period options ──
 const PERIOD_OPTIONS = [
@@ -414,6 +415,9 @@ export default function Analytics() {
   const [filterVendedores, setFilterVendedores] = useState<string[]>([]);
   const [filterTipos, setFilterTipos] = useState<string[]>([]);
   const [filterUfs, setFilterUfs] = useState<string[]>([]);
+  const isMobile = useIsMobile();
+  const yAxisCatWidth = isMobile ? 70 : 120;
+  const yAxisCatFontSize = isMobile ? 8 : 9;
 
   const range = useMemo(() => getDateRange(period), [period]);
   const periodDays = useMemo(() => differenceInDays(new Date(range.to), new Date(range.from)), [range]);
@@ -459,13 +463,13 @@ export default function Analytics() {
     <Layout>
       <div className="p-4 sm:p-6 space-y-5">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Analytics</h1>
             <p className="text-xs text-muted-foreground">Painel gerencial de expedição — visão comparativa com período anterior</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1 mr-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button
                 variant={period === "hoje" ? "default" : "outline"}
                 size="sm"
@@ -493,7 +497,7 @@ export default function Analytics() {
               setFilterUfs={setFilterUfs}
             />
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-44 h-8 text-xs min-w-[10rem]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -521,13 +525,15 @@ export default function Analytics() {
 
         {/* Tabs */}
         <Tabs defaultValue="visao" className="space-y-4">
-          <TabsList className="bg-muted/40 border border-border/30">
-            <TabsTrigger value="visao" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><Eye className="h-3.5 w-3.5" /> Visão Geral</TabsTrigger>
-            <TabsTrigger value="expedicao" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><Truck className="h-3.5 w-3.5" /> Expedição</TabsTrigger>
-            <TabsTrigger value="vendedores" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><Users className="h-3.5 w-3.5" /> Vendedores</TabsTrigger>
-            <TabsTrigger value="rupturas" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><AlertTriangle className="h-3.5 w-3.5" /> Rupturas</TabsTrigger>
-            <TabsTrigger value="geografia" className="gap-1.5 text-xs data-[state=active]:shadow-sm"><MapPin className="h-3.5 w-3.5" /> Geografia</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="bg-muted/40 border border-border/30 inline-flex w-max sm:w-auto">
+              <TabsTrigger value="visao" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Visão Geral</span><span className="sm:hidden">Visão</span></TabsTrigger>
+              <TabsTrigger value="expedicao" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><Truck className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Expedição</span><span className="sm:hidden">Exped.</span></TabsTrigger>
+              <TabsTrigger value="vendedores" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><Users className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Vendedores</span><span className="sm:hidden">Vend.</span></TabsTrigger>
+              <TabsTrigger value="rupturas" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><AlertTriangle className="h-3.5 w-3.5" /> Rupturas</TabsTrigger>
+              <TabsTrigger value="geografia" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><MapPin className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Geografia</span><span className="sm:hidden">Geo.</span></TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ═══════ TAB: VISÃO GERAL ═══════ */}
           <TabsContent value="visao">
@@ -671,7 +677,7 @@ export default function Analytics() {
                         <BarChart data={a?.vendedorRanking?.slice(0, 10) ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                           <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
-                          <YAxis type="category" dataKey="nome" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={100} />
+                          <YAxis type="category" dataKey="nome" tick={{ ...AXIS_STYLE, fontSize: yAxisCatFontSize }} width={isMobile ? 70 : 100} />
                           <Tooltip content={<RichTooltip formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
                           <Bar dataKey="peso" name="Peso" fill={NAVY} radius={[0, 5, 5, 0]} animationDuration={800} />
                         </BarChart>
@@ -729,53 +735,53 @@ export default function Analytics() {
               return (
               <div className="space-y-4">
                 {/* Ruptura KPIs */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
                   <Card className="border-border/40">
-                    <CardContent className="p-4">
+                    <CardContent className="p-3 sm:p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="p-1.5 rounded-lg bg-amber-500/10"><Weight className="h-3.5 w-3.5 text-amber-600" /></div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Não Carregado</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Não Carregado</span>
                       </div>
-                      <p className="text-2xl font-bold text-amber-700 tabular-nums">{fmtTon(a?.rupturaKpis?.totalPesoNaoCarregado ?? 0)}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{(a?.rupturaKpis?.totalPesoNaoCarregado ?? 0).toLocaleString("pt-BR")} kg</p>
+                      <p className="text-xl sm:text-2xl font-bold text-amber-700 tabular-nums tracking-tight truncate">{fmtTon(a?.rupturaKpis?.totalPesoNaoCarregado ?? 0)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{(a?.rupturaKpis?.totalPesoNaoCarregado ?? 0).toLocaleString("pt-BR")} kg</p>
                     </CardContent>
                   </Card>
                   <Card className="border-border/40">
-                    <CardContent className="p-4">
+                    <CardContent className="p-3 sm:p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="p-1.5 rounded-lg bg-amber-500/10"><Minus className="h-3.5 w-3.5 text-amber-600" /></div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Rupturas Parciais</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Rupturas Parciais</span>
                       </div>
-                      <p className="text-2xl font-bold text-amber-700 tabular-nums">{a?.rupturaKpis?.totalRupturasParciais ?? 0}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-amber-700 tabular-nums tracking-tight">{a?.rupturaKpis?.totalRupturasParciais ?? 0}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">{a?.rupturaKpis?.totalRupturasTotais ?? 0} totais</p>
                     </CardContent>
                   </Card>
                   <Card className="border-border/40">
-                    <CardContent className="p-4">
+                    <CardContent className="p-3 sm:p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="p-1.5 rounded-lg bg-orange-500/10"><AlertTriangle className="h-3.5 w-3.5 text-orange-500" /></div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Rupturas Abertas</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Rupturas Abertas</span>
                       </div>
-                      <p className="text-2xl font-bold text-orange-600 tabular-nums">{a?.rupturaKpis?.sinalizadasAbertas ?? 0}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-orange-600 tabular-nums tracking-tight">{a?.rupturaKpis?.sinalizadasAbertas ?? 0}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">{a?.rupturaKpis?.sinalizadasResolvidas ?? 0} já resolvidas</p>
                     </CardContent>
                   </Card>
                   <Card className="border-border/40">
-                    <CardContent className="p-4">
+                    <CardContent className="p-3 sm:p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="p-1.5 rounded-lg bg-emerald-500/10"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /></div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Dias sem Ruptura</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Dias sem Ruptura</span>
                       </div>
-                      <p className="text-2xl font-bold text-emerald-600 tabular-nums">{a?.rupturaKpis?.diasSemRuptura ?? 0}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-emerald-600 tabular-nums tracking-tight">{a?.rupturaKpis?.diasSemRuptura ?? 0}</p>
                     </CardContent>
                   </Card>
                   <Card className="border-border/40">
-                    <CardContent className="p-4">
+                    <CardContent className="p-3 sm:p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="p-1.5 rounded-lg bg-red-500/10"><AlertTriangle className="h-3.5 w-3.5 text-red-500" /></div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Pior Dia</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Pior Dia</span>
                       </div>
-                      <p className="text-2xl font-bold text-red-500 tabular-nums">
+                      <p className="text-xl sm:text-2xl font-bold text-red-500 tabular-nums tracking-tight">
                         {a?.rupturaKpis?.piorDia ? `${a.rupturaKpis.piorDia.taxa}%` : "—"}
                       </p>
                       {a?.rupturaKpis?.piorDia && (
@@ -784,12 +790,12 @@ export default function Analytics() {
                     </CardContent>
                   </Card>
                   <Card className="border-border/40">
-                    <CardContent className="p-4">
+                    <CardContent className="p-3 sm:p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="p-1.5 rounded-lg bg-amber-500/10"><Calendar className="h-3.5 w-3.5 text-amber-500" /></div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Média Semanal</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Média Semanal</span>
                       </div>
-                      <p className="text-2xl font-bold tabular-nums">{a?.rupturaKpis?.mediaSemanal ?? 0}</p>
+                      <p className="text-xl sm:text-2xl font-bold tabular-nums tracking-tight">{a?.rupturaKpis?.mediaSemanal ?? 0}</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -843,7 +849,7 @@ export default function Analytics() {
                           <BarChart data={a?.produtoRupturas ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                             <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
-                            <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
+                            <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: yAxisCatFontSize }} width={yAxisCatWidth} />
                             <Tooltip
                               content={({ active, payload, label }: any) => {
                                 if (!active || !payload?.length) return null;
@@ -891,7 +897,8 @@ export default function Analytics() {
                     {(a?.clienteRupturas?.length ?? 0) === 0 ? (
                       <EmptyState message="Nenhum cliente afetado" />
                     ) : (
-                      <Table>
+                      <div className="overflow-x-auto">
+                      <Table className="min-w-[460px]">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="text-xs">Cliente</TableHead>
@@ -905,7 +912,7 @@ export default function Analytics() {
                             <TableRow key={c.codigo + c.nome} className="hover:bg-muted/30">
                               <TableCell className="py-2.5">
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-xs truncate max-w-[180px]">{c.nome}</span>
+                                  <span className="font-medium text-xs truncate max-w-[140px] sm:max-w-[180px]">{c.nome}</span>
                                   {c.codigo !== "S/CÓD" && <span className="text-[10px] text-muted-foreground tabular-nums">#{c.codigo}</span>}
                                 </div>
                               </TableCell>
@@ -913,13 +920,14 @@ export default function Analytics() {
                               <TableCell className="text-right tabular-nums text-xs font-bold text-amber-700 py-2.5">
                                 {Math.round(c.pesoNaoCarregado).toLocaleString("pt-BR")} kg
                               </TableCell>
-                              <TableCell className="py-2.5">
-                                <span className="text-[10px] text-muted-foreground line-clamp-2">{c.produtos.slice(0, 3).join(", ")}{c.produtos.length > 3 ? ` +${c.produtos.length - 3}` : ""}</span>
+                              <TableCell className="py-2.5 max-w-[180px]">
+                                <span className="text-[10px] text-muted-foreground line-clamp-2 break-words">{c.produtos.slice(0, 3).join(", ")}{c.produtos.length > 3 ? ` +${c.produtos.length - 3}` : ""}</span>
                               </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
+                      </div>
                     )}
                   </ChartCard>
 
@@ -938,7 +946,8 @@ export default function Analytics() {
                     {(a?.cargasComPendencia?.length ?? 0) === 0 ? (
                       <EmptyState message="Nenhuma carga com pendência" />
                     ) : (
-                      <Table>
+                      <div className="overflow-x-auto">
+                      <Table className="min-w-[460px]">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="text-xs">Carga</TableHead>
@@ -952,8 +961,8 @@ export default function Analytics() {
                             <TableRow key={c.cargaId} className="hover:bg-muted/30">
                               <TableCell className="py-2.5">
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-xs truncate max-w-[180px]">{c.nomeCarga}</span>
-                                  {c.motoristas.length > 0 && <span className="text-[10px] text-muted-foreground truncate max-w-[180px]">{c.motoristas.join(", ")}</span>}
+                                  <span className="font-medium text-xs truncate max-w-[140px] sm:max-w-[180px]">{c.nomeCarga}</span>
+                                  {c.motoristas.length > 0 && <span className="text-[10px] text-muted-foreground truncate max-w-[140px] sm:max-w-[180px]">{c.motoristas.join(", ")}</span>}
                                 </div>
                               </TableCell>
                               <TableCell className="text-right tabular-nums text-xs py-2.5">{c.ocorrencias}</TableCell>
@@ -972,6 +981,7 @@ export default function Analytics() {
                           ))}
                         </TableBody>
                       </Table>
+                      </div>
                     )}
                   </ChartCard>
                 </div>
