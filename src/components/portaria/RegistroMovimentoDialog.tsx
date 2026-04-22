@@ -144,6 +144,8 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setOcrLacreLoading(false);
     setTextoLacreLido(null);
     setConfiancaLacre(null);
+    setRegularizar(false);
+    setMotivoRegularizacao("");
   }, [open, prefill, prefillEtapa, prefillFromPlanilha, forcedCategoria]);
 
   const effectiveTipo = useMemo(() => {
