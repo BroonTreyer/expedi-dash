@@ -2,7 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
 import { useSession } from "@/hooks/useAuth";
-import { format, subDays, differenceInDays, getDay, getISOWeek } from "date-fns";
+import { format, subDays, differenceInDays } from "date-fns";
+
+// Status que contam como expedição válida (Peso Total / Carregado).
+// "Pendente / Problema", "Cancelado", etc NÃO somam — não é peso real expedido.
+const VALID_STATUS = new Set([
+  "Aguardando",
+  "Pronto para carregar",
+  "Carregando",
+  "Carregado",
+]);
+const LOADED_STATUS = "Carregado";
+const ROW_LIMIT = 20000;
 
 export interface AnalyticsFilters {
   dateFrom: string;
@@ -64,26 +75,17 @@ export interface ProdutoRuptura {
   peso: number;
 }
 
-export interface HeatmapCell {
-  week: number;
-  dayOfWeek: number;
-  date: string;
-  taxa: number;
-  rupturas: number;
-  total: number;
-}
-
 export interface KpiComparison {
   totalPeso: number;
   totalPedidos: number;
   totalRupturas: number;
   totalCarregado: number;
   diasUnicos: number;
+  diasPeriodo: number;
   mediaDiaria: number;
   taxaRuptura: number;
   totalPedidosUnicos: number;
   pedidosComRuptura: number;
-  // variations vs previous period
   varPeso: number | null;
   varPedidos: number | null;
   varRupturas: number | null;
@@ -97,36 +99,71 @@ function calcVar(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+// Pedidos únicos (numero_pedido distinto). Linhas sem numero_pedido contam
+// como "pedido avulso" individual para não desaparecerem do total.
+function countUniquePedidos(rows: any[]): number {
+  const ids = new Set<number>();
+  let avulsos = 0;
+  for (const r of rows) {
+    if (r.numero_pedido != null) ids.add(r.numero_pedido);
+    else avulsos += 1;
+  }
+  return ids.size + avulsos;
+}
+
+function uniquePedidosWithRuptura(rows: any[]): number {
+  const ids = new Set<number>();
+  let avulsos = 0;
+  for (const r of rows) {
+    if (!r.ruptura) continue;
+    if (r.numero_pedido != null) ids.add(r.numero_pedido);
+    else avulsos += 1;
+  }
+  return ids.size + avulsos;
+}
+
 export function useAnalytics(filters: AnalyticsFilters) {
   const session = useSession();
-  // Calculate previous period range
+
+  // Período anterior do mesmo tamanho. Sem off-by-one.
+  // Ex.: 1–30/abr (30 dias) compara com 2–31/mar (30 dias).
   const daysDiff = differenceInDays(new Date(filters.dateTo), new Date(filters.dateFrom));
+  const periodDays = daysDiff + 1;
   const prevTo = format(subDays(new Date(filters.dateFrom), 1), "yyyy-MM-dd");
-  const prevFrom = format(subDays(new Date(filters.dateFrom), daysDiff + 1), "yyyy-MM-dd");
+  const prevFrom = format(subDays(new Date(filters.dateFrom), periodDays), "yyyy-MM-dd");
 
   const query = useQuery({
-    queryKey: ["analytics-v3", filters.dateFrom, filters.dateTo],
+    queryKey: ["analytics-v4", filters.dateFrom, filters.dateTo],
     enabled: !!session,
     queryFn: async () => {
-      // Fetch current + previous period in parallel
+      // Mesmas colunas nos dois períodos para que filtros (vendedor/uf/tipo)
+      // afetem o comparativo corretamente.
+      const cols =
+        "data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, vendedores(nome_vendedor)";
       const [currentRes, prevRes] = await Promise.all([
         supabase
           .from("carregamentos_dia")
-          .select("data, peso, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, vendedores(nome_vendedor)")
+          .select(cols)
           .gte("data", filters.dateFrom)
           .lte("data", filters.dateTo)
           .order("data", { ascending: true })
-          .limit(5000),
+          .limit(ROW_LIMIT),
         supabase
           .from("carregamentos_dia")
-          .select("data, peso, status, ruptura, numero_pedido")
+          .select(cols)
           .gte("data", prevFrom)
           .lte("data", prevTo)
-          .limit(5000),
+          .limit(ROW_LIMIT),
       ]);
       if (currentRes.error) throw currentRes.error;
       if (prevRes.error) throw prevRes.error;
-      return { current: currentRes.data as any[], previous: prevRes.data as any[] };
+      return {
+        current: currentRes.data as any[],
+        previous: prevRes.data as any[],
+        truncated:
+          (currentRes.data?.length ?? 0) >= ROW_LIMIT ||
+          (prevRes.data?.length ?? 0) >= ROW_LIMIT,
+      };
     },
     staleTime: 60_000,
   });
@@ -134,34 +171,42 @@ export function useAnalytics(filters: AnalyticsFilters) {
   const analytics = useMemo(() => {
     const raw = query.data?.current ?? [];
     const prevRaw = query.data?.previous ?? [];
+    const truncated = query.data?.truncated ?? false;
 
-    // Apply client-side filters
-    const filtered = raw.filter((r) => {
-      if (filters.vendedores?.length && !filters.vendedores.includes(r.vendedores?.nome_vendedor || "Sem vendedor")) return false;
-      if (filters.tipoCaminhao?.length && !filters.tipoCaminhao.includes(r.tipo_caminhao || "N/I")) return false;
-      if (filters.ufs?.length && !filters.ufs.includes(r.uf || "N/I")) return false;
-      return true;
-    });
+    // Filtros aplicados nos DOIS períodos (atual e anterior).
+    const applyFilters = (rows: any[]) =>
+      rows.filter((r) => {
+        if (filters.vendedores?.length && !filters.vendedores.includes(r.vendedores?.nome_vendedor || "Sem vendedor")) return false;
+        if (filters.tipoCaminhao?.length && !filters.tipoCaminhao.includes(r.tipo_caminhao || "N/I")) return false;
+        if (filters.ufs?.length && !filters.ufs.includes(r.uf || "N/I")) return false;
+        return true;
+      });
+    const filtered = applyFilters(raw);
+    const prevFiltered = applyFilters(prevRaw);
 
-    // === Previous period KPIs (por pedido único) ===
-    const prevPeso = prevRaw.reduce((s, r) => s + (r.peso ?? 0), 0);
-    const prevPedidos = prevRaw.length;
-    const prevPedidosUnicos = new Set(prevRaw.filter((r: any) => r.numero_pedido).map((r: any) => r.numero_pedido)).size;
-    const prevPedidosComRuptura = new Set(prevRaw.filter((r: any) => r.ruptura && r.numero_pedido).map((r: any) => r.numero_pedido)).size;
-    const prevRupturas = prevPedidosComRuptura;
-    const prevCarregado = prevRaw.filter((r) => r.status === "Carregado").reduce((s, r) => s + (r.peso ?? 0), 0);
-    const prevDias = new Set(prevRaw.map((r) => r.data)).size;
-    const prevMedia = prevDias > 0 ? Math.round(prevPeso / prevDias) : 0;
-    const prevTaxaRuptura = prevPedidosUnicos > 0 ? Math.round((prevPedidosComRuptura / prevPedidosUnicos) * 100) : 0;
+    // Subset com status válidos para Peso/Carregado (exclui Pendente/Cancelado)
+    const filteredValid = filtered.filter((r) => VALID_STATUS.has(r.status));
+    const prevValid = prevFiltered.filter((r) => VALID_STATUS.has(r.status));
 
-    // === 1. Peso diário + acumulado ===
+    // === Período anterior — mesma regra ===
+    const prevPeso = prevValid.reduce((s, r) => s + (r.peso ?? 0), 0);
+    const prevPedidosUnicos = countUniquePedidos(prevFiltered);
+    const prevPedidosComRuptura = uniquePedidosWithRuptura(prevFiltered);
+    const prevCarregado = prevValid
+      .filter((r) => r.status === LOADED_STATUS)
+      .reduce((s, r) => s + (r.peso ?? 0), 0);
+    const prevMedia = periodDays > 0 ? Math.round(prevPeso / periodDays) : 0;
+    const prevTaxaRuptura = prevPedidosUnicos > 0
+      ? Math.round((prevPedidosComRuptura / prevPedidosUnicos) * 100)
+      : 0;
+
+    // === 1. Peso diário + acumulado (status válidos apenas) ===
     const dailyMap = new Map<string, { peso: number; carregado: number }>();
-    filtered.forEach((r) => {
-      const d = r.data;
-      const entry = dailyMap.get(d) || { peso: 0, carregado: 0 };
+    filteredValid.forEach((r) => {
+      const entry = dailyMap.get(r.data) || { peso: 0, carregado: 0 };
       entry.peso += r.peso ?? 0;
-      if (r.status === "Carregado") entry.carregado += r.peso ?? 0;
-      dailyMap.set(d, entry);
+      if (r.status === LOADED_STATUS) entry.carregado += r.peso ?? 0;
+      dailyMap.set(r.data, entry);
     });
     let acumulado = 0;
     const dailyWeight: DailyWeight[] = Array.from(dailyMap.entries())
@@ -172,94 +217,133 @@ export function useAnalytics(filters: AnalyticsFilters) {
       });
 
     // === 2. Ranking vendedores ===
-    const totalPesoAll = filtered.reduce((s, r) => s + (r.peso ?? 0), 0);
-    const vendMap = new Map<string, { peso: number; pedidos: number }>();
-    filtered.forEach((r) => {
+    // Pedidos = numero_pedido únicos. % calculada sobre vendedores identificados
+    // (exclui "Sem vendedor" do denominador para não distorcer a participação).
+    const vendAgg = new Map<string, { peso: number; pedidoSet: Set<number>; avulsos: number }>();
+    filteredValid.forEach((r) => {
       const nome = r.vendedores?.nome_vendedor || "Sem vendedor";
-      const entry = vendMap.get(nome) || { peso: 0, pedidos: 0 };
-      entry.peso += r.peso ?? 0;
-      entry.pedidos += 1;
-      vendMap.set(nome, entry);
+      const e = vendAgg.get(nome) || { peso: 0, pedidoSet: new Set<number>(), avulsos: 0 };
+      e.peso += r.peso ?? 0;
+      if (r.numero_pedido != null) e.pedidoSet.add(r.numero_pedido);
+      else e.avulsos += 1;
+      vendAgg.set(nome, e);
     });
-    const vendedorRanking: VendedorRanking[] = Array.from(vendMap.entries())
-      .map(([nome, v]) => ({
-        nome,
-        ...v,
-        participacao: totalPesoAll > 0 ? Math.round((v.peso / totalPesoAll) * 1000) / 10 : 0,
-        mediaPorPedido: v.pedidos > 0 ? Math.round(v.peso / v.pedidos) : 0,
-      }))
+    const pesoVendIdentificados = Array.from(vendAgg.entries())
+      .filter(([n]) => n !== "Sem vendedor")
+      .reduce((s, [, v]) => s + v.peso, 0);
+    const vendedorRanking: VendedorRanking[] = Array.from(vendAgg.entries())
+      .map(([nome, v]) => {
+        const pedidos = v.pedidoSet.size + v.avulsos;
+        return {
+          nome,
+          peso: v.peso,
+          pedidos,
+          participacao:
+            pesoVendIdentificados > 0 && nome !== "Sem vendedor"
+              ? Math.round((v.peso / pesoVendIdentificados) * 1000) / 10
+              : 0,
+          mediaPorPedido: pedidos > 0 ? Math.round(v.peso / pedidos) : 0,
+        };
+      })
       .sort((a, b) => b.peso - a.peso)
       .slice(0, 15);
 
-    // === 3. Distribuição por UF ===
-    const ufMap = new Map<string, { peso: number; pedidos: number }>();
-    filtered.forEach((r) => {
+    // === 3. Distribuição por UF (exclui "N/I" do ranking) ===
+    const ufAgg = new Map<string, { peso: number; pedidoSet: Set<number>; avulsos: number }>();
+    filteredValid.forEach((r) => {
       const uf = r.uf || "N/I";
-      const entry = ufMap.get(uf) || { peso: 0, pedidos: 0 };
-      entry.peso += r.peso ?? 0;
-      entry.pedidos += 1;
-      ufMap.set(uf, entry);
+      const e = ufAgg.get(uf) || { peso: 0, pedidoSet: new Set<number>(), avulsos: 0 };
+      e.peso += r.peso ?? 0;
+      if (r.numero_pedido != null) e.pedidoSet.add(r.numero_pedido);
+      else e.avulsos += 1;
+      ufAgg.set(uf, e);
     });
-    const ufDistribution: UfDistribution[] = Array.from(ufMap.entries())
+    const pesoUfIdentificadas = Array.from(ufAgg.entries())
+      .filter(([uf]) => uf !== "N/I")
+      .reduce((s, [, v]) => s + v.peso, 0);
+    const ufDistribution: UfDistribution[] = Array.from(ufAgg.entries())
+      .filter(([uf]) => uf !== "N/I")
       .map(([uf, v]) => ({
         uf,
-        ...v,
-        participacao: totalPesoAll > 0 ? Math.round((v.peso / totalPesoAll) * 1000) / 10 : 0,
+        peso: v.peso,
+        pedidos: v.pedidoSet.size + v.avulsos,
+        participacao:
+          pesoUfIdentificadas > 0 ? Math.round((v.peso / pesoUfIdentificadas) * 1000) / 10 : 0,
       }))
       .sort((a, b) => b.peso - a.peso);
+    const ufNI = ufAgg.get("N/I");
+    const semUfStats = {
+      peso: ufNI?.peso ?? 0,
+      pedidos: (ufNI?.pedidoSet.size ?? 0) + (ufNI?.avulsos ?? 0),
+    };
 
-    // === 4. Taxa de ruptura diária ===
-    const ruptMap = new Map<string, { total: number; rupturas: number }>();
+    // === 4. Taxa de ruptura diária — por pedido único do dia ===
+    type RDay = { pedidoSet: Set<number>; rupturaSet: Set<number>; avulsosT: number; avulsosR: number };
+    const ruptDayAgg = new Map<string, RDay>();
     filtered.forEach((r) => {
-      const d = r.data;
-      const entry = ruptMap.get(d) || { total: 0, rupturas: 0 };
-      entry.total += 1;
-      if (r.ruptura) entry.rupturas += 1;
-      ruptMap.set(d, entry);
+      const e: RDay = ruptDayAgg.get(r.data) || {
+        pedidoSet: new Set<number>(),
+        rupturaSet: new Set<number>(),
+        avulsosT: 0,
+        avulsosR: 0,
+      };
+      if (r.numero_pedido != null) {
+        e.pedidoSet.add(r.numero_pedido);
+        if (r.ruptura) e.rupturaSet.add(r.numero_pedido);
+      } else {
+        e.avulsosT += 1;
+        if (r.ruptura) e.avulsosR += 1;
+      }
+      ruptDayAgg.set(r.data, e);
     });
-    const rupturaDaily: RupturaDaily[] = Array.from(ruptMap.entries())
-      .map(([date, v]) => ({
-        date,
-        ...v,
-        taxa: v.total > 0 ? Math.round((v.rupturas / v.total) * 100) : 0,
-      }))
+    const rupturaDaily: RupturaDaily[] = Array.from(ruptDayAgg.entries())
+      .map(([date, v]) => {
+        const total = v.pedidoSet.size + v.avulsosT;
+        const rupturas = v.rupturaSet.size + v.avulsosR;
+        return {
+          date,
+          total,
+          rupturas,
+          taxa: total > 0 ? Math.round((rupturas / total) * 100) : 0,
+        };
+      })
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // === 5. Status breakdown ===
+    // === 5. Status breakdown (todos os status — visão completa) ===
     const statusMap = new Map<string, { count: number; peso: number }>();
     filtered.forEach((r) => {
       const s = r.status || "Aguardando";
-      const entry = statusMap.get(s) || { count: 0, peso: 0 };
-      entry.count += 1;
-      entry.peso += r.peso ?? 0;
-      statusMap.set(s, entry);
+      const e = statusMap.get(s) || { count: 0, peso: 0 };
+      e.count += 1;
+      e.peso += r.peso ?? 0;
+      statusMap.set(s, e);
     });
     const statusBreakdown: StatusBreakdown[] = Array.from(statusMap.entries())
       .map(([status, v]) => ({ status, ...v }))
       .sort((a, b) => b.count - a.count);
 
-    // === 6. Tipo caminhão breakdown ===
-    const tipoMap = new Map<string, { peso: number; pedidos: number }>();
-    filtered.forEach((r) => {
+    // === 6. Tipo caminhão breakdown (status válidos, pedidos únicos) ===
+    const tipoAgg = new Map<string, { peso: number; pedidoSet: Set<number>; avulsos: number }>();
+    filteredValid.forEach((r) => {
       const tipo = r.tipo_caminhao || "N/I";
-      const entry = tipoMap.get(tipo) || { peso: 0, pedidos: 0 };
-      entry.peso += r.peso ?? 0;
-      entry.pedidos += 1;
-      tipoMap.set(tipo, entry);
+      const e = tipoAgg.get(tipo) || { peso: 0, pedidoSet: new Set<number>(), avulsos: 0 };
+      e.peso += r.peso ?? 0;
+      if (r.numero_pedido != null) e.pedidoSet.add(r.numero_pedido);
+      else e.avulsos += 1;
+      tipoAgg.set(tipo, e);
     });
-    const tipoCaminhaoBreakdown: TipoCaminhaoBreakdown[] = Array.from(tipoMap.entries())
-      .map(([tipo, v]) => ({ tipo, ...v }))
+    const tipoCaminhaoBreakdown: TipoCaminhaoBreakdown[] = Array.from(tipoAgg.entries())
+      .map(([tipo, v]) => ({ tipo, peso: v.peso, pedidos: v.pedidoSet.size + v.avulsos }))
       .sort((a, b) => b.peso - a.peso);
 
-    // === 7. Daily by tipo caminhao (stacked) ===
+    // === 7. Daily por tipo caminhão (stacked) ===
     const dailyTipoMap = new Map<string, Record<string, number>>();
     const allTipos = new Set<string>();
-    filtered.forEach((r) => {
-      const d = r.data;
+    filteredValid.forEach((r) => {
       const tipo = r.tipo_caminhao || "N/I";
       allTipos.add(tipo);
-      if (!dailyTipoMap.has(d)) dailyTipoMap.set(d, {});
-      const entry = dailyTipoMap.get(d)!;
+      if (!dailyTipoMap.has(r.data)) dailyTipoMap.set(r.data, {});
+      const entry = dailyTipoMap.get(r.data)!;
       entry[tipo] = (entry[tipo] || 0) + (r.peso ?? 0);
     });
     const dailyByTipo: DailyByTipo[] = Array.from(dailyTipoMap.entries())
@@ -267,51 +351,49 @@ export function useAnalytics(filters: AnalyticsFilters) {
       .map(([date, tipos]) => ({ date, ...tipos }));
     const tipoKeys = Array.from(allTipos);
 
-    // === 8. Produto rupturas ranking ===
+    // === 8. Produto rupturas (independe de status) ===
     const prodRuptMap = new Map<string, { count: number; peso: number }>();
     filtered.filter((r) => r.ruptura).forEach((r) => {
       const prod = r.nome_produto || "N/I";
-      const entry = prodRuptMap.get(prod) || { count: 0, peso: 0 };
-      entry.count += 1;
-      entry.peso += r.peso ?? 0;
-      prodRuptMap.set(prod, entry);
+      const e = prodRuptMap.get(prod) || { count: 0, peso: 0 };
+      e.count += 1;
+      e.peso += r.peso ?? 0;
+      prodRuptMap.set(prod, e);
     });
     const produtoRupturas: ProdutoRuptura[] = Array.from(prodRuptMap.entries())
       .map(([produto, v]) => ({ produto, rupturas: v.count, peso: v.peso }))
       .sort((a, b) => b.rupturas - a.rupturas)
       .slice(0, 10);
 
-    // === 9. Heatmap semanal de rupturas ===
-    const heatmap: HeatmapCell[] = [];
-    ruptMap.forEach((v, dateStr) => {
-      const d = new Date(dateStr + "T12:00:00");
-      heatmap.push({
-        week: getISOWeek(d),
-        dayOfWeek: getDay(d),
-        date: dateStr,
-        taxa: v.total > 0 ? Math.round((v.rupturas / v.total) * 100) : 0,
-        rupturas: v.rupturas,
-        total: v.total,
-      });
-    });
-
-    // === 10. KPIs with comparison ===
-    const totalPeso = filtered.reduce((s, r) => s + (r.peso ?? 0), 0);
-    const totalPedidos = filtered.length;
-    const totalRupturas = filtered.filter((r) => r.ruptura).length;
-    const totalSinalizadas = filtered.filter((r) => r.ruptura_sinalizada).length;
-    const totalCarregado = filtered.filter((r) => r.status === "Carregado").reduce((s, r) => s + (r.peso ?? 0), 0);
+    // === 9. KPIs (com comparativo correto) ===
+    const totalPeso = filteredValid.reduce((s, r) => s + (r.peso ?? 0), 0);
+    const totalCarregado = filteredValid
+      .filter((r) => r.status === LOADED_STATUS)
+      .reduce((s, r) => s + (r.peso ?? 0), 0);
     const diasUnicos = new Set(filtered.map((r) => r.data)).size;
-    const mediaDiaria = diasUnicos > 0 ? Math.round(totalPeso / diasUnicos) : 0;
-    // Ruptura por pedido único
-    const totalPedidosUnicos = new Set(filtered.filter(r => r.numero_pedido).map(r => r.numero_pedido)).size;
-    const pedidosComRuptura = new Set(filtered.filter(r => r.ruptura && r.numero_pedido).map(r => r.numero_pedido)).size;
-    const taxaRuptura = totalPedidosUnicos > 0 ? Math.round((pedidosComRuptura / totalPedidosUnicos) * 100) : 0;
+    const mediaDiaria = periodDays > 0 ? Math.round(totalPeso / periodDays) : 0;
 
-    // Ruptura-specific KPIs
+    const totalPedidosUnicos = countUniquePedidos(filtered);
+    const pedidosComRuptura = uniquePedidosWithRuptura(filtered);
+    const totalPedidos = totalPedidosUnicos;
+    const totalRupturas = pedidosComRuptura;
+    const taxaRuptura = totalPedidosUnicos > 0
+      ? Math.round((pedidosComRuptura / totalPedidosUnicos) * 100)
+      : 0;
+
+    // Sinalizadas: separar abertas vs resolvidas
+    const sinalizadasAbertas = filtered.filter((r) => r.ruptura_sinalizada && r.ruptura).length;
+    const sinalizadasResolvidas = filtered.filter((r) => r.ruptura_sinalizada && !r.ruptura).length;
+    const totalSinalizadas = sinalizadasAbertas + sinalizadasResolvidas;
+
+    // Pior Dia: exige volume mínimo para evitar 1/1 = 100%
+    const MIN_PEDIDOS_PIOR_DIA = 10;
+    const piorDia = rupturaDaily
+      .filter((d) => d.total >= MIN_PEDIDOS_PIOR_DIA)
+      .reduce((best, d) => (d.taxa > (best?.taxa ?? -1) ? d : best), null as RupturaDaily | null);
     const diasSemRuptura = rupturaDaily.filter((d) => d.rupturas === 0).length;
-    const piorDia = rupturaDaily.reduce((best, d) => (d.taxa > (best?.taxa ?? 0) ? d : best), null as RupturaDaily | null);
-    const mediaSemanal = rupturaDaily.length > 0 ? Math.round(totalRupturas / Math.max(1, Math.ceil(rupturaDaily.length / 7))) : 0;
+    const semanasPeriodo = Math.max(1, Math.ceil(periodDays / 7));
+    const mediaSemanal = Math.round(totalRupturas / semanasPeriodo);
 
     const kpis: KpiComparison = {
       totalPeso,
@@ -319,19 +401,20 @@ export function useAnalytics(filters: AnalyticsFilters) {
       totalRupturas,
       totalCarregado,
       diasUnicos,
+      diasPeriodo: periodDays,
       mediaDiaria,
       taxaRuptura,
       totalPedidosUnicos,
       pedidosComRuptura,
       varPeso: calcVar(totalPeso, prevPeso),
-      varPedidos: calcVar(totalPedidos, prevPedidos),
-      varRupturas: calcVar(totalRupturas, prevRupturas),
+      varPedidos: calcVar(totalPedidos, prevPedidosUnicos),
+      varRupturas: calcVar(totalRupturas, prevPedidosComRuptura),
       varCarregado: calcVar(totalCarregado, prevCarregado),
       varMediaDiaria: calcVar(mediaDiaria, prevMedia),
       varTaxaRuptura: calcVar(taxaRuptura, prevTaxaRuptura),
     };
 
-    // Unique values for filters
+    // Opções para filtros (todos os valores presentes — sem filtrar)
     const uniqueVendedores = Array.from(new Set(raw.map((r) => r.vendedores?.nome_vendedor || "Sem vendedor"))).sort();
     const uniqueTipos = Array.from(new Set(raw.map((r) => r.tipo_caminhao || "N/I"))).sort();
     const uniqueUfs = Array.from(new Set(raw.map((r) => r.uf || "N/I"))).sort();
@@ -340,18 +423,26 @@ export function useAnalytics(filters: AnalyticsFilters) {
       dailyWeight,
       vendedorRanking,
       ufDistribution,
+      semUfStats,
       rupturaDaily,
       statusBreakdown,
       tipoCaminhaoBreakdown,
       dailyByTipo,
       tipoKeys,
       produtoRupturas,
-      heatmap,
       kpis,
-      rupturaKpis: { diasSemRuptura, piorDia, mediaSemanal, totalSinalizadas },
+      rupturaKpis: {
+        diasSemRuptura,
+        piorDia,
+        mediaSemanal,
+        totalSinalizadas,
+        sinalizadasAbertas,
+        sinalizadasResolvidas,
+      },
       filterOptions: { uniqueVendedores, uniqueTipos, uniqueUfs },
+      truncated,
     };
-  }, [query.data, filters.vendedores, filters.tipoCaminhao, filters.ufs]);
+  }, [query.data, filters.vendedores, filters.tipoCaminhao, filters.ufs, periodDays]);
 
   return { ...query, analytics };
 }
