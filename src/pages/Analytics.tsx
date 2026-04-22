@@ -946,7 +946,8 @@ export default function Analytics() {
                     {(a?.cargasComPendencia?.length ?? 0) === 0 ? (
                       <EmptyState message="Nenhuma carga com pendência" />
                     ) : (
-                      <Table>
+                      <div className="overflow-x-auto">
+                      <Table className="min-w-[460px]">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="text-xs">Carga</TableHead>
@@ -960,8 +961,8 @@ export default function Analytics() {
                             <TableRow key={c.cargaId} className="hover:bg-muted/30">
                               <TableCell className="py-2.5">
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-xs truncate max-w-[180px]">{c.nomeCarga}</span>
-                                  {c.motoristas.length > 0 && <span className="text-[10px] text-muted-foreground truncate max-w-[180px]">{c.motoristas.join(", ")}</span>}
+                                  <span className="font-medium text-xs truncate max-w-[140px] sm:max-w-[180px]">{c.nomeCarga}</span>
+                                  {c.motoristas.length > 0 && <span className="text-[10px] text-muted-foreground truncate max-w-[140px] sm:max-w-[180px]">{c.motoristas.join(", ")}</span>}
                                 </div>
                               </TableCell>
                               <TableCell className="text-right tabular-nums text-xs py-2.5">{c.ocorrencias}</TableCell>
@@ -980,6 +981,7 @@ export default function Analytics() {
                           ))}
                         </TableBody>
                       </Table>
+                      </div>
                     )}
                   </ChartCard>
                 </div>
