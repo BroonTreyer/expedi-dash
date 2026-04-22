@@ -428,7 +428,7 @@ export default function Analytics() {
 
   const kpis = a?.kpis ?? {
     totalPeso: 0, totalPedidos: 0, totalRupturas: 0, totalCarregado: 0,
-    diasUnicos: 0, mediaDiaria: 0, taxaRuptura: 0,
+    diasUnicos: 0, diasPeriodo: 0, mediaDiaria: 0, taxaRuptura: 0,
     totalPedidosUnicos: 0, pedidosComRuptura: 0,
     varPeso: null, varPedidos: null, varRupturas: null,
     varCarregado: null, varMediaDiaria: null, varTaxaRuptura: null,
@@ -489,6 +489,13 @@ export default function Analytics() {
             <KpiCard key={c.label} {...c} loading={isLoading} />
           ))}
         </div>
+
+        {a?.truncated && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>Resultado limitado a 20.000 registros — refine o período para garantir números completos.</span>
+          </div>
+        )}
 
         {/* Tabs */}
         <Tabs defaultValue="visao" className="space-y-4">
@@ -700,10 +707,10 @@ export default function Analytics() {
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="p-1.5 rounded-lg bg-orange-500/10"><AlertTriangle className="h-3.5 w-3.5 text-orange-500" /></div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total Sinalizadas</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Rupturas Abertas</span>
                       </div>
-                      <p className="text-2xl font-bold text-orange-600 tabular-nums">{a?.rupturaKpis?.totalSinalizadas ?? 0}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Inclui resolvidas</p>
+                      <p className="text-2xl font-bold text-orange-600 tabular-nums">{a?.rupturaKpis?.sinalizadasAbertas ?? 0}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{a?.rupturaKpis?.sinalizadasResolvidas ?? 0} já resolvidas</p>
                     </CardContent>
                   </Card>
                   <Card className="border-border/40">
@@ -902,81 +909,4 @@ export default function Analytics() {
   );
 }
 
-// ── Heatmap Grid Component ──
-function HeatmapGrid({ data }: { data: { week: number; dayOfWeek: number; date: string; taxa: number; rupturas: number; total: number }[] }) {
-  const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-  const [hoveredCell, setHoveredCell] = useState<{ week: number; day: number } | null>(null);
-
-  if (data.length === 0) return <EmptyState message="Sem dados de ruptura para heatmap" />;
-
-  const weeks = Array.from(new Set(data.map((d) => d.week))).sort((a, b) => a - b);
-  const maxTaxa = Math.max(...data.map((d) => d.taxa), 1);
-
-  const getCell = (week: number, day: number) => data.find((d) => d.week === week && d.dayOfWeek === day);
-
-  function heatColor(intensity: number): string {
-    if (intensity === 0) return "hsl(var(--muted)/0.15)";
-    if (intensity < 0.33) return `hsl(152, ${30 + intensity * 50}%, ${90 - intensity * 25}%)`;
-    if (intensity < 0.66) return `hsl(${38 - (intensity - 0.33) * 70}, 70%, ${80 - intensity * 20}%)`;
-    return `hsl(${358}, ${40 + intensity * 36}%, ${80 - intensity * 35}%)`;
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto">
-        <TooltipProvider delayDuration={100}>
-          <div className="inline-grid gap-1" style={{ gridTemplateColumns: `40px repeat(${weeks.length}, 32px)` }}>
-            <div />
-            {weeks.map((w) => (
-              <div key={w} className="text-[9px] text-center text-muted-foreground font-medium">S{w}</div>
-            ))}
-            {dayLabels.map((label, dayIdx) => (
-              <div key={`row-${dayIdx}`} className="contents">
-                <div className="text-[10px] text-muted-foreground flex items-center font-medium">{label}</div>
-                {weeks.map((w) => {
-                  const cell = getCell(w, dayIdx);
-                  const intensity = cell ? cell.taxa / maxTaxa : 0;
-                  const isHovered = hoveredCell?.week === w && hoveredCell?.day === dayIdx;
-                  return (
-                    <UITooltip key={`${w}-${dayIdx}`}>
-                      <TooltipTrigger asChild>
-                        <div
-                          className={cn(
-                            "w-7 h-7 rounded flex items-center justify-center text-[9px] font-semibold cursor-default transition-all duration-150",
-                            isHovered && "ring-2 ring-foreground/20 scale-110 z-10"
-                          )}
-                          style={{
-                            backgroundColor: heatColor(intensity),
-                            color: intensity > 0.5 ? "hsl(358, 60%, 25%)" : intensity > 0 ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
-                          }}
-                          onMouseEnter={() => setHoveredCell({ week: w, day: dayIdx })}
-                          onMouseLeave={() => setHoveredCell(null)}
-                        >
-                          {cell?.rupturas || ""}
-                        </div>
-                      </TooltipTrigger>
-                      {cell && (
-                        <TooltipContent side="top" className="text-xs">
-                          <p className="font-semibold">{fmtDate(cell.date)}</p>
-                          <p>{cell.rupturas} rupturas de {cell.total} pedidos</p>
-                          <p className="font-bold text-primary">Taxa: {cell.taxa}%</p>
-                        </TooltipContent>
-                      )}
-                    </UITooltip>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </TooltipProvider>
-      </div>
-      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        <span>Menos</span>
-        {[0, 0.2, 0.4, 0.6, 0.8, 1].map((i) => (
-          <div key={i} className="w-4 h-4 rounded-sm" style={{ backgroundColor: heatColor(i) }} />
-        ))}
-        <span>Mais</span>
-      </div>
-    </div>
-  );
-}
+// (HeatmapGrid removido — funcionalidade duplicava o gráfico de Taxa Diária)
