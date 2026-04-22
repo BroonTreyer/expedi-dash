@@ -770,6 +770,7 @@ export default function Consolidado() {
         )}
       </div>
       <ConsolidadoPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
+      <CargaPrintDialog open={romaneioOpen} onOpenChange={setRomaneioOpen} data={romaneioData} />
       <EditarCargaDialog
         open={!!editGroup}
         onOpenChange={(o) => !o && setEditGroup(null)}
