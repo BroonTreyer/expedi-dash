@@ -196,7 +196,52 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
 
             {/* Horários */}
             <div className="rounded-md bg-muted/50 p-2.5 text-sm space-y-1">
-              {m.categoria === "terceirizado" ? (
+              {isCargaPropria ? (
+                (() => {
+                  const fmtDate = (d: string) => format(new Date(d), "dd/MM/yyyy HH:mm", { locale: ptBR });
+                  const fmtDur = (mins: number) => { const h = Math.floor(mins / 60); const min = mins % 60; return h > 0 ? `${h}h ${min}min` : `${min}min`; };
+                  const chegada = m.horario_chegada || m.data_hora;
+                  const saidaRota = m.horario_real_saida;
+                  const retorno = m.horario_real_retorno;
+                  const saidaFinal = (m as any).horario_saida_final as string | null;
+                  return (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-orange-500">🟠</span>
+                        <span className="text-muted-foreground">Chegada:</span>
+                        <strong>{fmtDate(chegada)}</strong>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ArrowUpFromLine className="h-3.5 w-3.5 text-blue-500" />
+                        <span className="text-muted-foreground">Saída p/ Rota:</span>
+                        <strong>{saidaRota ? fmtDate(saidaRota) : "—"}</strong>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ArrowDownToLine className="h-3.5 w-3.5 text-yellow-600" />
+                        <span className="text-muted-foreground">Retorno:</span>
+                        <strong>{retorno ? fmtDate(retorno) : "—"}</strong>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>🔒</span>
+                        <span className="text-muted-foreground">Saída Final (Lacre):</span>
+                        <strong>{saidaFinal ? fmtDate(saidaFinal) : "—"}</strong>
+                      </div>
+                      {saidaRota && retorno && (
+                        <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                          <span className="text-muted-foreground">⏱ Tempo em Rota:</span>
+                          <strong>{fmtDur(differenceInMinutes(new Date(retorno), new Date(saidaRota)))}</strong>
+                        </div>
+                      )}
+                      {retorno && saidaFinal && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">⏱ Pátio (Retorno → Lacre):</span>
+                          <strong>{fmtDur(differenceInMinutes(new Date(saidaFinal), new Date(retorno)))}</strong>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
+              ) : m.categoria === "terceirizado" ? (
                 (() => {
                   const chegada = m.horario_chegada || m.data_hora;
                   const entrada = m.horario_entrada;
