@@ -248,9 +248,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <span className="text-muted-foreground">Horário: </span>
                     <span className="font-medium">{format(new Date(m.data_hora), dateFromStr !== dateToStr ? "dd/MM HH:mm" : "HH:mm", { locale: ptBR })}</span>
                   </div>
-                  <div className={getTempoClass(minutos)}>
-                    {minutos >= 480 && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
-                    {formatTempo(minutos)}
+                  <div className={emRota ? "text-muted-foreground" : getTempoClass(minutos)}>
+                    {!emRota && minutos >= 480 && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
+                    {emRota ? `em rota há ${formatTempo(minutos)}` : formatTempo(minutos)}
                   </div>
                   {m.motorista && (
                     <div className="col-span-2 truncate">
