@@ -73,18 +73,21 @@ function getInfoExtra(m: MovimentacaoPortaria): string | null {
 }
 
 export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading, readOnly, dateFromStr, dateToStr }: Props) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
   const updateMov = useUpdateMovimentacao();
+  const reabrirWalkIn = useReabrirComoWalkIn();
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
+  const [reabrirId, setReabrirId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
   // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
   useEffect(() => {
     setSaidaRapidaId(null);
+    setReabrirId(null);
   }, [movimentacoes]);
 
   // Timer with visibility awareness to avoid memory leak
