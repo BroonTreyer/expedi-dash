@@ -18,6 +18,7 @@ import {
 import { processarOCR } from "@/hooks/useRegistrosPortaria";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -382,6 +383,21 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
             etapa_terceirizado: "finalizado",
             horario_real_saida: new Date().toISOString(),
           });
+          // Atualiza status da carga vinculada para "Carregado" no Consolidado
+          const cargaIdVinculada = prefill.carga_id;
+          if (cargaIdVinculada) {
+            try {
+              const { error: updErr } = await supabase
+                .from("carregamentos_dia")
+                .update({ status: "Carregado" })
+                .eq("carga_id", cargaIdVinculada)
+                .neq("status", "Carregado");
+              if (updErr) console.error("Erro ao atualizar status da carga:", updErr);
+              else toast.info("Carga marcada como Carregado");
+            } catch (e) {
+              console.error("Erro ao atualizar status da carga:", e);
+            }
+          }
         }
         const savedPlaca = values.placa?.trim().toUpperCase() || "";
         if (savedPlaca) onCreated?.(savedPlaca);

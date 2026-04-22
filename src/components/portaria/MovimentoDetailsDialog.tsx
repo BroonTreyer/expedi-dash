@@ -137,16 +137,27 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
     if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📋 Nota Fiscal" });
     if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída Final)" });
   } else {
-    if (m.foto_placa_url) allPhotos.push({ url: m.foto_placa_url, alt: "Placa", label: "📥 Foto da Placa (Entrada)", ocrText: m.texto_placa_lido, ocrConf: m.confianca_placa });
-    if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📥 Documento (Entrada)" });
-    if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel", label: "📥 Painel KM (Entrada)" });
-    if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📥 Nota Fiscal (Entrada)" });
-    if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Entrada)" });
-    if (sDistinct?.foto_placa_url) allPhotos.push({ url: sDistinct.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Saída)", ocrText: sDistinct.texto_placa_lido, ocrConf: sDistinct.confianca_placa });
-    if (sDistinct?.foto_documento_url) allPhotos.push({ url: sDistinct.foto_documento_url, alt: "Documento", label: "📤 Documento (Saída)" });
-    if (sDistinct?.foto_painel_url) allPhotos.push({ url: sDistinct.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Saída)" });
-    if (sDistinct?.foto_nota_url) allPhotos.push({ url: sDistinct.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Saída)" });
-    if (sDistinct?.foto_lacre_url) allPhotos.push({ url: sDistinct.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída)" });
+    const mIsSaida = m.tipo_movimento === "saida";
+    const mPrefix = mIsSaida ? "📤" : "📥";
+    const mLabel = mIsSaida ? "Saída" : "Entrada";
+    const seenUrls = new Set<string>();
+    const pushPhoto = (url: string | null | undefined, alt: string, label: string, ocrText?: string | null, ocrConf?: number | null) => {
+      if (!url || seenUrls.has(url)) return;
+      seenUrls.add(url);
+      allPhotos.push({ url, alt, label, ocrText, ocrConf });
+    };
+    pushPhoto(m.foto_placa_url, "Placa", `${mPrefix} Foto da Placa (${mLabel})`, m.texto_placa_lido, m.confianca_placa);
+    pushPhoto(m.foto_documento_url, "Documento", `${mPrefix} Documento (${mLabel})`);
+    pushPhoto(m.foto_painel_url, "Painel", `${mPrefix} Painel KM (${mLabel})`);
+    pushPhoto(m.foto_nota_url, "Nota Fiscal", `${mPrefix} Nota Fiscal (${mLabel})`);
+    pushPhoto(m.foto_lacre_url, "Lacre", `🔒 Foto do Lacre (${mLabel})`);
+    pushPhoto(sDistinct?.foto_placa_url, "Placa", "📤 Foto da Placa (Saída)", sDistinct?.texto_placa_lido, sDistinct?.confianca_placa);
+    pushPhoto(sDistinct?.foto_documento_url, "Documento", "📤 Documento (Saída)");
+    pushPhoto(sDistinct?.foto_painel_url, "Painel", "📤 Painel KM (Saída)");
+    pushPhoto(sDistinct?.foto_nota_url, "Nota Fiscal", "📤 Nota Fiscal (Saída)");
+    pushPhoto(sDistinct?.foto_lacre_url, "Lacre", "🔒 Foto do Lacre (Saída)");
+    // Defensive: also pull from `s` even if isSameRecord (covers when only saída record exists / lacre stored there)
+    pushPhoto(s?.foto_lacre_url, "Lacre", "🔒 Foto do Lacre (Saída)");
   }
   
   const hasFotos = allPhotos.length > 0;
