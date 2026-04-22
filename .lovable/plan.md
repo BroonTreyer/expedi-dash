@@ -1,51 +1,31 @@
 
 
-## 1. Foto do Lacre aparece sempre nos detalhes do Terceirizado
+## Restaurar a lista de veículos esperados apagada
 
-### O que muda
+Posso restaurar a lista usando um dos snapshots de servidor ("Server-saves") que o sistema cria automaticamente. A tabela `data_snapshots` guarda backups completos da `veiculos_esperados` (entre outras), então dá pra reinserir exatamente os registros que estavam ali antes da exclusão.
 
-Hoje em `MovimentoDetailsDialog.tsx`, quando o terceirizado é finalizado, a foto do lacre é gravada no registro de **saída** (vinculado por `movimento_vinculado_id`). A renderização em tela depende de o pareamento entrada↔saída ter sido feito corretamente — quando o usuário abre os detalhes pelo histórico ou por um card que só carrega uma das pontas, a foto pode não aparecer (ou só aparecer rotulada errada).
+### Como vou fazer
 
-### Solução
+1. **Identificar o snapshot certo** — listar os snapshots mais recentes em `data_snapshots`, mostrar a você data/descrição/quantidade de veículos esperados em cada um, e você escolhe qual usar (provavelmente o último de antes da exclusão).
+2. **Restaurar só a lista de veículos esperados** — em vez de usar o botão "Restaurar" do painel de Backups (que apaga e reescreve **todas** as tabelas — pedidos, clientes, motoristas, portaria etc., e isso seria destrutivo), vou fazer uma restauração **cirúrgica**: leio `snapshot_data->'veiculos_esperados'` do snapshot escolhido e reinsiro apenas esses registros na tabela `veiculos_esperados`, preservando tudo o que mudou nas outras tabelas desde então.
+3. **Evitar duplicatas** — antes de reinserir, comparo por `id` com o que ainda existe na tabela e só insiro os que foram apagados (se nenhum foi apagado em massa, restauro todos os ausentes).
+4. **Registrar no audit log** — gravo a operação como `restore_partial` em `audit_log` pra rastreabilidade.
 
-Tornar a renderização de fotos do terceirizado **defensiva**, garantindo que `foto_lacre_url` seja exibida vindo de qualquer um dos registros disponíveis (entrada `m`, saída `sDistinct`, ou da própria saída quando ela é o registro principal). Hoje existe um caminho onde, se `m` for a saída e `sDistinct` for indefinido, a label vai como "(Entrada)" — vamos detectar via `m.tipo_movimento` qual rótulo aplicar e nunca esconder a imagem.
+### Etapas concretas
 
-### Mudanças concretas
-
-- ✏️ `src/components/portaria/MovimentoDetailsDialog.tsx` (branch `else` do bloco `allPhotos`, linhas ~139–150):
-  - Calcular `tipoLabel = m.tipo_movimento === "saida" ? "Saída" : "Entrada"` e aplicá-lo nas labels que usam `m`.
-  - Para `foto_lacre_url`: além de empurrar de `m` e `sDistinct`, verificar também `s` (mesmo quando `isSameRecord`) — usar um `Set<string>` de URLs já adicionadas pra evitar duplicata.
-  - Resultado: a foto do lacre passa a aparecer em qualquer combinação (entrada+saída, só entrada, só saída).
-
-## 2. Saída do Terceirizado atualiza Consolidado para "Carregado"
-
-### O que muda
-
-Hoje, ao registrar a saída final (com lacre) de um terceirizado em `RegistroMovimentoDialog.tsx` (linhas 379–385), o sistema apenas marca `etapa_terceirizado="finalizado"` e `horario_real_saida`. O status da carga em `carregamentos_dia` continua no que estava (geralmente "Aguardando" ou "Carregando"), e a página **Consolidado** mostra o status antigo.
-
-### Solução
-
-Após a saída do terceirizado, se a entrada tinha `carga_id` vinculada, atualizar `carregamentos_dia.status = 'Carregado'` para todos os pedidos daquela `carga_id`. Reaproveita o canal Realtime já existente em `Consolidado.tsx` (subscribe em `carregamentos_dia`), então a UI atualiza automaticamente sem refresh.
-
-### Mudanças concretas
-
-- ✏️ `src/components/portaria/RegistroMovimentoDialog.tsx` (logo após o `updateMov.mutateAsync` da linha 380, dentro do `if (prefill && prefill.categoria === "terceirizado" && dbTipoMovimento === "saida")`):
-  - Capturar `cargaIdVinculada = prefill.carga_id`.
-  - Se existir, chamar:
-    ```ts
-    await supabase
-      .from("carregamentos_dia")
-      .update({ status: "Carregado" })
-      .eq("carga_id", cargaIdVinculada)
-      .neq("status", "Carregado"); // evita update redundante / loops audit
-    ```
-  - Em caso de erro, apenas `console.error` (não bloquear o fluxo de saída — a saída em si já foi gravada).
-  - Toast de sucesso já existente do `createMov` cobre o feedback principal; opcional adicionar `toast.info("Carga marcada como Carregado")` se `cargaIdVinculada` for truthy.
+- 🔎 Consultar `data_snapshots` (id, created_at, description, `record_counts->>'veiculos_esperados'`) ordenado por mais recente — apresentar a lista pra você escolher.
+- 📦 Após sua escolha, ler `snapshot_data->'veiculos_esperados'` do snapshot.
+- ➕ Inserir via `INSERT ... ON CONFLICT (id) DO NOTHING` em `veiculos_esperados` — assim os registros que ainda existem ficam intactos e os apagados voltam idênticos (mesma id, placa, carga_id, peso, motorista, etc.).
+- 📝 Inserir 1 linha em `audit_log` descrevendo a restauração parcial (snapshot usado + qtd de registros restaurados).
+- ✅ Confirmar pra você o número de veículos esperados que voltaram.
 
 ### O que NÃO muda
 
-- Sem migration. Sem novo trigger no banco — feito no client porque já temos contexto do `prefill.carga_id`.
-- `Consolidado.tsx` não muda — o realtime já invalida a query ao detectar UPDATE em `carregamentos_dia`.
-- Carga própria continua com seu fluxo próprio (Chegou → Em Rota → Retornou → Saída Final/Lacre); só Terceirizado ganha esse comportamento de "Carregado" na saída.
-- Se a entrada do terceirizado **não** tiver `carga_id` (entrou sem vínculo), nada é atualizado — comportamento correto.
+- Nenhuma migration, nenhuma alteração de schema.
+- Outras tabelas (pedidos, portaria, clientes, etc.) ficam intactas — só a `veiculos_esperados` é tocada.
+- Sem alteração de código no app — é uma operação pontual de dados.
+
+### Observação
+
+Se por acaso **não houver snapshot** com a lista que você lembra (snapshots são criados manualmente em "Backups" pelo admin), me avise — nesse caso a opção alternativa é recriar via importação de planilha em **Portaria → Veículos Esperados → Importar Planilha**, se você tiver o arquivo original.
 
