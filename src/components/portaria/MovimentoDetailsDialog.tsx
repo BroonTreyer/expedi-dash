@@ -167,12 +167,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
           <div className="space-y-4">
             {/* Header badges */}
             <div className="flex items-center gap-2 flex-wrap">
-              {m.tipo_movimento === "entrada" && (
+              {!isCargaPropria && m.tipo_movimento === "entrada" && (
                 <Badge variant="default" className="gap-1">
                   <ArrowDownToLine className="h-3 w-3" /> Entrada
                 </Badge>
               )}
-              {(s || m.tipo_movimento === "saida") && (
+              {!isCargaPropria && (sDistinct || m.tipo_movimento === "saida") && (
                 <Badge variant="secondary" className="gap-1">
                   <ArrowUpFromLine className="h-3 w-3" /> Saída
                 </Badge>
