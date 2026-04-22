@@ -260,13 +260,13 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.placa_confirmada = values.placa?.trim().toUpperCase() || null;
           updates.horario_real_saida = new Date().toISOString();
           updates.etapa_carga_propria = "em_rota";
-          if (regularizar) {
+          if (regularizar || fotoViaArquivo) {
             updates.observacoes = appendReg(prefill.observacoes);
           }
         } else if (prefillEtapa === "retorno") {
           updates.foto_painel_url = values.foto_painel_url || null;
           updates.km_final = values.km_final ? Number(values.km_final) : null;
-          updates.observacoes = regularizar
+          updates.observacoes = (regularizar || fotoViaArquivo)
             ? appendReg(values.observacoes?.trim() || prefill.observacoes)
             : (values.observacoes?.trim() || prefill.observacoes || null);
           updates.ocorrencia = values.ocorrencia?.trim() || null;
@@ -280,7 +280,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.foto_lacre_url = values.foto_lacre_url || null;
           updates.numero_lacre = values.numero_lacre?.trim() || null;
           updates.conferente = values.conferente?.trim() || null;
-          if (regularizar) {
+          if (regularizar || fotoViaArquivo) {
             const lacreObs = values.observacoes?.trim();
             const baseObs = lacreObs ? `[Lacre] ${lacreObs}` : "";
             const existing = prefill.observacoes || "";
