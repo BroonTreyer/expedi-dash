@@ -959,6 +959,7 @@ export default function Analytics() {
                             <TableHead className="text-xs">Carga</TableHead>
                             <TableHead className="text-right text-xs">Ocorr.</TableHead>
                             <TableHead className="text-right text-xs">Não Carreg.</TableHead>
+                            <TableHead className="text-xs">Motoristas</TableHead>
                             <TableHead className="text-xs"></TableHead>
                           </TableRow>
                         </TableHeader>
@@ -967,13 +968,21 @@ export default function Analytics() {
                             <TableRow key={c.cargaId} className="hover:bg-muted/30">
                               <TableCell className="py-2.5">
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-xs truncate max-w-[140px] sm:max-w-[180px]">{c.nomeCarga}</span>
-                                  {c.motoristas.length > 0 && <span className="text-[10px] text-muted-foreground truncate max-w-[140px] sm:max-w-[180px]">{c.motoristas.join(", ")}</span>}
+                                  <span className="font-medium text-xs break-words">{c.nomeCarga}</span>
                                 </div>
                               </TableCell>
                               <TableCell className="text-right tabular-nums text-xs py-2.5">{c.ocorrencias}</TableCell>
                               <TableCell className="text-right tabular-nums text-xs font-bold text-amber-700 py-2.5">
                                 {Math.round(c.pesoNaoCarregado).toLocaleString("pt-BR")} kg
+                              </TableCell>
+                              <TableCell className="py-2.5 min-w-[180px] max-w-[260px]">
+                                <div className="flex flex-wrap gap-1">
+                                  {c.motoristas.map((m) => (
+                                    <span key={m} className="text-[10px] bg-muted/50 text-muted-foreground px-1.5 py-0.5 rounded border border-border/50 break-words">
+                                      {m}
+                                    </span>
+                                  ))}
+                                </div>
                               </TableCell>
                               <TableCell className="py-2.5">
                                 <a
