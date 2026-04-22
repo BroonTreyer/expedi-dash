@@ -11,6 +11,7 @@
 export interface PesoItem {
   peso: number | null;
   ruptura: boolean;
+  peso_original?: number | null;
 }
 
 export const pesoEfetivo = (c: PesoItem): number =>
@@ -23,3 +24,24 @@ export const somaPesoEfetivo = (arr: PesoItem[]): number =>
 
 export const somaPesoPlanejado = (arr: PesoItem[]): number =>
   arr.reduce((s, c) => s + pesoPlanejado(c), 0);
+
+/**
+ * Peso que deixou de ser carregado em relação ao pedido original.
+ *  - Ruptura total (ruptura = true): considera o peso original perdido por inteiro.
+ *  - Ruptura parcial (peso < peso_original): retorna a diferença.
+ *  - Sem perda: 0.
+ */
+export const pesoNaoCarregado = (c: PesoItem): number => {
+  const original = c.peso_original ?? c.peso ?? 0;
+  if (c.ruptura) return original;
+  const atual = c.peso ?? 0;
+  return Math.max(0, original - atual);
+};
+
+/** True quando o item não está em ruptura total mas teve peso reduzido. */
+export const isRupturaParcial = (c: PesoItem): boolean => {
+  if (c.ruptura) return false;
+  const original = c.peso_original ?? 0;
+  const atual = c.peso ?? 0;
+  return original > atual && original > 0;
+};
