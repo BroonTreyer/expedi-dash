@@ -460,3 +460,70 @@ export function useLimparVeiculosEsperados() {
     },
   });
 }
+
+/**
+ * Reabre uma movimentação de portaria (terceirizado no pátio sem carga vinculada)
+ * de volta para Registro de Entrada como walk-in `aguardando_vinculo`,
+ * para que a Logística consiga vincular uma carga e, depois, a Portaria
+ * libere a entrada física novamente.
+ *
+ * Fluxo: INSERT em veiculos_esperados (walk_in=true, aguardando_vinculo)
+ * + DELETE da movimentacoes_portaria original (auditoria automática via trigger).
+ */
+export function useReabrirComoWalkIn() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (m: {
+      id: string;
+      placa: string | null;
+      motorista: string | null;
+      empresa: string | null;
+      tipo_caminhao: string | null;
+      data_hora: string;
+    }) => {
+      if (!m.placa) {
+        throw new Error("Movimentação sem placa — não é possível enviar para Registro de Entrada");
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const userLabel = user?.email || user?.id || "usuário";
+      const horaEntrada = new Date(m.data_hora).toLocaleString("pt-BR", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+      const obs = `Reaberto do Pátio Atual em ${new Date().toLocaleString("pt-BR")} por ${userLabel} — entrada original registrada em ${horaEntrada}`;
+
+      const { error: insErr } = await supabase
+        .from("veiculos_esperados" as any)
+        .insert({
+          data_referencia: today,
+          grupo: "WALK-IN-TERCEIRIZADO",
+          placa: m.placa.toUpperCase().trim(),
+          motorista: m.motorista,
+          transportadora: m.empresa,
+          tipo_veiculo: m.tipo_caminhao,
+          walk_in: true,
+          status_autorizacao: "aguardando_vinculo",
+          observacoes: obs,
+          criado_por: user?.id ?? null,
+        } as any);
+      if (insErr) throw insErr;
+
+      const { error: delErr } = await supabase
+        .from("movimentacoes_portaria")
+        .delete()
+        .eq("id", m.id);
+      if (delErr) throw delErr;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_aguardando_vinculo"] });
+      toast.success("Veículo enviado para Registro de Entrada — disponível para vínculo de carga");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao enviar veículo para Registro de Entrada"),
+  });
+}

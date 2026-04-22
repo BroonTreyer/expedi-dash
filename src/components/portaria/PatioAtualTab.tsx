@@ -5,13 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2 } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2 } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { CATEGORIAS, useCreateMovimentacao, useUpdateMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
+import { useReabrirComoWalkIn } from "@/hooks/useVeiculosEsperados";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
@@ -72,18 +73,21 @@ function getInfoExtra(m: MovimentacaoPortaria): string | null {
 }
 
 export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegistrarSaida, isLoading, readOnly, dateFromStr, dateToStr }: Props) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const isMobile = useIsMobile();
   const createMov = useCreateMovimentacao();
   const updateMov = useUpdateMovimentacao();
+  const reabrirWalkIn = useReabrirComoWalkIn();
   const [now, setNow] = useState(() => new Date());
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
+  const [reabrirId, setReabrirId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
   // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
   useEffect(() => {
     setSaidaRapidaId(null);
+    setReabrirId(null);
   }, [movimentacoes]);
 
   // Timer with visibility awareness to avoid memory leak
@@ -192,6 +196,34 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     }
   };
 
+  const podeReabrirRegistro = (m: MovimentacaoPortaria): boolean => {
+    return (
+      m.categoria === "terceirizado" &&
+      !m.carga_id &&
+      m.etapa_terceirizado === "no_patio" &&
+      (role === "admin" || role === "logistica")
+    );
+  };
+
+  const handleReabrirRegistro = async (m: MovimentacaoPortaria) => {
+    setSavingId(m.id);
+    try {
+      await reabrirWalkIn.mutateAsync({
+        id: m.id,
+        placa: m.placa,
+        motorista: m.motorista,
+        empresa: m.empresa,
+        tipo_caminhao: m.tipo_caminhao,
+        data_hora: m.data_hora,
+      });
+      setReabrirId(null);
+    } catch {
+      // toast already shown by hook
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
@@ -221,6 +253,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           const isSaidaRapida = saidaRapidaId === m.id;
           const isSaving = savingId === m.id;
           const infoExtra = getInfoExtra(m);
+          const isReabrir = reabrirId === m.id;
+          const podeReabrir = podeReabrirRegistro(m);
 
           return (
             <Card key={m.id} className={emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
@@ -299,9 +333,34 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                        <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
                     </Button>
                   ) : m.categoria === "terceirizado" || m.categoria === "fornecedor" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
-                    </Button>
+                    isReabrir ? (
+                      <div className="flex items-center gap-3 animate-in fade-in duration-200">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setReabrirId(null)} disabled={isSaving}>
+                          Cancelar
+                        </Button>
+                        <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleReabrirRegistro(m)} disabled={isSaving}>
+                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                          Confirmar
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        {podeReabrir && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-7 text-xs"
+                            title="Enviar para Registro de Entrada para vincular carga"
+                            onClick={() => setReabrirId(m.id)}
+                          >
+                            <Undo2 className="h-3 w-3" /> Enviar p/ Registro
+                          </Button>
+                        )}
+                        <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
+                          <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
+                        </Button>
+                      </div>
+                    )
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-3 animate-in fade-in duration-200">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaidaRapidaId(null)} disabled={isSaving}>
@@ -348,6 +407,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
             const isSaidaRapida = saidaRapidaId === m.id;
             const isSaving = savingId === m.id;
             const infoExtra = getInfoExtra(m);
+            const isReabrir = reabrirId === m.id;
+            const podeReabrir = podeReabrirRegistro(m);
 
             return (
               <TableRow key={m.id} className={emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
@@ -412,9 +473,34 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       <ArrowDownToLine className="h-3 w-3" /> Retorno
                     </Button>
                   ) : m.categoria === "terceirizado" || m.categoria === "fornecedor" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
-                    </Button>
+                    isReabrir ? (
+                      <div className="flex items-center gap-3 justify-end animate-in fade-in duration-200">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setReabrirId(null)} disabled={isSaving}>
+                          Cancelar
+                        </Button>
+                        <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleReabrirRegistro(m)} disabled={isSaving}>
+                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                          Confirmar
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        {podeReabrir && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-7 text-xs"
+                            title="Enviar para Registro de Entrada para vincular carga"
+                            onClick={() => setReabrirId(m.id)}
+                          >
+                            <Undo2 className="h-3 w-3" /> Enviar p/ Registro
+                          </Button>
+                        )}
+                        <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
+                          <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
+                        </Button>
+                      </>
+                    )
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-3 justify-end animate-in fade-in duration-200">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaidaRapidaId(null)} disabled={isSaving}>
