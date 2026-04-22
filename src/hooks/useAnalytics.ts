@@ -76,6 +76,22 @@ export interface ProdutoRuptura {
   pesoNaoCarregado: number;
 }
 
+export interface ClienteRuptura {
+  codigo: string;
+  nome: string;
+  ocorrencias: number;
+  pesoNaoCarregado: number;
+  produtos: string[];
+}
+
+export interface CargaPendencia {
+  cargaId: string;
+  nomeCarga: string;
+  ocorrencias: number;
+  pesoNaoCarregado: number;
+  motoristas: string[];
+}
+
 export interface KpiComparison {
   totalPeso: number;
   totalPedidos: number;
@@ -140,7 +156,7 @@ export function useAnalytics(filters: AnalyticsFilters) {
       // Mesmas colunas nos dois períodos para que filtros (vendedor/uf/tipo)
       // afetem o comparativo corretamente.
       const cols =
-        "data, peso, peso_original, motivo_ruptura, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, vendedores(nome_vendedor)";
+        "data, peso, peso_original, motivo_ruptura, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, cliente, codigo_cliente, carga_id, nome_carga, motorista, vendedores(nome_vendedor)";
       const [currentRes, prevRes] = await Promise.all([
         supabase
           .from("carregamentos_dia")
