@@ -13,6 +13,7 @@ import { useCaminhoes } from "@/hooks/useCaminhoes";
 import { useVeiculosAguardandoVinculo } from "@/hooks/useVeiculosEsperados";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { pesoEfetivo } from "@/lib/peso-utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -81,11 +82,14 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     items.forEach((c) => {
       const key = c.codigo_cliente ?? "__sem_cliente__";
       if (!map.has(key)) {
-        map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, cidade: c.cidade, uf: c.uf, items: [], pesoTotal: 0, ordem: 0 });
+        map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, cidade: c.cidade, uf: c.uf, items: [], pesoTotal: 0, pesoPlanejado: 0, rupturaCount: 0, ordem: 0 });
       }
       const g = map.get(key)!;
-      g.items.push({ id: c.id, peso: c.peso ?? 0, numeroPedido: c.numero_pedido });
-      g.pesoTotal += c.peso ?? 0;
+      const ruptura = !!c.ruptura;
+      g.items.push({ id: c.id, peso: c.peso ?? 0, numeroPedido: c.numero_pedido, ruptura });
+      g.pesoPlanejado += c.peso ?? 0;
+      g.pesoTotal += pesoEfetivo({ peso: c.peso, ruptura });
+      if (ruptura) g.rupturaCount += 1;
     });
     return Array.from(map.values()).map((g, idx) => ({ ...g, ordem: idx + 1 }));
   }, [roteirizacao, items]);
