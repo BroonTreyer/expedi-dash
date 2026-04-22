@@ -1,7 +1,7 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, X } from "lucide-react";
+import { Truck, PackageCheck, X } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 
 interface ClienteGroup {
