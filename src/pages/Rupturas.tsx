@@ -330,13 +330,34 @@ export default function Rupturas() {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
             <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
               <Package className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
               <div className="min-w-0">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Rupturas</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Rupturas Totais</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{totaisRupturas.totais}</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{totaisRupturas.pesoPerdidoTotais.toLocaleString("pt-BR")} kg</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Rupturas Parciais</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{totaisRupturas.parciais}</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{totaisRupturas.pesoPerdidoParciais.toLocaleString("pt-BR")} kg</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
                 <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{rupturas.length}</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">itens</p>
               </div>
             </CardContent>
           </Card>
@@ -344,8 +365,9 @@ export default function Rupturas() {
             <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
               <Weight className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
               <div className="min-w-0">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Peso Total</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Não Carregado</p>
                 <p className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400 truncate">{(totalPeso / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{totalPeso.toLocaleString("pt-BR")} kg</p>
               </div>
             </CardContent>
           </Card>
