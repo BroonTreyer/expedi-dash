@@ -1,44 +1,33 @@
 
 
-## Problema
+## Adicionar upload de foto por arquivo (Admin/Logística) na Portaria
 
-No fluxo de Carga Própria, o caminhão fica preso na etapa **"Chegou"** quando a portaria deixou o motorista sair sem registrar a etapa **"Saída p/ Rota"** (que exige foto do painel/KM + KM Inicial obrigatórios). Sem esses campos não dá pra avançar para Retorno/Lacre, e o registro fica travado para sempre.
+### O que vai mudar
 
-Hoje o `EditMovimentoDialog` (admin) **edita campos de texto/número** (incluindo `km_inicial` e `etapa_carga_propria`), mas **não permite anexar/substituir as fotos depois** — e a etapa `saida_rota` no fluxo normal força foto obrigatória do painel.
-
-## Solução proposta
-
-Adicionar uma opção de **"Liberar etapa sem foto" (modo regularização)** restrita a **admin / logística**, para destravar registros onde a portaria esqueceu de capturar a foto. Sem inventar feature nova — é a saída regularizada que o operacional já faz hoje no Excel.
+Hoje, no `RegistroMovimentoDialog`, as fotos (placa, painel, lacre, nota, documento) são capturadas **apenas pela câmera** via componente `PhotoCapture`. Para resolver casos onde a portaria esqueceu de tirar a foto na hora mas o admin/logística tem o arquivo (ex: foto que o motorista mandou por WhatsApp), vou adicionar **upload de arquivo** como alternativa — restrito a **Admin** e **Logística**.
 
 ### Como vai funcionar
 
-1. No diálogo de **Saída p/ Rota** (e nas etapas Retorno/Lacre, mesmo problema pode acontecer), quando o usuário for **admin ou logística**, aparece um checkbox:
-   > ☐ **Regularizar sem foto** (a portaria esqueceu de capturar — registrar motivo)
+1. No `PhotoCapture`, quando o usuário for **Admin ou Logística**, aparece um botão extra **"Enviar arquivo"** ao lado de "Tirar Foto".
+2. O botão abre o seletor de arquivos (aceita `image/*` e `application/pdf` — mesmo padrão do sistema atual de mídia).
+3. O arquivo selecionado é enviado para o **mesmo bucket `portaria`** (privado), no mesmo formato de path já usado pelo PhotoCapture (`{tipo}/{timestamp}-{random}.{ext}`).
+4. A URL retornada é tratada igual à da câmera — gravada no campo correspondente (`foto_painel_url`, `foto_lacre_url`, etc.).
+5. Para **Portaria comum** (perfil padrão), o botão **não aparece** — continua obrigada a tirar foto na hora pela câmera.
+6. Para rastreabilidade: quando o upload for feito por arquivo (e não câmera), gravo um marcador discreto no `observacoes` do registro: `[FOTO via upload por <usuário> em <data>]` — assim a diretoria sabe que aquela foto não foi capturada na portaria em tempo real.
 
-2. Ao marcar:
-   - O campo `foto_painel_url` (e `km_inicial` na etapa saída p/ rota / `foto_lacre_url` no lacre) **deixa de ser obrigatório**.
-   - Aparece um campo **obrigatório**: "Motivo da regularização" (textarea curta).
-   - O motivo é gravado em `observacoes` com prefixo `[REGULARIZADO por <usuário> em <data>: <motivo>]`, mantendo rastreabilidade.
-   - A etapa avança normalmente (registra horário, atualiza `etapa_carga_propria`).
+### Por que essa abordagem
 
-3. **Portaria comum não vê o checkbox** — continua obrigada a tirar foto no fluxo normal. Só admin/logística regulariza.
+- **Reutiliza o `PhotoCapture` existente** — não cria componente novo nem duplica lógica de upload para o bucket.
+- **Mesma restrição de perfil da regularização sem foto** (Admin/Logística) — coerente com o que já implementamos. Portaria não pode mandar arquivo pra burlar a câmera.
+- **Marcador no `observacoes`** — diretoria diferencia foto "ao vivo" de foto "regularizada por arquivo" sem precisar de coluna nova no banco.
+- **Sem mudança de banco / migration** — só ajuste de UI + lógica de upload no componente que já existe.
 
-4. No `MovimentoDetailsDialog` o registro mostra um badge discreto **"Regularizado"** quando tiver o prefixo nas observações, pra diretoria saber que aquele KM/lacre não tem evidência fotográfica.
+### Arquivos afetados
 
-### Por que essa abordagem (e não outras)
+- ✏️ `src/components/portaria/PhotoCapture.tsx` — adicionar prop `allowFileUpload?: boolean`, botão "Enviar arquivo" com `<input type="file" accept="image/*,application/pdf" hidden>`, handler que faz upload pro bucket `portaria` (mesmo path/format que a câmera) e chama `onChange(url)` igual.
+- ✏️ `src/components/portaria/RegistroMovimentoDialog.tsx` — passar `allowFileUpload={isAdmin || isLogistica}` para todas as instâncias de `PhotoCapture` (placa, painel, lacre, nota, documento). Quando upload por arquivo for usado em qualquer foto, marcar uma flag local `fotoViaArquivo = true` e, no `handleSave`, prefixar `observacoes` com `[FOTO via upload por <user> em <data>]` se a flag estiver ativa.
 
-- **Não remover a obrigatoriedade pra todo mundo**: a foto do painel é a única forma de auditar KM rodado. Tirar a obrigatoriedade geral acaba com o controle.
-- **Não criar tela nova de "regularização"**: encheria o sistema. O admin já abre o registro travado; basta marcar o checkbox no mesmo lugar onde tentaria avançar.
-- **Não bypass silencioso**: o motivo + autor + data ficam gravados — diretoria/auditoria conseguem identificar e cobrar a portaria que deixou passar.
+### Pergunta única antes de implementar
 
-## Arquivos afetados
-
-- ✏️ `src/components/portaria/RegistroMovimentoDialog.tsx` — adicionar checkbox "Regularizar sem foto" (admin/logística), campo motivo, e ajustar validação (`validateForm`) para pular `foto_painel_url`/`foto_lacre_url`/`km_inicial` quando marcado. Concatenar prefixo em `observacoes` antes de salvar.
-- ✏️ `src/components/portaria/MovimentoDetailsDialog.tsx` — mostrar badge "Regularizado" quando `observacoes` contém o prefixo `[REGULARIZADO`.
-
-Sem mudança de banco, sem migration. É correção pontual do ponto exato onde o sistema trava.
-
-## Pergunta única antes de implementar
-
-O caminhão do print (placa **GZM1D96**, ERIK) — quando você marcar "Regularizar sem foto" na **Saída p/ Rota**, vai precisar informar **KM Inicial manualmente** ou também libera o KM Inicial? Recomendo **manter KM Inicial obrigatório (digitado à mão)** — sem KM não dá nem pra calcular KM rodado depois. Confirma?
+Quando o admin/logística enviar foto por arquivo, você quer que apareça um **badge "Foto via upload"** nos detalhes do movimento (no `MovimentoDetailsDialog`, junto do badge "Regularizado" que já tem)? Recomendo **sim** — diretoria identifica na hora que aquela evidência não veio da câmera da portaria. Confirma?
 
