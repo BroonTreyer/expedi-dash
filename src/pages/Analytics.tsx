@@ -677,7 +677,7 @@ export default function Analytics() {
                         <BarChart data={a?.vendedorRanking?.slice(0, 10) ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                           <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
-                          <YAxis type="category" dataKey="nome" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={100} />
+                          <YAxis type="category" dataKey="nome" tick={{ ...AXIS_STYLE, fontSize: yAxisCatFontSize }} width={isMobile ? 70 : 100} />
                           <Tooltip content={<RichTooltip formatLabel={(v: string) => v} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }} />
                           <Bar dataKey="peso" name="Peso" fill={NAVY} radius={[0, 5, 5, 0]} animationDuration={800} />
                         </BarChart>
@@ -849,7 +849,7 @@ export default function Analytics() {
                           <BarChart data={a?.produtoRupturas ?? []} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" className={GRID_STYLE} horizontal={false} />
                             <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmtYAxis} />
-                            <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: 9 }} width={120} />
+                            <YAxis type="category" dataKey="produto" tick={{ ...AXIS_STYLE, fontSize: yAxisCatFontSize }} width={yAxisCatWidth} />
                             <Tooltip
                               content={({ active, payload, label }: any) => {
                                 if (!active || !payload?.length) return null;
