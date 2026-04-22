@@ -242,7 +242,8 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
             const novo = values.observacoes.trim();
             updates.observacoes = existing ? `${existing}\n[Lacre] ${novo}` : novo;
           }
-          updates.horario_real_saida = new Date().toISOString();
+          // Não sobrescrever horario_real_saida (saída p/ rota); usar campo dedicado
+          updates.horario_saida_final = new Date().toISOString();
           updates.etapa_carga_propria = "finalizado";
         }
 
