@@ -94,6 +94,10 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   if (!movimento) return null;
   const m = movimento;
   const s = movimentoSaida;
+  const isCargaPropria = m.categoria === "carga_propria";
+  // Carga Própria usa um único registro (m e s podem apontar para o mesmo objeto)
+  const isSameRecord = !!s && s.id === m.id;
+  const sDistinct = !isSameRecord ? s : undefined;
 
   // Compute date badge
   let dataBadge: { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode } | null = null;
@@ -115,26 +119,35 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const hasIdentificacao = m.nome_completo || m.documento || m.telefone || m.pessoa_visitada || m.motivo_visita || m.servico_executar || m.descricao || m.tipo_operacao;
   
   // Combine operação from both records
-  const kmInicial = m.km_inicial ?? s?.km_inicial;
-  const kmFinal = s?.km_final ?? m.km_final;
-  const kmRodado = s?.km_rodado ?? m.km_rodado ?? (kmInicial != null && kmFinal != null ? kmFinal - kmInicial : undefined);
-  const kmRota = m.km_rota ?? s?.km_rota;
+  const kmInicial = m.km_inicial ?? sDistinct?.km_inicial;
+  const kmFinal = sDistinct?.km_final ?? m.km_final;
+  const kmRodado = sDistinct?.km_rodado ?? m.km_rodado ?? (kmInicial != null && kmFinal != null ? kmFinal - kmInicial : undefined);
+  const kmRota = m.km_rota ?? sDistinct?.km_rota;
   
   const hasOperacao = m.rota || m.peso || m.qtd_entregas || kmRota || kmInicial || kmFinal || kmRodado || m.tipo_carga || m.nota_fiscal || m.doca_setor || m.apelido;
-  const hasControle = m.responsavel_interno || m.conferente || m.ocorrencia || s?.conferente || s?.ocorrencia;
+  const hasControle = m.responsavel_interno || m.conferente || m.ocorrencia || sDistinct?.conferente || sDistinct?.ocorrencia;
   
   // Collect all photos from both records
   const allPhotos: { url: string; alt: string; label: string; ocrText?: string | null; ocrConf?: number | null }[] = [];
-  if (m.foto_placa_url) allPhotos.push({ url: m.foto_placa_url, alt: "Placa", label: "📥 Foto da Placa (Entrada)", ocrText: m.texto_placa_lido, ocrConf: m.confianca_placa });
-  if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📥 Documento (Entrada)" });
-  if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel", label: "📥 Painel KM (Entrada)" });
-  if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📥 Nota Fiscal (Entrada)" });
-  if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Entrada)" });
-  if (s?.foto_placa_url) allPhotos.push({ url: s.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Saída)", ocrText: s.texto_placa_lido, ocrConf: s.confianca_placa });
-  if (s?.foto_documento_url) allPhotos.push({ url: s.foto_documento_url, alt: "Documento", label: "📤 Documento (Saída)" });
-  if (s?.foto_painel_url) allPhotos.push({ url: s.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Saída)" });
-  if (s?.foto_nota_url) allPhotos.push({ url: s.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Saída)" });
-  if (s?.foto_lacre_url) allPhotos.push({ url: s.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída)" });
+  if (isCargaPropria) {
+    // Registro único — labels por etapa do fluxo de Carga Própria
+    if (m.foto_placa_url) allPhotos.push({ url: m.foto_placa_url, alt: "Placa", label: "📷 Foto da Placa", ocrText: m.texto_placa_lido, ocrConf: m.confianca_placa });
+    if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📄 Documento" });
+    if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel KM", label: "🛞 Painel KM (Retorno)" });
+    if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📋 Nota Fiscal" });
+    if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída Final)" });
+  } else {
+    if (m.foto_placa_url) allPhotos.push({ url: m.foto_placa_url, alt: "Placa", label: "📥 Foto da Placa (Entrada)", ocrText: m.texto_placa_lido, ocrConf: m.confianca_placa });
+    if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📥 Documento (Entrada)" });
+    if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel", label: "📥 Painel KM (Entrada)" });
+    if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📥 Nota Fiscal (Entrada)" });
+    if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Entrada)" });
+    if (sDistinct?.foto_placa_url) allPhotos.push({ url: sDistinct.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Saída)", ocrText: sDistinct.texto_placa_lido, ocrConf: sDistinct.confianca_placa });
+    if (sDistinct?.foto_documento_url) allPhotos.push({ url: sDistinct.foto_documento_url, alt: "Documento", label: "📤 Documento (Saída)" });
+    if (sDistinct?.foto_painel_url) allPhotos.push({ url: sDistinct.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Saída)" });
+    if (sDistinct?.foto_nota_url) allPhotos.push({ url: sDistinct.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Saída)" });
+    if (sDistinct?.foto_lacre_url) allPhotos.push({ url: sDistinct.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída)" });
+  }
   
   const hasFotos = allPhotos.length > 0;
 
@@ -154,12 +167,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
           <div className="space-y-4">
             {/* Header badges */}
             <div className="flex items-center gap-2 flex-wrap">
-              {m.tipo_movimento === "entrada" && (
+              {!isCargaPropria && m.tipo_movimento === "entrada" && (
                 <Badge variant="default" className="gap-1">
                   <ArrowDownToLine className="h-3 w-3" /> Entrada
                 </Badge>
               )}
-              {(s || m.tipo_movimento === "saida") && (
+              {!isCargaPropria && (sDistinct || m.tipo_movimento === "saida") && (
                 <Badge variant="secondary" className="gap-1">
                   <ArrowUpFromLine className="h-3 w-3" /> Saída
                 </Badge>
@@ -183,7 +196,52 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
 
             {/* Horários */}
             <div className="rounded-md bg-muted/50 p-2.5 text-sm space-y-1">
-              {m.categoria === "terceirizado" ? (
+              {isCargaPropria ? (
+                (() => {
+                  const fmtDate = (d: string) => format(new Date(d), "dd/MM/yyyy HH:mm", { locale: ptBR });
+                  const fmtDur = (mins: number) => { const h = Math.floor(mins / 60); const min = mins % 60; return h > 0 ? `${h}h ${min}min` : `${min}min`; };
+                  const chegada = m.horario_chegada || m.data_hora;
+                  const saidaRota = m.horario_real_saida;
+                  const retorno = m.horario_real_retorno;
+                  const saidaFinal = (m as any).horario_saida_final as string | null;
+                  return (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-orange-500">🟠</span>
+                        <span className="text-muted-foreground">Chegada:</span>
+                        <strong>{fmtDate(chegada)}</strong>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ArrowUpFromLine className="h-3.5 w-3.5 text-blue-500" />
+                        <span className="text-muted-foreground">Saída p/ Rota:</span>
+                        <strong>{saidaRota ? fmtDate(saidaRota) : "—"}</strong>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ArrowDownToLine className="h-3.5 w-3.5 text-yellow-600" />
+                        <span className="text-muted-foreground">Retorno:</span>
+                        <strong>{retorno ? fmtDate(retorno) : "—"}</strong>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>🔒</span>
+                        <span className="text-muted-foreground">Saída Final (Lacre):</span>
+                        <strong>{saidaFinal ? fmtDate(saidaFinal) : "—"}</strong>
+                      </div>
+                      {saidaRota && retorno && (
+                        <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                          <span className="text-muted-foreground">⏱ Tempo em Rota:</span>
+                          <strong>{fmtDur(differenceInMinutes(new Date(retorno), new Date(saidaRota)))}</strong>
+                        </div>
+                      )}
+                      {retorno && saidaFinal && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">⏱ Pátio (Retorno → Lacre):</span>
+                          <strong>{fmtDur(differenceInMinutes(new Date(saidaFinal), new Date(retorno)))}</strong>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
+              ) : m.categoria === "terceirizado" ? (
                 (() => {
                   const chegada = m.horario_chegada || m.data_hora;
                   const entrada = m.horario_entrada;
@@ -231,15 +289,15 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                       <strong>{format(new Date(m.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
                     </div>
                   )}
-                  {s && (
+                  {sDistinct && (
                     <>
                       <div className="flex items-center gap-2">
                         <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-muted-foreground">Saída:</span>
-                        <strong>{format(new Date(s.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
+                        <strong>{format(new Date(sDistinct.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })}</strong>
                       </div>
                       {m.tipo_movimento === "entrada" && (() => {
-                        const mins = differenceInMinutes(new Date(s.data_hora), new Date(m.data_hora));
+                        const mins = differenceInMinutes(new Date(sDistinct.data_hora), new Date(m.data_hora));
                         const h = Math.floor(mins / 60);
                         const min = mins % 60;
                         return (
@@ -251,7 +309,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                       })()}
                     </>
                   )}
-                  {!s && m.tipo_movimento === "saida" && (
+                  {!sDistinct && m.tipo_movimento === "saida" && (
                     <div className="flex items-center gap-2">
                       <ArrowUpFromLine className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-muted-foreground">Saída:</span>
@@ -290,7 +348,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                {s && (
+                {sDistinct && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10">
@@ -306,7 +364,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={async () => { await deleteMov.mutateAsync(s.id); onOpenChange(false); }} disabled={deleteMov.isPending}>
+                        <AlertDialogAction onClick={async () => { await deleteMov.mutateAsync(sDistinct.id); onOpenChange(false); }} disabled={deleteMov.isPending}>
                           {deleteMov.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                           Excluir Saída
                         </AlertDialogAction>
@@ -324,9 +382,8 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               <DetailRow label="Empresa" value={m.empresa} />
               <DetailRow label="Tipo de Veículo" value={m.tipo_caminhao} />
               <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
-              {m.numero_lacre && <DetailRow label={s?.numero_lacre ? "Lacre (Entrada)" : "Nº Lacre"} value={m.numero_lacre} />}
-              {s?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Saída)" : "Nº Lacre"} value={s.numero_lacre} />}
-              {!m.numero_lacre && !s?.numero_lacre ? null : null}
+              {m.numero_lacre && <DetailRow label={sDistinct?.numero_lacre ? "Lacre (Entrada)" : "Nº Lacre"} value={m.numero_lacre} />}
+              {sDistinct?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Saída)" : "Nº Lacre"} value={sDistinct.numero_lacre} />}
               <DetailRow label="Carga" value={m.carga_id} />
             </div>
 
@@ -365,7 +422,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                   <DetailRow label="KM Final" value={kmFinal} />
                   <DetailRow label="KM Rodado" value={kmRodado} />
                   <DetailRow label="Tipo de Carga" value={m.tipo_carga} />
-                  <DetailRow label="Nota Fiscal" value={m.nota_fiscal || s?.nota_fiscal} />
+                  <DetailRow label="Nota Fiscal" value={m.nota_fiscal || sDistinct?.nota_fiscal} />
                   <DetailRow label="Doca/Setor" value={m.doca_setor} />
                 </div>
                 {kmRodado != null && kmRota != null && (
@@ -384,18 +441,18 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">🔐 Controle</h4>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <DetailRow label="Responsável" value={m.responsavel_interno} />
-                  <DetailRow label="Conferente (Entrada)" value={m.conferente} />
-                  {s?.conferente && <DetailRow label="Conferente (Saída)" value={s.conferente} />}
+                  <DetailRow label={sDistinct?.conferente ? "Conferente (Entrada)" : "Conferente"} value={m.conferente} />
+                  {sDistinct?.conferente && <DetailRow label="Conferente (Saída)" value={sDistinct.conferente} />}
                   {m.ocorrencia && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Ocorrência:</span>
                       <p className="mt-0.5">{m.ocorrencia}</p>
                     </div>
                   )}
-                  {s?.ocorrencia && (
+                  {sDistinct?.ocorrencia && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Ocorrência (Saída):</span>
-                      <p className="mt-0.5">{s.ocorrencia}</p>
+                      <p className="mt-0.5">{sDistinct.ocorrencia}</p>
                     </div>
                   )}
                 </div>
@@ -403,18 +460,18 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
             )}
 
             {/* Observações */}
-            {(m.observacoes || s?.observacoes) && (
+            {(m.observacoes || sDistinct?.observacoes) && (
               <div className="text-sm space-y-1">
                 {m.observacoes && (
                   <div>
-                    <span className="text-muted-foreground">Observações{s?.observacoes ? " (Entrada)" : ""}:</span>
+                    <span className="text-muted-foreground">Observações{sDistinct?.observacoes ? " (Entrada)" : ""}:</span>
                     <p className="mt-1">{m.observacoes}</p>
                   </div>
                 )}
-                {s?.observacoes && (
+                {sDistinct?.observacoes && (
                   <div>
                     <span className="text-muted-foreground">Observações (Saída):</span>
-                    <p className="mt-1">{s.observacoes}</p>
+                    <p className="mt-1">{sDistinct.observacoes}</p>
                   </div>
                 )}
               </div>

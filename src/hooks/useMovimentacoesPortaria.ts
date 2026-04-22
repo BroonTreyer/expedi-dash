@@ -38,6 +38,7 @@ export interface MovimentacaoPortaria {
   horario_previsto_saida: string | null;
   horario_real_saida: string | null;
   horario_real_retorno: string | null;
+  horario_saida_final: string | null;
   apelido: string | null;
   conferente: string | null;
   ocorrencia: string | null;

@@ -373,6 +373,7 @@ export type Database = {
           horario_previsto_saida: string | null
           horario_real_retorno: string | null
           horario_real_saida: string | null
+          horario_saida_final: string | null
           id: string
           km_final: number | null
           km_inicial: number | null
@@ -428,6 +429,7 @@ export type Database = {
           horario_previsto_saida?: string | null
           horario_real_retorno?: string | null
           horario_real_saida?: string | null
+          horario_saida_final?: string | null
           id?: string
           km_final?: number | null
           km_inicial?: number | null
@@ -483,6 +485,7 @@ export type Database = {
           horario_previsto_saida?: string | null
           horario_real_retorno?: string | null
           horario_real_saida?: string | null
+          horario_saida_final?: string | null
           id?: string
           km_final?: number | null
           km_inicial?: number | null
