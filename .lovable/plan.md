@@ -1,31 +1,34 @@
 
 
-## Remover obrigatoriedade da Foto da Placa na Saída Final (Lacre)
+## Publicar alterações para a Portaria
 
-### Mudança
+### Situação
 
-Na etapa **Saída Final / Lacre**, a foto da placa não é mais necessária — o veículo já foi identificado nas etapas anteriores (Chegada e Saída p/ Rota), e o foco do Lacre é apenas registrar o número e foto do lacre.
+O código já está corrigido (foto da placa removida da etapa Saída Final / Lacre em `VISIBILITY_SAIDA`), mas a alteração ainda não está no ar para os operadores. Mudanças de frontend só vão pra produção (`expedi-dash.lovable.app` / `fricotrack.com.br`) depois que você clicar em **Publish → Update**. Sem isso, o PWA continua servindo a build antiga.
 
-### Ajuste pontual
+### Ação necessária
 
-Em `src/lib/portaria-fields-config.ts`, dentro da matriz `VISIBILITY_SAIDA` (usada para `tipo_movimento = "lacre"` e `"saida"`), alterar o campo `foto_placa_url` de `obrigatorio` → `oculto` para todas as categorias:
+Clicar em **Publish → Update** no canto superior direito do editor (ou no botão "..." em mobile → Publish).
 
-```ts
-// Antes
-foto_placa_url: { carga_propria: "obrigatorio", terceirizado: "obrigatorio", fornecedor: "obrigatorio", ... }
+Após publicar:
 
-// Depois
-foto_placa_url: { carga_propria: "oculto", terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" }
-```
+1. O PWA detecta o update automaticamente (autoUpdate + skipWaiting já configurados).
+2. Em até 5 minutos, ou ao reabrir o app, cada dispositivo recebe o toast "Aplicativo atualizado".
+3. A etapa **Saída Final / Lacre** deixa de pedir foto da placa.
 
-### O que NÃO muda
+### Se algum dispositivo continuar com a versão antiga após publicar
 
-- Foto da placa continua **obrigatória** na Chegada (entrada) e na Saída p/ Rota (Carga Própria).
-- Foto do Lacre (`foto_lacre_url`) e Nº do Lacre permanecem obrigatórios.
-- Detalhes do movimento continuam exibindo a foto da placa capturada nas etapas anteriores.
-- Nenhuma migration ou alteração no banco.
+- **Android PWA:** fechar o app nos recentes e reabrir.
+- **iOS PWA:** fechar e reabrir; se persistir, Ajustes → Safari → Limpar histórico.
+- **Navegador:** Ctrl+Shift+R (hard reload).
 
-### Arquivo alterado
+### Verificação
 
-- `src/lib/portaria-fields-config.ts` (1 linha em `VISIBILITY_SAIDA`)
+Em um dispositivo da portaria, abrir o PWA → Carga Própria → registrar Saída Final / Lacre de um veículo: o campo "Foto da Placa" não deve mais aparecer; só "Nº Lacre" e "Foto do Lacre" como obrigatórios.
+
+### O que NÃO precisa mudar
+
+- Nenhum arquivo. O código já está correto desde a última alteração aprovada.
+- Nenhuma migration.
+- Nenhum ajuste no PWA — config já é `autoUpdate`.
 
