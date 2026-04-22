@@ -106,13 +106,36 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
         </DialogHeader>
 
         {/* Screen-only buttons */}
-        <div className="flex justify-end gap-2 mb-4 print:hidden">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            <X className="h-4 w-4 mr-1" /> Fechar
-          </Button>
-          <Button size="sm" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-1" /> Imprimir / PDF
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 print:hidden">
+          <div className="inline-flex rounded-md border p-0.5 bg-muted/40">
+            <Button
+              variant={modo === "entrega" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setModo("entrega")}
+              className="h-7 px-2 text-xs"
+            >
+              <Truck className="h-3.5 w-3.5 mr-1" /> Entrega
+            </Button>
+            <Button
+              variant={modo === "carregamento" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setModo("carregamento")}
+              className="h-7 px-2 text-xs"
+            >
+              <PackageCheck className="h-3.5 w-3.5 mr-1" /> Carregamento
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              <X className="h-4 w-4 mr-1" /> Fechar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => handlePrintMode("entrega")}>
+              <Truck className="h-4 w-4 mr-1" /> Imprimir Entrega
+            </Button>
+            <Button size="sm" onClick={() => handlePrintMode("carregamento")}>
+              <PackageCheck className="h-4 w-4 mr-1" /> Imprimir Carregamento
+            </Button>
+          </div>
         </div>
 
         {/* Printable content */}
@@ -121,7 +144,7 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
           <div className="flex items-center justify-between border-b-2 border-foreground/20 pb-3">
             <img src={fricoLogo} alt="Frico" className="h-12 object-contain" width={48} height={48} />
             <div className="text-right">
-              <h1 className="text-lg font-bold uppercase tracking-wide">Romaneio de Carga</h1>
+              <h1 className="text-lg font-bold uppercase tracking-wide">{tituloRomaneio}</h1>
               <p className="text-sm text-muted-foreground">{data.cargaId}</p>
             </div>
           </div>
