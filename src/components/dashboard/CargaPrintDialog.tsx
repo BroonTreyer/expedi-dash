@@ -129,13 +129,22 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
           {/* Separator */}
           <div className="border-t border-foreground/10" />
 
+          {/* Legenda ordens */}
+          <p className="text-[11px] text-muted-foreground -mt-2">
+            <span className="font-semibold">E</span> = ordem de entrega · <span className="font-semibold">C</span> = ordem de carregamento (sequência inversa para empilhar no caminhão)
+          </p>
+
           {/* Groups by delivery order */}
           <div className="space-y-3">
             {sortedGroups.map((group) => (
               <div key={group.codigoCliente ?? group.ordem} className="border border-foreground/10 rounded-md p-3 break-inside-avoid">
                 <div className="flex items-baseline justify-between mb-1">
-                  <h3 className="text-sm font-bold">
-                    {group.ordem}. {group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}
+                  <h3 className="text-sm font-bold flex items-baseline gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold">
+                      <span className="px-1.5 py-0.5 rounded bg-foreground/10">E:{group.ordem}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-foreground/10">C:{sortedGroups.length - group.ordem + 1}</span>
+                    </span>
+                    <span>{group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}</span>
                   </h3>
                   <span className="text-xs font-semibold text-muted-foreground">
                     {group.pesoTotal.toLocaleString("pt-BR")} kg
