@@ -382,9 +382,8 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               <DetailRow label="Empresa" value={m.empresa} />
               <DetailRow label="Tipo de Veículo" value={m.tipo_caminhao} />
               <DetailRow label="Setor" value={m.destino_setor ? getSetorLabel(m.destino_setor) : undefined} />
-              {m.numero_lacre && <DetailRow label={s?.numero_lacre ? "Lacre (Entrada)" : "Nº Lacre"} value={m.numero_lacre} />}
-              {s?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Saída)" : "Nº Lacre"} value={s.numero_lacre} />}
-              {!m.numero_lacre && !s?.numero_lacre ? null : null}
+              {m.numero_lacre && <DetailRow label={sDistinct?.numero_lacre ? "Lacre (Entrada)" : "Nº Lacre"} value={m.numero_lacre} />}
+              {sDistinct?.numero_lacre && <DetailRow label={m.numero_lacre ? "Lacre (Saída)" : "Nº Lacre"} value={sDistinct.numero_lacre} />}
               <DetailRow label="Carga" value={m.carga_id} />
             </div>
 
@@ -423,7 +422,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                   <DetailRow label="KM Final" value={kmFinal} />
                   <DetailRow label="KM Rodado" value={kmRodado} />
                   <DetailRow label="Tipo de Carga" value={m.tipo_carga} />
-                  <DetailRow label="Nota Fiscal" value={m.nota_fiscal || s?.nota_fiscal} />
+                  <DetailRow label="Nota Fiscal" value={m.nota_fiscal || sDistinct?.nota_fiscal} />
                   <DetailRow label="Doca/Setor" value={m.doca_setor} />
                 </div>
                 {kmRodado != null && kmRota != null && (
@@ -442,18 +441,18 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">🔐 Controle</h4>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <DetailRow label="Responsável" value={m.responsavel_interno} />
-                  <DetailRow label="Conferente (Entrada)" value={m.conferente} />
-                  {s?.conferente && <DetailRow label="Conferente (Saída)" value={s.conferente} />}
+                  <DetailRow label={sDistinct?.conferente ? "Conferente (Entrada)" : "Conferente"} value={m.conferente} />
+                  {sDistinct?.conferente && <DetailRow label="Conferente (Saída)" value={sDistinct.conferente} />}
                   {m.ocorrencia && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Ocorrência:</span>
                       <p className="mt-0.5">{m.ocorrencia}</p>
                     </div>
                   )}
-                  {s?.ocorrencia && (
+                  {sDistinct?.ocorrencia && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Ocorrência (Saída):</span>
-                      <p className="mt-0.5">{s.ocorrencia}</p>
+                      <p className="mt-0.5">{sDistinct.ocorrencia}</p>
                     </div>
                   )}
                 </div>
