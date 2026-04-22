@@ -183,12 +183,13 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setStep("form");
   };
 
-  const handleFotoCapture = async (fieldKey: string, file: File) => {
+  const handleFotoCapture = async (fieldKey: string, file: File, viaArquivo = false) => {
     const tipoFotoMap: Record<string, string> = { foto_placa_url: "placa", foto_painel_url: "painel", foto_nota_url: "nota", foto_documento_url: "doc", foto_lacre_url: "lacre" };
     const tipoFoto = (tipoFotoMap[fieldKey] || "doc") as "placa" | "doc" | "painel" | "nota";
     try {
       const publicUrl = await uploadFotoMovimentacao(file, tipoFoto);
       set(fieldKey, publicUrl);
+      if (viaArquivo) setFotoViaArquivo(true);
 
       // OCR for placa photo
       if (fieldKey === "foto_placa_url") {
