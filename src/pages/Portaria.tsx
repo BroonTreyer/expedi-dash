@@ -440,6 +440,10 @@ export default function Portaria({ categoria }: PortariaProps) {
               </Card>
             )}
           </TabsContent>
+
+          <TabsContent value="manual">
+            <ManualTab categoria={categoria} />
+          </TabsContent>
         </Tabs>
       </div>
 
