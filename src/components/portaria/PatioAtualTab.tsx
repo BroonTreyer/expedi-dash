@@ -216,13 +216,14 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     return (
       <div className="p-3 space-y-3">
         {sortedVeiculos.map((m) => {
-          const minutos = differenceInMinutes(now, new Date(m.data_hora));
+          const emRota = isEmRota(m);
+          const minutos = getMinutosNoPatio(m, now);
           const isSaidaRapida = saidaRapidaId === m.id;
           const isSaving = savingId === m.id;
           const infoExtra = getInfoExtra(m);
 
           return (
-            <Card key={m.id} className={minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
+            <Card key={m.id} className={emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
