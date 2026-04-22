@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, forwardRef } from "react";
 import { format, subDays, subMonths, startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/Layout";
@@ -15,7 +15,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import {
   Weight, Package, AlertTriangle, TrendingUp, Calendar, BarChart3,
   Download, ArrowUpRight, ArrowDownRight, Minus, Eye, Truck, Users, MapPin,
-  Filter, CheckCircle2, Clock, Loader2,
+  Filter, CheckCircle2, Clock, Loader2, AlertCircle,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar,
@@ -108,7 +108,13 @@ function fmtYAxis(v: number) {
 }
 
 function exportCsv(headers: string[], rows: (string | number)[][], filename: string) {
-  const csv = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+  const fmtCell = (v: string | number) => {
+    if (typeof v === "number") return v.toLocaleString("pt-BR");
+    // Escape valores com ponto-e-vírgula ou aspas
+    if (/[;"\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+    return v;
+  };
+  const csv = [headers.join(";"), ...rows.map((r) => r.map(fmtCell).join(";"))].join("\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
