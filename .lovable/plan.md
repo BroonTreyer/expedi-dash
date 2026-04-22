@@ -1,84 +1,81 @@
 
 
-## Painel KM: capturar foto na Saída p/ Rota E no Retorno
+## Auditoria: Foto do Painel KM (Saída) não aparece nos Detalhes
 
-### Diagnóstico
+### O que está realmente acontecendo
 
-Hoje, na Carga Própria, o campo `foto_painel_url` é único por registro — então a foto do painel KM tirada na **Saída p/ Rota** (KM inicial) é sobrescrita pela foto tirada no **Retorno** (KM final). Resultado: só sobra a última, e o detalhe do movimento mostra apenas uma foto de painel.
+Auditei toda a cadeia (banco → captura → exibição) e constatei:
 
-### Solução
+- **Banco:** A coluna `foto_painel_saida_url` existe e está bem definida.
+- **Exibição:** O `MovimentoDetailsDialog` já busca e renderiza as duas fotos corretamente (linhas 212–213 + 232–233).
+- **Causa raiz:** **NENHUM registro de Carga Própria no banco tem `foto_painel_saida_url` preenchido** — todos estão `NULL`, mesmo após a migration. Os 8+ registros mais recentes (NVP6191, FFW4J99, PRO0D73, NKU2C52, etc.) gravam só o `foto_painel_url` (retorno). Portanto não tem como o diálogo mostrar uma foto que nunca foi salva.
 
-Adicionar uma segunda coluna dedicada à foto do painel inicial, mantendo a existente para o retorno. Assim ambas as fotos coexistem no mesmo registro de Carga Própria.
+### Por que a captura não está salvando
 
-#### 1. Banco (migration)
+Identifiquei três bugs encadeados no fluxo de captura da Saída p/ Rota:
 
-- Nova coluna `foto_painel_saida_url text` em `movimentacoes_portaria` (nullable, sem default).
-- Semântica:
-  - `foto_painel_saida_url` → foto do painel KM no momento da **Saída p/ Rota** (KM inicial).
-  - `foto_painel_url` → foto do painel KM no momento do **Retorno** (KM final). *(comportamento atual preservado.)*
+#### Bug 1 — A foto do painel NÃO aparece no formulário de Saída p/ Rota
+O campo `foto_painel_saida_url` está marcado como `obrigatorio` para Carga Própria **só na visibility de ENTRADA** (`VISIBILITY`). Mas o fluxo da Saída p/ Rota usa o `tipo = "saida_rota"`, que provavelmente cai noutro filtro de visibility. Resultado: o `CapturaFoto` desse campo nem é renderizado, então o operador da portaria não tira a foto.
 
-#### 2. Captura na Portaria — Carga Própria
+#### Bug 2 — `handleFotoCapture` não mapeia a chave do novo campo
+No `tipoFotoMap` do `RegistroMovimentoDialog` (linha 188), faltam as entradas para `foto_painel_saida_url`. Quando o campo é renderizado, o upload cai no fallback `"doc"`, jogando a foto pra pasta errada do storage (`movimentacoes/doc/…` em vez de `…/painel/…`). A foto sobe, mas em pasta inconsistente.
 
-- **Saída p/ Rota** (`PortariaCargaPropria.tsx`, etapa "em_rota"): adicionar componente `CapturaFoto` para "Painel KM (Saída)" ao lado do campo `km_inicial`. Upload via `uploadFotoMovimentacao(file, "painel")` → grava em `foto_painel_saida_url`.
-- **Retorno** (etapa "retornou"): mantém o `CapturaFoto` atual de "Painel KM" → continua gravando em `foto_painel_url`.
+#### Bug 3 — Falta cobrir `prefillEtapa = "saida_rota"` na visibility certa
+O `getVisibleBlocks(categoria, "saida_rota")` precisa retornar `foto_painel_saida_url` como obrigatório. Hoje, a visibility de saída_rota não inclui esse campo.
 
-#### 3. Exibição no `MovimentoDetailsDialog`
+### Correção (3 ajustes pontuais)
 
-Atualizar o builder de fotos (Carga Própria) para listar as duas separadamente:
-
-| Campo | Label |
-|---|---|
-| `foto_painel_saida_url` | 🛞 Painel KM (Saída p/ Rota • HH:mm) |
-| `foto_painel_url` | 🛞 Painel KM (Retorno • HH:mm) |
-
-Adicionar `foto_painel_saida_url` no `select` da query `relatedRecords` e no `pushPhoto`. Deduplicação por URL continua igual.
-
-#### 4. Tipos
-
-Adicionar `foto_painel_saida_url: string | null` na interface `MovimentacaoPortaria` em `useMovimentacoesPortaria.ts`. (`types.ts` é regenerado automaticamente após a migration.)
-
-### O que NÃO muda
-
-- Categorias Terceirizado/Fornecedor/Visitante: sem alteração (continuam usando `foto_painel_url` quando aplicável).
-- Histórico/Tabela/Pátio Atual: sem alteração visual — só o diálogo de detalhes ganha a 2ª foto.
-- Triggers, RLS, KPIs, lacre, nota fiscal, placa, documento: intactos.
-- Registros antigos com apenas `foto_painel_url` continuam funcionando — só não terão a foto de saída (campo fica null).
-
-### Detalhes técnicos
-
-```sql
-ALTER TABLE public.movimentacoes_portaria
-  ADD COLUMN foto_painel_saida_url text;
-```
-
+#### 1. `src/lib/portaria-fields-config.ts`
+Garantir que `foto_painel_saida_url` apareça como **obrigatório** para Carga Própria no fluxo de Saída p/ Rota. Verificar se existe um `VISIBILITY_SAIDA_ROTA` (ou estender `VISIBILITY` para cobrir esse `tipo`) e adicionar:
 ```ts
-// PortariaCargaPropria.tsx — etapa "em_rota"
-<CapturaFoto
-  label="Painel KM (Saída)"
-  onCapture={async (file) => {
-    const url = await uploadFotoMovimentacao(file, "painel");
-    setFotoPainelSaidaUrl(url);
-  }}
-/>
-// no update da etapa em_rota:
-foto_painel_saida_url: fotoPainelSaidaUrl
+foto_painel_saida_url: { ...allOculto, carga_propria: "obrigatorio" }
+km_inicial:            { ...allOculto, carga_propria: "obrigatorio" }
+foto_placa_url:        { ...allOculto, carga_propria: "obrigatorio" }
+placa, motorista, rota: obrigatórios
 ```
 
+#### 2. `src/components/portaria/RegistroMovimentoDialog.tsx` (linha 188)
+Adicionar mapeamento no `tipoFotoMap`:
 ```ts
-// MovimentoDetailsDialog.tsx — builder Carga Própria
-pushPhoto(r.foto_painel_saida_url, "Painel KM", buildLabel("🛞","Painel KM","foto_painel_saida_url"));
-pushPhoto(r.foto_painel_url, "Painel KM", buildLabel("🛞","Painel KM","foto_painel_url"));
-
-const labelEtapaPorTipoFoto = (field: string) => ({
-  foto_painel_saida_url: "Saída p/ Rota",
-  foto_painel_url: "Retorno",
-  // ... demais
-}[field] ?? "");
+const tipoFotoMap: Record<string, string> = {
+  foto_placa_url: "placa",
+  foto_painel_url: "painel",
+  foto_painel_saida_url: "painel",  // ← NOVO
+  foto_nota_url: "nota",
+  foto_documento_url: "doc",
+  foto_lacre_url: "lacre",
+};
 ```
+
+#### 3. (Opcional) Regularização — incluir o novo campo na lista de skip
+Em `REGULARIZAR_SKIP` (linha 160), incluir `foto_painel_saida_url` para que admins possam regularizar saídas antigas sem foto:
+```ts
+const REGULARIZAR_SKIP = ["foto_painel_url", "foto_lacre_url", "foto_placa_url", "foto_painel_saida_url"];
+```
+
+### O que NÃO precisa mudar
+
+- `MovimentoDetailsDialog` já está correto — vai mostrar as duas fotos automaticamente assim que houver dados salvos.
+- `useMovimentacoesPortaria.ts` já tem o campo no tipo.
+- A migration já criou a coluna no banco.
+- O `handleSave` no branch `saida_rota` já grava `updates.foto_painel_saida_url` corretamente — só precisa receber o valor do form.
+
+### Verificação pós-fix
+
+Após aplicar, fazer 1 ciclo completo na Portaria (Carga Própria):
+1. Registrar Chegada → 2. Saída p/ Rota (deve exibir o `CapturaFoto` "Painel KM (Saída)") → tirar foto → 3. Retorno → tirar foto do painel → 4. Lacre.
+
+No diálogo de Detalhes do Movimento, o bloco "Fotos" deve listar:
+- 📷 Foto da Placa (Saída p/ Rota)
+- 🛞 Painel KM (Saída p/ Rota)  ← agora aparece
+- 🛞 Painel KM (Retorno)
+- 🔒 Foto do Lacre (Saída Final)
+
+### Registros antigos
+
+Os ~8 registros já finalizados com `foto_painel_saida_url = NULL` continuarão sem essa foto (não dá pra reconstituir). Apenas registros novos (criados após o fix) terão as duas fotos.
 
 **Arquivos alterados:**
-- Migration nova em `supabase/migrations/`
-- `src/hooks/useMovimentacoesPortaria.ts` (interface)
-- `src/pages/PortariaCargaPropria.tsx` (captura na Saída p/ Rota)
-- `src/components/portaria/MovimentoDetailsDialog.tsx` (exibição)
+- `src/lib/portaria-fields-config.ts` (visibility do `saida_rota`)
+- `src/components/portaria/RegistroMovimentoDialog.tsx` (`tipoFotoMap` + `REGULARIZAR_SKIP`)
 
