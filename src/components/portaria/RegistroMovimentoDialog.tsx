@@ -232,9 +232,13 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
     try {
       // Build regularization prefix to append to observacoes (preserves audit)
-      const regPrefix = regularizar
+      const regPrefixReg = regularizar
         ? `[REGULARIZADO por ${user?.email || "usuário"} em ${new Date().toLocaleString("pt-BR")}: ${motivoRegularizacao.trim()}]`
         : "";
+      const regPrefixUpload = fotoViaArquivo
+        ? `[FOTO via upload por ${user?.email || "usuário"} em ${new Date().toLocaleString("pt-BR")}]`
+        : "";
+      const regPrefix = [regPrefixReg, regPrefixUpload].filter(Boolean).join("\n");
       const appendReg = (existing: string | null | undefined) => {
         const base = (existing || "").trim();
         if (!regPrefix) return base || null;
