@@ -358,9 +358,6 @@ export default function Portaria({ categoria }: PortariaProps) {
                 <Badge variant="outline" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px] border-amber-300 text-amber-700 dark:text-amber-400">{pendentesEsperados}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="manual" className="gap-1 flex-1 sm:flex-initial text-xs sm:text-sm">
-              <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Manual
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="patio">
@@ -438,10 +435,6 @@ export default function Portaria({ categoria }: PortariaProps) {
                 </CardContent>
               </Card>
             )}
-          </TabsContent>
-
-          <TabsContent value="manual">
-            <ManualTab categoria={categoria} />
           </TabsContent>
         </Tabs>
       </div>
