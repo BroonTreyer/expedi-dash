@@ -706,7 +706,27 @@ export default function Analytics() {
             {!hasData && !isLoading ? <EmptyState /> : (
               <div className="space-y-4">
                 {/* Ruptura KPIs */}
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <Card className="border-border/40">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="p-1.5 rounded-lg bg-amber-500/10"><Weight className="h-3.5 w-3.5 text-amber-600" /></div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Não Carregado</span>
+                      </div>
+                      <p className="text-2xl font-bold text-amber-700 tabular-nums">{fmtTon(a?.rupturaKpis?.totalPesoNaoCarregado ?? 0)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{(a?.rupturaKpis?.totalPesoNaoCarregado ?? 0).toLocaleString("pt-BR")} kg</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-border/40">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="p-1.5 rounded-lg bg-amber-500/10"><MinusIcon /></div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Rupturas Parciais</span>
+                      </div>
+                      <p className="text-2xl font-bold text-amber-700 tabular-nums">{a?.rupturaKpis?.totalRupturasParciais ?? 0}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{a?.rupturaKpis?.totalRupturasTotais ?? 0} totais</p>
+                    </CardContent>
+                  </Card>
                   <Card className="border-border/40">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-1">
