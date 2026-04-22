@@ -48,6 +48,18 @@ function getTempoClass(minutos: number): string {
   return "text-muted-foreground";
 }
 
+function isEmRota(m: MovimentacaoPortaria): boolean {
+  return m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota";
+}
+
+function getMinutosNoPatio(m: MovimentacaoPortaria, now: Date): number {
+  // For "em_rota" vehicles, count time since they left for route (not since arrival)
+  if (isEmRota(m) && m.horario_saida_final) {
+    return differenceInMinutes(now, new Date(m.horario_saida_final));
+  }
+  return differenceInMinutes(now, new Date(m.data_hora));
+}
+
 function getInfoExtra(m: MovimentacaoPortaria): string | null {
   if (m.categoria === "carga_propria" && m.rota) return `Rota: ${m.rota}`;
   if ((m.categoria === "visitante" || m.categoria === "prestador") && m.nome_completo) {
@@ -123,7 +135,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const sortedVeiculos = useMemo(() => {
     return sortData(veiculosNoPatio, {
       data_hora: (m) => new Date(m.data_hora).getTime(),
-      tempo: (m) => differenceInMinutes(now, new Date(m.data_hora)),
+      tempo: (m) => getMinutosNoPatio(m, now),
       categoria: (m) => m.categoria,
       placa: (m) => m.placa,
       motorista: (m) => m.motorista,
@@ -204,13 +216,14 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     return (
       <div className="p-3 space-y-3">
         {sortedVeiculos.map((m) => {
-          const minutos = differenceInMinutes(now, new Date(m.data_hora));
+          const emRota = isEmRota(m);
+          const minutos = getMinutosNoPatio(m, now);
           const isSaidaRapida = saidaRapidaId === m.id;
           const isSaving = savingId === m.id;
           const infoExtra = getInfoExtra(m);
 
           return (
-            <Card key={m.id} className={minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
+            <Card key={m.id} className={emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
@@ -235,9 +248,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <span className="text-muted-foreground">Horário: </span>
                     <span className="font-medium">{format(new Date(m.data_hora), dateFromStr !== dateToStr ? "dd/MM HH:mm" : "HH:mm", { locale: ptBR })}</span>
                   </div>
-                  <div className={getTempoClass(minutos)}>
-                    {minutos >= 480 && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
-                    {formatTempo(minutos)}
+                  <div className={emRota ? "text-muted-foreground" : getTempoClass(minutos)}>
+                    {!emRota && minutos >= 480 && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
+                    {emRota ? `em rota há ${formatTempo(minutos)}` : formatTempo(minutos)}
                   </div>
                   {m.motorista && (
                     <div className="col-span-2 truncate">
@@ -330,13 +343,14 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         </TableHeader>
         <TableBody>
           {sortedVeiculos.map((m) => {
-            const minutos = differenceInMinutes(now, new Date(m.data_hora));
+            const emRota = isEmRota(m);
+            const minutos = getMinutosNoPatio(m, now);
             const isSaidaRapida = saidaRapidaId === m.id;
             const isSaving = savingId === m.id;
             const infoExtra = getInfoExtra(m);
 
             return (
-              <TableRow key={m.id} className={minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
+              <TableRow key={m.id} className={emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
                 <TableCell className="text-sm">
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -344,9 +358,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className={`flex items-center gap-1 text-sm ${getTempoClass(minutos)}`}>
-                    {minutos >= 480 && <AlertTriangle className="h-3 w-3" />}
-                    {formatTempo(minutos)}
+                  <div className={`flex items-center gap-1 text-sm ${emRota ? "text-muted-foreground" : getTempoClass(minutos)}`}>
+                    {!emRota && minutos >= 480 && <AlertTriangle className="h-3 w-3" />}
+                    {emRota ? `em rota há ${formatTempo(minutos)}` : formatTempo(minutos)}
                   </div>
                 </TableCell>
                 <TableCell>
