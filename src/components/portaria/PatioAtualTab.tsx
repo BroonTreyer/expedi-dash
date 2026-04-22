@@ -253,6 +253,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           const isSaidaRapida = saidaRapidaId === m.id;
           const isSaving = savingId === m.id;
           const infoExtra = getInfoExtra(m);
+          const isReabrir = reabrirId === m.id;
+          const podeReabrir = podeReabrirRegistro(m);
 
           return (
             <Card key={m.id} className={emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
