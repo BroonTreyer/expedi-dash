@@ -333,9 +333,34 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                        <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
                     </Button>
                   ) : m.categoria === "terceirizado" || m.categoria === "fornecedor" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
-                    </Button>
+                    isReabrir ? (
+                      <div className="flex items-center gap-3 animate-in fade-in duration-200">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setReabrirId(null)} disabled={isSaving}>
+                          Cancelar
+                        </Button>
+                        <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleReabrirRegistro(m)} disabled={isSaving}>
+                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                          Confirmar
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        {podeReabrir && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-7 text-xs"
+                            title="Enviar para Registro de Entrada para vincular carga"
+                            onClick={() => setReabrirId(m.id)}
+                          >
+                            <Undo2 className="h-3 w-3" /> Enviar p/ Registro
+                          </Button>
+                        )}
+                        <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
+                          <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
+                        </Button>
+                      </div>
+                    )
                   ) : isSaidaRapida ? (
                     <div className="flex items-center gap-3 animate-in fade-in duration-200">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaidaRapidaId(null)} disabled={isSaving}>
