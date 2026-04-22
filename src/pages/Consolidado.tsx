@@ -318,6 +318,69 @@ export default function Consolidado() {
     [updateDateMut]
   );
 
+  const handleOpenRomaneio = useCallback((group: CargaGroup) => {
+    // Group items by client, sort by ordem_entrega; same shape as fechamento.
+    const clienteMap = new Map<string, {
+      codigoCliente: string | null;
+      nomeCliente: string | null;
+      items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean }[];
+      pesoTotal: number;
+      rupturaCount: number;
+      ordem: number;
+    }>();
+    for (const item of group.items) {
+      const key = item.codigo_cliente ?? `__sem__${item.cliente ?? "—"}`;
+      let c = clienteMap.get(key);
+      if (!c) {
+        c = {
+          codigoCliente: item.codigo_cliente,
+          nomeCliente: item.cliente ?? null,
+          items: [],
+          pesoTotal: 0,
+          rupturaCount: 0,
+          ordem: item.ordem_entrega ?? 9999,
+        };
+        clienteMap.set(key, c);
+      }
+      c.items.push({
+        id: item.id,
+        nomeProduto: item.nome_produto ?? item.codigo_produto ?? null,
+        peso: item.peso ?? 0,
+        ruptura: !!item.ruptura,
+      });
+      c.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
+      if (item.ruptura) c.rupturaCount += 1;
+      // ordem: pega o menor ordem_entrega não-nulo do grupo
+      if (item.ordem_entrega != null && item.ordem_entrega < c.ordem) {
+        c.ordem = item.ordem_entrega;
+      }
+    }
+    const groupsArr = Array.from(clienteMap.values()).sort((a, b) => a.ordem - b.ordem);
+    // Renumera ordens sequenciais (1..N) garantindo continuidade
+    groupsArr.forEach((g, idx) => { g.ordem = idx + 1; });
+
+    const totalPeso = groupsArr.reduce((s, g) => s + g.pesoTotal, 0);
+    const totalRuptura = group.items
+      .filter((i) => i.ruptura)
+      .reduce((s, i) => s + (i.peso ?? 0), 0);
+
+    const data: CargaPrintData = {
+      cargaId: group.nomeCarga ?? group.cargaId,
+      data: group.data,
+      tipoCaminhao: group.tipoCaminhao ?? "—",
+      placa: group.placa ?? "—",
+      motorista: group.motorista ?? "—",
+      transportadora: group.items[0]?.transportadora ?? undefined,
+      horarioPrevisto: group.items[0]?.horario_previsto ?? undefined,
+      groups: groupsArr,
+      totalPeso,
+      totalRuptura,
+      totalPedidos: group.qtdPedidos,
+    };
+    setRomaneioData(data);
+    setRomaneioOpen(true);
+  }, []);
+
   const filtered = useMemo(() => {
     if (!rawData) return [];
     return rawData.filter((c) => {
