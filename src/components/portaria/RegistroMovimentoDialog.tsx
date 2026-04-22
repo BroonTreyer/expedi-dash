@@ -252,6 +252,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
         if (prefillEtapa === "saida_rota") {
           updates.foto_placa_url = values.foto_placa_url || null;
+          updates.foto_painel_saida_url = values.foto_painel_saida_url || null;
           updates.placa = values.placa?.trim().toUpperCase() || prefill.placa || null;
           updates.motorista = values.motorista?.trim() || prefill.motorista || null;
           updates.km_inicial = values.km_inicial ? Number(values.km_inicial) : null;
@@ -361,6 +362,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           numero_lacre: values.numero_lacre?.trim() || null,
           doca_setor: values.doca_setor?.trim() || null,
           foto_painel_url: values.foto_painel_url || null,
+          foto_painel_saida_url: values.foto_painel_saida_url || null,
           foto_nota_url: values.foto_nota_url || null,
           foto_lacre_url: values.foto_lacre_url || null,
           tipo_caminhao: values.tipo_caminhao?.trim() || null,
