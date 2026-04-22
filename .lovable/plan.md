@@ -1,71 +1,59 @@
 
 
-## Bug do Welliton: aparece em "Esperados" e no "Pátio" ao mesmo tempo
+## Detalhes do Movimento: mostrar TODAS as fotos registradas
 
 ### Diagnóstico
 
-Welliton (placa **RMB0C89**, carga **GRUPO ELIZEU MARTINS**) tem **2 linhas** na tabela `veiculos_esperados` — por isso aparece em dois lugares:
+Hoje o diálogo de detalhes só mostra fotos do(s) registro(s) que recebe via props (`movimento` + `movimentoSaida`). Mas:
 
-1. **Walk-in original** (criado 14:44) — já conferido, vinculado à carga, entrada registrada às 14:51. Esse some da lista de esperados (status=autorizado + conferido) e está corretamente no pátio.
-2. **Duplicata "previsto"** (criada 14:45:49 pelo trigger `on_carga_fechada`) — essa é a que polui a aba "Esperados".
+- **Carga Própria** grava **vários registros separados** por etapa (entrada, retornou, finalizado, etc.) — cada um com suas próprias fotos. O agrupamento na tabela passa apenas **1 registro** ao diálogo, então só as fotos daquele registro aparecem (ex.: placa + painel KM do "retornou", faltando a foto do lacre que está no registro "finalizado").
+- **Terceirizado** grava entrada e saída como registros separados **sem `movimento_vinculado_id`** → o agrupamento na `HistoricoTab` falha em pareá-los, então o diálogo recebe ou só a entrada (sem fotos) ou só a saída (placa + doc + lacre, sem painel/nota se existirem em outro registro).
 
-**Causa raiz:** quando a Logística fechou a carga (atribuiu placa RMB0C89 aos itens), o trigger `on_carga_fechada` rodou para criar previsão automática. Ele tem um guard `EXISTS(SELECT 1 FROM veiculos_esperados WHERE carga_id = X)`, mas:
+Resultado: o usuário vê só 2 fotos (placa + painel) quando na verdade existem mais distribuídas em outros registros do mesmo veículo/carga.
 
-- O trigger dispara **por linha** da `carregamentos_dia`. A carga tem 9+ itens → 9+ disparos quase simultâneos.
-- O `EXISTS` é avaliado **antes** do INSERT da previsão, então duas execuções concorrentes podem ambas ver "não existe previsão" e ambas inserirem (race condition clássica). Foi por isso que apareceu uma duplicata extra além do walk-in.
-- Além disso, o guard só checa por `carga_id` — se o walk-in foi criado **sem** `carga_id` no momento do INSERT do trigger e só ganhou `carga_id` depois, o EXISTS retorna falso e duplica de qualquer forma.
+### Solução
 
-Também: hoje o trigger ignora se já existe walk-in **conferido/autorizado** com a mesma `placa+data`. Deveria pular previsão se já há qualquer registro ativo daquele veículo no dia.
+Buscar **todos os registros relacionados** dentro do diálogo `MovimentoDetailsDialog` e agregar as fotos de todos eles, deduplicando por URL.
 
-### Solução em 2 partes
+#### O que muda
 
-#### 1. Limpeza imediata do registro duplicado do Welliton
+1. **Nova query no `MovimentoDetailsDialog`** — quando o diálogo abre, faz uma busca em `movimentacoes_portaria` por registros relacionados ao veículo/carga atual:
+   - **Carga Própria:** busca por `placa = m.placa` + janela de data ±2 dias da `m.data_hora` + mesma `categoria`. Agrupa todos os registros do mesmo veículo no ciclo (chegada → em rota → retorno → lacre).
+   - **Terceirizado/Outros:** busca por `placa = m.placa` + mesma data (00:00–23:59) + mesma `categoria`, capturando entrada e saída mesmo sem `movimento_vinculado_id`.
+   - **Filtro adicional:** se houver `carga_id`, prioriza registros com o mesmo `carga_id` para evitar misturar veículos diferentes em dias com o mesmo veículo voltando.
 
-- 🗑️ Apagar a linha `92b92661-1199-4243-b167-741a833f5e5b` (a "previsto" duplicada). Mantém o walk-in `fb760b74...` que tem o histórico real (entrada, conferência, autorização).
-- ✅ Resultado imediato: Welliton some da aba "Esperados" e continua corretamente listado no Pátio.
+2. **Agregar fotos de TODOS os registros** — a função que monta `allPhotos` passa a iterar sobre todos os registros relacionados (não só `m` e `sDistinct`). Para cada um, coleta as 5 URLs de foto (placa, documento, painel, nota, lacre) com label que indica a etapa de origem (ex.: "📷 Foto da Placa (Chegada)", "🛞 Painel KM (Retorno)", "🔒 Foto do Lacre (Saída Final)"). Continua deduplicando por URL pra não repetir a mesma foto se aparecer em registros diferentes.
 
-#### 2. Correção do trigger para não duplicar mais (migration)
+3. **Labels com contexto da etapa** — pra Carga Própria, derivar o label a partir de `etapa_carga_propria` do registro de origem (chegou → "Chegada", em_rota → "Saída p/ Rota", retornou → "Retorno", finalizado → "Saída Final"). Pra Terceirizado, usar `etapa_terceirizado` (no_patio → "No Pátio", finalizado → "Saída"). Mantém os emojis atuais.
 
-Atualizar a função `on_carga_fechada` para:
+4. **Loading state mínimo** — enquanto a query busca os registros relacionados, mantém as fotos do `m`/`s` originais visíveis (sem flicker). Quando a query resolve, substitui pela lista completa.
 
-- 🔒 Antes do INSERT da previsão, fazer `SELECT ... FOR UPDATE` ou usar `INSERT ... ON CONFLICT DO NOTHING` baseado num índice único parcial.
-- 🆕 Criar **índice único parcial** em `veiculos_esperados (carga_id, data_referencia) WHERE status_autorizacao <> 'recusado'` — garante que só pode existir 1 registro ativo por carga/dia, eliminando a race condition no banco.
-- ➕ Ampliar o guard para também pular se já existe walk-in com mesma `placa + data_referencia + status_autorizacao IN ('aguardando_vinculo','aguardando_autorizacao','autorizado')`. Assim, mesmo se a carga ainda não tiver `carga_id` no walk-in, não duplica.
-- 🧹 Como bônus, a migration faz cleanup retroativo: deleta linhas `previsto` órfãs que tenham um walk-in conferido com a mesma `carga_id`.
+#### O que NÃO muda
 
-#### 3. (Opcional) Quando a portaria liberar a entrada de um walk-in já vinculado a carga, marcar eventual previsão dessa mesma `carga_id` como `recusado` ou apagar — assim a lista de "Esperados" reflete exatamente o que ainda está pra chegar.
+- Sem migration. Sem alteração no schema do banco nem nas triggers.
+- A lógica de pareamento da `HistoricoTab` continua igual — o diálogo é que ganha autonomia pra agregar.
+- Demais seções do diálogo (horários, identificação, operação, controle) não mudam — só a seção de fotos.
+- Comportamento pra "outros" (visitante, fornecedor, prestador) continua igual quando não há mais registros do mesmo veículo no dia.
 
 ### Detalhes técnicos
 
-**Migration SQL (resumo):**
-
-```sql
--- Cleanup retroativo
-DELETE FROM veiculos_esperados v1
-WHERE walk_in = false
-  AND status_autorizacao = 'previsto'
-  AND EXISTS (
-    SELECT 1 FROM veiculos_esperados v2
-    WHERE v2.carga_id = v1.carga_id
-      AND v2.walk_in = true
-      AND v2.id <> v1.id
-  );
-
--- Índice único parcial pra impedir race condition
-CREATE UNIQUE INDEX IF NOT EXISTS veiculos_esperados_carga_unique_ativo
-  ON veiculos_esperados (carga_id, data_referencia)
-  WHERE status_autorizacao <> 'recusado' AND carga_id IS NOT NULL;
-
--- Trigger melhorado: ON CONFLICT + checagem por placa
-CREATE OR REPLACE FUNCTION on_carga_fechada() ...
-  INSERT INTO veiculos_esperados (...) VALUES (...)
-  ON CONFLICT DO NOTHING;
+**Query nova (resumo):**
+```ts
+const { data: relatedRecords } = useQuery({
+  queryKey: ["mov-related-photos", m.placa, m.categoria, m.carga_id, dataMovimento],
+  enabled: open && !!m.placa,
+  queryFn: async () => {
+    const dFrom = ...; const dTo = ...; // ±2 dias
+    let q = supabase.from("movimentacoes_portaria")
+      .select("id, tipo_movimento, etapa_carga_propria, etapa_terceirizado, foto_placa_url, foto_documento_url, foto_painel_url, foto_nota_url, foto_lacre_url, texto_placa_lido, confianca_placa, data_hora, carga_id")
+      .eq("placa", m.placa).eq("categoria", m.categoria)
+      .gte("data_hora", dFrom).lte("data_hora", dTo)
+      .order("data_hora", { ascending: true });
+    if (m.carga_id) q = q.or(`carga_id.eq.${m.carga_id},carga_id.is.null`);
+    return (await q).data || [];
+  }
+});
 ```
 
-### O que NÃO muda
-
-- Movimentações de portaria (entrada do Welliton no pátio) ficam intactas.
-- Walk-in conferido continua exatamente como está — só remove a duplicata "previsto".
-- Sem mexer em código de UI; é só migration + DELETE pontual.
-- Outras cargas/veículos não são afetados pelo cleanup (filtro só pega duplicatas com walk-in vinculado).
+**Builder de fotos:** itera `relatedRecords`, deriva label a partir de `tipo_movimento` + etapa, faz `pushPhoto(url, alt, label)` com dedup por URL. Fallback pros records originais (`m`, `s`) caso a query ainda não tenha respondido.
 
