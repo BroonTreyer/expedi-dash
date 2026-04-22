@@ -84,6 +84,16 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
         onChange={handleChange}
         disabled={disabled}
       />
+      {allowFileUpload && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept.includes("pdf") ? accept : "image/*,application/pdf"}
+          className="hidden"
+          onChange={handleChange}
+          disabled={disabled}
+        />
+      )}
       {preview ? (
         <div className="relative rounded-lg overflow-hidden border border-border">
           {showAsPdf ? (
@@ -104,6 +114,11 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
             />
           )}
           <div className="absolute bottom-2 right-2 flex gap-1">
+            {allowFileUpload && (
+              <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={disabled}>
+                <Upload className="h-3 w-3 mr-1" /> Arquivo
+              </Button>
+            )}
             <Button size="sm" variant="secondary" onClick={handleRetake} disabled={disabled}>
               <RotateCcw className="h-3 w-3 mr-1" /> Refazer
             </Button>
@@ -115,19 +130,33 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={disabled}
-          className={cn(
-            "w-full h-48 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 transition-colors",
-            "hover:border-primary/50 hover:bg-muted/50",
-            disabled && "opacity-50 cursor-not-allowed"
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={disabled}
+            className={cn(
+              "w-full h-48 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 transition-colors",
+              "hover:border-primary/50 hover:bg-muted/50",
+              disabled && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <Camera className="h-8 w-8 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">{shouldCapture ? "Toque para fotografar" : "Toque para fotografar ou cole (Ctrl+V)"}</span>
+          </button>
+          {allowFileUpload && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+            >
+              <Upload className="h-4 w-4 mr-2" /> Enviar arquivo (Admin/Logística)
+            </Button>
           )}
-        >
-          <Camera className="h-8 w-8 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">{shouldCapture ? "Toque para fotografar" : "Toque para fotografar ou cole (Ctrl+V)"}</span>
-        </button>
+        </div>
       )}
       <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={preview} alt={label} />
     </div>
