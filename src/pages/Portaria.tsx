@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck } from "lucide-react";
+import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck, BookOpen } from "lucide-react";
 import { useMovimentacoes, useCreateMovimentacao, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados, useDeleteVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
@@ -23,6 +23,7 @@ import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDi
 import { VeiculosEsperadosPanel } from "@/components/portaria/VeiculosEsperadosPanel";
 import { SolicitacoesPendentesPanel } from "@/components/portaria/SolicitacoesPendentesPanel";
 import { CargasFechadasAguardandoPanel } from "@/components/portaria/CargasFechadasAguardandoPanel";
+import { ManualTab } from "@/components/portaria/ManualTab";
 
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
@@ -358,6 +359,9 @@ export default function Portaria({ categoria }: PortariaProps) {
                 <Badge variant="outline" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px] border-amber-300 text-amber-700 dark:text-amber-400">{pendentesEsperados}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="manual" className="gap-1 flex-1 sm:flex-initial text-xs sm:text-sm">
+              <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Manual
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="patio">
@@ -435,6 +439,10 @@ export default function Portaria({ categoria }: PortariaProps) {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="manual">
+            <ManualTab categoria={categoria} />
           </TabsContent>
         </Tabs>
       </div>
