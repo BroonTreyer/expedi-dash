@@ -415,6 +415,9 @@ export default function Analytics() {
   const [filterVendedores, setFilterVendedores] = useState<string[]>([]);
   const [filterTipos, setFilterTipos] = useState<string[]>([]);
   const [filterUfs, setFilterUfs] = useState<string[]>([]);
+  const isMobile = useIsMobile();
+  const yAxisCatWidth = isMobile ? 70 : 120;
+  const yAxisCatFontSize = isMobile ? 8 : 9;
 
   const range = useMemo(() => getDateRange(period), [period]);
   const periodDays = useMemo(() => differenceInDays(new Date(range.to), new Date(range.from)), [range]);
