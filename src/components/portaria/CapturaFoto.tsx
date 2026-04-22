@@ -6,7 +6,7 @@ import { PhotoViewerDialog } from "./PhotoViewerDialog";
 
 interface Props {
   label: string;
-  onCapture: (file: File) => void;
+  onCapture: (file: File, viaArquivo?: boolean) => void;
   disabled?: boolean;
   previewUrl?: string | null;
   accept?: string;
@@ -46,7 +46,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
           if (localPreview) URL.revokeObjectURL(localPreview);
           setIsPdf(false);
           setLocalPreview(URL.createObjectURL(file));
-          onCapture(file);
+          onCapture(file, true);
           break;
         }
       }
@@ -55,13 +55,13 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
     return () => document.removeEventListener("paste", handlePaste);
   }, [disabled, onCapture, localPreview, shouldCapture]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, viaArquivo = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (localPreview) URL.revokeObjectURL(localPreview);
     setIsPdf(file.type === "application/pdf");
     setLocalPreview(URL.createObjectURL(file));
-    onCapture(file);
+    onCapture(file, viaArquivo);
     e.target.value = "";
   };
 
