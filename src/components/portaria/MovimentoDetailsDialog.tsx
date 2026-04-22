@@ -348,7 +348,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                {s && (
+                {sDistinct && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10">
@@ -364,7 +364,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={async () => { await deleteMov.mutateAsync(s.id); onOpenChange(false); }} disabled={deleteMov.isPending}>
+                        <AlertDialogAction onClick={async () => { await deleteMov.mutateAsync(sDistinct.id); onOpenChange(false); }} disabled={deleteMov.isPending}>
                           {deleteMov.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                           Excluir Saída
                         </AlertDialogAction>
