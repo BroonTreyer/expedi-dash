@@ -126,7 +126,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
         setStep("form");
         setCategoria(forcedCategoria);
         // Carga própria não tem "entrada" — começa como saída p/ rota
-        setTipo(forcedCategoria === "carga_propria" ? "saida" : "entrada");
+        setTipo(forcedCategoria === "carga_propria" ? "saida_rota" : "entrada");
       } else {
         setStep("categoria");
         setTipo("entrada");
@@ -154,7 +154,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     setValues({});
     if (cat === "carga_propria" && tipo === "entrada") {
       // Carga própria não tem "entrada" — o 1º contato é saída p/ rota
-      setTipo("saida");
+      setTipo("saida_rota");
     }
     setStep("form");
   };
