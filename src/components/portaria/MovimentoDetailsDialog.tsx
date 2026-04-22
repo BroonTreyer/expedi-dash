@@ -91,6 +91,40 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
     enabled: !!placaBusca && !!dataMovimento && open,
   });
 
+  // Fetch all related movement records for this vehicle/load to aggregate ALL photos
+  const categoriaBusca = movimento?.categoria || "";
+  const cargaIdBusca = movimento?.carga_id || "";
+  const { data: relatedRecords } = useQuery({
+    queryKey: ["mov-related-photos", placaBusca, categoriaBusca, cargaIdBusca, dataMovimento],
+    enabled: open && !!placaBusca && !!categoriaBusca && !!dataMovimento,
+    queryFn: async () => {
+      const dMov = new Date(dataMovimento + "T00:00:00");
+      const windowDays = categoriaBusca === "carga_propria" ? 2 : 1;
+      const dFrom = new Date(dMov); dFrom.setDate(dFrom.getDate() - windowDays);
+      const dTo = new Date(dMov); dTo.setDate(dTo.getDate() + windowDays);
+      let q = supabase
+        .from("movimentacoes_portaria")
+        .select("id, tipo_movimento, etapa_carga_propria, etapa_terceirizado, foto_placa_url, foto_documento_url, foto_painel_url, foto_nota_url, foto_lacre_url, texto_placa_lido, confianca_placa, data_hora, carga_id, categoria, placa")
+        .ilike("placa", placaBusca)
+        .eq("categoria", categoriaBusca)
+        .gte("data_hora", dFrom.toISOString())
+        .lte("data_hora", dTo.toISOString())
+        .order("data_hora", { ascending: true });
+      const { data, error } = await q;
+      if (error) {
+        console.error("Erro ao buscar registros relacionados:", error);
+        return [];
+      }
+      let rows = data || [];
+      // If we have a carga_id, prefer rows from same carga (or without carga_id, which may be early walk-ins)
+      if (cargaIdBusca) {
+        const filtered = rows.filter((r: any) => !r.carga_id || r.carga_id === cargaIdBusca);
+        if (filtered.length > 0) rows = filtered;
+      }
+      return rows;
+    },
+  });
+
   if (!movimento) return null;
   const m = movimento;
   const s = movimentoSaida;
@@ -127,37 +161,72 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const hasOperacao = m.rota || m.peso || m.qtd_entregas || kmRota || kmInicial || kmFinal || kmRodado || m.tipo_carga || m.nota_fiscal || m.doca_setor || m.apelido;
   const hasControle = m.responsavel_interno || m.conferente || m.ocorrencia || sDistinct?.conferente || sDistinct?.ocorrencia;
   
-  // Collect all photos from both records
+  // Helpers to derive stage labels
+  const labelEtapaCP = (etapa: string | null | undefined) => {
+    switch (etapa) {
+      case "chegou": return "Chegada";
+      case "em_rota": return "Saída p/ Rota";
+      case "retornou": return "Retorno";
+      case "finalizado": return "Saída Final";
+      default: return null;
+    }
+  };
+  const labelEtapaTerc = (etapa: string | null | undefined, tipo: string) => {
+    if (etapa === "no_patio") return "No Pátio";
+    if (etapa === "finalizado") return "Saída";
+    return tipo === "saida" ? "Saída" : "Entrada";
+  };
+
+  // Collect all photos — aggregate from all related records, dedup by URL
   const allPhotos: { url: string; alt: string; label: string; ocrText?: string | null; ocrConf?: number | null }[] = [];
-  if (isCargaPropria) {
-    // Registro único — labels por etapa do fluxo de Carga Própria
-    if (m.foto_placa_url) allPhotos.push({ url: m.foto_placa_url, alt: "Placa", label: "📷 Foto da Placa", ocrText: m.texto_placa_lido, ocrConf: m.confianca_placa });
-    if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📄 Documento" });
-    if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel KM", label: "🛞 Painel KM (Retorno)" });
-    if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📋 Nota Fiscal" });
-    if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída Final)" });
-  } else {
-    const mIsSaida = m.tipo_movimento === "saida";
-    const mPrefix = mIsSaida ? "📤" : "📥";
-    const mLabel = mIsSaida ? "Saída" : "Entrada";
+  {
     const seenUrls = new Set<string>();
     const pushPhoto = (url: string | null | undefined, alt: string, label: string, ocrText?: string | null, ocrConf?: number | null) => {
       if (!url || seenUrls.has(url)) return;
       seenUrls.add(url);
       allPhotos.push({ url, alt, label, ocrText, ocrConf });
     };
-    pushPhoto(m.foto_placa_url, "Placa", `${mPrefix} Foto da Placa (${mLabel})`, m.texto_placa_lido, m.confianca_placa);
-    pushPhoto(m.foto_documento_url, "Documento", `${mPrefix} Documento (${mLabel})`);
-    pushPhoto(m.foto_painel_url, "Painel", `${mPrefix} Painel KM (${mLabel})`);
-    pushPhoto(m.foto_nota_url, "Nota Fiscal", `${mPrefix} Nota Fiscal (${mLabel})`);
-    pushPhoto(m.foto_lacre_url, "Lacre", `🔒 Foto do Lacre (${mLabel})`);
-    pushPhoto(sDistinct?.foto_placa_url, "Placa", "📤 Foto da Placa (Saída)", sDistinct?.texto_placa_lido, sDistinct?.confianca_placa);
-    pushPhoto(sDistinct?.foto_documento_url, "Documento", "📤 Documento (Saída)");
-    pushPhoto(sDistinct?.foto_painel_url, "Painel", "📤 Painel KM (Saída)");
-    pushPhoto(sDistinct?.foto_nota_url, "Nota Fiscal", "📤 Nota Fiscal (Saída)");
-    pushPhoto(sDistinct?.foto_lacre_url, "Lacre", "🔒 Foto do Lacre (Saída)");
-    // Defensive: also pull from `s` even if isSameRecord (covers when only saída record exists / lacre stored there)
-    pushPhoto(s?.foto_lacre_url, "Lacre", "🔒 Foto do Lacre (Saída)");
+
+    // Build the source list: all related records if available, else fallback to m + sDistinct
+    const sources: any[] = (relatedRecords && relatedRecords.length > 0)
+      ? relatedRecords
+      : [m, sDistinct].filter(Boolean);
+
+    for (const r of sources) {
+      let stageLabel: string | null = null;
+      let prefix = "";
+      if (isCargaPropria) {
+        stageLabel = labelEtapaCP(r.etapa_carga_propria) || (r.tipo_movimento === "saida" ? "Saída" : "Chegada");
+        prefix = "";
+      } else if (m.categoria === "terceirizado") {
+        stageLabel = labelEtapaTerc(r.etapa_terceirizado, r.tipo_movimento);
+        prefix = r.tipo_movimento === "saida" ? "📤 " : "📥 ";
+      } else {
+        stageLabel = r.tipo_movimento === "saida" ? "Saída" : "Entrada";
+        prefix = r.tipo_movimento === "saida" ? "📤 " : "📥 ";
+      }
+      const suffix = stageLabel ? ` (${stageLabel})` : "";
+      pushPhoto(r.foto_placa_url, "Placa", `${prefix}📷 Foto da Placa${suffix}`, r.texto_placa_lido, r.confianca_placa);
+      pushPhoto(r.foto_documento_url, "Documento", `${prefix}📄 Documento${suffix}`);
+      pushPhoto(r.foto_painel_url, "Painel KM", `${prefix}🛞 Painel KM${suffix}`);
+      pushPhoto(r.foto_nota_url, "Nota Fiscal", `${prefix}📋 Nota Fiscal${suffix}`);
+      pushPhoto(r.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`);
+    }
+
+    // Defensive: also pull from `s` (saída paired record) even if not in relatedRecords
+    if (s) {
+      const stage = isCargaPropria
+        ? (labelEtapaCP(s.etapa_carga_propria) || "Saída")
+        : m.categoria === "terceirizado"
+          ? labelEtapaTerc(s.etapa_terceirizado, s.tipo_movimento)
+          : "Saída";
+      const suffix = ` (${stage})`;
+      pushPhoto(s.foto_placa_url, "Placa", `📤 📷 Foto da Placa${suffix}`, s.texto_placa_lido, s.confianca_placa);
+      pushPhoto(s.foto_documento_url, "Documento", `📤 📄 Documento${suffix}`);
+      pushPhoto(s.foto_painel_url, "Painel KM", `📤 🛞 Painel KM${suffix}`);
+      pushPhoto(s.foto_nota_url, "Nota Fiscal", `📤 📋 Nota Fiscal${suffix}`);
+      pushPhoto(s.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`);
+    }
   }
   
   const hasFotos = allPhotos.length > 0;
