@@ -912,7 +912,7 @@ export default function Analytics() {
                             <TableRow key={c.codigo + c.nome} className="hover:bg-muted/30">
                               <TableCell className="py-2.5">
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-xs truncate max-w-[140px] sm:max-w-[180px]">{c.nome}</span>
+                                  <span className="font-medium text-xs break-words">{c.nome}</span>
                                   {c.codigo !== "S/CÓD" && <span className="text-[10px] text-muted-foreground tabular-nums">#{c.codigo}</span>}
                                 </div>
                               </TableCell>
@@ -920,8 +920,14 @@ export default function Analytics() {
                               <TableCell className="text-right tabular-nums text-xs font-bold text-amber-700 py-2.5">
                                 {Math.round(c.pesoNaoCarregado).toLocaleString("pt-BR")} kg
                               </TableCell>
-                              <TableCell className="py-2.5 max-w-[180px]">
-                                <span className="text-[10px] text-muted-foreground line-clamp-2 break-words">{c.produtos.slice(0, 3).join(", ")}{c.produtos.length > 3 ? ` +${c.produtos.length - 3}` : ""}</span>
+                              <TableCell className="py-2.5 min-w-[220px] max-w-[320px]">
+                                <div className="flex flex-wrap gap-1">
+                                  {c.produtos.map((p) => (
+                                    <span key={p} className="text-[10px] bg-muted/50 text-muted-foreground px-1.5 py-0.5 rounded border border-border/50 break-words">
+                                      {p}
+                                    </span>
+                                  ))}
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
