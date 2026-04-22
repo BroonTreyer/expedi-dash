@@ -94,6 +94,10 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   if (!movimento) return null;
   const m = movimento;
   const s = movimentoSaida;
+  const isCargaPropria = m.categoria === "carga_propria";
+  // Carga Própria usa um único registro (m e s podem apontar para o mesmo objeto)
+  const isSameRecord = !!s && s.id === m.id;
+  const sDistinct = !isSameRecord ? s : undefined;
 
   // Compute date badge
   let dataBadge: { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode } | null = null;
@@ -115,26 +119,35 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const hasIdentificacao = m.nome_completo || m.documento || m.telefone || m.pessoa_visitada || m.motivo_visita || m.servico_executar || m.descricao || m.tipo_operacao;
   
   // Combine operação from both records
-  const kmInicial = m.km_inicial ?? s?.km_inicial;
-  const kmFinal = s?.km_final ?? m.km_final;
-  const kmRodado = s?.km_rodado ?? m.km_rodado ?? (kmInicial != null && kmFinal != null ? kmFinal - kmInicial : undefined);
-  const kmRota = m.km_rota ?? s?.km_rota;
+  const kmInicial = m.km_inicial ?? sDistinct?.km_inicial;
+  const kmFinal = sDistinct?.km_final ?? m.km_final;
+  const kmRodado = sDistinct?.km_rodado ?? m.km_rodado ?? (kmInicial != null && kmFinal != null ? kmFinal - kmInicial : undefined);
+  const kmRota = m.km_rota ?? sDistinct?.km_rota;
   
   const hasOperacao = m.rota || m.peso || m.qtd_entregas || kmRota || kmInicial || kmFinal || kmRodado || m.tipo_carga || m.nota_fiscal || m.doca_setor || m.apelido;
-  const hasControle = m.responsavel_interno || m.conferente || m.ocorrencia || s?.conferente || s?.ocorrencia;
+  const hasControle = m.responsavel_interno || m.conferente || m.ocorrencia || sDistinct?.conferente || sDistinct?.ocorrencia;
   
   // Collect all photos from both records
   const allPhotos: { url: string; alt: string; label: string; ocrText?: string | null; ocrConf?: number | null }[] = [];
-  if (m.foto_placa_url) allPhotos.push({ url: m.foto_placa_url, alt: "Placa", label: "📥 Foto da Placa (Entrada)", ocrText: m.texto_placa_lido, ocrConf: m.confianca_placa });
-  if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📥 Documento (Entrada)" });
-  if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel", label: "📥 Painel KM (Entrada)" });
-  if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📥 Nota Fiscal (Entrada)" });
-  if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Entrada)" });
-  if (s?.foto_placa_url) allPhotos.push({ url: s.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Saída)", ocrText: s.texto_placa_lido, ocrConf: s.confianca_placa });
-  if (s?.foto_documento_url) allPhotos.push({ url: s.foto_documento_url, alt: "Documento", label: "📤 Documento (Saída)" });
-  if (s?.foto_painel_url) allPhotos.push({ url: s.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Saída)" });
-  if (s?.foto_nota_url) allPhotos.push({ url: s.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Saída)" });
-  if (s?.foto_lacre_url) allPhotos.push({ url: s.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída)" });
+  if (isCargaPropria) {
+    // Registro único — labels por etapa do fluxo de Carga Própria
+    if (m.foto_placa_url) allPhotos.push({ url: m.foto_placa_url, alt: "Placa", label: "📷 Foto da Placa", ocrText: m.texto_placa_lido, ocrConf: m.confianca_placa });
+    if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📄 Documento" });
+    if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel KM", label: "🛞 Painel KM (Retorno)" });
+    if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📋 Nota Fiscal" });
+    if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída Final)" });
+  } else {
+    if (m.foto_placa_url) allPhotos.push({ url: m.foto_placa_url, alt: "Placa", label: "📥 Foto da Placa (Entrada)", ocrText: m.texto_placa_lido, ocrConf: m.confianca_placa });
+    if (m.foto_documento_url) allPhotos.push({ url: m.foto_documento_url, alt: "Documento", label: "📥 Documento (Entrada)" });
+    if (m.foto_painel_url) allPhotos.push({ url: m.foto_painel_url, alt: "Painel", label: "📥 Painel KM (Entrada)" });
+    if (m.foto_nota_url) allPhotos.push({ url: m.foto_nota_url, alt: "Nota Fiscal", label: "📥 Nota Fiscal (Entrada)" });
+    if (m.foto_lacre_url) allPhotos.push({ url: m.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Entrada)" });
+    if (sDistinct?.foto_placa_url) allPhotos.push({ url: sDistinct.foto_placa_url, alt: "Placa", label: "📤 Foto da Placa (Saída)", ocrText: sDistinct.texto_placa_lido, ocrConf: sDistinct.confianca_placa });
+    if (sDistinct?.foto_documento_url) allPhotos.push({ url: sDistinct.foto_documento_url, alt: "Documento", label: "📤 Documento (Saída)" });
+    if (sDistinct?.foto_painel_url) allPhotos.push({ url: sDistinct.foto_painel_url, alt: "Painel", label: "📤 Painel KM (Saída)" });
+    if (sDistinct?.foto_nota_url) allPhotos.push({ url: sDistinct.foto_nota_url, alt: "Nota Fiscal", label: "📤 Nota Fiscal (Saída)" });
+    if (sDistinct?.foto_lacre_url) allPhotos.push({ url: sDistinct.foto_lacre_url, alt: "Lacre", label: "🔒 Foto do Lacre (Saída)" });
+  }
   
   const hasFotos = allPhotos.length > 0;
 
