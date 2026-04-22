@@ -1,63 +1,111 @@
 
+## Aba "Manual" na Portaria
 
-## Bug: Detalhes de Carga Própria mostram informações duplicadas / faltando
+### Objetivo
+Adicionar uma nova aba **📖 Manual** dentro das páginas de Portaria (Carga Própria e Terceirizado) com um guia completo, didático e ilustrado de todas as funcionalidades — explicado de forma tão simples que qualquer pessoa entenda na primeira leitura.
 
-### Causa raiz
-Na **Carga Própria** o fluxo de 3 etapas (Saída p/ Rota → Retorno → Lacre) grava **tudo num único registro** (`tipo_movimento = "saida"` que é atualizado em cada etapa). Mas o `HistoricoTab` agrupa esse registro como "standalone saída" e o `Portaria.openDetails` passa o mesmo objeto como `movimento` E `movimentoSaida`. Resultado no `MovimentoDetailsDialog`:
+### Onde aparece
+- `/portaria/carga-propria` → nova aba "Manual" ao lado de Pátio, Histórico e Esperados
+- `/portaria/terceirizado` → mesma aba, com conteúdo adaptado ao fluxo de terceirizados
 
-- **Fotos duplicadas**: cada foto aparece 2x — uma rotulada `(Entrada)` e outra `(Saída)` (lacre, painel, placa, etc).
-- **Conferente/Observações duplicados**: mesmo texto repetido em "Entrada" e "Saída".
-- **Bloco de horários incompleto**: a lógica do else só mostra "Saída" e exige `m.tipo_movimento === "entrada"` para mostrar "Tempo Gasto". Para Carga Própria, os horários `horario_real_saida` e `horario_real_retorno` são ignorados.
-- **Bug de sobrescrita**: em `RegistroMovimentoDialog.tsx` (linha 245), a etapa "lacre" grava `horario_real_saida = now()`, **sobrescrevendo** o horário da saída p/ rota original. Não há campo separado para "saída final c/ lacre".
+A aba se adapta automaticamente à categoria (`carga_propria` ou `terceirizado`) mostrando apenas o conteúdo relevante para aquele time.
 
-### Correção
+### Estrutura do Manual
 
-#### 1. `src/components/portaria/MovimentoDetailsDialog.tsx`
+O manual será organizado em **seções colapsáveis** (accordion), para o usuário abrir só o que precisa sem ficar com muito texto na tela. Cada seção tem:
+- 🎯 **O que é** — explicação em 1 frase simples
+- 👣 **Passo a passo** — numerado, com palavras simples
+- 💡 **Dica** — atalhos e boas práticas
+- ⚠️ **Atenção** — erros comuns a evitar
 
-**Detectar Carga Própria e não duplicar**:
-- Adicionar `const isCargaPropria = m.categoria === "carga_propria";`
-- Adicionar `const isSameRecord = s && s.id === m.id;` para detectar quando `s` é o mesmo objeto que `m` (caso Carga Própria).
+### Seções do Manual
 
-**Bloco de Fotos** (linhas 127-139): quando `isCargaPropria` (registro único), montar `allPhotos` apenas a partir de `m`, com **labels por etapa** ao invés de "(Entrada)/(Saída)":
-- `foto_placa_url` → "📷 Foto da Placa"
-- `foto_painel_url` → "🛞 Painel KM (Retorno)"
-- `foto_lacre_url` → "🔒 Foto do Lacre (Saída Final)"
-- `foto_documento_url` → "📄 Documento"
-- `foto_nota_url` → "📋 Nota Fiscal"
+**1. 🚪 Bem-vindo à Portaria**
+- O que essa tela faz (controlar quem entra e sai)
+- Tour rápido: cabeçalho, KPIs, abas, botões
 
-Para outras categorias, manter lógica atual mas adicionar guard `if (!isSameRecord)` antes de incluir fotos de `s` (evita duplicação acidental).
+**2. 📅 Filtro de Datas**
+- Como escolher um dia, uma semana ou um mês
+- Atalhos "Hoje", "Últimos 7 dias", "Este mês"
 
-**Bloco de Horários** (linhas 184-263): adicionar branch dedicado para Carga Própria mostrando:
-- 🟠 Chegada (`m.horario_chegada || m.data_hora`)
-- 🔵 Saída p/ Rota (`m.horario_real_saida` quando etapa ≥ em_rota)
-- 🟡 Retorno (`m.horario_real_retorno` quando etapa ≥ retornou)
-- 🔒 Saída Final c/ Lacre (`m.horario_saida_final` — novo campo, ver item 3)
-- ⏱ Tempo total em rota (Retorno − Saída p/ Rota), Tempo total no pátio (Saída Final − Retorno)
+**3. 📊 Os Cartões de Resumo (KPIs)**
+- O que cada número significa (Entradas, Saídas, No Pátio, etc.)
 
-**Conferente / Observações / Lacre** (linhas 327-328, 387-388, 405-421): quando `isSameRecord`, mostrar apenas a versão de `m` sem labels duplicados "(Entrada)/(Saída)".
+**4. ➕ Registrar uma Movimentação** (conteúdo varia por categoria)
 
-#### 2. `src/components/portaria/HistoricoTab.tsx`
+  **Carga Própria** (4 etapas explicadas com diagrama ASCII):
+  ```
+  🟠 Chegada → 🔵 Saída p/ Rota → 🟡 Retorno → 🔒 Saída Final c/ Lacre
+  ```
+  - Etapa 1: Como registrar a chegada do caminhão (pela aba Esperados ou botão Registrar)
+  - Etapa 2: Saída para rota — preencher rota, KM inicial, foto do painel
+  - Etapa 3: Retorno — KM final, foto do painel
+  - Etapa 4: Saída final — número e foto do lacre
 
-Em `openDetails` (chamada via `onViewDetails(g.entrada, g.saida)` linhas 201, 305): nada a alterar aqui — a correção do dialog já trata o caso de `m === s`.
+  **Terceirizado** (3 etapas):
+  ```
+  🟠 Chegada → 📦 Carregamento → 🚛 Saída
+  ```
+  - Como vincular a uma carga fechada
+  - Quando preencher cada campo
 
-#### 3. `src/components/portaria/RegistroMovimentoDialog.tsx`
+**5. 🅿️ Aba Pátio**
+- O que mostra (veículos que ainda estão dentro)
+- Como dar baixa (registrar a próxima etapa)
+- Cores e badges (o que cada cor quer dizer)
 
-Corrigir o bug de sobrescrita do horário da saída inicial:
-- **Linha 245**: trocar `updates.horario_real_saida = ...` por `updates.horario_saida_final = ...` (novo campo) para que o horário da saída p/ rota original (gravado na etapa em_rota) seja preservado.
+**6. 📜 Aba Histórico**
+- Lista completa do período
+- Como filtrar por tipo (entrada/saída)
+- Como ver detalhes de um registro
+- Como exportar para Excel/CSV
 
-#### 4. Migration de banco
+**7. 🔍 Detalhes de um Registro**
+- O que aparece no popup de detalhes
+- Linha do tempo (Carga Própria mostra 4 marcos)
+- Como ver e baixar fotos (placa, painel, lacre, documento, nota)
 
-Adicionar coluna `horario_saida_final timestamp with time zone null` em `movimentacoes_portaria` para registrar o horário da saída final c/ lacre da Carga Própria sem sobrescrever `horario_real_saida` (saída p/ rota).
+**8. 📋 Aba Esperados**
+- O que é a planilha de esperados
+- Como importar (botão Importar — só admin/logística)
+- Como marcar um veículo como "chegou" (1 clique na carga própria)
+- Janela de ±3 dias
 
-### Resultado esperado
+**9. 🔔 Solicitações Pendentes & Cargas Aguardando**
+- Painéis acima das abas
+- Como aprovar uma solicitação walk-in
+- Como dar entrada numa carga já fechada
 
-Ao abrir Detalhes de um registro de Carga Própria:
-- Fotos da placa, painel KM e **lacre** aparecem **uma única vez** com labels claros por etapa.
-- Bloco de horários mostra a linha do tempo completa: Chegada → Saída p/ Rota → Retorno → Saída Final.
-- Conferente, observações e número do lacre não duplicam.
+**10. 📷 Fotos e Documentos**
+- Como tirar foto pelo celular
+- Como anexar PDF (nota fiscal)
+- O que o OCR faz automaticamente (lê a placa)
+
+**11. 🔎 Busca**
+- Campo de busca: o que ele procura (placa, motorista, empresa, nome)
+
+**12. 🆘 Problemas Comuns / FAQ**
+- "Não consigo achar um caminhão"
+- "Tirei foto errada, e agora?"
+- "Esqueci de registrar a chegada"
+- "Apareceu erro vermelho"
+- Quem chamar (admin/logística)
+
+**13. 🎨 Legenda de Cores e Ícones**
+- Tabela com todos os badges, cores de etapa, ícones e o que significam
+
+### Design
+
+- Mesmo padrão visual do resto do app (Card, Accordion, Badge do shadcn)
+- Ícones grandes (lucide-react) em cada seção para escaneabilidade
+- Blocos coloridos suaves para Dica (azul), Atenção (amarelo), Passo (cinza)
+- Diagramas ASCII em `<pre>` com fundo `bg-muted` para os fluxos
+- Totalmente responsivo (mobile-first, igual às outras abas)
+- Sem necessidade de banco de dados — conteúdo estático em JSX
 
 ### Arquivos
-- ✏️ `src/components/portaria/MovimentoDetailsDialog.tsx` — branch Carga Própria, deduplicação, novo bloco de horários
-- ✏️ `src/components/portaria/RegistroMovimentoDialog.tsx` — usar `horario_saida_final` na etapa lacre
-- 🆕 Migration — coluna `horario_saida_final` em `movimentacoes_portaria`
+- 🆕 `src/components/portaria/ManualTab.tsx` — componente da aba com todo o conteúdo, recebe `categoria` como prop e mostra blocos condicionais por fluxo
+- ✏️ `src/pages/Portaria.tsx` — adicionar `<TabsTrigger value="manual">` e `<TabsContent value="manual">` renderizando `<ManualTab categoria={categoria} />`
 
+### Resultado
+Qualquer porteiro novo (ou veterano com dúvida) abre a aba **Manual** na própria tela onde trabalha e encontra a resposta sem precisar pedir ajuda — explicado com palavras simples, passos numerados e diagramas visuais.
