@@ -424,6 +424,56 @@ export function useAnalytics(filters: AnalyticsFilters) {
     const totalRupturasParciais = filtered.filter(isParcial).length;
     const totalRupturasTotais = filtered.filter((r) => r.ruptura).length;
 
+    // === Clientes afetados por ruptura (total ou parcial) ===
+    const clienteAgg = new Map<string, { nome: string; ocorrencias: number; pesoNaoCarregado: number; produtos: Set<string> }>();
+    filtered.filter((r) => r.ruptura || isParcial(r)).forEach((r) => {
+      const codigo = r.codigo_cliente || "S/CÓD";
+      const nome = r.cliente || "Sem cliente";
+      const key = codigo + "|" + nome;
+      const e = clienteAgg.get(key) || { nome, ocorrencias: 0, pesoNaoCarregado: 0, produtos: new Set<string>() };
+      e.ocorrencias += 1;
+      const original = r.peso_original ?? r.peso ?? 0;
+      e.pesoNaoCarregado += r.ruptura ? original : Math.max(0, original - (r.peso ?? 0));
+      if (r.nome_produto) e.produtos.add(r.nome_produto);
+      clienteAgg.set(key, e);
+    });
+    const clienteRupturas: ClienteRuptura[] = Array.from(clienteAgg.entries())
+      .map(([key, v]) => ({
+        codigo: key.split("|")[0],
+        nome: v.nome,
+        ocorrencias: v.ocorrencias,
+        pesoNaoCarregado: v.pesoNaoCarregado,
+        produtos: Array.from(v.produtos),
+      }))
+      .sort((a, b) => b.pesoNaoCarregado - a.pesoNaoCarregado)
+      .slice(0, 15);
+
+    // === Cargas com pendência ===
+    const cargaAgg = new Map<string, { nome: string; ocorrencias: number; pesoNaoCarregado: number; motoristas: Set<string> }>();
+    filtered.filter((r) => (r.ruptura || isParcial(r)) && r.carga_id).forEach((r) => {
+      const e = cargaAgg.get(r.carga_id) || {
+        nome: r.nome_carga || r.carga_id,
+        ocorrencias: 0,
+        pesoNaoCarregado: 0,
+        motoristas: new Set<string>(),
+      };
+      e.ocorrencias += 1;
+      const original = r.peso_original ?? r.peso ?? 0;
+      e.pesoNaoCarregado += r.ruptura ? original : Math.max(0, original - (r.peso ?? 0));
+      if (r.motorista) e.motoristas.add(r.motorista);
+      cargaAgg.set(r.carga_id, e);
+    });
+    const cargasComPendencia: CargaPendencia[] = Array.from(cargaAgg.entries())
+      .map(([cargaId, v]) => ({
+        cargaId,
+        nomeCarga: v.nome,
+        ocorrencias: v.ocorrencias,
+        pesoNaoCarregado: v.pesoNaoCarregado,
+        motoristas: Array.from(v.motoristas),
+      }))
+      .sort((a, b) => b.pesoNaoCarregado - a.pesoNaoCarregado)
+      .slice(0, 15);
+
     // === 9. KPIs (com comparativo correto) ===
     const totalPeso = filteredValid.reduce((s, r) => s + (r.peso ?? 0), 0);
     const totalCarregado = filteredValid
@@ -503,6 +553,8 @@ export function useAnalytics(filters: AnalyticsFilters) {
       },
       dailyPlanejadoVsEfetivo,
       motivoBreakdown,
+      clienteRupturas,
+      cargasComPendencia,
       filterOptions: { uniqueVendedores, uniqueTipos, uniqueUfs },
       truncated,
     };
