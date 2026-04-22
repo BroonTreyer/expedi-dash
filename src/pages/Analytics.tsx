@@ -125,12 +125,12 @@ function exportCsv(headers: string[], rows: (string | number)[][], filename: str
 }
 
 // ── Variation badge ──
-function VarBadge({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-[10px] text-muted-foreground">—</span>;
+const VarBadge = forwardRef<HTMLSpanElement, { value: number | null }>(({ value }, ref) => {
+  if (value === null) return <span ref={ref} className="text-[10px] text-muted-foreground">—</span>;
   const isUp = value > 0;
   const isZero = value === 0;
   return (
-    <span className={cn(
+    <span ref={ref} className={cn(
       "inline-flex items-center gap-0.5 text-[10px] font-semibold rounded-full px-1.5 py-0.5",
       isZero ? "text-muted-foreground bg-muted" : isUp ? "text-emerald-700 bg-emerald-50" : "text-red-600 bg-red-50"
     )}>
@@ -138,7 +138,8 @@ function VarBadge({ value }: { value: number | null }) {
       {Math.abs(value)}%
     </span>
   );
-}
+});
+VarBadge.displayName = "VarBadge";
 
 // ── KPI Card ──
 function KpiCard({ label, value, icon: Icon, variation, loading, accent, subtitle }: {
@@ -286,10 +287,10 @@ function FilterPopover({ filterOptions, filterVendedores, filterTipos, filterUfs
 }
 
 // ── Status Mini Cards ──
-function StatusMiniCards({ data }: { data: { status: string; count: number; peso: number }[] }) {
+const StatusMiniCards = forwardRef<HTMLDivElement, { data: { status: string; count: number; peso: number }[] }>(({ data }, ref) => {
   const total = data.reduce((s, d) => s + d.count, 0);
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div ref={ref} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {data.map((d) => {
         const Icon = STATUS_ICONS[d.status] || Package;
         const color = STATUS_COLORS_MAP[d.status] || "text-muted-foreground";
@@ -315,7 +316,8 @@ function StatusMiniCards({ data }: { data: { status: string; count: number; peso
       })}
     </div>
   );
-}
+});
+StatusMiniCards.displayName = "StatusMiniCards";
 
 // ── Vendor Ranking with Progress Bars ──
 function VendorRanking({ data, maxPeso }: { data: { nome: string; peso: number; participacao: number; pedidos: number }[]; maxPeso: number }) {
