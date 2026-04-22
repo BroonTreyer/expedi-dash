@@ -157,7 +157,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
 
   const blocks = useMemo(() => getVisibleBlocks(categoria, effectiveTipo), [categoria, effectiveTipo]);
   // Fields skipped during regularization (no photos available + KM Inicial pode entrar manual)
-  const REGULARIZAR_SKIP = ["foto_painel_url", "foto_lacre_url", "foto_placa_url"];
+  const REGULARIZAR_SKIP = ["foto_painel_url", "foto_painel_saida_url", "foto_lacre_url", "foto_placa_url"];
   const canSave = useMemo(() => {
     if (regularizar) {
       // Validate everything except skipped fields, AND require motivo
@@ -185,7 +185,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   };
 
   const handleFotoCapture = async (fieldKey: string, file: File, viaArquivo = false) => {
-    const tipoFotoMap: Record<string, string> = { foto_placa_url: "placa", foto_painel_url: "painel", foto_nota_url: "nota", foto_documento_url: "doc", foto_lacre_url: "lacre" };
+    const tipoFotoMap: Record<string, string> = { foto_placa_url: "placa", foto_painel_url: "painel", foto_painel_saida_url: "painel", foto_nota_url: "nota", foto_documento_url: "doc", foto_lacre_url: "lacre" };
     const tipoFoto = (tipoFotoMap[fieldKey] || "doc") as "placa" | "doc" | "painel" | "nota";
     try {
       const publicUrl = await uploadFotoMovimentacao(file, tipoFoto);
