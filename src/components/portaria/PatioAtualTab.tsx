@@ -48,6 +48,18 @@ function getTempoClass(minutos: number): string {
   return "text-muted-foreground";
 }
 
+function isEmRota(m: MovimentacaoPortaria): boolean {
+  return m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota";
+}
+
+function getMinutosNoPatio(m: MovimentacaoPortaria, now: Date): number {
+  // For "em_rota" vehicles, count time since they left for route (not since arrival)
+  if (isEmRota(m) && m.horario_saida_final) {
+    return differenceInMinutes(now, new Date(m.horario_saida_final));
+  }
+  return differenceInMinutes(now, new Date(m.data_hora));
+}
+
 function getInfoExtra(m: MovimentacaoPortaria): string | null {
   if (m.categoria === "carga_propria" && m.rota) return `Rota: ${m.rota}`;
   if ((m.categoria === "visitante" || m.categoria === "prestador") && m.nome_completo) {
