@@ -38,10 +38,7 @@ const PERIOD_OPTIONS = [
 const BRAND_RED = "#D42027";
 const NAVY = "#1E40AF";
 const EMERALD = "#059669";
-const AMBER_SOLID = "#D97706";
 const SLATE_SOLID = "#64748B";
-const VIOLET = "#7C3AED";
-const CYAN_SOLID = "#0891B2";
 
 const CHART_COLORS = [
   "#1E40AF",  // Navy
