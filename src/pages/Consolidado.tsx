@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil } from "lucide-react";
+import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil, FileText } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useSortableTable } from "@/hooks/useSortableTable";
@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
 import { pesoEfetivo } from "@/lib/peso-utils";
+import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -162,6 +163,8 @@ export default function Consolidado() {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
+  const [romaneioData, setRomaneioData] = useState<CargaPrintData | null>(null);
+  const [romaneioOpen, setRomaneioOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<CargaGroup | null>(null);
   const { sort, toggleSort, sortData } = useSortableTable();
   const isMobile = useIsMobile();
@@ -314,6 +317,69 @@ export default function Consolidado() {
     },
     [updateDateMut]
   );
+
+  const handleOpenRomaneio = useCallback((group: CargaGroup) => {
+    // Group items by client, sort by ordem_entrega; same shape as fechamento.
+    const clienteMap = new Map<string, {
+      codigoCliente: string | null;
+      nomeCliente: string | null;
+      items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean }[];
+      pesoTotal: number;
+      rupturaCount: number;
+      ordem: number;
+    }>();
+    for (const item of group.items) {
+      const key = item.codigo_cliente ?? `__sem__${item.cliente ?? "—"}`;
+      let c = clienteMap.get(key);
+      if (!c) {
+        c = {
+          codigoCliente: item.codigo_cliente,
+          nomeCliente: item.cliente ?? null,
+          items: [],
+          pesoTotal: 0,
+          rupturaCount: 0,
+          ordem: item.ordem_entrega ?? 9999,
+        };
+        clienteMap.set(key, c);
+      }
+      c.items.push({
+        id: item.id,
+        nomeProduto: item.nome_produto ?? item.codigo_produto ?? null,
+        peso: item.peso ?? 0,
+        ruptura: !!item.ruptura,
+      });
+      c.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
+      if (item.ruptura) c.rupturaCount += 1;
+      // ordem: pega o menor ordem_entrega não-nulo do grupo
+      if (item.ordem_entrega != null && item.ordem_entrega < c.ordem) {
+        c.ordem = item.ordem_entrega;
+      }
+    }
+    const groupsArr = Array.from(clienteMap.values()).sort((a, b) => a.ordem - b.ordem);
+    // Renumera ordens sequenciais (1..N) garantindo continuidade
+    groupsArr.forEach((g, idx) => { g.ordem = idx + 1; });
+
+    const totalPeso = groupsArr.reduce((s, g) => s + g.pesoTotal, 0);
+    const totalRuptura = group.items
+      .filter((i) => i.ruptura)
+      .reduce((s, i) => s + (i.peso ?? 0), 0);
+
+    const data: CargaPrintData = {
+      cargaId: group.nomeCarga ?? group.cargaId,
+      data: group.data,
+      tipoCaminhao: group.tipoCaminhao ?? "—",
+      placa: group.placa ?? "—",
+      motorista: group.motorista ?? "—",
+      transportadora: group.items[0]?.transportadora ?? undefined,
+      horarioPrevisto: group.items[0]?.horario_previsto ?? undefined,
+      groups: groupsArr,
+      totalPeso,
+      totalRuptura,
+      totalPedidos: group.qtdPedidos,
+    };
+    setRomaneioData(data);
+    setRomaneioOpen(true);
+  }, []);
 
   const filtered = useMemo(() => {
     if (!rawData) return [];
@@ -528,6 +594,9 @@ export default function Consolidado() {
                           )}
                         </div>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRomaneio(g)} title="Imprimir romaneio">
+                            <FileText className="h-3.5 w-3.5" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditGroup(g)} title="Editar carga">
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -606,9 +675,14 @@ export default function Consolidado() {
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </TableCell>
                         <TableCell className="px-1" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditGroup(g)} title="Editar carga">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRomaneio(g)} title="Imprimir romaneio">
+                              <FileText className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditGroup(g)} title="Editar carga">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()} className="text-xs">
                           <Popover>
@@ -696,6 +770,7 @@ export default function Consolidado() {
         )}
       </div>
       <ConsolidadoPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
+      <CargaPrintDialog open={romaneioOpen} onOpenChange={setRomaneioOpen} data={romaneioData} />
       <EditarCargaDialog
         open={!!editGroup}
         onOpenChange={(o) => !o && setEditGroup(null)}
