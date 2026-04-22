@@ -821,6 +821,18 @@ export default function Analytics() {
           <TabsContent value="geografia">
             {!hasData && !isLoading ? <EmptyState /> : (
               <div className="space-y-4">
+                {a?.semUfStats && a.semUfStats.pedidos > 0 && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                    <div>
+                      <span className="font-semibold text-amber-700">Pedidos sem UF informada: </span>
+                      <span className="tabular-nums">
+                        {a.semUfStats.pedidos} pedido(s) · {a.semUfStats.peso.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg
+                      </span>
+                      <span className="text-muted-foreground ml-1">— excluídos do ranking abaixo. Cadastre a UF do cliente para entrarem nas estatísticas geográficas.</span>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Bar horizontal UFs */}
                   <ChartCard title="Peso por UF" subtitle="Distribuição de peso por estado">
