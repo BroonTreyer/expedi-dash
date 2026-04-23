@@ -732,6 +732,7 @@ export default function Rupturas() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <div className="overflow-x-auto -mx-1 px-1">
               <TabsList className="h-auto inline-flex">
+                <TabsTrigger value="lista" className="text-xs sm:text-sm">Lista detalhada</TabsTrigger>
                 <TabsTrigger value="visao" className="text-xs sm:text-sm">Visão geral</TabsTrigger>
                 <TabsTrigger value="produto" className="text-xs sm:text-sm">Por produto</TabsTrigger>
                 <TabsTrigger value="cliente" className="text-xs sm:text-sm">Por cliente</TabsTrigger>
