@@ -35,20 +35,52 @@ export function useCreateCliente() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: { codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; cep?: string; ativo: boolean }) => {
+      const codigo = String(values.codigo_cliente ?? "").trim();
+      const nome = String(values.nome_cliente ?? "").trim();
+      if (!codigo) throw new Error("Código do cliente é obrigatório");
+      if (!nome) throw new Error("Nome do cliente é obrigatório");
+
+      // Confirma sessão ativa (evita falha silenciosa por RLS)
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error("Sessão expirada. Faça login novamente para salvar o cliente.");
+      }
+
+      const normalized = { ...values, codigo_cliente: codigo, nome_cliente: nome };
+
       // Check for duplicate before inserting
       const { data: existing } = await supabase
         .from("clientes")
         .select("codigo_cliente, nome_cliente, cidade, uf")
-        .eq("codigo_cliente", values.codigo_cliente.trim())
+        .eq("codigo_cliente", codigo)
         .maybeSingle();
 
       if (existing) {
         const info = [existing.nome_cliente, existing.cidade, existing.uf].filter(Boolean).join(" – ");
-        throw new Error(`Já existe um cliente com o código ${values.codigo_cliente}: ${info}`);
+        // Loga tentativa duplicada para auditoria de "sumiços"
+        try {
+          await supabase.rpc("log_audit", {
+            _entity_type: "cliente",
+            _entity_id: codigo,
+            _action: "tentativa_duplicada",
+            _changes: { tentativa: normalized, existente: existing } as any,
+          });
+        } catch {}
+        throw new Error(`Já existe um cliente com o código ${codigo}: ${info}`);
       }
 
-      const { data, error } = await supabase.from("clientes").insert(values).select().single();
-      if (error) throw error;
+      const { data, error } = await supabase.from("clientes").insert(normalized).select().single();
+      if (error) {
+        try {
+          await supabase.rpc("log_audit", {
+            _entity_type: "cliente",
+            _entity_id: codigo,
+            _action: "tentativa_falhou",
+            _changes: { tentativa: normalized, erro: error.message } as any,
+          });
+        } catch {}
+        throw error;
+      }
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clientes"] }); toast.success("Cliente criado"); },

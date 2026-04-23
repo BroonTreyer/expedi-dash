@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
@@ -35,6 +36,7 @@ export default function Clientes() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true });
+  const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -68,8 +70,8 @@ export default function Clientes() {
   const startItem = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const endItem = Math.min(page * PAGE_SIZE, filtered.length);
 
-  const openNew = () => { setEditing(null); setForm({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true }); setOpen(true); };
-  const openEdit = (c: any) => { setEditing(c); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, cidade: c.cidade || "", uf: c.uf || "", cep: c.cep ? maskCep(c.cep) : "", ativo: c.ativo }); setOpen(true); };
+  const openNew = () => { setEditing(null); setFormError(null); setForm({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true }); setOpen(true); };
+  const openEdit = (c: any) => { setEditing(c); setFormError(null); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, cidade: c.cidade || "", uf: c.uf || "", cep: c.cep ? maskCep(c.cep) : "", ativo: c.ativo }); setOpen(true); };
 
   const handleCepBlur = () => {
     const norm = normalizeCep(form.cep);
@@ -81,8 +83,23 @@ export default function Clientes() {
 
   const isSubmitting = createMut.isPending || updateMut.isPending;
   const handleSubmit = () => {
-    const payload = { ...form, cep: normalizeCep(form.cep) || undefined };
-    if (editing) { updateMut.mutate({ id: editing.id, ...payload }, { onSuccess: () => setOpen(false) }); } else { createMut.mutate(payload, { onSuccess: () => setOpen(false) }); }
+    setFormError(null);
+    const codigo = form.codigo_cliente.trim();
+    const nome = form.nome_cliente.trim();
+    if (!codigo) { setFormError("Informe o código do cliente."); return; }
+    if (!nome) { setFormError("Informe o nome do cliente."); return; }
+    const payload = { ...form, codigo_cliente: codigo, nome_cliente: nome, cep: normalizeCep(form.cep) || undefined };
+    if (editing) {
+      updateMut.mutate({ id: editing.id, ...payload }, {
+        onSuccess: () => { setFormError(null); setOpen(false); },
+        onError: (e: any) => setFormError(e?.message || "Falha ao salvar. Tente novamente."),
+      });
+    } else {
+      createMut.mutate(payload, {
+        onSuccess: () => { setFormError(null); setOpen(false); },
+        onError: (e: any) => setFormError(e?.message || "Falha ao salvar. Tente novamente."),
+      });
+    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -434,13 +451,22 @@ export default function Clientes() {
           </div>
         )}
 
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="w-[calc(100vw-2rem)] sm:w-full">
+        <Dialog open={open} onOpenChange={(v) => { if (isSubmitting) return; setOpen(v); if (!v) setFormError(null); }}>
+          <DialogContent
+            className="w-[calc(100vw-2rem)] sm:w-full"
+            onInteractOutside={(e) => { if (isSubmitting) e.preventDefault(); }}
+            onEscapeKeyDown={(e) => { if (isSubmitting) e.preventDefault(); }}
+          >
             <DialogHeader>
               <DialogTitle>{editing ? "Editar Cliente" : "Novo Cliente"}</DialogTitle>
               <DialogDescription>{editing ? "Edite os dados do cliente" : "Preencha os dados do novo cliente"}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {formError && (
+                <Alert variant="destructive">
+                  <AlertDescription className="text-xs">{formError}</AlertDescription>
+                </Alert>
+              )}
               <div><Label className="text-xs">Código</Label><Input value={form.codigo_cliente} onChange={(e) => setForm(f => ({ ...f, codigo_cliente: e.target.value }))} /></div>
               <div><Label className="text-xs">Nome</Label><Input value={form.nome_cliente} onChange={(e) => setForm(f => ({ ...f, nome_cliente: e.target.value }))} /></div>
               <div className="grid grid-cols-2 gap-3">
@@ -449,7 +475,7 @@ export default function Clientes() {
               </div>
               <div><Label className="text-xs">CEP</Label><Input value={form.cep} onChange={(e) => setForm(f => ({ ...f, cep: maskCep(e.target.value) }))} onBlur={handleCepBlur} maxLength={9} placeholder="00000-000" inputMode="numeric" /></div>
               <div className="flex items-center gap-2"><Switch checked={form.ativo} onCheckedChange={(v) => setForm(f => ({ ...f, ativo: v }))} /><Label className="text-xs">Ativo</Label></div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Salvando..." : editing ? "Salvar" : "Criar"}</Button></div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>Cancelar</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Salvando..." : editing ? "Salvar" : "Criar"}</Button></div>
             </div>
           </DialogContent>
         </Dialog>
