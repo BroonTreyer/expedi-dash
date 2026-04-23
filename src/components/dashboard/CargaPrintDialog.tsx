@@ -232,6 +232,11 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
               ↳ {data.totalRuptura.toLocaleString("pt-BR")} kg em ruptura não embarcado (peso planejado: {(data.totalPeso + data.totalRuptura).toLocaleString("pt-BR")} kg)
             </div>
           )}
+          {data.totalCortado != null && data.totalCortado > 0 && (
+            <div className="text-[11px] text-amber-700 -mt-2">
+              ↳ {data.totalCortado.toLocaleString("pt-BR")} kg cortados em rupturas parciais (peso embarcado: {data.totalPeso.toLocaleString("pt-BR")} kg)
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
