@@ -125,10 +125,10 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
       const prodHit = produtoByCod.get((it.codigo_produto ?? "").toLowerCase());
       const pesoPadrao = Number(prodHit?.peso_padrao ?? 0);
       const qtd = Number(it.quantidade) || 0;
-      const isUnidade = isPorUnidade(it.nome_produto ?? prodHit?.nome_produto ?? null);
-      // Para itens em KG: o "qtde" do PDF já é o peso em kg.
-      // Para itens por unidade (Pão de Alho): peso = qtd * pesoPadrao.
-      const peso = isUnidade ? qtd * pesoPadrao : qtd;
+      // A coluna "Qtde" do PDF do Sankhya é sempre quantidade de embalagens.
+      // Peso físico = peso_padrao × qtd (vale para KG e por unidade).
+      // Sem peso_padrao (produto não cadastrado): fallback peso = qtd.
+      const peso = pesoPadrao > 0 ? qtd * pesoPadrao : qtd;
       return {
         codigo_produto: it.codigo_produto ?? "",
         nome_produto: prodHit?.nome_produto ?? it.nome_produto ?? "",
@@ -219,6 +219,36 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
     setPedidos((prev) => prev.map((p) => {
       if (p.fileId !== fileId) return p;
       return { ...p, items: p.items.map((it, i) => (i === idx ? { ...it, ...patch } : it)) };
+    }));
+  };
+  const handleItemQuantidade = (fileId: string, idx: number, qty: number) => {
+    setPedidos((prev) => prev.map((p) => {
+      if (p.fileId !== fileId) return p;
+      return {
+        ...p,
+        items: p.items.map((it, i) => {
+          if (i !== idx) return it;
+          const novoPeso = it.pesoPadrao > 0 ? qty * it.pesoPadrao : it.peso;
+          return { ...it, quantidade: qty, peso: novoPeso };
+        }),
+      };
+    }));
+  };
+  const handleItemPeso = (fileId: string, idx: number, peso: number) => {
+    setPedidos((prev) => prev.map((p) => {
+      if (p.fileId !== fileId) return p;
+      return {
+        ...p,
+        items: p.items.map((it, i) => {
+          if (i !== idx) return it;
+          const unidade = isPorUnidade(it.nome_produto);
+          if (unidade || !(it.pesoPadrao > 0)) {
+            return { ...it, peso, pesoManual: true };
+          }
+          const novaQtd = Math.round(peso / it.pesoPadrao);
+          return { ...it, peso, quantidade: novaQtd, pesoManual: true };
+        }),
+      };
     }));
   };
   const removeItem = (fileId: string, idx: number) => {
@@ -411,10 +441,13 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
                               onChange={(e) => {
                                 const cod = e.target.value;
                                 const hit = produtoByCod.get(cod.toLowerCase());
+                                const novoPesoPadrao = Number(hit?.peso_padrao ?? 0);
+                                const novoPeso = novoPesoPadrao > 0 ? it.quantidade * novoPesoPadrao : it.peso;
                                 updateItem(p.fileId, idx, {
                                   codigo_produto: cod,
                                   nome_produto: hit?.nome_produto ?? it.nome_produto,
-                                  pesoPadrao: Number(hit?.peso_padrao ?? 0),
+                                  pesoPadrao: novoPesoPadrao,
+                                  peso: novoPeso,
                                   produtoCadastrado: !!hit,
                                 });
                               }}
@@ -436,7 +469,7 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
                               type="number"
                               step="0.01"
                               value={it.peso}
-                              onChange={(e) => updateItem(p.fileId, idx, { peso: Number(e.target.value) || 0, pesoManual: true })}
+                              onChange={(e) => handleItemPeso(p.fileId, idx, Number(e.target.value) || 0)}
                               className="h-8 text-sm"
                             />
                           </div>
@@ -446,7 +479,7 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
                               type="number"
                               step="0.01"
                               value={it.quantidade}
-                              onChange={(e) => updateItem(p.fileId, idx, { quantidade: Number(e.target.value) || 0 })}
+                              onChange={(e) => handleItemQuantidade(p.fileId, idx, Number(e.target.value) || 0)}
                               className="h-8 text-sm"
                             />
                           </div>
