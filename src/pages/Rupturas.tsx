@@ -191,7 +191,7 @@ export default function Rupturas() {
   const [clienteFilter, setClienteFilter] = useState("todos");
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("ambas");
   const [busca, setBusca] = useState("");
-  const [activeTab, setActiveTab] = useState<string>(searchParams.get("carga") ? "itens" : "visao");
+  const [activeTab, setActiveTab] = useState<string>(searchParams.get("carga") ? "itens" : "lista");
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
   const { data: vendedores = [] } = useVendedores();
