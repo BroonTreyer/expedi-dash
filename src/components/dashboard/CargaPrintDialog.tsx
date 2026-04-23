@@ -7,7 +7,7 @@ import fricoLogo from "@/assets/frico-logo-optimized.webp";
 interface ClienteGroup {
   codigoCliente: string | null;
   nomeCliente: string | null;
-  items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean }[];
+  items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean; pesoOriginal?: number | null }[];
   pesoTotal: number;
   rupturaCount?: number;
   ordem: number;
@@ -24,6 +24,8 @@ export interface CargaPrintData {
   groups: ClienteGroup[];
   totalPeso: number;
   totalRuptura?: number;
+  /** Soma do peso cortado em rupturas parciais (peso original − peso atual). */
+  totalCortado?: number;
   totalPedidos: number;
 }
 
