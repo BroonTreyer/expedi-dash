@@ -310,6 +310,11 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                           <ArrowUpFromLine className="h-3 w-3" /> Saída
                         </Badge>
                       )}
+                      {g.finalizado && (
+                        <Badge variant="outline" className="gap-1 text-xs border-green-500 text-green-700 dark:text-green-400">
+                          <CheckCircle2 className="h-3 w-3" /> Finalizado
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
