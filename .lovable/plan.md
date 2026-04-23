@@ -1,45 +1,48 @@
 
 
-## Mostrar todos os produtos em "Clientes Afetados"
+## Editar dados do veículo em "Aguardando vínculo da Logística"
 
 ### Problema
 
-Na tabela "Clientes Afetados" (Analytics → Rupturas), a coluna **Produtos** mostra só os 3 primeiros e indica "+N" para o resto, com `line-clamp-2` cortando o texto. O usuário precisa ver **todos** os produtos que faltaram para cada cliente.
-
-A mesma lógica existe no CSV (que já exporta todos via `c.produtos.join(" | ")`), então o backend está OK — o problema é só visual.
+Quando a Portaria registra a chegada de um veículo walk-in mas esquece de informar a transportadora (ou erra placa/motorista/tipo), hoje não há como corrigir — o card em "Aguardando vínculo da Logística" é somente leitura. A Logística precisa recusar e pedir novo registro.
 
 ### Mudança
 
-**Arquivo:** `src/pages/Analytics.tsx` (linhas 923–925)
+Adicionar botão **Editar** em cada card do painel `SolicitacoesPendentesPanel` (apenas para cards `aguardando`, antes da decisão de vínculo). Abre um diálogo simples para corrigir os campos do `veiculos_esperados`.
 
-Trocar a célula da coluna "Produtos" para listar **todos** os produtos como badges/chips empilhadas, com quebra de linha natural e sem `line-clamp`:
+#### 1. Novo componente `src/components/portaria/EditarVeiculoEsperadoDialog.tsx`
 
-```tsx
-<TableCell className="py-2.5 min-w-[220px] max-w-[320px]">
-  <div className="flex flex-wrap gap-1">
-    {c.produtos.map((p) => (
-      <span key={p} className="text-[10px] bg-muted/50 text-muted-foreground px-1.5 py-0.5 rounded border border-border/50 break-words">
-        {p}
-      </span>
-    ))}
-  </div>
-</TableCell>
-```
+Diálogo com os campos editáveis:
+- **Placa** (Input, uppercase + trim ao salvar)
+- **Motorista** (MotoristaAutocomplete — reaproveita componente, preenche transportadora/tipo se selecionar cadastro)
+- **Transportadora** (Input livre — para casos em que não há motorista cadastrado)
+- **Tipo de veículo** (Input)
+- **Observações** (Textarea)
 
-E remover `truncate max-w-[140px]` do nome do cliente (linha 915) → trocar por `break-words` para nomes longos não cortarem (ex: "ANDERSON GAVIAO BEIJOINO" cabe inteiro).
+Salva com `supabase.from("veiculos_esperados").update({...}).eq("id", v.id)` e invalida queries `veiculos_walkin_ativos`, `veiculos_esperados_pendentes`, `veiculos_esperados`.
 
-### Mesmo ajuste em "Cargas com Pendência"
+Toast de sucesso "Dados atualizados" / erro padrão.
 
-A tabela ao lado tem coluna vazia (linha 956) reservada para motoristas mas não renderiza nada. Aproveitar para mostrar todos os motoristas como chips na 4ª coluna, mesmo padrão.
+#### 2. `src/components/portaria/SolicitacoesPendentesPanel.tsx`
+
+- Importar o novo dialog e `Pencil` do `lucide-react`.
+- Adicionar estado `editarVeiculo: VeiculoEsperado | null`.
+- No bloco de ações de `aguardando`, antes de "Vincular a carga" / "Recusar", adicionar um botão `outline` pequeno com ícone Pencil + texto "Editar" (visível para `canDecide`, igual aos outros botões do card).
+- Renderizar `<EditarVeiculoEsperadoDialog open={!!editarVeiculo} onOpenChange={...} veiculo={editarVeiculo} />` no final do componente.
 
 ### O que NÃO muda
 
-- Hook `useAnalytics` — já agrega todos os produtos no `clienteRupturas[].produtos: string[]`.
-- CSV export — continua exportando tudo.
-- Limite Top 10 clientes — mantido (a queixa é sobre produtos por cliente, não a quantidade de clientes).
-- Demais tabelas e abas.
+- Banco: nenhuma migração — todos os campos já existem em `veiculos_esperados`.
+- RLS: `Ops update veiculos_esperados` já permite admin/logistica/portaria.
+- Cards `liberado` continuam apenas com botão "Liberar Entrada no Pátio" (não faz sentido editar após autorização).
+- Painel de cargas fechadas, fluxo de vincular carga, demais telas.
+
+### Arquivos afetados
+
+- `src/components/portaria/EditarVeiculoEsperadoDialog.tsx` — novo.
+- `src/components/portaria/SolicitacoesPendentesPanel.tsx` — botão Editar + estado.
 
 ### Resultado
 
-Cada linha de cliente passa a mostrar **todos** os produtos que faltaram, como pequenas tags que quebram em múltiplas linhas dentro da célula. A altura da linha cresce conforme a quantidade — sem corte, sem "+N".
+Card "Aguardando vínculo da Logística" ganha botão **Editar** ao lado de "Vincular a carga" / "Recusar". Logística (ou Admin) corrige a transportadora esquecida em segundos, sem precisar recusar e refazer o registro.
 
