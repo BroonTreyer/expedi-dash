@@ -40,9 +40,12 @@ import {
   Clock,
   User as UserIcon,
   PackageX,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS, isPorUnidade } from "@/lib/constants";
 import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
+import { StatusSelect } from "@/components/dashboard/StatusSelect";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -188,7 +191,7 @@ export default function Rupturas() {
   const [clienteFilter, setClienteFilter] = useState("todos");
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("ambas");
   const [busca, setBusca] = useState("");
-  const [activeTab, setActiveTab] = useState<string>(searchParams.get("carga") ? "itens" : "visao");
+  const [activeTab, setActiveTab] = useState<string>(searchParams.get("carga") ? "itens" : "lista");
 
   const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
   const { data: vendedores = [] } = useVendedores();
@@ -524,7 +527,29 @@ export default function Rupturas() {
   // ----- export CSV (aba ativa) -----
   const handleExportCsv = () => {
     const periodo = `${format(dateRange.from ?? today, "dd-MM-yyyy")}_a_${format(dateRange.to ?? dateRange.from ?? today, "dd-MM-yyyy")}`;
-    if (activeTab === "produto") {
+    if (activeTab === "lista") {
+      const rows: (string | number)[][] = [["Data", "Carga", "Cód cliente", "Cliente", "UF", "Cód produto", "Produto", "Vendedor", "Tipo", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Motivo", "Status"]];
+      const sorted = [...rupturas].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || ((b.created_at ?? "").localeCompare(a.created_at ?? "")));
+      for (const c of sorted) {
+        rows.push([
+          c.data ?? "",
+          c.nome_carga ?? "",
+          c.codigo_cliente ?? "",
+          c.cliente ?? "",
+          ufByCodCliente.get(c.codigo_cliente ?? "") ?? "",
+          c.codigo_produto ?? "",
+          c.nome_produto ?? "",
+          c.vendedores?.nome_vendedor ?? "",
+          c.ruptura ? "Total" : (isRupturaParcial(c) ? "Parcial" : "—"),
+          c.peso_original ?? "",
+          c.ruptura ? 0 : (c.peso ?? 0),
+          pesoNaoCarregado(c),
+          c.motivo_ruptura ?? "",
+          c.status,
+        ]);
+      }
+      exportCsv(`rupturas_lista_${periodo}.csv`, rows);
+    } else if (activeTab === "produto") {
       const rows: (string | number)[][] = [["Código", "Produto", "Totais", "Parciais", "Pedidos", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Cargas afetadas", "Clientes afetados"]];
       for (const p of productSummary) {
         rows.push([p.codigo, p.nome, p.totais, p.parciais, p.qtdPedidos, p.pesoOriginal, p.pesoCarregado, p.pesoCortado, p.cargas.size, p.clientes.size]);
@@ -729,6 +754,7 @@ export default function Rupturas() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <div className="overflow-x-auto -mx-1 px-1">
               <TabsList className="h-auto inline-flex">
+                <TabsTrigger value="lista" className="text-xs sm:text-sm">Lista detalhada</TabsTrigger>
                 <TabsTrigger value="visao" className="text-xs sm:text-sm">Visão geral</TabsTrigger>
                 <TabsTrigger value="produto" className="text-xs sm:text-sm">Por produto</TabsTrigger>
                 <TabsTrigger value="cliente" className="text-xs sm:text-sm">Por cliente</TabsTrigger>
@@ -737,6 +763,197 @@ export default function Rupturas() {
                 <TabsTrigger value="itens" className="text-xs sm:text-sm">Itens</TabsTrigger>
               </TabsList>
             </div>
+
+            {/* ==== LISTA DETALHADA ==== */}
+            <TabsContent value="lista" className="space-y-3">
+              {isLoading ? (
+                <div className="text-center py-12 text-muted-foreground text-sm">Carregando dados...</div>
+              ) : rupturas.length === 0 ? (
+                <EmptyState />
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground px-1">
+                    Mostrando <span className="font-semibold text-foreground">{rupturas.length}</span> rupturas
+                    {" "}(<span className="text-rose-600 dark:text-rose-400 font-medium">{kpis.totais} totais</span>
+                    {" + "}
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">{kpis.parciais} parciais</span>)
+                    {" "}entre {format(dateRange.from ?? today, "dd/MM/yyyy", { locale: ptBR })}
+                    {" e "}{format(dateRange.to ?? dateRange.from ?? today, "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+
+                  {isMobile ? (
+                    <div className="space-y-2">
+                      {[...rupturas]
+                        .sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || ((b.created_at ?? "").localeCompare(a.created_at ?? "")))
+                        .map((c) => {
+                          const tipoTotal = c.ruptura;
+                          const cortado = pesoNaoCarregado(c);
+                          const uf = ufByCodCliente.get(c.codigo_cliente ?? "") ?? "";
+                          return (
+                            <Card key={c.id} className={cn("border-l-4", tipoTotal ? "border-l-rose-500" : "border-l-amber-500")}>
+                              <CardContent className="p-3 space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-mono text-muted-foreground">{c.codigo_produto ?? "—"}</p>
+                                    <p className="text-sm font-semibold leading-tight">{c.nome_produto ?? "—"}</p>
+                                  </div>
+                                  {tipoTotal ? (
+                                    <Badge variant="destructive" className="text-[10px]">Total</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-700 dark:text-amber-300">Parcial</Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs space-y-0.5">
+                                  <p><span className="text-muted-foreground">Cliente:</span> {c.cliente ?? "—"} {uf && <span className="text-muted-foreground">({uf})</span>}</p>
+                                  <p><span className="text-muted-foreground">Carga:</span> <span className="font-mono">{c.nome_carga ?? "—"}</span></p>
+                                  <p><span className="text-muted-foreground">Vendedor:</span> {c.vendedores?.nome_vendedor ?? "—"}</p>
+                                  <p><span className="text-muted-foreground">Data:</span> {c.data ? format(new Date(c.data + "T00:00:00"), "dd/MM/yy", { locale: ptBR }) : "—"}</p>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                                  <div className="text-[11px] tabular-nums">
+                                    <span className="text-muted-foreground">Original:</span> {fmtKg(c.peso_original ?? 0)} kg
+                                    {" → "}
+                                    <span className="text-muted-foreground">Carregado:</span> {fmtKg(tipoTotal ? 0 : (c.peso ?? 0))} kg
+                                  </div>
+                                  <span className="text-xs font-semibold tabular-nums text-rose-600 dark:text-rose-400">−{fmtKg(cortado)} kg</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <Badge className={cn("text-[10px]", RUPTURA_STATUS_COLORS[c.status as keyof typeof RUPTURA_STATUS_COLORS] ?? "bg-muted text-foreground")}>
+                                    {c.status}
+                                  </Badge>
+                                  <div className="flex items-center gap-1">
+                                    {canEdit && (
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(c)}>
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </Button>
+                                    )}
+                                    {canEdit && (
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteRequest(c.id)}>
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                {c.motivo_ruptura && (
+                                  <p className="text-[11px] text-muted-foreground italic">Motivo: {c.motivo_ruptura}</p>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <Card>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/30">
+                              <TableHead className="text-xs">Data</TableHead>
+                              <TableHead className="text-xs">Carga</TableHead>
+                              <TableHead className="text-xs">Cliente</TableHead>
+                              <TableHead className="text-xs">Produto</TableHead>
+                              <TableHead className="text-xs">Vendedor</TableHead>
+                              <TableHead className="text-xs text-center">Tipo</TableHead>
+                              <TableHead className="text-xs text-right">Original</TableHead>
+                              <TableHead className="text-xs text-right">Carregado</TableHead>
+                              <TableHead className="text-xs text-right">Cortado</TableHead>
+                              <TableHead className="text-xs">Motivo</TableHead>
+                              <TableHead className="text-xs text-center">Status</TableHead>
+                              <TableHead className="text-xs text-right">Ações</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {[...rupturas]
+                              .sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || ((b.created_at ?? "").localeCompare(a.created_at ?? "")))
+                              .map((c) => {
+                                const tipoTotal = c.ruptura;
+                                const cortado = pesoNaoCarregado(c);
+                                const uf = ufByCodCliente.get(c.codigo_cliente ?? "") ?? "";
+                                return (
+                                  <TableRow key={c.id} className={cn(tipoTotal && "bg-rose-50/30 dark:bg-rose-950/10")}>
+                                    <TableCell className="text-xs whitespace-nowrap">
+                                      {c.data ? format(new Date(c.data + "T00:00:00"), "dd/MM/yy", { locale: ptBR }) : "—"}
+                                    </TableCell>
+                                    <TableCell className="text-xs font-mono whitespace-nowrap">{c.nome_carga ?? "—"}</TableCell>
+                                    <TableCell className="text-xs">
+                                      <div className="flex flex-col leading-tight">
+                                        <span className="font-mono text-[10px] text-muted-foreground">{c.codigo_cliente ?? "—"}</span>
+                                        <span className="truncate max-w-[200px]">{c.cliente ?? "—"} {uf && <span className="text-muted-foreground">({uf})</span>}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs">
+                                      <div className="flex flex-col leading-tight">
+                                        <span className="font-mono text-[10px] text-muted-foreground">{c.codigo_produto ?? "—"}</span>
+                                        <span className="truncate max-w-[220px]">{c.nome_produto ?? "—"}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs truncate max-w-[120px]">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
+                                    <TableCell className="text-xs text-center">
+                                      {tipoTotal ? (
+                                        <Badge variant="destructive" className="text-[10px]">Total</Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-700 dark:text-amber-300">Parcial</Badge>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-right tabular-nums text-muted-foreground">{fmtKg(c.peso_original ?? 0)}</TableCell>
+                                    <TableCell className="text-xs text-right tabular-nums">{fmtKg(tipoTotal ? 0 : (c.peso ?? 0))}</TableCell>
+                                    <TableCell className="text-xs text-right tabular-nums font-semibold text-rose-600 dark:text-rose-400">−{fmtKg(cortado)}</TableCell>
+                                    <TableCell className="text-xs">
+                                      {c.motivo_ruptura ? (
+                                        <span className="truncate max-w-[160px] inline-block">{c.motivo_ruptura}</span>
+                                      ) : (
+                                        <Badge variant="outline" className="text-[10px] text-muted-foreground">Não informado</Badge>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-center">
+                                      {(isAdmin || isLogistica) ? (
+                                        <StatusSelect
+                                          value={c.status}
+                                          onChange={(v) => handleStatusChange(c.id, v)}
+                                          statuses={RUPTURA_STATUSES}
+                                          statusColors={RUPTURA_STATUS_COLORS}
+                                        />
+                                      ) : (
+                                        <Badge className={cn("text-[10px]", RUPTURA_STATUS_COLORS[c.status as keyof typeof RUPTURA_STATUS_COLORS] ?? "bg-muted text-foreground")}>
+                                          {c.status}
+                                        </Badge>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-right">
+                                      <div className="inline-flex items-center gap-0.5">
+                                        {canEdit && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(c)}>
+                                                <Pencil className="h-3.5 w-3.5" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Editar</TooltipContent>
+                                          </Tooltip>
+                                        )}
+                                        {canEdit && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteRequest(c.id)}>
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Excluir</TooltipContent>
+                                          </Tooltip>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              )}
+            </TabsContent>
 
             {/* ==== VISAO GERAL ==== */}
             <TabsContent value="visao" className="space-y-4">
