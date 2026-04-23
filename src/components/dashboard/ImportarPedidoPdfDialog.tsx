@@ -441,10 +441,13 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
                               onChange={(e) => {
                                 const cod = e.target.value;
                                 const hit = produtoByCod.get(cod.toLowerCase());
+                                const novoPesoPadrao = Number(hit?.peso_padrao ?? 0);
+                                const novoPeso = novoPesoPadrao > 0 ? it.quantidade * novoPesoPadrao : it.peso;
                                 updateItem(p.fileId, idx, {
                                   codigo_produto: cod,
                                   nome_produto: hit?.nome_produto ?? it.nome_produto,
-                                  pesoPadrao: Number(hit?.peso_padrao ?? 0),
+                                  pesoPadrao: novoPesoPadrao,
+                                  peso: novoPeso,
                                   produtoCadastrado: !!hit,
                                 });
                               }}
@@ -466,7 +469,7 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
                               type="number"
                               step="0.01"
                               value={it.peso}
-                              onChange={(e) => updateItem(p.fileId, idx, { peso: Number(e.target.value) || 0, pesoManual: true })}
+                              onChange={(e) => handleItemPeso(p.fileId, idx, Number(e.target.value) || 0)}
                               className="h-8 text-sm"
                             />
                           </div>
@@ -476,7 +479,7 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
                               type="number"
                               step="0.01"
                               value={it.quantidade}
-                              onChange={(e) => updateItem(p.fileId, idx, { quantidade: Number(e.target.value) || 0 })}
+                              onChange={(e) => handleItemQuantidade(p.fileId, idx, Number(e.target.value) || 0)}
                               className="h-8 text-sm"
                             />
                           </div>
