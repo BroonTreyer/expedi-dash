@@ -17,6 +17,22 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { AppRole } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
+
+function ParcialBadge({ c }: { c: Carregamento }) {
+  if (!isRupturaParcial(c)) return null;
+  const original = c.peso_original ?? 0;
+  const atual = c.peso ?? 0;
+  const perdido = pesoNaoCarregado(c);
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300/70 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+      title={`Original: ${original.toLocaleString("pt-BR")} kg → Carregado: ${atual.toLocaleString("pt-BR")} kg (−${perdido.toLocaleString("pt-BR")} kg)`}
+    >
+      <AlertTriangle className="h-3 w-3" /> Parcial
+    </span>
+  );
+}
 
 interface Props {
   data: Carregamento[];
@@ -206,6 +222,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
               <AlertTriangle className="h-3 w-3" /> Ruptura
             </span>
           )}
+          <ParcialBadge c={c} />
         </div>
         {hasActions && (
           <div className="flex gap-1 shrink-0">
@@ -498,6 +515,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             <AlertTriangle className="h-3 w-3" /> Ruptura
                           </span>
                         )}
+                        <ParcialBadge c={c} />
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>

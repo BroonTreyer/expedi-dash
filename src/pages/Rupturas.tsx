@@ -41,7 +41,9 @@ export default function Rupturas() {
 
   const [searchParams] = useSearchParams();
   const today = new Date();
-  const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  const [dateRange, setDateRange] = useState<DateRange>({ from: sevenDaysAgo, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [vendedorFilter, setVendedorFilter] = useState("todos");
@@ -265,6 +267,12 @@ export default function Rupturas() {
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Rupturas</h1>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">Pedidos com falta de estoque ou produto indisponível</p>
+            <p className="text-[11px] sm:text-xs text-amber-700 dark:text-amber-400 mt-1 inline-flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              Mostrando rupturas <strong>totais e parciais</strong> entre{" "}
+              {format(dateRange.from ?? today, "dd/MM/yyyy", { locale: ptBR })}{" "}
+              e {format(dateRange.to ?? dateRange.from ?? today, "dd/MM/yyyy", { locale: ptBR })}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {rupturas.length > 0 && (

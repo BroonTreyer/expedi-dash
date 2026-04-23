@@ -7,7 +7,7 @@ import fricoLogo from "@/assets/frico-logo-optimized.webp";
 interface ClienteGroup {
   codigoCliente: string | null;
   nomeCliente: string | null;
-  items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean }[];
+  items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean; pesoOriginal?: number | null }[];
   pesoTotal: number;
   rupturaCount?: number;
   ordem: number;
@@ -24,6 +24,8 @@ export interface CargaPrintData {
   groups: ClienteGroup[];
   totalPeso: number;
   totalRuptura?: number;
+  /** Soma do peso cortado em rupturas parciais (peso original − peso atual). */
+  totalCortado?: number;
   totalPedidos: number;
 }
 
@@ -200,6 +202,22 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                     ))}
                   </ul>
                 )}
+                {group.items.some((i) => !i.ruptura && (i.pesoOriginal ?? 0) > i.peso) && (
+                  <ul className="mt-1 space-y-0.5 text-[11px]">
+                    {group.items
+                      .filter((i) => !i.ruptura && (i.pesoOriginal ?? 0) > i.peso)
+                      .map((i) => {
+                        const original = i.pesoOriginal ?? 0;
+                        const cortado = original - i.peso;
+                        return (
+                          <li key={i.id} className="flex justify-between text-amber-700">
+                            <span>PARCIAL — {i.nomeProduto ?? "item"} · pedido original {original.toLocaleString("pt-BR")} kg</span>
+                            <span>cortado {cortado.toLocaleString("pt-BR")} kg</span>
+                          </li>
+                        );
+                      })}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
@@ -212,6 +230,11 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
           {data.totalRuptura != null && data.totalRuptura > 0 && (
             <div className="text-[11px] text-muted-foreground -mt-2">
               ↳ {data.totalRuptura.toLocaleString("pt-BR")} kg em ruptura não embarcado (peso planejado: {(data.totalPeso + data.totalRuptura).toLocaleString("pt-BR")} kg)
+            </div>
+          )}
+          {data.totalCortado != null && data.totalCortado > 0 && (
+            <div className="text-[11px] text-amber-700 -mt-2">
+              ↳ {data.totalCortado.toLocaleString("pt-BR")} kg cortados em rupturas parciais (peso embarcado: {data.totalPeso.toLocaleString("pt-BR")} kg)
             </div>
           )}
         </div>

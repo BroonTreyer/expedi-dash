@@ -25,7 +25,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
-import { pesoEfetivo } from "@/lib/peso-utils";
+import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 
 function getToday() {
@@ -103,6 +103,8 @@ interface CargaGroup {
   pesoPlanejado: number;
   qtdPedidos: number;
   rupturaCount: number;
+  parcialCount: number;
+  pesoCortado: number;
   clientes: Set<string>;
   ufs: Set<string>;
   status: string;
@@ -128,6 +130,8 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         pesoPlanejado: 0,
         qtdPedidos: 0,
         rupturaCount: 0,
+        parcialCount: 0,
+        pesoCortado: 0,
         clientes: new Set(),
         ufs: new Set(),
         status: item.status,
@@ -140,6 +144,10 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
     g.pesoPlanejado += item.peso ?? 0;
     g.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
     if (item.ruptura) g.rupturaCount += 1;
+    if (isRupturaParcial(item)) {
+      g.parcialCount += 1;
+      g.pesoCortado += pesoNaoCarregado(item);
+    }
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
     if (item.tipo_frete) freteMap.get(item.carga_id)!.add(item.tipo_frete);
@@ -337,7 +345,7 @@ export default function Consolidado() {
     const clienteMap = new Map<string, {
       codigoCliente: string | null;
       nomeCliente: string | null;
-      items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean }[];
+      items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean; pesoOriginal?: number | null }[];
       pesoTotal: number;
       rupturaCount: number;
       ordem: number;
@@ -361,6 +369,7 @@ export default function Consolidado() {
         nomeProduto: item.nome_produto ?? item.codigo_produto ?? null,
         peso: item.peso ?? 0,
         ruptura: !!item.ruptura,
+        pesoOriginal: item.peso_original ?? null,
       });
       c.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
       if (item.ruptura) c.rupturaCount += 1;
@@ -377,6 +386,10 @@ export default function Consolidado() {
     const totalRuptura = group.items
       .filter((i) => i.ruptura)
       .reduce((s, i) => s + (i.peso ?? 0), 0);
+    const totalCortado = group.items.reduce(
+      (s, i) => s + (isRupturaParcial(i) ? pesoNaoCarregado(i) : 0),
+      0,
+    );
 
     const data: CargaPrintData = {
       cargaId: group.nomeCarga ?? group.cargaId,
@@ -389,6 +402,7 @@ export default function Consolidado() {
       groups: groupsArr,
       totalPeso,
       totalRuptura,
+      totalCortado,
       totalPedidos: group.qtdPedidos,
     };
     setRomaneioData(data);
@@ -635,6 +649,12 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Frete: </span>{g.tipoFrete}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
                       </div>
+                      {g.parcialCount > 0 && (
+                        <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/60 rounded px-2 py-1 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 shrink-0" />
+                          ↳ {g.pesoCortado.toLocaleString("pt-BR")} kg cortados em {g.parcialCount} {g.parcialCount === 1 ? "item" : "itens"} ao fechar (ruptura parcial)
+                        </div>
+                      )}
                     </div>
                     {isOpen && (
                       <div className="border-t border-border bg-muted/20 divide-y divide-border/50">
@@ -730,6 +750,14 @@ export default function Consolidado() {
                               title={`Planejado ${g.pesoPlanejado.toLocaleString("pt-BR")} kg / Embarcado ${g.pesoTotal.toLocaleString("pt-BR")} kg`}
                             >
                               pl. {g.pesoPlanejado.toLocaleString("pt-BR")}
+                            </span>
+                          )}
+                          {g.parcialCount > 0 && (
+                            <span
+                              className="block text-[10px] font-medium text-amber-700 dark:text-amber-400"
+                              title={`${g.parcialCount} item(ns) com peso reduzido ao fechar a carga`}
+                            >
+                              ↳ {g.pesoCortado.toLocaleString("pt-BR")} kg cortados ({g.parcialCount})
                             </span>
                           )}
                         </TableCell>
