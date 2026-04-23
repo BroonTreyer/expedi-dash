@@ -390,6 +390,7 @@ export default function Portaria({ categoria }: PortariaProps) {
                       <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="entrada">Entradas</SelectItem>
                       <SelectItem value="saida">Saídas</SelectItem>
+                      <SelectItem value="finalizado">Finalizados</SelectItem>
                    </SelectContent>
                 </Select>
               </CardHeader>
