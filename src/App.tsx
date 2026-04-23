@@ -103,13 +103,13 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <PwaUpdatePrompt />
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>
     </TooltipProvider>
+    <Toaster />
+    <Sonner />
+    <PwaUpdatePrompt />
   </QueryClientProvider>
 );
 
