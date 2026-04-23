@@ -404,7 +404,7 @@ export default function Logs() {
             <div className="py-12 flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : groups.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               Nenhum evento encontrado no período/filtros selecionados.
             </div>
@@ -417,13 +417,13 @@ export default function Logs() {
                     <TableHead className="text-xs">Usuário</TableHead>
                     <TableHead className="text-xs">Ação</TableHead>
                     <TableHead className="text-xs">Entidade</TableHead>
-                    <TableHead className="text-xs">ID</TableHead>
+                    <TableHead className="text-xs">Identificador / Itens</TableHead>
                     <TableHead className="text-xs">Resumo</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((e) => <LogRow key={e.id} entry={e} />)}
+                  {groups.map((g) => <GroupRow key={g.key} group={g} />)}
                 </TableBody>
               </Table>
             </div>
