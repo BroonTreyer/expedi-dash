@@ -1056,9 +1056,7 @@ export default function Rupturas() {
                               {p.clientes.size > 0 ? (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="cursor-help">
-                                      <Badge variant="secondary" className="text-[10px]">{p.clientes.size}</Badge>
-                                    </button>
+                                    <Badge variant="secondary" className="text-[10px] cursor-help">{p.clientes.size}</Badge>
                                   </TooltipTrigger>
                                   <TooltipContent className="max-w-xs">
                                     <p className="text-xs">{[...p.clientes.values()].slice(0, 10).join(", ")}{p.clientes.size > 10 ? "…" : ""}</p>
