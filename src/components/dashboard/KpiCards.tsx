@@ -3,6 +3,7 @@ import { Package, Weight, Truck, CheckCircle, ClipboardList, AlertTriangle } fro
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Carregamento } from "@/hooks/useCarregamentos";
+import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
 
 interface Props {
   data: Carregamento[];
@@ -25,12 +26,27 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
   // Rupturas por pedido único
   const totalPedidosUnicos = new Set(source.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
   const pedidosComRuptura = new Set(source.filter(c => c.ruptura && c.numero_pedido).map(c => c.numero_pedido)).size;
-  const rupturas = pedidosComRuptura;
+  const pedidosComParcial = new Set(
+    source.filter(c => isRupturaParcial(c) && c.numero_pedido && !c.ruptura).map(c => c.numero_pedido),
+  ).size;
+  const rupturas = pedidosComRuptura + pedidosComParcial;
+  const pesoNaoCarregadoTotal = source.reduce((s, c) => s + pesoNaoCarregado(c), 0);
+  const rupturaLabel = pedidosComParcial > 0
+    ? `${pedidosComRuptura} totais + ${pedidosComParcial} parciais`
+    : `${pedidosComRuptura}`;
+  const rupturaTooltip = `${pedidosComRuptura} ruptura(s) total(is) + ${pedidosComParcial} parcial(is) em ${totalPedidosUnicos} pedido(s) único(s). ${pesoNaoCarregadoTotal.toLocaleString("pt-BR")} kg não carregados.`;
 
   const cards = [
     { label: selectedData ? "Clientes (sel.)" : "Clientes", value: totalClientes, icon: Package, color: "text-primary", tooltip: "Quantidade de clientes distintos nos pedidos" },
     { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500", tooltip: "Pedidos na etapa de vendas aguardando logística" },
-    { label: "Rupturas", value: rupturas, icon: AlertTriangle, color: "text-amber-600", tooltip: `${pedidosComRuptura} de ${totalPedidosUnicos} pedidos únicos com ao menos 1 produto em ruptura` },
+    {
+      label: "Rupturas",
+      value: rupturaLabel,
+      sub: pesoNaoCarregadoTotal > 0 ? `${pesoNaoCarregadoTotal.toLocaleString("pt-BR")} kg perdidos` : undefined,
+      icon: AlertTriangle,
+      color: "text-amber-600",
+      tooltip: rupturaTooltip,
+    },
     { label: selectedData ? "Peso Sel." : "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground", tooltip: "Soma do peso planejado (pedido). Para o peso fisicamente embarcado, veja 'Peso Carregado'." },
     { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado", tooltip: "Peso efetivo embarcado nos status 'Carregado' (desconsidera itens em ruptura)." },
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary", tooltip: "Quantidade de veículos (placas) distintos" },
