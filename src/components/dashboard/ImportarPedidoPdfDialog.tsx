@@ -221,6 +221,36 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
       return { ...p, items: p.items.map((it, i) => (i === idx ? { ...it, ...patch } : it)) };
     }));
   };
+  const handleItemQuantidade = (fileId: string, idx: number, qty: number) => {
+    setPedidos((prev) => prev.map((p) => {
+      if (p.fileId !== fileId) return p;
+      return {
+        ...p,
+        items: p.items.map((it, i) => {
+          if (i !== idx) return it;
+          const novoPeso = it.pesoPadrao > 0 ? qty * it.pesoPadrao : it.peso;
+          return { ...it, quantidade: qty, peso: novoPeso };
+        }),
+      };
+    }));
+  };
+  const handleItemPeso = (fileId: string, idx: number, peso: number) => {
+    setPedidos((prev) => prev.map((p) => {
+      if (p.fileId !== fileId) return p;
+      return {
+        ...p,
+        items: p.items.map((it, i) => {
+          if (i !== idx) return it;
+          const unidade = isPorUnidade(it.nome_produto);
+          if (unidade || !(it.pesoPadrao > 0)) {
+            return { ...it, peso, pesoManual: true };
+          }
+          const novaQtd = Math.round(peso / it.pesoPadrao);
+          return { ...it, peso, quantidade: novaQtd, pesoManual: true };
+        }),
+      };
+    }));
+  };
   const removeItem = (fileId: string, idx: number) => {
     setPedidos((prev) => prev.map((p) => {
       if (p.fileId !== fileId) return p;
