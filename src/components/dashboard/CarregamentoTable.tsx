@@ -222,6 +222,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
               <AlertTriangle className="h-3 w-3" /> Ruptura
             </span>
           )}
+          <ParcialBadge c={c} />
         </div>
         {hasActions && (
           <div className="flex gap-1 shrink-0">
