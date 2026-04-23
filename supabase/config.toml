@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.backup-snapshot]
 verify_jwt = false
+
+[functions.parse-pedido-pdf]
+verify_jwt = false

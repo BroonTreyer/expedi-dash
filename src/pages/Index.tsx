@@ -14,13 +14,14 @@ import { FechamentoLoteDialog } from "@/components/dashboard/FechamentoLoteDialo
 import { RoteirizacaoDialog, type RoteirizacaoResult } from "@/components/dashboard/RoteirizacaoDialog";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
+import { ImportarPedidoPdfDialog } from "@/components/dashboard/ImportarPedidoPdfDialog";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchDeleteCarregamento, useBatchCreateCarregamento, useBatchUpdateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { useProdutos } from "@/hooks/useProdutos";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus, Route } from "lucide-react";
+import { Plus, TableIcon, Columns3, Truck, PackageCheck, PackagePlus, Route, FileUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +67,7 @@ export default function Index() {
   const [showLogistica, setShowLogistica] = useState(false);
   const [roteirizacaoOpen, setRoteirizacaoOpen] = useState(false);
   const [roteirizacaoResult, setRoteirizacaoResult] = useState<RoteirizacaoResult | null>(null);
+  const [importPdfOpen, setImportPdfOpen] = useState(false);
 
   const dateFromStr = filters.dateRange.from ? format(filters.dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = filters.dateRange.to ? format(filters.dateRange.to, "yyyy-MM-dd") : dateFromStr;
@@ -449,6 +451,11 @@ export default function Index() {
                 <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Novo Pedido</span><span className="sm:hidden">Novo</span>
               </Button>
             )}
+            {canEdit && (
+              <Button size="sm" variant="outline" onClick={() => setImportPdfOpen(true)} className="text-xs sm:text-sm">
+                <FileUp className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Importar PDF</span><span className="sm:hidden">PDF</span>
+              </Button>
+            )}
             {logisticaOkCount > 0 && (
               <Button
                 variant={showLogistica ? "default" : "outline"}
@@ -597,6 +604,32 @@ export default function Index() {
           cargas={cargasFechadas}
           items={selectedItems}
           onSubmit={handleAdicionarCargaSubmit}
+        />
+
+        <ImportarPedidoPdfDialog
+          open={importPdfOpen}
+          onOpenChange={setImportPdfOpen}
+          selectedDate={dateFromStr}
+          produtos={produtos}
+          vendedores={vendedores}
+          clientes={clientesFromData}
+          existingNumeros={new Set(carregamentos.map(c => c.numero_pedido).filter((n): n is number => n != null))}
+          isSubmitting={batchCreateMut.isPending}
+          onConfirm={async (rows) => {
+            await new Promise<void>((resolve, reject) => {
+              batchCreateMut.mutate(rows as any, {
+                onSuccess: () => {
+                  toast.success(`${rows.length} item(ns) importado(s) com sucesso`);
+                  setImportPdfOpen(false);
+                  resolve();
+                },
+                onError: (e: any) => {
+                  toast.error(e?.message || "Falha ao importar pedidos");
+                  reject(e);
+                },
+              });
+            });
+          }}
         />
 
         <DeleteConfirmDialog
