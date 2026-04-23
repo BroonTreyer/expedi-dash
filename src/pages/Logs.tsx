@@ -45,6 +45,9 @@ interface AuditEntry {
   user_email: string | null;
   changes: Record<string, any>;
   created_at: string;
+  operation_id?: string | null;
+  logical_entity_type?: string | null;
+  logical_entity_id?: string | null;
 }
 
 function summarizeChanges(entry: AuditEntry): string {
@@ -67,6 +70,67 @@ function summarizeChanges(entry: AuditEntry): string {
   const fields = Object.keys(c).filter((k) => c[k]?.de !== undefined);
   if (fields.length === 0) return "—";
   return fields.slice(0, 3).join(", ") + (fields.length > 3 ? "…" : "");
+}
+
+/**
+ * Chave de agrupamento lógico para detectar "uma ação em lote".
+ * Agrupa por: usuário + ação + entidade + diff dos campos (changes) + janela de tempo de 2s.
+ * Quando existir, prioriza operation_id (futuro) ou logical_entity_id.
+ */
+function groupKey(e: AuditEntry): string {
+  if (e.operation_id) return `op:${e.operation_id}`;
+  // Para "alterado": chave inclui o conteúdo do diff (de→para) — assim,
+  // mudanças idênticas no mesmo segundo viram 1 grupo.
+  // Para "criado"/"excluido": agrupa por janela de 2s, mesmo usuário+entidade.
+  const bucket = Math.floor(new Date(e.created_at).getTime() / 2000);
+  let diffSig = "";
+  if (e.action === "alterado") {
+    const c = e.changes || {};
+    diffSig = Object.keys(c)
+      .filter((k) => c[k]?.de !== undefined)
+      .sort()
+      .map((k) => `${k}:${JSON.stringify(c[k]?.de)}>${JSON.stringify(c[k]?.para)}`)
+      .join("|");
+  } else {
+    diffSig = e.action;
+  }
+  return `${e.user_email ?? "?"}::${e.entity_type}::${e.action}::${bucket}::${diffSig}`;
+}
+
+interface AuditGroup {
+  key: string;
+  entries: AuditEntry[];
+  representative: AuditEntry;
+  count: number;
+  cargaIds: string[];
+  pedidos: string[];
+  clientes: string[];
+}
+
+function buildGroups(entries: AuditEntry[]): AuditGroup[] {
+  const map = new Map<string, AuditGroup>();
+  for (const e of entries) {
+    const k = groupKey(e);
+    let g = map.get(k);
+    if (!g) {
+      g = { key: k, entries: [], representative: e, count: 0, cargaIds: [], pedidos: [], clientes: [] };
+      map.set(k, g);
+    }
+    g.entries.push(e);
+    g.count++;
+    // Tentar inferir identificadores lógicos do snapshot/changes
+    const c = e.changes || {};
+    const row = c.deleted_row || c.novo || {};
+    const cargaId = e.logical_entity_id || row.carga_id || row.nome_carga;
+    if (cargaId && !g.cargaIds.includes(cargaId)) g.cargaIds.push(cargaId);
+    const pedido = row.numero_pedido;
+    if (pedido && !g.pedidos.includes(String(pedido))) g.pedidos.push(String(pedido));
+    const cliente = row.cliente;
+    if (cliente && !g.clientes.includes(cliente)) g.clientes.push(cliente);
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.representative.created_at).getTime() - new Date(a.representative.created_at).getTime()
+  );
 }
 
 function ChangeJsonView({ changes }: { changes: Record<string, any> }) {
