@@ -36,7 +36,7 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
     : `${pedidosComRuptura}`;
   const rupturaTooltip = `${pedidosComRuptura} ruptura(s) total(is) + ${pedidosComParcial} parcial(is) em ${totalPedidosUnicos} pedido(s) único(s). ${pesoNaoCarregadoTotal.toLocaleString("pt-BR")} kg não carregados.`;
 
-  const cards = [
+  const cards: Array<{ label: string; value: string | number; sub?: string; icon: any; color: string; tooltip: string }> = [
     { label: selectedData ? "Clientes (sel.)" : "Clientes", value: totalClientes, icon: Package, color: "text-primary", tooltip: "Quantidade de clientes distintos nos pedidos" },
     { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500", tooltip: "Pedidos na etapa de vendas aguardando logística" },
     {
@@ -65,6 +65,9 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
                     <c.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${c.color}`} />
                   </div>
                   <span className="text-base sm:text-xl font-bold tracking-tight truncate">{c.value}</span>
+                  {c.sub && (
+                    <span className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-400 font-medium truncate -mt-0.5">{c.sub}</span>
+                  )}
                 </CardContent>
               </Card>
             </TooltipTrigger>
