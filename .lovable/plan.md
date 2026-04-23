@@ -1,65 +1,52 @@
 
 
-## Importar pedido por PDF do Sankhya
+## Cálculo bidirecional Peso ↔ Qtd no Importar PDF
 
-### O problema
+### Problema
 
-O Faturamento digita cada pedido duas vezes: no Sankhya e aqui. O PDF "PEDIDO DE VENDA" (NOTA_VENDA_xxxxx.pdf) já traz tudo: cliente, vendedor, número do pedido (Nr.Único / Nota Nro) e a tabela de itens com código, descrição, quantidade. Vamos extrair esses dados, deixar o usuário revisar/marcar rupturas e gravar **um `carregamentos_dia` por item** em uma única transação.
+No dialog **Importar PDF** os campos **Peso (kg)** e **Qtd** são independentes: editar um não atualiza o outro. No **Adicionar Pedido** (`CarregamentoDialog`) eles são vinculados pelo `peso_padrao` do produto (ex.: Calabresa 2,5 kg → Qtd 4 vira Peso 10; Peso 10 vira Qtd 4).
 
-### Como vai funcionar (UX)
+### Mudança
 
-1. No Dashboard, ao lado de **"Adicionar Pedido"**, novo botão **"Importar PDF"**.
-2. Abre dialog **`ImportarPedidoPdfDialog`**:
-   - **Etapa 1 — Upload**: drop/seleção de 1 ou mais PDFs (multi-file). Para cada arquivo, mostra spinner "Lendo PDF…".
-   - **Etapa 2 — Revisão**: um card por pedido lido com:
-     - Cabeçalho: Nr.Único, Nota, Emissão, Cliente (cód + nome + cidade/UF), Vendedor (cód + nome), badges de avisos (cliente não cadastrado, vendedor não cadastrado, produto não cadastrado).
-     - Tabela editável de itens: `Cód`, `Produto`, `Qtd`, `Peso (kg)` (auto a partir do peso padrão × qtd, exceto fatiados/unidade), `Ruptura` (checkbox), `Motivo` (input que aparece só quando ruptura marcada).
-     - Botão "Remover item" e "Remover pedido" da fila.
-   - Rodapé: **"Salvar N pedidos (X itens)"**.
-3. Ao confirmar: insere todos os itens em batch (`carregamentos_dia`), `etapa = "vendas"`, `data = data selecionada no Dashboard`, `numero_pedido` = o número da nota do PDF (cai no `next_numero_pedido` se vier vazio), `peso_manual = true` quando o usuário editou o peso. Toast com resumo + invalida queries.
+Replicar a mesma inteligência do `CarregamentoDialog` dentro de `ImportarPedidoPdfDialog.tsx`, reaproveitando `isPorUnidade` (já importado).
 
-### Como o PDF é lido
+#### Regras (idênticas às do Adicionar Pedido)
 
-Edge function nova **`parse-pedido-pdf`** (`verify_jwt = false` no config + validação JWT em código, padrão do projeto):
+1. **Editar Qtd** → se `pesoPadrao > 0`: `peso = pesoPadrao × qtd`. Senão, só atualiza `quantidade`.
+2. **Editar Peso** → 
+   - Produto **por unidade** (ex.: Pão de Alho) **ou** sem `pesoPadrao`: só atualiza `peso`, `pesoManual = true`.
+   - Produto normal com `pesoPadrao > 0`: `quantidade = round(peso / pesoPadrao)`, `pesoManual = true`.
+3. **Trocar código do produto** → recarrega `pesoPadrao` e recalcula `peso = pesoPadrao × quantidade` (quando há qtd e peso padrão), mantendo a mesma UX do Adicionar Pedido.
 
-- Recebe `{ fileBase64, fileName }`.
-- Usa **Lovable AI** (`google/gemini-2.5-flash`) com input multimodal (PDF como `image_url` data URL ou texto extraído) e **tool calling** com schema fixo:
-  ```json
-  {
-    "numero_pedido": "128239",
-    "nr_unico": "4235440",
-    "emissao": "2026-04-23T10:12:16",
-    "cliente": { "codigo": "794", "nome": "ILDETE ALVES GUIMARAES", "cidade": "GOIANIA", "uf": "GO" },
-    "vendedor": { "codigo": "15", "nome": "ALCIR" },
-    "itens": [
-      { "codigo_produto": "730", "nome_produto": "CALABRESA A GRANEL PCT 2,5 KGS", "quantidade": 40, "unidade": "KG" },
-      ...
-    ]
-  }
-  ```
-- Frontend faz o cruzamento com tabelas locais (`produtos`, `clientes`, `vendedores`) para preencher `peso_padrao`, `peso`, `vendedor_id`, `cidade/uf` (se cliente já cadastrado). Itens sem match ficam com badge âmbar "Cadastrar manualmente" mas continuam editáveis e salvam mesmo assim — `carregamentos_dia` não tem FK para produto/cliente (já documentado em memória).
+#### Inicialização do parsing (corrigir interpretação do PDF)
 
-### Detalhes técnicos
+Hoje, ao ler o PDF, para itens em KG considera-se que `quantidade = peso` (e por isso aparece "Peso 40 / Qtd 0" na tela do usuário). Com a nova lógica:
 
-- **Arquivos novos**:
-  - `supabase/functions/parse-pedido-pdf/index.ts` — recebe PDF base64, chama Lovable AI Gateway com tool `extract_pedido`, retorna JSON estruturado. Valida JWT via `auth.getUser()`, CORS padrão do projeto.
-  - `src/components/dashboard/ImportarPedidoPdfDialog.tsx` — dialog 2 etapas (Upload → Revisão), tabela editável reaproveitando padrão de `CarregamentoDialog`.
-  - `src/hooks/useImportarPedidoPdf.ts` — `useMutation` que faz `supabase.functions.invoke("parse-pedido-pdf", ...)` por arquivo (em paralelo com `Promise.allSettled`).
-- **Arquivos editados**:
-  - `src/pages/Index.tsx` — botão "Importar PDF" no header + estado do dialog + handler de inserção em batch (mesma lógica do `handleSubmit` vendas multi-item já existente).
-  - `supabase/config.toml` — adicionar `[functions.parse-pedido-pdf] verify_jwt = false`.
-- **Banco**: nenhuma migração. Usa `carregamentos_dia` como já é hoje. RLS de insert para `admin/faturamento/logistica` já permite.
-- **Multi-PDF**: aceita vários PDFs de uma vez (faturamento normalmente baixa em lote). Falhas individuais não bloqueiam o lote.
-- **Idempotência leve**: se já existir item com mesma `data + numero_pedido + codigo_produto`, mostra alerta no card "Pedido já importado" e desmarca por padrão (usuário pode forçar).
-- **Peso**: regra atual (qtd × peso_padrao, exceto produtos por unidade como Pão de Alho — usa `isPorUnidade`). Quando o usuário edita manualmente, `peso_manual = true`.
+- A coluna **Qtde** do PDF do Sankhya é **sempre quantidade de embalagens** (4, 8, 12 packs etc.), mesmo quando a `Emb.` é KG — o "peso" físico do pacote vem do `peso_padrao` do produto (Calabresa 2,5 kg, Apresuntado 3,725 kg, Presunto 3,4 kg).
+- Portanto, na conversão `parsedToPedido`:
+  - `quantidade = it.quantidade` (do PDF, como veio).
+  - `peso = pesoPadrao × quantidade` quando `pesoPadrao > 0`.
+  - Se o produto é **por unidade** (Pão de Alho): mesma fórmula `peso = pesoPadrao × qtd`.
+  - Se o produto **não está cadastrado** (sem `pesoPadrao`): `peso = quantidade` como fallback (mantém comportamento atual para não perder o dado), com badge "novo" já existente alertando o usuário.
 
-### Limitações assumidas
+### Arquivo afetado
 
-- Layout do PDF é o do Sankhya mostrado (campos: Cliente, Vendedor, Nota Nro., Itens com Item/Descrição/Emb./Qtde). Outros layouts podem exigir ajuste no prompt — fácil de iterar.
-- O endereço completo do cliente no PDF é ignorado; usamos apenas `cidade/uf` quando o código bate em `clientes`.
-- Não importa preço (`Vlr.Unit`/`Valor Total`) — fora do escopo operacional do sistema.
+- `src/components/dashboard/ImportarPedidoPdfDialog.tsx`:
+  - Adicionar handlers `handleItemQuantidade(fileId, idx, qty)` e `handleItemPeso(fileId, idx, peso)` espelhando `CarregamentoDialog`.
+  - Trocar os `onChange` dos inputs **Qtd** (linha 449) e **Peso** (linha 439) para usá-los.
+  - No `onChange` do código do produto (linhas 411-419), recalcular `peso = pesoPadrao × quantidade` quando aplicável (mesmo padrão do `handleItemCodigo` do Adicionar Pedido).
+  - Ajustar `parsedToPedido` (linhas 124-143): inicializar `peso = pesoPadrao × qtd` para qualquer produto cadastrado (não distinguir mais "KG vs unidade" no parsing — `pesoPadrao` já resolve).
+
+### Fora do escopo
+
+- Edge function `parse-pedido-pdf`, schema da IA, `CarregamentoDialog`, banco, RLS.
 
 ### Resultado
 
-Faturamento arrasta os PDFs do Sankhya para o sistema, revisa em uma tela só (marca rupturas se já souber que vai faltar), clica salvar e o pedido entra na etapa de Vendas pronto pra Logística — eliminando a digitação dupla.
+Ao revisar um pedido importado:
+
+- Calabresa (peso padrão 2,5 kg) com Qtd `4` no PDF → mostra **Peso 10 / Qtd 4**.
+- Mudou Qtd para `5` → Peso vira `12,5` automaticamente.
+- Mudou Peso para `7,5` → Qtd vira `3` automaticamente.
+- Pão de Alho (por unidade) → digitar Peso só altera o peso, sem mexer em Qtd, igual ao Adicionar Pedido.
 
