@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowDownToLine, ArrowUpFromLine, Eye, History, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Eye, History, Trash2, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -31,6 +31,7 @@ interface GrupoMovimento {
   saida?: MovimentacaoPortaria;
   principal: MovimentacaoPortaria;
   dataRecente: string;
+  finalizado: boolean;
 }
 
 const categoriaBadgeColor: Record<string, string> = {
@@ -71,6 +72,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
             saida: m,
             principal: entrada,
             dataRecente: m.data_hora > entrada.data_hora ? m.data_hora : entrada.data_hora,
+            finalizado: false,
           });
           usedIds.add(entrada.id);
           usedIds.add(m.id);
@@ -86,16 +88,30 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
         saida: m.tipo_movimento === "saida" ? m : undefined,
         principal: m,
         dataRecente: m.data_hora,
+        finalizado: false,
       });
     }
 
     let result = Array.from(groupMap.values());
+
+    // Compute finalizado flag per group
+    result = result.map((g) => {
+      const r = g.entrada || g.saida!;
+      const finalizado =
+        g.entrada?.etapa_carga_propria === "finalizado" ||
+        g.saida?.etapa_carga_propria === "finalizado" ||
+        g.entrada?.etapa_terceirizado === "finalizado" ||
+        g.saida?.etapa_terceirizado === "finalizado" ||
+        (!!g.entrada && !!g.saida && !["carga_propria", "terceirizado"].includes(r.categoria));
+      return { ...g, finalizado };
+    });
 
     // Apply filters
     result = result.filter((g) => {
       const ref = g.entrada || g.saida!;
       if (tipoFilter === "entrada" && !g.entrada) return false;
       if (tipoFilter === "saida" && !g.saida) return false;
+      if (tipoFilter === "finalizado" && !g.finalizado) return false;
       if (categoriaFilter && ref.categoria !== categoriaFilter) return false;
       if (search) {
         const s = search.toLowerCase();
@@ -220,6 +236,11 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                     <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[r.categoria] || ""}`}>
                       {getCategoriaLabel(r.categoria)}
                     </Badge>
+                    {g.finalizado && (
+                      <Badge variant="outline" className="gap-1 text-[11px] border-green-500 text-green-700 dark:text-green-400">
+                        <CheckCircle2 className="h-3 w-3" /> Finalizado
+                      </Badge>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
                     {r.motorista && (
@@ -287,6 +308,11 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                       {g.saida && (
                         <Badge variant="secondary" className="gap-1 text-xs">
                           <ArrowUpFromLine className="h-3 w-3" /> Saída
+                        </Badge>
+                      )}
+                      {g.finalizado && (
+                        <Badge variant="outline" className="gap-1 text-xs border-green-500 text-green-700 dark:text-green-400">
+                          <CheckCircle2 className="h-3 w-3" /> Finalizado
                         </Badge>
                       )}
                     </div>
