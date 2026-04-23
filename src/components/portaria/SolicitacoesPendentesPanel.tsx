@@ -261,6 +261,12 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
         onOpenChange={(o) => { if (!o) setVincularVeiculo(null); }}
         veiculoEsperado={vincularVeiculo}
       />
+
+      <EditarVeiculoEsperadoDialog
+        open={!!editarVeiculo}
+        onOpenChange={(o) => { if (!o) setEditarVeiculo(null); }}
+        veiculo={editarVeiculo}
+      />
     </>
   );
 }
