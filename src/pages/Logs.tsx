@@ -45,6 +45,9 @@ interface AuditEntry {
   user_email: string | null;
   changes: Record<string, any>;
   created_at: string;
+  operation_id?: string | null;
+  logical_entity_type?: string | null;
+  logical_entity_id?: string | null;
 }
 
 function summarizeChanges(entry: AuditEntry): string {
@@ -67,6 +70,67 @@ function summarizeChanges(entry: AuditEntry): string {
   const fields = Object.keys(c).filter((k) => c[k]?.de !== undefined);
   if (fields.length === 0) return "—";
   return fields.slice(0, 3).join(", ") + (fields.length > 3 ? "…" : "");
+}
+
+/**
+ * Chave de agrupamento lógico para detectar "uma ação em lote".
+ * Agrupa por: usuário + ação + entidade + diff dos campos (changes) + janela de tempo de 2s.
+ * Quando existir, prioriza operation_id (futuro) ou logical_entity_id.
+ */
+function groupKey(e: AuditEntry): string {
+  if (e.operation_id) return `op:${e.operation_id}`;
+  // Para "alterado": chave inclui o conteúdo do diff (de→para) — assim,
+  // mudanças idênticas no mesmo segundo viram 1 grupo.
+  // Para "criado"/"excluido": agrupa por janela de 2s, mesmo usuário+entidade.
+  const bucket = Math.floor(new Date(e.created_at).getTime() / 2000);
+  let diffSig = "";
+  if (e.action === "alterado") {
+    const c = e.changes || {};
+    diffSig = Object.keys(c)
+      .filter((k) => c[k]?.de !== undefined)
+      .sort()
+      .map((k) => `${k}:${JSON.stringify(c[k]?.de)}>${JSON.stringify(c[k]?.para)}`)
+      .join("|");
+  } else {
+    diffSig = e.action;
+  }
+  return `${e.user_email ?? "?"}::${e.entity_type}::${e.action}::${bucket}::${diffSig}`;
+}
+
+interface AuditGroup {
+  key: string;
+  entries: AuditEntry[];
+  representative: AuditEntry;
+  count: number;
+  cargaIds: string[];
+  pedidos: string[];
+  clientes: string[];
+}
+
+function buildGroups(entries: AuditEntry[]): AuditGroup[] {
+  const map = new Map<string, AuditGroup>();
+  for (const e of entries) {
+    const k = groupKey(e);
+    let g = map.get(k);
+    if (!g) {
+      g = { key: k, entries: [], representative: e, count: 0, cargaIds: [], pedidos: [], clientes: [] };
+      map.set(k, g);
+    }
+    g.entries.push(e);
+    g.count++;
+    // Tentar inferir identificadores lógicos do snapshot/changes
+    const c = e.changes || {};
+    const row = c.deleted_row || c.novo || {};
+    const cargaId = e.logical_entity_id || row.carga_id || row.nome_carga;
+    if (cargaId && !g.cargaIds.includes(cargaId)) g.cargaIds.push(cargaId);
+    const pedido = row.numero_pedido;
+    if (pedido && !g.pedidos.includes(String(pedido))) g.pedidos.push(String(pedido));
+    const cliente = row.cliente;
+    if (cliente && !g.clientes.includes(cliente)) g.clientes.push(cliente);
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.representative.created_at).getTime() - new Date(a.representative.created_at).getTime()
+  );
 }
 
 function ChangeJsonView({ changes }: { changes: Record<string, any> }) {
@@ -104,27 +168,43 @@ function ChangeJsonView({ changes }: { changes: Record<string, any> }) {
   );
 }
 
-function LogRow({ entry }: { entry: AuditEntry }) {
+function GroupRow({ group }: { group: AuditGroup }) {
   const [open, setOpen] = useState(false);
-  const cfg = ACTION_CONFIG[entry.action] ?? { label: entry.action, icon: History, className: "bg-muted text-foreground" };
+  const rep = group.representative;
+  const cfg = ACTION_CONFIG[rep.action] ?? { label: rep.action, icon: History, className: "bg-muted text-foreground" };
   const Icon = cfg.icon;
+  const isGrouped = group.count > 1;
+
+  // Identificador lógico amigável
+  const logicalId =
+    group.cargaIds[0] ||
+    (group.pedidos.length > 0 ? `Pedido ${group.pedidos[0]}${group.pedidos.length > 1 ? ` +${group.pedidos.length - 1}` : ""}` : "") ||
+    group.clientes[0] ||
+    `${rep.entity_id.slice(0, 8)}…`;
 
   return (
     <>
-      <TableRow className="cursor-pointer" onClick={() => setOpen((o) => !o)}>
+      <TableRow className="cursor-pointer hover:bg-muted/30" onClick={() => setOpen((o) => !o)}>
         <TableCell className="text-xs whitespace-nowrap">
-          {format(new Date(entry.created_at), "dd/MM/yy HH:mm:ss", { locale: ptBR })}
+          {format(new Date(rep.created_at), "dd/MM/yy HH:mm:ss", { locale: ptBR })}
         </TableCell>
-        <TableCell className="text-xs">{entry.user_email || "—"}</TableCell>
+        <TableCell className="text-xs">{rep.user_email || "—"}</TableCell>
         <TableCell>
           <Badge className={cn("text-[10px] gap-1", cfg.className)}>
             <Icon className="h-3 w-3" />
             {cfg.label}
           </Badge>
         </TableCell>
-        <TableCell className="text-xs">{ENTITY_LABELS[entry.entity_type] ?? entry.entity_type}</TableCell>
-        <TableCell className="text-xs font-mono text-muted-foreground">{entry.entity_id.slice(0, 8)}…</TableCell>
-        <TableCell className="text-xs">{summarizeChanges(entry)}</TableCell>
+        <TableCell className="text-xs">{ENTITY_LABELS[rep.entity_type] ?? rep.entity_type}</TableCell>
+        <TableCell className="text-xs">
+          <span className="font-medium">{logicalId}</span>
+          {isGrouped && (
+            <Badge variant="secondary" className="ml-2 text-[10px] h-5">
+              {group.count} itens
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell className="text-xs">{summarizeChanges(rep)}</TableCell>
         <TableCell className="w-8">
           <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
         </TableCell>
@@ -132,7 +212,23 @@ function LogRow({ entry }: { entry: AuditEntry }) {
       {open && (
         <TableRow>
           <TableCell colSpan={7} className="bg-muted/30">
-            <ChangeJsonView changes={entry.changes} />
+            <div className="space-y-3">
+              <ChangeJsonView changes={rep.changes} />
+              {isGrouped && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                    Ver {group.count} IDs afetados
+                  </summary>
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 font-mono text-[10px]">
+                    {group.entries.map((e) => (
+                      <div key={e.id} className="text-muted-foreground truncate" title={e.entity_id}>
+                        {e.entity_id.slice(0, 8)}…
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
           </TableCell>
         </TableRow>
       )}
@@ -174,6 +270,8 @@ export default function Logs() {
       return blob.includes(term);
     });
   }, [entries, busca]);
+
+  const groups = useMemo(() => buildGroups(filtered), [filtered]);
 
   const kpis = useMemo(() => {
     const total = filtered.length;
@@ -227,8 +325,9 @@ export default function Logs() {
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-4">
-            <p className="text-xs text-muted-foreground">Total de eventos</p>
-            <p className="text-2xl font-bold">{kpis.total}</p>
+            <p className="text-xs text-muted-foreground">Ações lógicas</p>
+            <p className="text-2xl font-bold">{groups.length}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{kpis.total} linhas brutas</p>
           </Card>
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">Exclusões</p>
@@ -306,7 +405,7 @@ export default function Logs() {
             <div className="py-12 flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : groups.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               Nenhum evento encontrado no período/filtros selecionados.
             </div>
@@ -319,13 +418,13 @@ export default function Logs() {
                     <TableHead className="text-xs">Usuário</TableHead>
                     <TableHead className="text-xs">Ação</TableHead>
                     <TableHead className="text-xs">Entidade</TableHead>
-                    <TableHead className="text-xs">ID</TableHead>
+                    <TableHead className="text-xs">Identificador / Itens</TableHead>
                     <TableHead className="text-xs">Resumo</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((e) => <LogRow key={e.id} entry={e} />)}
+                  {groups.map((g) => <GroupRow key={g.key} group={g} />)}
                 </TableBody>
               </Table>
             </div>

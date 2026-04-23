@@ -22,6 +22,9 @@ export type Database = {
           entity_id: string
           entity_type: string
           id: string
+          logical_entity_id: string | null
+          logical_entity_type: string | null
+          operation_id: string | null
           user_email: string | null
           user_id: string | null
         }
@@ -32,6 +35,9 @@ export type Database = {
           entity_id: string
           entity_type: string
           id?: string
+          logical_entity_id?: string | null
+          logical_entity_type?: string | null
+          operation_id?: string | null
           user_email?: string | null
           user_id?: string | null
         }
@@ -42,6 +48,9 @@ export type Database = {
           entity_id?: string
           entity_type?: string
           id?: string
+          logical_entity_id?: string | null
+          logical_entity_type?: string | null
+          operation_id?: string | null
           user_email?: string | null
           user_id?: string | null
         }
@@ -877,15 +886,28 @@ export type Database = {
         }
         Returns: boolean
       }
-      log_audit: {
-        Args: {
-          _action: string
-          _changes?: Json
-          _entity_id: string
-          _entity_type: string
-        }
-        Returns: undefined
-      }
+      log_audit:
+        | {
+            Args: {
+              _action: string
+              _changes?: Json
+              _entity_id: string
+              _entity_type: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _action: string
+              _changes?: Json
+              _entity_id: string
+              _entity_type: string
+              _logical_entity_id?: string
+              _logical_entity_type?: string
+              _operation_id?: string
+            }
+            Returns: undefined
+          }
       next_numero_pedido: { Args: { _data: string }; Returns: number }
       notify_role: {
         Args: {
