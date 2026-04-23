@@ -25,7 +25,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
-import { pesoEfetivo } from "@/lib/peso-utils";
+import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 
 function getToday() {
@@ -103,6 +103,8 @@ interface CargaGroup {
   pesoPlanejado: number;
   qtdPedidos: number;
   rupturaCount: number;
+  parcialCount: number;
+  pesoCortado: number;
   clientes: Set<string>;
   ufs: Set<string>;
   status: string;
