@@ -527,7 +527,30 @@ export default function Rupturas() {
   // ----- export CSV (aba ativa) -----
   const handleExportCsv = () => {
     const periodo = `${format(dateRange.from ?? today, "dd-MM-yyyy")}_a_${format(dateRange.to ?? dateRange.from ?? today, "dd-MM-yyyy")}`;
-    if (activeTab === "produto") {
+    if (activeTab === "lista") {
+      const rows: (string | number)[][] = [["Data", "Carga", "Cód cliente", "Cliente", "UF", "Cód produto", "Produto", "Vendedor", "Tipo", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Motivo", "Status"]];
+      const sorted = [...rupturas].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || ((b.created_at ?? "").localeCompare(a.created_at ?? "")));
+      for (const c of sorted) {
+        const cli = clientesMap.get(c.codigo_cliente ?? "");
+        rows.push([
+          c.data ?? "",
+          c.nome_carga ?? "",
+          c.codigo_cliente ?? "",
+          c.cliente ?? "",
+          cli?.uf ?? "",
+          c.codigo_produto ?? "",
+          c.nome_produto ?? "",
+          c.vendedores?.nome_vendedor ?? "",
+          c.ruptura ? "Total" : (isRupturaParcial(c) ? "Parcial" : "—"),
+          c.peso_original ?? "",
+          c.ruptura ? 0 : (c.peso ?? 0),
+          pesoNaoCarregado(c),
+          c.motivo_ruptura ?? "",
+          c.status,
+        ]);
+      }
+      exportCsv(`rupturas_lista_${periodo}.csv`, rows);
+    } else if (activeTab === "produto") {
       const rows: (string | number)[][] = [["Código", "Produto", "Totais", "Parciais", "Pedidos", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Cargas afetadas", "Clientes afetados"]];
       for (const p of productSummary) {
         rows.push([p.codigo, p.nome, p.totais, p.parciais, p.qtdPedidos, p.pesoOriginal, p.pesoCarregado, p.pesoCortado, p.cargas.size, p.clientes.size]);
