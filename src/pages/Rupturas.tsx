@@ -40,6 +40,8 @@ import {
   Clock,
   User as UserIcon,
   PackageX,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { RUPTURA_STATUSES, RUPTURA_STATUS_COLORS, isPorUnidade } from "@/lib/constants";
 import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
