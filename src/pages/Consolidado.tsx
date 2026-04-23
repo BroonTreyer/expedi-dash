@@ -746,6 +746,14 @@ export default function Consolidado() {
                               pl. {g.pesoPlanejado.toLocaleString("pt-BR")}
                             </span>
                           )}
+                          {g.parcialCount > 0 && (
+                            <span
+                              className="block text-[10px] font-medium text-amber-700 dark:text-amber-400"
+                              title={`${g.parcialCount} item(ns) com peso reduzido ao fechar a carga`}
+                            >
+                              ↳ {g.pesoCortado.toLocaleString("pt-BR")} kg cortados ({g.parcialCount})
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
