@@ -41,7 +41,9 @@ export default function Rupturas() {
 
   const [searchParams] = useSearchParams();
   const today = new Date();
-  const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  const [dateRange, setDateRange] = useState<DateRange>({ from: sevenDaysAgo, to: today });
   const dateFromStr = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [vendedorFilter, setVendedorFilter] = useState("todos");
