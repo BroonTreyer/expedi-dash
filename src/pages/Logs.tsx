@@ -168,27 +168,43 @@ function ChangeJsonView({ changes }: { changes: Record<string, any> }) {
   );
 }
 
-function LogRow({ entry }: { entry: AuditEntry }) {
+function GroupRow({ group }: { group: AuditGroup }) {
   const [open, setOpen] = useState(false);
-  const cfg = ACTION_CONFIG[entry.action] ?? { label: entry.action, icon: History, className: "bg-muted text-foreground" };
+  const rep = group.representative;
+  const cfg = ACTION_CONFIG[rep.action] ?? { label: rep.action, icon: History, className: "bg-muted text-foreground" };
   const Icon = cfg.icon;
+  const isGrouped = group.count > 1;
+
+  // Identificador lógico amigável
+  const logicalId =
+    group.cargaIds[0] ||
+    (group.pedidos.length > 0 ? `Pedido ${group.pedidos[0]}${group.pedidos.length > 1 ? ` +${group.pedidos.length - 1}` : ""}` : "") ||
+    group.clientes[0] ||
+    `${rep.entity_id.slice(0, 8)}…`;
 
   return (
     <>
-      <TableRow className="cursor-pointer" onClick={() => setOpen((o) => !o)}>
+      <TableRow className="cursor-pointer hover:bg-muted/30" onClick={() => setOpen((o) => !o)}>
         <TableCell className="text-xs whitespace-nowrap">
-          {format(new Date(entry.created_at), "dd/MM/yy HH:mm:ss", { locale: ptBR })}
+          {format(new Date(rep.created_at), "dd/MM/yy HH:mm:ss", { locale: ptBR })}
         </TableCell>
-        <TableCell className="text-xs">{entry.user_email || "—"}</TableCell>
+        <TableCell className="text-xs">{rep.user_email || "—"}</TableCell>
         <TableCell>
           <Badge className={cn("text-[10px] gap-1", cfg.className)}>
             <Icon className="h-3 w-3" />
             {cfg.label}
           </Badge>
         </TableCell>
-        <TableCell className="text-xs">{ENTITY_LABELS[entry.entity_type] ?? entry.entity_type}</TableCell>
-        <TableCell className="text-xs font-mono text-muted-foreground">{entry.entity_id.slice(0, 8)}…</TableCell>
-        <TableCell className="text-xs">{summarizeChanges(entry)}</TableCell>
+        <TableCell className="text-xs">{ENTITY_LABELS[rep.entity_type] ?? rep.entity_type}</TableCell>
+        <TableCell className="text-xs">
+          <span className="font-medium">{logicalId}</span>
+          {isGrouped && (
+            <Badge variant="secondary" className="ml-2 text-[10px] h-5">
+              {group.count} itens
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell className="text-xs">{summarizeChanges(rep)}</TableCell>
         <TableCell className="w-8">
           <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
         </TableCell>
@@ -196,7 +212,23 @@ function LogRow({ entry }: { entry: AuditEntry }) {
       {open && (
         <TableRow>
           <TableCell colSpan={7} className="bg-muted/30">
-            <ChangeJsonView changes={entry.changes} />
+            <div className="space-y-3">
+              <ChangeJsonView changes={rep.changes} />
+              {isGrouped && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                    Ver {group.count} IDs afetados
+                  </summary>
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 font-mono text-[10px]">
+                    {group.entries.map((e) => (
+                      <div key={e.id} className="text-muted-foreground truncate" title={e.entity_id}>
+                        {e.entity_id.slice(0, 8)}…
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
           </TableCell>
         </TableRow>
       )}
