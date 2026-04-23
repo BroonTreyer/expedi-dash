@@ -531,13 +531,12 @@ export default function Rupturas() {
       const rows: (string | number)[][] = [["Data", "Carga", "Cód cliente", "Cliente", "UF", "Cód produto", "Produto", "Vendedor", "Tipo", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Motivo", "Status"]];
       const sorted = [...rupturas].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || ((b.created_at ?? "").localeCompare(a.created_at ?? "")));
       for (const c of sorted) {
-        const cli = clientesMap.get(c.codigo_cliente ?? "");
         rows.push([
           c.data ?? "",
           c.nome_carga ?? "",
           c.codigo_cliente ?? "",
           c.cliente ?? "",
-          cli?.uf ?? "",
+          ufByCodCliente.get(c.codigo_cliente ?? "") ?? "",
           c.codigo_produto ?? "",
           c.nome_produto ?? "",
           c.vendedores?.nome_vendedor ?? "",
