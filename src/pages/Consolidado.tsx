@@ -369,6 +369,7 @@ export default function Consolidado() {
         nomeProduto: item.nome_produto ?? item.codigo_produto ?? null,
         peso: item.peso ?? 0,
         ruptura: !!item.ruptura,
+        pesoOriginal: item.peso_original ?? null,
       });
       c.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
       if (item.ruptura) c.rupturaCount += 1;
@@ -385,6 +386,10 @@ export default function Consolidado() {
     const totalRuptura = group.items
       .filter((i) => i.ruptura)
       .reduce((s, i) => s + (i.peso ?? 0), 0);
+    const totalCortado = group.items.reduce(
+      (s, i) => s + (isRupturaParcial(i) ? pesoNaoCarregado(i) : 0),
+      0,
+    );
 
     const data: CargaPrintData = {
       cargaId: group.nomeCarga ?? group.cargaId,
@@ -397,6 +402,7 @@ export default function Consolidado() {
       groups: groupsArr,
       totalPeso,
       totalRuptura,
+      totalCortado,
       totalPedidos: group.qtdPedidos,
     };
     setRomaneioData(data);
