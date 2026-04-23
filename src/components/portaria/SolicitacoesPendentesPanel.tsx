@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogIn, X, Clock, Link2, CheckCircle2, Package, ShieldCheck } from "lucide-react";
+import { LogIn, X, Clock, Link2, CheckCircle2, Package, ShieldCheck, Pencil } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { VincularCargaDialog } from "./VincularCargaDialog";
+import { EditarVeiculoEsperadoDialog } from "./EditarVeiculoEsperadoDialog";
 
 interface Props {
   categoria?: "carga_propria" | "terceirizado";
@@ -32,6 +33,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
   const [recusaId, setRecusaId] = useState<string | null>(null);
   const [motivoRecusa, setMotivoRecusa] = useState("");
   const [vincularVeiculo, setVincularVeiculo] = useState<{ id: string; placa: string; motorista?: string | null } | null>(null);
+  const [editarVeiculo, setEditarVeiculo] = useState<any | null>(null);
 
   const canDecide = role === "admin" || role === "logistica";
   const canRegistrarChegada = role === "admin" || role === "logistica" || role === "portaria";
@@ -142,6 +144,14 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
             <div className="flex gap-2">
               <Button
                 size="sm"
+                variant="outline"
+                className="h-8 text-xs gap-1"
+                onClick={() => setEditarVeiculo(v)}
+              >
+                <Pencil className="h-3.5 w-3.5" /> Editar
+              </Button>
+              <Button
+                size="sm"
                 className="h-8 text-xs gap-1"
                 onClick={() => setVincularVeiculo({ id: v.id, placa: v.placa, motorista: v.motorista })}
               >
@@ -250,6 +260,12 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
         open={!!vincularVeiculo}
         onOpenChange={(o) => { if (!o) setVincularVeiculo(null); }}
         veiculoEsperado={vincularVeiculo}
+      />
+
+      <EditarVeiculoEsperadoDialog
+        open={!!editarVeiculo}
+        onOpenChange={(o) => { if (!o) setEditarVeiculo(null); }}
+        veiculo={editarVeiculo}
       />
     </>
   );
