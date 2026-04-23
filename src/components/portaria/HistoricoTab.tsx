@@ -236,6 +236,11 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                     <Badge variant="outline" className={`text-[11px] ${categoriaBadgeColor[r.categoria] || ""}`}>
                       {getCategoriaLabel(r.categoria)}
                     </Badge>
+                    {g.finalizado && (
+                      <Badge variant="outline" className="gap-1 text-[11px] border-green-500 text-green-700 dark:text-green-400">
+                        <CheckCircle2 className="h-3 w-3" /> Finalizado
+                      </Badge>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
                     {r.motorista && (
