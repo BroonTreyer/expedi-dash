@@ -515,6 +515,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             <AlertTriangle className="h-3 w-3" /> Ruptura
                           </span>
                         )}
+                        <ParcialBadge c={c} />
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
