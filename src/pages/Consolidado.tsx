@@ -130,6 +130,8 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         pesoPlanejado: 0,
         qtdPedidos: 0,
         rupturaCount: 0,
+        parcialCount: 0,
+        pesoCortado: 0,
         clientes: new Set(),
         ufs: new Set(),
         status: item.status,
@@ -142,6 +144,10 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
     g.pesoPlanejado += item.peso ?? 0;
     g.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
     if (item.ruptura) g.rupturaCount += 1;
+    if (isRupturaParcial(item)) {
+      g.parcialCount += 1;
+      g.pesoCortado += pesoNaoCarregado(item);
+    }
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
     if (item.tipo_frete) freteMap.get(item.carga_id)!.add(item.tipo_frete);
