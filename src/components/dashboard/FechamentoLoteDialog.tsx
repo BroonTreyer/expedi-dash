@@ -153,10 +153,32 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
     // Auto-autorizar veículo no pátio (walk-in) se foi vinculado a esta carga
     const placaNorm = placa.trim().toUpperCase();
-    const walkInMatch = walkInVinculadoId
-      ? veiculosNoPatio.find((v) => v.id === walkInVinculadoId)
-      : veiculosNoPatio.find((v) => v.placa.trim().toUpperCase() === placaNorm);
-    if (walkInMatch) {
+    let walkInIdParaAutorizar: string | null =
+      walkInVinculadoId ??
+      veiculosNoPatio.find((v) => v.placa.trim().toUpperCase() === placaNorm)?.id ??
+      null;
+
+    // Fallback: busca direta no banco por qualquer walk-in ativo recente com a mesma placa
+    // (cobre o caso "placa digitada manualmente, walk-in fora do filtro de hoje")
+    if (!walkInIdParaAutorizar && placaNorm) {
+      try {
+        const { data: walkInRows } = await supabase
+          .from("veiculos_esperados" as any)
+          .select("id")
+          .eq("placa", placaNorm)
+          .eq("walk_in", true)
+          .eq("conferido", false)
+          .in("status_autorizacao", ["aguardando_vinculo", "aguardando_autorizacao", "autorizado"])
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const row = (walkInRows ?? [])[0] as { id?: string } | undefined;
+        if (row?.id) walkInIdParaAutorizar = row.id;
+      } catch (e) {
+        console.error("Falha ao buscar walk-in por placa:", e);
+      }
+    }
+
+    if (walkInIdParaAutorizar) {
       try {
         await supabase
           .from("veiculos_esperados" as any)
@@ -166,7 +188,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             autorizado_por: user?.id ?? null,
             autorizado_em: new Date().toISOString(),
           } as any)
-          .eq("id", walkInMatch.id);
+          .eq("id", walkInIdParaAutorizar);
       } catch (e) {
         // Silencioso: fechamento de carga não deve quebrar por isso
         console.error("Falha ao autorizar walk-in vinculado:", e);
