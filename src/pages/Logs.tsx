@@ -325,8 +325,9 @@ export default function Logs() {
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-4">
-            <p className="text-xs text-muted-foreground">Total de eventos</p>
-            <p className="text-2xl font-bold">{kpis.total}</p>
+            <p className="text-xs text-muted-foreground">Ações lógicas</p>
+            <p className="text-2xl font-bold">{groups.length}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{kpis.total} linhas brutas</p>
           </Card>
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">Exclusões</p>
