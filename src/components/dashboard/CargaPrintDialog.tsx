@@ -202,6 +202,22 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                     ))}
                   </ul>
                 )}
+                {group.items.some((i) => !i.ruptura && (i.pesoOriginal ?? 0) > i.peso) && (
+                  <ul className="mt-1 space-y-0.5 text-[11px]">
+                    {group.items
+                      .filter((i) => !i.ruptura && (i.pesoOriginal ?? 0) > i.peso)
+                      .map((i) => {
+                        const original = i.pesoOriginal ?? 0;
+                        const cortado = original - i.peso;
+                        return (
+                          <li key={i.id} className="flex justify-between text-amber-700">
+                            <span>PARCIAL — {i.nomeProduto ?? "item"} · pedido original {original.toLocaleString("pt-BR")} kg</span>
+                            <span>cortado {cortado.toLocaleString("pt-BR")} kg</span>
+                          </li>
+                        );
+                      })}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
