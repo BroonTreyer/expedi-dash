@@ -271,6 +271,8 @@ export default function Logs() {
     });
   }, [entries, busca]);
 
+  const groups = useMemo(() => buildGroups(filtered), [filtered]);
+
   const kpis = useMemo(() => {
     const total = filtered.length;
     const exclusoes = filtered.filter((e) => e.action === "excluido").length;
