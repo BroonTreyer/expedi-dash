@@ -125,10 +125,10 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
       const prodHit = produtoByCod.get((it.codigo_produto ?? "").toLowerCase());
       const pesoPadrao = Number(prodHit?.peso_padrao ?? 0);
       const qtd = Number(it.quantidade) || 0;
-      const isUnidade = isPorUnidade(it.nome_produto ?? prodHit?.nome_produto ?? null);
-      // Para itens em KG: o "qtde" do PDF já é o peso em kg.
-      // Para itens por unidade (Pão de Alho): peso = qtd * pesoPadrao.
-      const peso = isUnidade ? qtd * pesoPadrao : qtd;
+      // A coluna "Qtde" do PDF do Sankhya é sempre quantidade de embalagens.
+      // Peso físico = peso_padrao × qtd (vale para KG e por unidade).
+      // Sem peso_padrao (produto não cadastrado): fallback peso = qtd.
+      const peso = pesoPadrao > 0 ? qtd * pesoPadrao : qtd;
       return {
         codigo_produto: it.codigo_produto ?? "",
         nome_produto: prodHit?.nome_produto ?? it.nome_produto ?? "",
