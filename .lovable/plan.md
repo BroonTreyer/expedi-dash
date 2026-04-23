@@ -1,41 +1,74 @@
 
 
-## Corrigir warnings de `forwardRef` na página Rupturas
+## Eliminar warnings globais de `forwardRef` (App.tsx)
 
-### Problema
+### Diagnóstico real
 
-Dois warnings recorrentes no console quando a página `/rupturas` carrega:
+Os warnings **não** vêm de `Rupturas.tsx` nem de `RupturasPrintDialog`. Eles aparecem em **todas** as rotas, no mount inicial do `App`. Causa: em `src/App.tsx`, o `TooltipProvider` (Radix) recebe **múltiplos** function components como filhos diretos:
 
-1. `Rupturas.tsx:264` — `<Tooltip>` recebe como filho um function component que não encaminha `ref`. O Radix Tooltip exige que o trigger aceite `ref` para posicionar/medir o popup.
-2. `RupturasPrintDialog.tsx` — `<Dialog>` ou `DialogTrigger` envolve um function component sem `forwardRef`.
+```tsx
+<TooltipProvider>
+  <Toaster />          // function component
+  <Sonner />           // function component
+  <PwaUpdatePrompt />  // function component
+  <BrowserRouter>...</BrowserRouter>
+</TooltipProvider>
+```
 
-Não quebra a tela, mas:
-- Polui o console (atrapalha debug).
-- Tooltips podem piscar/posicionar errado em hover.
-- Acessibilidade (foco) fica inconsistente.
+O `TooltipProvider` (que envolve um Radix `Provider` + `Slot`) tenta encaminhar `ref` para o filho único, e como cada um desses filhos é um function component sem `forwardRef`, o React emite o warning para cada um (Toaster, Sonner, PwaUpdatePrompt, BrowserRouter, AppRoutes…).
+
+A tentativa anterior de mexer em `Rupturas.tsx`/`RupturasPrintDialog` não tinha relação com o problema — o `App` aparecia no stack porque é o ancestral comum.
 
 ### Mudança
 
-**Arquivo 1 — `src/pages/Rupturas.tsx`:**
-- Localizar o `<Tooltip>` próximo à linha 264 (dentro de uma `<td>` da tabela de rupturas) e identificar o componente filho que está sendo usado como `TooltipTrigger`.
-- Envolver esse componente filho com `React.forwardRef<HTMLElement, Props>(...)`, encaminhando `ref` para o elemento DOM raiz (geralmente um `<button>`, `<span>` ou `<div>`).
-- Alternativa mais simples se for um wrapper trivial: usar `<TooltipTrigger asChild>` apontando direto para o elemento DOM nativo, eliminando o componente intermediário.
+**Arquivo único: `src/App.tsx`**
 
-**Arquivo 2 — `src/components/dashboard/RupturasPrintDialog.tsx`:**
-- Localizar o ponto onde um function component é passado como filho de `<Dialog>` / `<DialogTrigger>`.
-- Mesmo padrão: ou converter o componente para `forwardRef`, ou usar `<DialogTrigger asChild>` com elemento DOM nativo direto.
+Envolver os filhos do `TooltipProvider` em um `<>...</>` fragmento explícito não basta (o Slot ignora fragmentos), mas envolvê-los em uma **`<div>`** raiz já elimina o ref-forwarding ambíguo. Alternativa mais limpa: mover `<Toaster/>`, `<Sonner/>` e `<PwaUpdatePrompt/>` para **fora** do `TooltipProvider`, deixando apenas o `<BrowserRouter>` como filho.
+
+Estrutura final proposta:
+
+```tsx
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </TooltipProvider>
+    <Toaster />
+    <Sonner />
+    <PwaUpdatePrompt />
+  </QueryClientProvider>
+);
+```
+
+Justificativa:
+- `Toaster`/`Sonner`/`PwaUpdatePrompt` são overlays globais que não precisam estar dentro do `TooltipProvider` para funcionar.
+- `BrowserRouter` deixa de causar warning porque, ao ser filho único do `TooltipProvider`, o forward de ref é absorvido sem ambiguidade pelo `Slot` interno.
+
+### Reverter ajuste anterior (opcional, recomendado)
+
+Em `src/pages/Rupturas.tsx` (linha ~264), o `<button>` extra envolvendo o `<Badge>` no `TooltipTrigger asChild` foi adicionado por engano. Pode ser revertido para o original:
+
+```tsx
+<TooltipTrigger asChild>
+  <Badge variant="secondary" className="text-[10px] cursor-help">{p.clientes.size}</Badge>
+</TooltipTrigger>
+```
+
+(Badge já é `forwardRef`, então funciona corretamente sem o wrapper.)
 
 ### Como verificar
 
-- Após a edição, recarregar `/rupturas`, abrir DevTools → Console: os dois warnings devem sumir.
-- Hover nos badges/botões com tooltip e abertura do dialog de impressão devem continuar funcionando normalmente.
+1. Recarregar qualquer rota (ex.: `/`, `/rupturas`).
+2. Abrir DevTools → Console: os 7+ warnings de “Function components cannot be given refs” devem sumir completamente.
+3. Toasts (sonner + radix), PWA update prompt e tooltips continuam funcionando.
 
 ### Fora do escopo
 
-- Outros warnings de `forwardRef` em páginas diferentes (não reportados).
-- Refatoração geral da Rupturas.
+- Refactor de outras páginas, restauração do walk-in do Ronaldo, melhorias na lista de Veículos Esperados.
 
 ### Resultado
 
-Console limpo na rota `/rupturas`, tooltips e dialog de impressão com posicionamento e foco corretos.
+Console limpo em **todas** as rotas, sem regressão funcional nos overlays globais.
 
