@@ -784,6 +784,11 @@ export default function Consolidado() {
                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                           <StatusSelect value={g.status} onChange={(v) => handleStatusChange(g, v)} />
                         </TableCell>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-center">
+                            <PortariaStatusBadge info={getStatusPortaria(g.cargaId)} />
+                          </div>
+                        </TableCell>
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
                         <TableCell className="text-xs">{g.motorista ?? "—"}</TableCell>
@@ -836,6 +841,7 @@ export default function Consolidado() {
                           <TableCell className="text-xs text-muted-foreground">
                             {format(new Date(item.data + "T12:00:00"), "dd/MM")}
                           </TableCell>
+                          <TableCell />
                           <TableCell />
                           <TableCell className="text-xs text-muted-foreground" colSpan={2}>
                             <span className="flex items-center gap-1.5">
