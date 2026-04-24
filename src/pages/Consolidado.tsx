@@ -545,7 +545,16 @@ export default function Consolidado() {
 
   const kpis: Array<{ label: string; value: string | number; sub?: string; icon: any; color: string }> = [
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
-    { label: "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
+    {
+      label: "Peso Total",
+      value: `${pesoTotal.toLocaleString("pt-BR")} kg`,
+      sub: (() => {
+        const faltante = Math.max(0, pesoTotal - portariaCounts.pesoCarregando - portariaCounts.pesoExpedido);
+        return faltante > 0 ? `${faltante.toLocaleString("pt-BR")} kg a carregar` : undefined;
+      })(),
+      icon: Weight,
+      color: "text-foreground",
+    },
     { label: "No pátio", value: portariaCounts.patio, icon: ParkingCircle, color: "text-blue-600 dark:text-blue-400" },
     {
       label: "Carregando",
