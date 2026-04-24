@@ -871,7 +871,6 @@ export default function Consolidado() {
                           <TableCell className="text-right text-xs text-muted-foreground">{(item.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-center text-xs text-muted-foreground">{item.quantidade ?? "—"}</TableCell>
                           <TableCell />
-                          <TableCell />
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.uf ?? "—"}</TableCell>
                         </TableRow>
