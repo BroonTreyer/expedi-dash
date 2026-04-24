@@ -35,6 +35,10 @@ interface Props {
   coordsCache?: Map<string, { lat: number; lng: number }>;
   /** Quando true, a rota foi calculada por estimativa haversine (OSRM indisponível) */
   estimado?: boolean;
+  /** Custo estimado de combustível em R$ (calculado externamente). */
+  custoCombustivel?: number | null;
+  /** Tipo de caminhão usado para o cálculo (apenas exibição). */
+  tipoCaminhaoLabel?: string | null;
 }
 
 interface Coords {
