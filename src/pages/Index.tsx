@@ -158,6 +158,27 @@ export default function Index() {
     });
   }, [carregamentos, filters, showLogistica]);
 
+  // KPI source: ignora toggle de etapa e ocultação de finalizados,
+  // mas respeita filtros explícitos do usuário.
+  const kpiSource = useMemo(() => {
+    return carregamentos.filter((c) => {
+      if (filters.status !== "todos" && c.status !== filters.status) return false;
+      if (filters.vendedor.length > 0 && !filters.vendedor.includes(c.vendedor_id ?? "")) return false;
+      if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
+      if (filters.etapa !== "todos" && c.etapa !== filters.etapa) return false;
+      if (filters.ruptura === "sim" && !c.ruptura) return false;
+      if (filters.ruptura === "nao" && c.ruptura) return false;
+      if (filters.cliente.length > 0 && !filters.cliente.includes(c.codigo_cliente ?? "")) return false;
+      if (filters.uf !== "todos" && c.uf !== filters.uf) return false;
+      if (filters.busca) {
+        const b = filters.busca.toLowerCase();
+        const fields = [c.nome_produto, c.codigo_produto, c.cliente, c.motorista, c.cidade, c.nome_carga, c.placa, c.codigo_cliente];
+        if (!fields.some(f => f?.toLowerCase().includes(b))) return false;
+      }
+      return true;
+    });
+  }, [carregamentos, filters]);
+
   // Prune selection when filtered data changes
   const filteredIds = useMemo(() => new Set(filtered.map(c => c.id)), [filtered]);
   const selectedInView = useMemo(() => {
