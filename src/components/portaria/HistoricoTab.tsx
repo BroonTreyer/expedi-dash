@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowDownToLine, ArrowUpFromLine, Eye, History, Trash2, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Eye, History, Trash2, ChevronLeft, ChevronRight, CheckCircle2, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -15,6 +15,7 @@ import { CATEGORIAS, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPorta
 import { useAuth } from "@/hooks/useAuth";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { computeTempos, formatDuracao } from "@/lib/portaria-tempos";
 
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
@@ -187,6 +188,11 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
 
   const ref = (g: GrupoMovimento) => g.entrada || g.saida!;
 
+  const tempoTotal = (g: GrupoMovimento): number | null => {
+    const t = computeTempos(g.entrada || g.saida!, g.saida);
+    return t.total;
+  };
+
   const PaginationControls = () => {
     if (totalPages <= 1) return null;
     return (
@@ -241,6 +247,11 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                         <CheckCircle2 className="h-3 w-3" /> Finalizado
                       </Badge>
                     )}
+                    {tempoTotal(g) != null && (
+                      <Badge variant="outline" className="gap-1 text-[11px]">
+                        <Clock className="h-3 w-3" /> {formatDuracao(tempoTotal(g))}
+                      </Badge>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
                     {r.motorista && (
@@ -287,6 +298,7 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
               <SortableTableHead sortKey="motorista" sort={sort} onSort={toggleSort} className="text-center">Motorista</SortableTableHead>
               <SortableTableHead sortKey="empresa" sort={sort} onSort={toggleSort} className="text-center">Empresa</SortableTableHead>
               <TableHead className="text-center">Setor</TableHead>
+              <TableHead className="text-center">Tempo</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -326,6 +338,13 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                   <TableCell className="text-center">{r.motorista || r.nome_completo || "—"}</TableCell>
                   <TableCell className="text-center text-sm">{r.empresa || "—"}</TableCell>
                   <TableCell className="text-center text-sm">{r.destino_setor || "—"}</TableCell>
+                  <TableCell className="text-center text-sm tabular-nums whitespace-nowrap">
+                    {tempoTotal(g) != null ? (
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                        <Clock className="h-3 w-3" /> {formatDuracao(tempoTotal(g))}
+                      </span>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => onViewDetails(g.entrada, g.saida)}>
