@@ -661,13 +661,14 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         <StatusBadge status={first.status} statusColors={statusColors} />
                       )}
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.created_at)}</TableCell>
                     <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
                       {group.items.length} produtos
                     </TableCell>
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
-                    <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
-                    <TableCell><PendingCell value={first.motorista} /></TableCell>
+                    {!hideColumns.includes("tipo_caminhao") && <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>}
+                    {!hideColumns.includes("motorista") && <TableCell><PendingCell value={first.motorista} /></TableCell>}
                     <TableCell className="text-sm font-mono font-bold text-primary">
                       <span className="flex items-center gap-1.5 flex-wrap">
                         {group.codigoCliente} – {group.nomeCliente ?? ""}
@@ -699,7 +700,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{first.tipo_frete ?? "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.created_at)}</TableCell>
                     {hasActions && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
