@@ -1,87 +1,92 @@
 
-## KPIs "Carregando" e "Expedidos" com Peso + Quantidade de carros
+## Mostrar CIF/FOB no romaneio impresso + transportadora no card do motorista
 
 ### Diagnóstico
 
-Hoje os cards "Carregando" e "Expedidos" em `/consolidado` mostram apenas a **contagem de carros** (linhas 543-544 de `src/pages/Consolidado.tsx`). O usuário quer ver também o **peso total (kg)** dessas cargas. Como peso é a métrica operacional mais relevante para expedição, vou colocá-lo em **destaque (valor principal)** e a quantidade de carros como **subtítulo** logo abaixo — mesmo padrão visual do `KpiCards.tsx` do dashboard (campo `sub`).
+Dois ajustes pequenos, em arquivos distintos:
 
-### Mudança 1 — agregar peso em `portariaCounts`
+**1) Romaneio impresso (`CargaPrintDialog`) não mostra Tipo de Frete (CIF/FOB).**
+O cabeçalho do romaneio (linhas 174-188) lista Data, Caminhão, Placa, Motorista, Transportadora e Horário Previsto — mas o campo `tipo_frete` da carga não aparece. O dado existe no banco (`carregamentos_dia.tipo_frete`) e já é agregado por carga no Consolidado (`g.tipoFrete`, linha 459 e 516), porém **não é repassado** ao `CargaPrintData` quando o usuário clica em "Imprimir Romaneio" (`abrirRomaneio` em `Consolidado.tsx`, linhas 400-413). Também precisa ser repassado a partir do `FechamentoLoteDialog.tsx` (linhas 200-215) quando o romaneio é exibido logo após fechar a carga.
 
-`src/pages/Consolidado.tsx`, `useMemo` linha 479-489:
+**2) Card do motorista no `FechamentoLoteDialog` não mostra transportadora.**
+No `MotoristaAutocomplete.tsx` (linhas 238-262), depois que o motorista é selecionado, aparece um pequeno card abaixo do input com apenas **telefone** (e botão de editar). A transportadora vinculada ao caminhão do motorista já é buscada (`handleSelect`, linhas 127-138) e propagada via `onSelect`, mas **não é exibida visualmente** no card. O usuário quer ver essa info ali, próximo do nome.
 
+---
+
+### Mudança 1 — `src/components/dashboard/CargaPrintDialog.tsx`
+
+a) **Interface `CargaPrintData`**: adicionar campo opcional
 ```ts
-const portariaCounts = useMemo(() => {
-  const c = { patio: 0, carregando: 0, expedido: 0, pesoCarregando: 0, pesoExpedido: 0 };
-  for (const g of groups) {
-    const etapa = statusPortariaMap?.get(g.cargaId)?.etapa ?? "aguardando";
-    const temItemCarregando = g.items.some((it) => it.status === "Carregando");
-    if (etapa === "patio" || etapa === "carregando") c.patio += 1;
-    if (etapa === "carregando" || temItemCarregando) {
-      c.carregando += 1;
-      c.pesoCarregando += g.pesoTotal;
-    }
-    if (etapa === "expedido") {
-      c.expedido += 1;
-      c.pesoExpedido += g.pesoTotal;
-    }
-  }
-  return c;
-}, [groups, statusPortariaMap]);
+tipoFrete?: string | null;  // "CIF" | "FOB" | múltiplos separados por "/" caso a carga tenha mix
 ```
 
-> Uso `g.pesoTotal` (peso efetivo já calculado no agrupamento, consistente com o KPI "Peso Total").
-
-### Mudança 2 — array `kpis` com campo `sub`
-
-Linha 539-545. Adicionar `sub` opcional nos dois cards:
-
-```ts
-const kpis: Array<{ label: string; value: string | number; sub?: string; icon: any; color: string }> = [
-  { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
-  { label: "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
-  { label: "No pátio", value: portariaCounts.patio, icon: ParkingCircle, color: "text-blue-600 dark:text-blue-400" },
-  {
-    label: "Carregando",
-    value: `${portariaCounts.pesoCarregando.toLocaleString("pt-BR")} kg`,
-    sub: `${portariaCounts.carregando} ${portariaCounts.carregando === 1 ? "carro" : "carros"}`,
-    icon: Package,
-    color: "text-amber-600 dark:text-amber-400",
-  },
-  {
-    label: "Expedidos",
-    value: `${portariaCounts.pesoExpedido.toLocaleString("pt-BR")} kg`,
-    sub: `${portariaCounts.expedido} ${portariaCounts.expedido === 1 ? "carro" : "carros"}`,
-    icon: CheckCircle2,
-    color: "text-emerald-600 dark:text-emerald-400",
-  },
-];
-```
-
-### Mudança 3 — renderizar `sub` no card
-
-Linha 633-641, dentro do `CardContent`, adicionar o subtítulo logo após o valor principal (mesmo padrão do `KpiCards.tsx`):
-
+b) **Cabeçalho de info do romaneio** (grid de linhas ~174-188): incluir nova linha quando `data.tipoFrete` existir:
 ```tsx
-<span className="text-sm sm:text-xl font-bold tracking-tight truncate">{k.value}</span>
-{k.sub && (
-  <span className="text-[10px] sm:text-xs text-muted-foreground font-medium truncate -mt-0.5">{k.sub}</span>
+{data.tipoFrete && (
+  <div><span className="font-semibold">Tipo de Frete:</span> {data.tipoFrete}</div>
 )}
 ```
+Posicionar logo após "Transportadora" para ficar próximo dos dados de transporte.
 
-### Validação
+### Mudança 2 — `src/pages/Consolidado.tsx`
 
-1. Carga única em `status='Carregando'` com 12.500 kg → card "Carregando" mostra **`12.500 kg`** em destaque + **`1 carro`** abaixo.
-2. 3 cargas expedidas somando 38.200 kg → card "Expedidos" mostra **`38.200 kg`** + **`3 carros`**.
-3. Sem cargas em uma etapa → mostra **`0 kg`** + **`0 carros`**.
-4. Mobile (grid 2 colunas) → o `sub` quebra de linha naturalmente, sem overflow (mesmo `truncate` do `KpiCards.tsx`).
-5. Demais cards (Veículos, Peso Total, No pátio) ficam sem `sub`, layout intacto.
+No `abrirRomaneio` (linha ~400), adicionar ao `CargaPrintData`:
+```ts
+tipoFrete: group.tipoFrete ?? undefined,
+```
+`group.tipoFrete` já existe no `CargaGroup` (acumulado em `freteMap` na linha 158) e expressa "CIF", "FOB" ou "CIF/FOB" se houver mix.
+
+### Mudança 3 — `src/components/dashboard/FechamentoLoteDialog.tsx`
+
+No `printDataForRomaneio` (linhas 200-215), incluir `tipoFrete` derivado dos itens:
+```ts
+const tipoFreteSet = new Set(items.map((i) => i.tipo_frete).filter(Boolean));
+const tipoFreteStr = Array.from(tipoFreteSet).join("/") || undefined;
+// ...
+tipoFrete: tipoFreteStr,
+```
+Isso garante que o romaneio impresso logo após fechar a carga também mostre a info.
+
+### Mudança 4 — `src/components/portaria/MotoristaAutocomplete.tsx`
+
+a) Guardar a transportadora vinculada num novo state ao selecionar o motorista (`handleSelect`, linhas 114-142). Hoje já fazemos `transportadora = caminhao.transportadora || undefined` mas só é propagado via `onSelect` — não persiste no componente. Adicionar:
+```ts
+const [transportadoraVinculada, setTransportadoraVinculada] = useState<string | null>(null);
+// dentro de handleSelect, após buscar caminhão:
+setTransportadoraVinculada(caminhao?.transportadora || null);
+```
+E limpar quando o usuário trocar o nome (effect das linhas 166-171).
+
+b) No card de info abaixo do input (linhas 238-262), adicionar uma linha extra com a transportadora quando existir, no mesmo padrão visual do telefone:
+```tsx
+{transportadoraVinculada && (
+  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+    <Truck className="h-3 w-3" />
+    <span>{transportadoraVinculada}</span>
+  </div>
+)}
+```
+(Importar `Truck` do `lucide-react`.)
+
+> Observação: o input "Transportadora" do formulário (linha 398-400 do `FechamentoLoteDialog`) continua existindo e editável — esse card só **mostra** a transportadora cadastrada do caminhão do motorista, dando feedback visual de que a vinculação foi reconhecida.
+
+### Validação (cenários)
+
+1. **Romaneio CIF puro**: carga com todos os itens `tipo_frete='CIF'` → cabeçalho mostra "Tipo de Frete: CIF". ✅
+2. **Romaneio misto**: carga com itens CIF + FOB → mostra "Tipo de Frete: CIF/FOB". ✅
+3. **Romaneio sem tipo_frete**: linha simplesmente não aparece (não polui o cabeçalho). ✅
+4. **Romaneio impresso direto após fechar carga** (via `FechamentoLoteDialog`): também mostra o tipo de frete. ✅
+5. **Motorista com caminhão cadastrado e transportadora**: card mostra ícone de caminhão + nome da transportadora abaixo do telefone. ✅
+6. **Motorista sem caminhão vinculado**: card só mostra telefone, sem transportadora (sem linha extra vazia). ✅
+7. **Usuário troca nome do motorista**: card de transportadora some junto. ✅
 
 ### Fora do escopo
 
-- Não mexo nos outros 3 cards.
-- Não mexo na coluna "Portaria" da tabela nem na lógica de etapa.
-- Não mexo no romaneio impresso.
+- Não mexo no banco (`tipo_frete` já existe).
+- Não mexo na visualização da tabela do Consolidado nem no Kanban.
+- Não mexo no `CaminhaoAutocomplete` (a carrier já aparece no auto-fill do input de Transportadora do form).
+- Não altero o relatório consolidado A4 (`ConsolidadoPrintDialog`) — já mostra `tipoFrete` em sua tabela.
 
 ### Resultado
 
-Os cards "Carregando" e "Expedidos" passam a comunicar **peso operacional em destaque** (métrica principal de expedição) com a contagem de veículos como contexto secundário, mantendo o visual consistente com os KPIs do painel principal.
+O romaneio impresso passa a indicar claramente se a carga é CIF, FOB ou mista, evitando que o motorista/conferente precise olhar nota a nota. E ao fechar uma carga, o operador vê de imediato a transportadora vinculada ao motorista logo abaixo do nome — sem precisar conferir o input de transportadora separadamente.

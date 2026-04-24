@@ -199,6 +199,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     onOpenChange(false);
 
     if (onPrintReady) {
+      const tipoFreteSet = new Set(items.map((i) => i.tipo_frete).filter(Boolean) as string[]);
+      const tipoFreteStr = Array.from(tipoFreteSet).join("/") || undefined;
       onPrintReady({
         cargaId,
         data: dataCarregamento,
@@ -207,6 +209,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         motorista,
         transportadora: transportadora || undefined,
         horarioPrevisto: horarioPrevisto || undefined,
+        tipoFrete: tipoFreteStr,
         groups: groups.map((g) => ({
           codigoCliente: g.codigoCliente,
           nomeCliente: g.nomeCliente,

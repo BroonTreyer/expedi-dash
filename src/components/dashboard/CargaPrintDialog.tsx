@@ -21,6 +21,7 @@ export interface CargaPrintData {
   motorista: string;
   transportadora?: string;
   horarioPrevisto?: string;
+  tipoFrete?: string | null;
   groups: ClienteGroup[];
   totalPeso: number;
   totalRuptura?: number;
@@ -159,6 +160,9 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
             <div><span className="font-semibold">Motorista:</span> {data.motorista}</div>
             {data.transportadora && (
               <div><span className="font-semibold">Transportadora:</span> {data.transportadora}</div>
+            )}
+            {data.tipoFrete && (
+              <div><span className="font-semibold">Tipo de Frete:</span> {data.tipoFrete}</div>
             )}
             {data.horarioPrevisto && (
               <div><span className="font-semibold">Horário Previsto:</span> {data.horarioPrevisto}</div>
