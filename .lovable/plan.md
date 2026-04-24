@@ -1,44 +1,78 @@
 
 
-## Tag "Finalizado" no Histórico — Carga Própria e Terceirizado
+## Bug: Painel "Cargas Fechadas" duplica entrada quando carga é fechada vinculada a walk-in
 
-### Diagnóstico
-O Histórico hoje não diferencia visualmente quem **finalizou** o ciclo. Em Carga Própria, o motorista passa por 4 etapas (chegada → saída rota → retorno → lacre/saída final). Quando termina, `etapa_carga_propria = "finalizado"` é gravado, mas a aba Histórico não mostra esse status — só aparece "Entrada" + "Saída", o que confunde com saídas parciais.
+### Diagnóstico — onde está a duplicação
 
-### Mudança única — `src/components/portaria/HistoricoTab.tsx`
+Em `/portaria/registro-entrada` aparecem hoje **dois cards** mostrando o mesmo veículo:
 
-1. **Calcular flag `finalizado` por grupo** dentro do `useMemo` que monta `grupos`:
-   ```ts
-   const finalizado =
-     g.entrada?.etapa_carga_propria === "finalizado" ||
-     g.saida?.etapa_carga_propria === "finalizado" ||
-     g.entrada?.etapa_terceirizado === "finalizado" ||
-     g.saida?.etapa_terceirizado === "finalizado" ||
-     (!!g.entrada && !!g.saida && !["carga_propria","terceirizado"].includes(ref.categoria));
-   ```
-   Adicionar `finalizado: boolean` ao tipo `GrupoMovimento`.
+1. **Card vermelho/amarelo** (`SolicitacoesPendentesPanel`) — alimentado por `useVeiculosWalkInAtivos`, lista walk-ins com `status_autorizacao IN ('aguardando_vinculo','autorizado')` e `conferido = false`.
+2. **Card azul** (`CargasFechadasAguardandoPanel`) — alimentado por `useCargasFechadasAguardando`, lista cargas com `etapa = 'logistica'` cujo `carga_id` **não tem nenhuma `movimentacoes_portaria` registrada**.
 
-2. **Desktop (tabela)** — coluna **Tipo**, ao lado dos badges Entrada/Saída:
-   ```tsx
-   {g.finalizado && (
-     <Badge variant="outline" className="gap-1 text-xs border-green-500 text-green-700 dark:text-green-400">
-       <CheckCircle2 className="h-3 w-3" /> Finalizado
-     </Badge>
-   )}
-   ```
+Quando a Logística fecha uma carga vinculando a placa ao walk-in:
+- O **trigger `on_carga_fechada`** já faz a coisa certa: detecta o walk-in da mesma placa e atualiza para `status_autorizacao = 'autorizado'` + `carga_id = NEW.carga_id` (não cria duplicata em `veiculos_esperados`). ✅
+- Mas o **walk-in continua aparecendo** no card vermelho (ele faz parte do `('aguardando_vinculo','autorizado')`), agora marcado como "Liberado".
+- E como **não existe `movimentacoes_portaria`** para essa carga ainda (o veículo ainda não passou pela portaria física), a carga **também aparece** no card azul.
 
-3. **Mobile (card)** — mesmo badge verde na linha de badges junto com Entrada/Saída/Categoria.
+Resultado visual: **mesmo veículo em dois cards diferentes**, com ações conflitantes ("Registrar chegada" em ambos).
 
-4. **Filtro rápido** em `src/pages/Portaria.tsx` — adicionar opção `"Finalizados"` ao `Select` de tipo (valor `"finalizado"`), filtrando `grupos.filter(g => g.finalizado)` na `HistoricoTab`.
+O mesmo se passa quando vincular é via `useVincularWalkInACarga` (botão "Vincular Carga") — o walk-in vira `autorizado` com `carga_id` setado, mas continua listado no painel vermelho **e** a carga aparece no painel azul.
 
-### Verificação
-1. `/portaria/carga-propria` → Histórico: motoristas que bateram lacre (etapa "finalizado") mostram badge verde **✓ Finalizado**.
-2. Motoristas em rota ou retornados sem lacre **não** mostram a tag.
-3. Filtro "Finalizados" lista apenas os concluídos.
-4. Mesmo comportamento em `/portaria/terceirizado`.
+### Correção
+
+A regra correta é: **se o walk-in já está vinculado a uma `carga_id`, o card "fonte de verdade" passa a ser o azul (Cargas Fechadas Aguardando)** — e o card vermelho deve esconder esse veículo. Assim o porteiro tem **uma única ação**: "Registrar chegada do veículo" no card azul, que cria a `movimentacao_portaria`, marca o walk-in como `conferido` e tira de tudo.
+
+#### Mudança 1 — `src/hooks/useVeiculosEsperados.ts` (`useVeiculosWalkInAtivos`)
+
+Excluir da listagem walk-ins **autorizados que já têm `carga_id`** (já são responsabilidade do card azul). Manter:
+- `aguardando_vinculo` (sem carga ainda) → fica no vermelho para a Logística vincular
+- `autorizado` **sem `carga_id`** (caso raro: liberado sem vínculo) → fica no vermelho
+
+```ts
+.eq("walk_in", true)
+.eq("conferido", false)
+.or("status_autorizacao.eq.aguardando_vinculo,and(status_autorizacao.eq.autorizado,carga_id.is.null)")
+```
+
+Mesma regra em `useVeiculosWalkInPendentesCount` (KPI do sino).
+
+#### Mudança 2 — `src/components/portaria/CargasFechadasAguardandoPanel.tsx`
+
+Mostrar um indicador quando a carga **veio de um walk-in já no pátio** (badge "Walk-in vinculado") para o porteiro reconhecer que o motorista já está esperando:
+
+- Buscar em paralelo `veiculos_esperados` autorizados com `carga_id IN (...)` e marcar quais cargas têm walk-in.
+- Adicionar badge: `<Badge>Walk-in autorizado</Badge>` no card.
+- Texto do botão muda de "Registrar chegada do veículo" para "Confirmar entrada do walk-in" quando aplicável.
+
+#### Mudança 3 — `src/components/portaria/RegistroEntradaDialog.tsx` (`handleSubmitVinculadoACarga`)
+
+Hoje o `update` em `veiculos_esperados` busca por `carga_id` (e marca `conferido = true`). Manter — está correto. Adicionar apenas: invalidar também `veiculos_walkin_ativos` e `veiculos_walkin_pendentes_count` para o card vermelho atualizar imediatamente.
+
+```ts
+qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
+```
+
+### Validação
+
+1. Criar walk-in (placa X) em `/portaria/registro-entrada`.
+   - ✅ Aparece no card vermelho ("Aguardando vínculo").
+2. Logística fecha carga vinculando a placa X (via painel principal).
+   - ✅ Walk-in vira `autorizado` + `carga_id` (já acontece).
+   - ✅ **Some do card vermelho** (correção #1).
+   - ✅ Aparece **apenas no card azul** com badge "Walk-in autorizado" (correção #2).
+3. Porteiro clica "Confirmar entrada do walk-in".
+   - ✅ Cria `movimentacao_portaria`, marca walk-in `conferido=true`.
+   - ✅ Some dos dois cards.
+4. Mesmo teste via "Vincular Carga" no card vermelho — sem duplicação.
 
 ### Fora do escopo
-- KPIs novos no topo.
-- Mudanças no banco/triggers.
-- Aba "Pátio Atual" (já remove veículos finalizados).
+
+- Mudança no trigger `on_carga_fechada` (já está correto).
+- Mexer no painel `VeiculosEsperadosPanel` da página `/portaria` (aba "Esperados") — usa outro hook (`useVeiculosEsperados`) e está ok.
+- Histórico / auditoria / outros painéis.
+
+### Resultado esperado
+
+Cada veículo aparece em **um único lugar** no Registro de Entrada, com **uma única ação** disponível, eliminando o conflito visual e operacional descrito.
 
