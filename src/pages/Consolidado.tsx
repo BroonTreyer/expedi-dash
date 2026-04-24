@@ -756,7 +756,6 @@ export default function Consolidado() {
                   <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="nomeCarga" onSort={toggleSort}>Carga</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="pesoTotal" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>
-                  <SortableTableHead sort={sort} sortKey="qtdPedidos" onSort={toggleSort} className="text-center">Pedidos</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="horarioPrevisto" onSort={toggleSort} className="text-center">Hr. Previsto</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="clientes" onSort={toggleSort} className="text-center">Clientes</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="tipoFrete" onSort={toggleSort}>Frete</SortableTableHead>
@@ -843,7 +842,6 @@ export default function Consolidado() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
                         <TableCell className="text-center text-xs font-mono">
                           {g.horarioPrevisto
                             ? g.horarioPrevisto.substring(0, 5)
@@ -872,7 +870,6 @@ export default function Consolidado() {
                           <TableCell className="text-xs text-muted-foreground">{item.vendedores?.nome_vendedor ?? "—"}</TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground">{(item.peso ?? 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-center text-xs text-muted-foreground">{item.quantidade ?? "—"}</TableCell>
-                          <TableCell />
                           <TableCell />
                           <TableCell className="text-xs text-muted-foreground">{item.tipo_frete ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.uf ?? "—"}</TableCell>
