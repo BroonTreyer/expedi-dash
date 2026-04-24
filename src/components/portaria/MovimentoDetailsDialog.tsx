@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +58,8 @@ function ClickablePhoto({ url, alt, label }: { url: string; alt: string; label: 
   );
 }
 
-export function MovimentoDetailsDialog({ open, onOpenChange, movimento, movimentoSaida }: Props) {
+export const MovimentoDetailsDialog = forwardRef<HTMLDivElement, Props>(
+  function MovimentoDetailsDialog({ open, onOpenChange, movimento, movimentoSaida }, _ref) {
   const { role } = useAuth();
   const deleteMov = useDeleteMovimentacao();
   const [editOpen, setEditOpen] = useState(false);
@@ -629,4 +630,6 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
       <EditMovimentoDialog open={editOpen} onOpenChange={setEditOpen} movimento={movimento} />
     </>
   );
-}
+  }
+);
+MovimentoDetailsDialog.displayName = "MovimentoDetailsDialog";

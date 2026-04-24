@@ -1,18 +1,28 @@
-## Reorganizar cards de KPI em `src/pages/Consolidado.tsx`
+## Correção de bugs de refs (warnings React)
 
-**Nova ordem (4 cards):**
-1. **Peso Total** — valor principal `pesoTotal kg`; sub: `"X veículos"` (usa `totalVeiculos`).
-2. **Peso a Carregar** — `Math.max(0, pesoTotal - pesoCarregando - pesoExpedido)` em kg; estilo âmbar.
-3. **Carregando** — mantém atual.
-4. **Expedidos** — mantém atual.
+### Arquivos a editar
+1. **`src/components/portaria/ImportarPlanilhaDialog.tsx`**
+   - Envolver o componente em `forwardRef<HTMLDivElement, Props>`
+   - Manter toda a lógica atual intacta
+   - Exportar com `displayName = "ImportarPlanilhaDialog"`
 
-**Remover:**
-- Card "No pátio" (informação já visível em outra parte da tela).
-- Card "Veículos" (consolidado dentro do Peso Total como sub).
+2. **`src/components/portaria/MovimentoDetailsDialog.tsx`**
+   - Envolver o componente em `forwardRef<HTMLDivElement, Props>`
+   - Manter toda a lógica atual intacta
+   - Exportar com `displayName = "MovimentoDetailsDialog"`
 
-**Limpeza:**
-- Remover imports não usados de `lucide-react` (`ParkingCircle`, `Truck` se ficarem órfãos).
+### Padrão aplicado
+```typescript
+import { forwardRef } from "react";
 
-**Comportamento:**
-- Sub do Peso Total sempre visível (mostra contagem de veículos).
-- Peso a Carregar exibe `0 kg` quando tudo embarcado (ou ocultar se = 0 — manter visível para consistência).
+export const ImportarPlanilhaDialog = forwardRef<HTMLDivElement, Props>(
+  function ImportarPlanilhaDialog(props, _ref) {
+    // lógica existente sem alterações
+  }
+);
+```
+
+### Resultado esperado
+- Eliminação dos warnings "Function components cannot be given refs" no console
+- Zero alteração de comportamento funcional
+- Padronização com os demais dialogs do projeto
