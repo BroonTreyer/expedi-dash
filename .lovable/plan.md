@@ -1,63 +1,96 @@
 
 
-## Renomear "Walk-in" para termos em português na Portaria
+## Status Portaria Terceirizados ↔ Consolidado: integração ponta-a-ponta
 
 ### Diagnóstico
-O termo técnico **"Walk-in"** aparece em vários pontos da interface da Portaria (badges, botões, títulos, mensagens). O pessoal da portaria não entende esse jargão. Precisa ser substituído por linguagem clara em português.
 
-### Tradução proposta
-| Termo atual | Substituição |
-|---|---|
-| "Walk-in" (badge/título) | **"Sem agendamento"** |
-| "Walk-in autorizado" | **"Motorista já no pátio"** |
-| "Confirmar entrada do walk-in" | **"Confirmar entrada do motorista"** |
-| "Solicitação walk-in" / "Veículo walk-in" | **"Chegada sem agendamento"** |
-| "Vincular walk-in a carga" | **"Vincular motorista à carga"** |
-| "Aguardando vínculo (walk-in)" | **"Aguardando vínculo de carga"** |
+A página `/consolidado` agrupa cargas finalizadas por `carga_id` mas hoje só mostra dados logísticos (placa, motorista, peso, status do pedido). **Não há nenhuma visão do que está acontecendo na portaria**: o usuário não sabe se o terceirizado já chegou, se está carregando, se já saiu ou ainda está aguardando.
 
-> Observação: o nome técnico do **campo no banco** (`walk_in`, `useVeiculosWalkInAtivos`, etc.) **não muda** — só os textos visíveis ao usuário. Isso evita migração e mantém o código estável.
+A informação existe em `movimentacoes_portaria` (campos `tipo_movimento`, `etapa_terceirizado`, `horario_entrada`, `data_hora`, `carga_id`) e está indexada por `carga_id` — basta cruzar.
 
-### Arquivos a alterar (apenas strings de UI)
+### Modelo de "Etapa Portaria" para terceirizados (derivada)
 
-1. **`src/components/portaria/CargasFechadasAguardandoPanel.tsx`**
-   - Badge "Walk-in autorizado" → "Motorista já no pátio"
-   - Botão "Confirmar entrada do walk-in" → "Confirmar entrada do motorista"
-   - Texto helper "Motorista já está no pátio" → manter
+Para cada `carga_id` agrupado no Consolidado, derivo **uma etapa única** consultando todas as movimentações daquela carga e aplicando regras na ordem (a "mais avançada" vence):
 
-2. **`src/components/portaria/SolicitacoesPendentesPanel.tsx`**
-   - Título do card / cabeçalho com "Walk-in" → "Chegadas sem agendamento"
-   - Badges/labels internos
+| Etapa Portaria | Regra de derivação | Cor / Ícone |
+|---|---|---|
+| **Aguardando chegada** | Carga fechada, **nenhum** registro em `movimentacoes_portaria` para esse `carga_id` | cinza / `Clock` |
+| **No pátio** | Existe `tipo_movimento='entrada'` (ou `etapa_terceirizado='chegada'`), sem etapa posterior | azul / `ParkingCircle` |
+| **Carregando** | `etapa_terceirizado='liberado'` **ou** status logístico = "Carregando" enquanto veículo no pátio | âmbar / `Package` |
+| **Expedido / Finalizado** | Existe `tipo_movimento='saida'` **ou** `etapa_terceirizado='finalizado'` **ou** `horario_saida_final` preenchido | verde / `CheckCircle2` |
 
-3. **`src/components/portaria/VincularCargaDialog.tsx`**
-   - Título e descrição com "walk-in" → "motorista sem agendamento"
+> Foco apenas em **terceirizados** (categoria `terceirizado` nas movimentações). Cargas próprias mantêm o badge atual (sem este novo indicador).
 
-4. **`src/components/portaria/RegistroEntradaDialog.tsx`**
-   - Toasts e labels que mencionem "walk-in" → "sem agendamento" / "motorista"
+### Mudança 1 — novo hook `useStatusPortariaPorCarga(cargaIds)`
 
-5. **`src/pages/RegistroEntrada.tsx`**
-   - Cabeçalhos e textos descritivos que tenham "Walk-in"
+Arquivo novo: **`src/hooks/useStatusPortariaPorCarga.ts`**
 
-6. **`src/components/NotificationBell.tsx`** (se aplicável)
-   - Textos de notificação tipo "Novo walk-in" → "Nova chegada sem agendamento"
+- Recebe `cargaIds: string[]` ativos no Consolidado.
+- **Uma única query batch**: `movimentacoes_portaria.select("carga_id, tipo_movimento, categoria, etapa_terceirizado, horario_entrada, horario_saida_final, data_hora").in("carga_id", cargaIds).eq("categoria", "terceirizado")`.
+- Agrupa por `carga_id` em `Map<string, StatusPortariaInfo>` aplicando a tabela acima.
+- Retorna `{ etapa, label, iconKey, colorClass, timestamps: { chegada, saida } }`.
+- **Realtime**: subscreve `movimentacoes_portaria` com debounce de 1.5s (regra global) e invalida o cache.
+- Protegido por `enabled: !!session && cargaIds.length > 0`.
+- Performance: `Map` pré-indexado (lookup O(1)), `useMemo` para derivar etapas.
 
-7. **`src/components/portaria/PortariaKpiCards.tsx`** (se houver KPI mencionando)
-   - Label de KPI
+### Mudança 2 — novo componente `<PortariaStatusBadge>`
 
-### Como vou descobrir todas as ocorrências
-Vou rodar `code--search_files` por `walk-in|walk_in|Walk-In|WalkIn` (case-insensitive) **apenas em strings JSX/labels** (ignorando nomes de variáveis, hooks e queryKeys). Cada ocorrência será trocada pelo termo em português equivalente da tabela acima.
+Arquivo novo: **`src/components/dashboard/PortariaStatusBadge.tsx`**
+
+- Recebe `etapa` + `timestamps` opcionais.
+- Renderiza Badge no mesmo padrão visual do `StatusBadge`/`EtapaBadge` (consistência com `style/ui-components`): outline com cor semântica + ícone Lucide à esquerda.
+- **Tooltip** mostra horários reais quando existirem ("Chegou às 09:42 · Saiu às 11:05").
+- Variante discreta (cinza claro) para "Aguardando chegada".
+
+### Mudança 3 — integrar em `src/pages/Consolidado.tsx`
+
+a) **3 KPIs novos** ao lado dos atuais (Veículos / Peso / Pedidos):
+   - **"No pátio"** — cargas com etapa `No pátio` ou `Carregando`.
+   - **"Carregando"** — cargas com etapa `Carregando`.
+   - **"Expedidos"** — cargas com etapa `Expedido / Finalizado`.
+   
+   Layout: `grid-cols-3 sm:grid-cols-6` (3 originais + 3 portaria). Mobile: 2 linhas de 3.
+
+b) **Coluna "Portaria"** na tabela desktop, entre **Status** e **Tipo**:
+   - Renderiza `<PortariaStatusBadge>`.
+   - **Sortable** por etapa (ordem cronológica: Aguardando → Pátio → Carregando → Expedido).
+
+c) **Card mobile**: linha extra `Portaria: <badge>` no grid de informações da carga.
+
+d) **Filtro novo "Etapa Portaria"** no topo (Select), com opções: Todas / Aguardando chegada / No pátio / Carregando / Expedido.
+
+e) **Linha expandida (detalhes)**: abaixo dos itens da carga, mini-timeline com horários (chegada → saída) reaproveitando visual do `AuditTimeline`.
+
+### Mudança 4 — Realtime cross-table
+
+O hook `useConsolidado` já subscreve `carregamentos_dia`. O novo hook adiciona subscrição a `movimentacoes_portaria` filtrando `categoria=terceirizado` — quando portaria registra entrada/saída, o badge **atualiza automaticamente** sem refresh, em ≤1.5s.
+
+### Performance
+
+- **Uma query batch** para todas as `carga_id` visíveis (sem N+1).
+- `Map` pré-indexado por `carga_id` (`tech/performance/data-grouping`).
+- `useMemo` no derivar de etapa para evitar recomputação.
+- Debounce de 1.5s no realtime (`tech/realtime-concurrency`).
+
+### Validação (cenários)
+
+1. Carga fechada, nada na portaria → badge cinza "Aguardando chegada", KPIs zerados.
+2. Portaria registra entrada terceirizado → badge azul "No pátio", KPI "No pátio" incrementa em ≤1.5s.
+3. Status logístico muda para "Carregando" + veículo no pátio → badge âmbar "Carregando".
+4. Portaria registra saída (`tipo_movimento='saida'` ou `etapa_terceirizado='finalizado'`) → badge verde "Expedido", KPI "Expedidos" incrementa.
+5. Filtro "Etapa Portaria = Carregando" mostra só as cargas em pátio sendo carregadas.
+6. Tooltip do badge mostra horário de chegada e saída quando disponíveis.
+7. Mobile: linha "Portaria:" aparece no card.
+8. Linha expandida: timeline com chegada/saída.
 
 ### Fora do escopo
-- Renomear hooks (`useVeiculosWalkInAtivos`), tabelas, colunas (`walk_in`), `queryKey` ou tipos TS — mantêm o nome técnico.
-- Mudar lógica de funcionamento — só texto.
-- Outras telas fora da Portaria.
 
-### Validação
-1. `/portaria/registro-entrada`: nenhum texto visível contém "walk-in".
-2. Card vermelho passa a se chamar "Chegadas sem agendamento".
-3. Card azul mostra "Motorista já no pátio" quando aplicável, com botão "Confirmar entrada do motorista".
-4. Diálogo de vincular: "Vincular motorista à carga".
-5. Notificações realtime sem o termo em inglês.
+- Cargas próprias (mantêm o fluxo atual sem este novo badge).
+- Mudar trigger `on_carga_fechada` ou criar coluna persistida — derivamos no front.
+- Editar registros da Portaria a partir do Consolidado (apenas leitura).
+- Outras telas (Painel principal, Kanban).
 
 ### Resultado
-Interface 100% em português operacional, compreensível para o time da portaria, sem risco de regressão (nenhuma mudança de lógica/banco).
+
+A página `/consolidado` passa a ser a **visão única ponta-a-ponta** do ciclo do terceirizado: do fechamento da carga (Logística) até a expedição final (Portaria). Em uma linha o usuário enxerga quem está aguardando, quem está no pátio, quem está carregando e quem já saiu — com KPIs no topo, badges coloridos por linha, filtro dedicado, timeline nos detalhes e atualização em tempo real.
 
