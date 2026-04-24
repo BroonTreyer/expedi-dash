@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil, FileText } from "lucide-react";
+import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil, FileText, ParkingCircle, CheckCircle2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useSortableTable } from "@/hooks/useSortableTable";
@@ -27,6 +27,8 @@ import type { Carregamento } from "@/hooks/useCarregamentos";
 import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
 import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
+import { useStatusPortariaPorCarga, ETAPA_PORTARIA_ORDEM, ETAPA_PORTARIA_LABELS, type EtapaPortaria } from "@/hooks/useStatusPortariaPorCarga";
+import { PortariaStatusBadge } from "@/components/dashboard/PortariaStatusBadge";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -169,6 +171,7 @@ export default function Consolidado() {
   const dateToStr = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : dateFromStr;
   const [filterUf, setFilterUf] = useState("todos");
   const [filterStatus, setFilterStatus] = useState("todos");
+  const [filterEtapaPortaria, setFilterEtapaPortaria] = useState<"todas" | EtapaPortaria>("todas");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
   const [romaneioData, setRomaneioData] = useState<CargaPrintData | null>(null);
@@ -420,6 +423,23 @@ export default function Consolidado() {
 
   const rawGroups = useMemo(() => groupByCarga(filtered), [filtered]);
 
+  // Status da Portaria (terceirizados) por carga
+  const cargaIds = useMemo(() => rawGroups.map((g) => g.cargaId), [rawGroups]);
+  const { data: statusPortariaMap } = useStatusPortariaPorCarga(cargaIds);
+  const getStatusPortaria = useCallback(
+    (cargaId: string) => statusPortariaMap?.get(cargaId),
+    [statusPortariaMap],
+  );
+
+  const groupsWithPortariaFilter = useMemo(() => {
+    if (filterEtapaPortaria === "todas") return rawGroups;
+    return rawGroups.filter((g) => {
+      const info = statusPortariaMap?.get(g.cargaId);
+      const etapa = info?.etapa ?? "aguardando";
+      return etapa === filterEtapaPortaria;
+    });
+  }, [rawGroups, statusPortariaMap, filterEtapaPortaria]);
+
   const consolidadoAccessors: Record<string, (g: CargaGroup) => any> = useMemo(() => ({
     data: (g) => g.data,
     status: (g) => g.status,
@@ -433,9 +453,10 @@ export default function Consolidado() {
     clientes: (g) => g.clientes.size,
     ufs: (g) => [...g.ufs].sort().join(", "),
     tipoFrete: (g) => g.tipoFrete,
-  }), []);
+    portaria: (g) => ETAPA_PORTARIA_ORDEM[(statusPortariaMap?.get(g.cargaId)?.etapa ?? "aguardando") as EtapaPortaria],
+  }), [statusPortariaMap]);
 
-  const groups = useMemo(() => sortData(rawGroups, consolidadoAccessors), [rawGroups, sortData, consolidadoAccessors]);
+  const groups = useMemo(() => sortData(groupsWithPortariaFilter, consolidadoAccessors), [groupsWithPortariaFilter, sortData, consolidadoAccessors]);
 
   // Keep the open edit dialog in sync with the latest data (e.g. after inverting order)
   useEffect(() => {
@@ -449,6 +470,18 @@ export default function Consolidado() {
   const totalVeiculos = groups.length;
   const pesoTotal = groups.reduce((s, g) => s + g.pesoTotal, 0);
   const totalPedidos = groups.reduce((s, g) => s + g.qtdPedidos, 0);
+
+  // KPIs de Portaria (sobre os grupos visíveis)
+  const portariaCounts = useMemo(() => {
+    const c = { patio: 0, carregando: 0, expedido: 0 };
+    for (const g of groups) {
+      const etapa = statusPortariaMap?.get(g.cargaId)?.etapa ?? "aguardando";
+      if (etapa === "patio" || etapa === "carregando") c.patio += 1;
+      if (etapa === "carregando") c.carregando += 1;
+      if (etapa === "expedido") c.expedido += 1;
+    }
+    return c;
+  }, [groups, statusPortariaMap]);
 
   const tipoBreakdown = useMemo(() => {
     const map = new Map<string, number>();
@@ -502,6 +535,9 @@ export default function Consolidado() {
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
     { label: "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
     { label: "Pedidos", value: totalPedidos, icon: Package, color: "text-primary" },
+    { label: "No pátio", value: portariaCounts.patio, icon: ParkingCircle, color: "text-blue-600 dark:text-blue-400" },
+    { label: "Carregando", value: portariaCounts.carregando, icon: Package, color: "text-amber-600 dark:text-amber-400" },
+    { label: "Expedidos", value: portariaCounts.expedido, icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-400" },
   ];
 
   return (
@@ -571,11 +607,24 @@ export default function Consolidado() {
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={filterEtapaPortaria} onValueChange={(v) => setFilterEtapaPortaria(v as typeof filterEtapaPortaria)}>
+            <SelectTrigger className="h-9 w-[150px] sm:w-[190px] text-xs sm:text-sm">
+              <SelectValue placeholder="Etapa Portaria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas etapas portaria</SelectItem>
+              <SelectItem value="aguardando">{ETAPA_PORTARIA_LABELS.aguardando}</SelectItem>
+              <SelectItem value="patio">{ETAPA_PORTARIA_LABELS.patio}</SelectItem>
+              <SelectItem value="carregando">{ETAPA_PORTARIA_LABELS.carregando}</SelectItem>
+              <SelectItem value="expedido">{ETAPA_PORTARIA_LABELS.expedido}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* KPI Cards */}
         <TooltipProvider delayDuration={300}>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
             {kpis.map((k) => (
               <Card key={k.label} className="border-border/60">
                 <CardContent className="p-3 sm:p-4 flex flex-col gap-1">
@@ -649,6 +698,10 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Frete: </span>{g.tipoFrete}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
                       </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">Portaria:</span>
+                        <PortariaStatusBadge info={getStatusPortaria(g.cargaId)} />
+                      </div>
                       {g.parcialCount > 0 && (
                         <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/60 rounded px-2 py-1 flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -687,6 +740,7 @@ export default function Consolidado() {
                   <TableHead className="w-8" />
                   <SortableTableHead sort={sort} sortKey="data" onSort={toggleSort}>Data</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="text-center">Status</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="portaria" onSort={toggleSort} className="text-center">Portaria</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="tipoCaminhao" onSort={toggleSort}>Tipo</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="placa" onSort={toggleSort}>Placa</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
@@ -733,6 +787,11 @@ export default function Consolidado() {
                         </TableCell>
                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                           <StatusSelect value={g.status} onChange={(v) => handleStatusChange(g, v)} />
+                        </TableCell>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-center">
+                            <PortariaStatusBadge info={getStatusPortaria(g.cargaId)} />
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
@@ -786,6 +845,7 @@ export default function Consolidado() {
                           <TableCell className="text-xs text-muted-foreground">
                             {format(new Date(item.data + "T12:00:00"), "dd/MM")}
                           </TableCell>
+                          <TableCell />
                           <TableCell />
                           <TableCell className="text-xs text-muted-foreground" colSpan={2}>
                             <span className="flex items-center gap-1.5">
