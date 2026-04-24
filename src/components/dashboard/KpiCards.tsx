@@ -1,5 +1,5 @@
 import React from "react";
-import { Package, Weight, Truck, CheckCircle, ClipboardList, AlertTriangle } from "lucide-react";
+import { Package, Weight, Truck, CheckCircle, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -22,7 +22,6 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
     .filter(c => c.status === "Carregando" && !c.ruptura)
     .reduce((s, c) => s + (c.peso ?? 0), 0);
   const totalVeiculos = new Set(source.filter(c => c.placa).map(c => c.placa)).size;
-  const pendentesLogistica = new Set(source.filter(c => c.etapa === "vendas" && c.numero_pedido).map(c => c.numero_pedido)).size;
   // Rupturas por pedido único
   const totalPedidosUnicos = new Set(source.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
   const pedidosComRuptura = new Set(source.filter(c => c.ruptura && c.numero_pedido).map(c => c.numero_pedido)).size;
@@ -38,7 +37,6 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
 
   const cards: Array<{ label: string; value: string | number; sub?: string; icon: any; color: string; tooltip: string }> = [
     { label: selectedData ? "Clientes (sel.)" : "Clientes", value: totalClientes, icon: Package, color: "text-primary", tooltip: "Quantidade de clientes distintos nos pedidos" },
-    { label: "Pend. Logística", value: pendentesLogistica, icon: ClipboardList, color: "text-amber-500", tooltip: "Pedidos na etapa de vendas aguardando logística" },
     {
       label: "Rupturas",
       value: rupturaLabel,
