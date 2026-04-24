@@ -571,7 +571,7 @@ export default function Index() {
             selectable={isAdmin || isLogistica || isFaturamento}
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
-            hideColumns={["etapa"]}
+            hideColumns={["etapa", "tipo_caminhao", "motorista", "nome_carga"]}
           />
         ) : (
           <KanbanView data={filtered} onStatusChange={handleStatusChange} />
