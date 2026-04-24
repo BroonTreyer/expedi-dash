@@ -1,17 +1,14 @@
-## Corrigir KPIs do painel principal — escopo "Híbrido inteligente"
+## Reorganizar colunas da tabela do Painel
 
-### Mudança em `src/pages/Index.tsx`
+### `src/pages/Index.tsx`
+- Atualizar prop `hideColumns` do `<CarregamentoTable>` para:
+  `["etapa", "tipo_caminhao", "motorista", "nome_carga"]`
 
-Criar `kpiSource` paralelo a `filtered`, que **ignora** o toggle "Mostrar Logística" e a ocultação de finalizados (`carga_id != null && status === "Carregado"`), mas **respeita** todos os filtros explícitos do usuário (status, vendedor, tipo caminhão, etapa selecionada manualmente, ruptura, cliente, UF, busca, dateRange).
-
-Trocar a prop `data` do `<KpiCards>` de `filtered` para `kpiSource`. A prop `selectedData` (seleção manual) permanece com prioridade.
+### `src/components/dashboard/CarregamentoTable.tsx`
+- **Reordenar**: mover a coluna "Dt. Cadastro" (`created_at`) para a primeira posição após a coluna de Status (e checkbox de seleção quando aplicável). Aplicar nos templates: Header, linha única, linha agrupada (pai) e linhas filhas.
+- **Ocultação condicional**: envolver `TableHead` e `TableCell` de "Caminhão" (`tipo_caminhao`), "Motorista" (`motorista`) e "Carga" (`nome_carga`) com guards `!hideColumns.includes(...)`.
+- **colCount dinâmico**: recalcular `colCount` subtraindo cada coluna oculta presente em `hideColumns` para manter `colSpan` correto nas linhas expandidas/agrupadas.
+- **Mobile (`MobileCardItem`)**: respeitar `hideColumns` e não renderizar os blocos Caminhão, Motorista e Carga quando ocultos.
 
 ### Comportamento resultante
-
-- **Tabela / Kanban**: inalterados — toggle e ocultação continuam funcionando.
-- **KPIs**: passam a refletir TUDO do dia por padrão; quando o usuário aplica filtros, os cards atualizam junto.
-- **Peso Total / Carregado / Veículos**: deixam de zerar quando todos os pedidos estão em etapa logística.
-
-### Arquivos
-
-- `src/pages/Index.tsx` — adicionar `kpiSource` (useMemo) + trocar prop do `KpiCards`.
+- Painel principal: Dt. Cadastro fica como primeira coluna de dados; Etapa, Caminhão, Motorista e Carga ficam ocultos. Demais telas que usam `CarregamentoTable` sem `hideColumns` não são afetadas.
