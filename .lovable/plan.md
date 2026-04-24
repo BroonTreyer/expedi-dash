@@ -1,86 +1,72 @@
 
 
-## Trocar coluna "Rupturas" por "Horário Previsto" no Consolidado
+## Ajustes nos KPIs do Consolidado
 
 ### Diagnóstico
 
-Na tabela desktop de `/consolidado`, a coluna **"Rupturas"** (linha 750 do header e células 824-836) ocupa um slot central que o usuário quer reaproveitar para exibir o **horário previsto** de carregamento — informação operacional muito mais útil no dia-a-dia (saber a janela esperada do veículo). O campo `horario_previsto` já existe em `carregamentos_dia` (`time without time zone`) e é preenchido durante o fechamento de carga (`FechamentoLoteDialog`/`AdicionarCargaDialog`).
+Olhando o print enviado (e o código atual em `src/pages/Consolidado.tsx`), a faixa de KPIs tem **6 cards**: Veículos · Peso Total · **Pedidos** · No Pátio · Carregando · Expedidos. Dois problemas:
 
-A informação de ruptura **não pode se perder**: hoje ela só é exibida no desktop nessa coluna (no mobile já tem badge ao lado da placa, linhas 663-671). Vou preservar o acesso replicando o badge ao lado da placa também no desktop.
+1. **"Pedidos" está sobrando** — o usuário quer remover esse bloco.
+2. **"Carregando" hoje só conta a etapa `carregando` da Portaria** (linha 484: `if (etapa === "carregando") c.carregando += 1;`). Como o status logístico real "Carregando" do pedido (campo `carregamentos_dia.status`) não é considerado, o KPI fica zerado mesmo quando há cargas com itens em status "Carregando" no painel — bate com o print (mostra `0`).
 
-### Mudança 1 — agregar `horarioPrevisto` ao grupo
+### Mudança 1 — remover KPI "Pedidos"
 
 Em `src/pages/Consolidado.tsx`:
 
-a) **`interface CargaGroup`** (linha 95): adicionar `horarioPrevisto: string | null`.
+a) **Array `kpis`** (linha 538-545): remover a linha `{ label: "Pedidos", value: totalPedidos, ... }`. Restam **5 cards**: Veículos · Peso Total · No Pátio · Carregando · Expedidos.
 
-b) **`groupByCarga`** (linha 117): no inicializador do grupo (linha 124), pegar `horario_previsto` do primeiro item: `horarioPrevisto: item.horario_previsto ?? null`. Como todos os itens da mesma `carga_id` compartilham o mesmo horário (cascade no fechamento), pegar o primeiro é suficiente; se vier nulo no primeiro mas preenchido em outro, fazer fallback `g.horarioPrevisto ??= item.horario_previsto ?? null`.
+b) **Variável `totalPedidos`** (linha 476): manter, pois ainda é usada no `printData` (linha 519) e no romaneio (linha 412). Sem mudança.
 
-c) **`sortAccessors`** (linha 450): adicionar `horarioPrevisto: (g) => g.horarioPrevisto ?? "99:99"` (nulos vão pro fim do sort ascendente).
+c) **Layout do grid de KPIs**: hoje deve estar com `grid-cols-3 sm:grid-cols-6` (ou similar). Ajustar para `grid-cols-2 sm:grid-cols-3 lg:grid-cols-5` para distribuir bem 5 cards (mobile 2 colunas em 3 linhas → desktop 5 lado a lado). Vou conferir o wrapper exato e ajustar o número de colunas para não deixar buraco.
 
-### Mudança 2 — substituir coluna no desktop
+### Mudança 2 — recalcular "Carregando" considerando status logístico + portaria
 
-a) **Header** (linha 750): trocar
-```
-<SortableTableHead sort={sort} sortKey="rupturaCount" ... className="text-center">Rupturas</SortableTableHead>
-```
-por
-```
-<SortableTableHead sort={sort} sortKey="horarioPrevisto" ... className="text-center">Hr. Previsto</SortableTableHead>
-```
+A intenção do KPI é responder: **"quantas cargas estão sendo carregadas agora?"**. Hoje só olha portaria; o correto é considerar **qualquer um** dos dois sinais:
 
-b) **Célula** (linhas 824-836): trocar todo o bloco do botão de ruptura por:
-```tsx
-<TableCell className="text-center text-xs font-mono">
-  {g.horarioPrevisto
-    ? g.horarioPrevisto.substring(0, 5)  // "HH:MM"
-    : <span className="text-muted-foreground/40">—</span>}
-</TableCell>
-```
-Formato `HH:MM` em pt-BR (consistente com `style/data-formatting`).
+- **Sinal Portaria**: `etapa === "carregando"` (terceirizado liberado para carregamento).
+- **Sinal Logístico**: a carga tem **pelo menos um item** com `status === "Carregando"` na tabela `carregamentos_dia`.
 
-### Mudança 3 — preservar badge de ruptura ao lado da placa (desktop)
+Atualizar o `useMemo` de `portariaCounts` (linhas 479-488):
 
-Para não perder o link rápido para `/rupturas?carga=...`, na célula da **Placa** (linha 797) trocar:
-```tsx
-<TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
-```
-por uma célula com flex contendo a placa **+** o mesmo botão-badge usado hoje no mobile (linhas 664-671), só visível quando `g.rupturaCount > 0`. Mesma estética: `bg-destructive/10 text-destructive`, ícone `AlertTriangle`, navega para `/rupturas?carga=${nomeCarga||cargaId}`. `onClick` com `e.stopPropagation()` para não disparar o expand da linha.
+```ts
+const portariaCounts = useMemo(() => {
+  const c = { patio: 0, carregando: 0, expedido: 0 };
+  for (const g of groups) {
+    const etapa = statusPortariaMap?.get(g.cargaId)?.etapa ?? "aguardando";
+    const temItemCarregando = g.items.some((it) => it.status === "Carregando");
+    const isCarregando = etapa === "carregando" || temItemCarregando;
 
-### Mudança 4 — mobile permanece igual
-
-O card mobile (linhas 650-732) já mostra o badge de ruptura ao lado da placa e **não tem** coluna "Rupturas" — não precisa alterar nada lá. Opcionalmente, posso adicionar uma linha no grid `Hr. Previsto` ao lado de `Data` para paridade. **Proposta**: adicionar.
-
-No bloco linha 683-700, substituir a célula `Data` por uma com data + horário previsto:
-```tsx
-<div>
-  <span className="text-muted-foreground">Data: </span>
-  {format(new Date(g.data + "T12:00:00"), "dd/MM")}
-  {g.horarioPrevisto && (
-    <span className="ml-1 font-mono text-muted-foreground">
-      · {g.horarioPrevisto.substring(0, 5)}
-    </span>
-  )}
-</div>
+    if (etapa === "patio" || etapa === "carregando") c.patio += 1;
+    if (isCarregando) c.carregando += 1;
+    if (etapa === "expedido") c.expedido += 1;
+  }
+  return c;
+}, [groups, statusPortariaMap]);
 ```
 
-### Fora do escopo
+> Observação: uma carga "Carregando" pelo status logístico provavelmente também está em pátio. Mantenho `c.patio` como está (só conta etapa de portaria de fato) para não inflar duplamente — ou seja, "No Pátio" continua sendo um indicador físico (veículo bateu na portaria), e "Carregando" passa a ser indicador operacional (alguém está embarcando o pedido, vindo da logística ou da portaria).
 
-- Não alteramos nenhum dado do banco; `horario_previsto` já é capturado no fechamento.
-- Não mexemos nos KPIs (continuam Veículos / Peso / Pedidos / No pátio / Carregando / Expedidos).
-- Não mexemos no filtro "Etapa Portaria" nem no "Status".
-- Página de Rupturas e o link via `?carga=...` continuam funcionando — apenas mudamos o ponto de entrada visual na tabela desktop.
+### Mudança 3 — manter sincronia com a coluna/badge da tabela?
+
+A coluna **"Portaria"** da tabela continua mostrando apenas `PortariaStatusBadge` derivado do hook `useStatusPortariaPorCarga` (estrito da portaria). **Não vou mudar** — a coluna é "status na portaria" e o KPI passa a ser "está sendo carregada (operacionalmente)". Os dois conceitos podem divergir no início do embarque (logística marca "Carregando" antes da portaria liberar), e está correto assim.
 
 ### Validação (cenários)
 
-1. Carga fechada com `horario_previsto = '08:30:00'` → coluna "Hr. Previsto" mostra `08:30`.
-2. Carga sem horário previsto → mostra `—` em cinza claro.
-3. Sort ascendente por "Hr. Previsto" → cargas com horário aparecem primeiro em ordem cronológica, sem horário no final.
-4. Carga com rupturas no desktop → badge vermelho `⚠ N` aparece ao lado da placa, clicável, navega para `/rupturas?carga=...`.
-5. Carga sem rupturas → só a placa, sem badge.
-6. Mobile: linha "Data: 24/04 · 08:30" exibe data + horário lado a lado; badge de ruptura ao lado da placa permanece igual.
+1. Print atual mostra "Pedidos: 102" e "Carregando: 0" → após mudança, card "Pedidos" some, e se houver itens com `status='Carregando'` o card "Carregando" passa a refletir essa contagem em tempo real.
+2. Carga sem nenhum item em "Carregando" e sem etapa portaria `carregando` → KPI segue 0. ✅
+3. Carga com 1+ item `status='Carregando'` mas portaria ainda em `patio` → KPI "Carregando" incrementa. ✅
+4. Carga com etapa portaria `carregando` e nenhum item logístico em "Carregando" → KPI "Carregando" incrementa (mantém comportamento atual). ✅
+5. Mobile: grid passa de 6 para 5 cards distribuídos em 2 colunas (3 linhas) sem buraco visual.
+6. `printData`/romaneio continuam exibindo "Pedidos" no relatório impresso (não é o card de KPI da tela, é coluna do PDF) — preservado.
+
+### Fora do escopo
+
+- Não mexo na coluna "Portaria" da tabela nem no `PortariaStatusBadge`.
+- Não mexo no filtro "Etapa Portaria".
+- Não mexo no romaneio impresso (continua mostrando "Pedidos" como coluna).
+- Não mexo no painel principal (`/`) nem no Kanban.
 
 ### Resultado
 
-A coluna central da tabela desktop agora mostra o **horário previsto** de cada carga em formato `HH:MM` ordenável, dando ao operador a janela de expedição esperada. A informação de ruptura migra para um badge compacto ao lado da placa (mesmo padrão já usado no mobile), mantendo o acesso rápido à página de Rupturas e a consistência visual entre as duas visões.
+A faixa de KPIs do Consolidado fica mais enxuta (5 cards) e o card **"Carregando"** passa a refletir a realidade operacional: conta tanto cargas que a portaria já liberou para embarque quanto cargas cujos itens já estão marcados como "Carregando" pela logística — atualizando em tempo real conforme o status muda.
 
