@@ -428,6 +428,78 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     onOpenChange(false);
   };
 
+  // ─── Template handlers ───
+  const handleSaveTemplate = useCallback(async () => {
+    const nome = tplNome.trim();
+    if (!nome) {
+      toast.error("Informe um nome para o template");
+      return;
+    }
+    const paradas = activeGroups
+      .filter((g) => g.cidade && g.uf)
+      .map((g, i) => ({
+        codigo_cliente: g.codigoCliente,
+        cliente: g.nomeCliente,
+        cidade: g.cidade!,
+        uf: g.uf!,
+        ordem: i + 1,
+      }));
+    if (paradas.length < 2) {
+      toast.error("É necessário ter ao menos 2 paradas com cidade/UF");
+      return;
+    }
+    await createTemplate.mutateAsync({
+      nome,
+      descricao: tplDesc.trim() || null,
+      origem: "Goiânia, GO",
+      paradas,
+    });
+    setTplNome("");
+    setTplDesc("");
+    setSavePopoverOpen(false);
+  }, [tplNome, tplDesc, activeGroups, createTemplate]);
+
+  const handleUseTemplate = useCallback((tpl: RouteTemplate) => {
+    // Reordena os groups atuais segundo a ordem das paradas do template (cidade+uf+codigo_cliente quando disponível)
+    const normCity = (s: string) =>
+      s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+
+    setGroups((prev) => {
+      const used = new Set<RotaGroup>();
+      const ordered: RotaGroup[] = [];
+      for (const p of tpl.paradas) {
+        const key = `${normCity(p.cidade)}|${(p.uf || "").toUpperCase().trim()}`;
+        // Prefer match by codigo_cliente when present
+        let match = prev.find(
+          (g) =>
+            !used.has(g) &&
+            p.codigo_cliente &&
+            g.codigoCliente === p.codigo_cliente,
+        );
+        if (!match) {
+          match = prev.find(
+            (g) =>
+              !used.has(g) &&
+              g.cidade &&
+              g.uf &&
+              `${normCity(g.cidade)}|${g.uf.toUpperCase().trim()}` === key,
+          );
+        }
+        if (match) {
+          ordered.push(match);
+          used.add(match);
+        }
+      }
+      // Append remaining groups not matched
+      for (const g of prev) if (!used.has(g)) ordered.push(g);
+      return renumber(ordered);
+    });
+    clearRouteGeometry();
+    bumpTemplateUsage(tpl.id).catch(() => {});
+    toast.success(`Template "${tpl.nome}" aplicado`);
+    setUsePopoverOpen(false);
+  }, [clearRouteGeometry]);
+
   const rotaDestinos = useMemo(
     () => activeGroups
       .filter((g) => g.cidade && g.uf)
