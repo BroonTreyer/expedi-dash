@@ -341,6 +341,4 @@ export function ImportarPlanilhaDialog({ open, onOpenChange, onConfirm, isImport
       </DialogContent>
     </Dialog>
   );
-  }
-);
-ImportarPlanilhaDialog.displayName = "ImportarPlanilhaDialog";
+}
