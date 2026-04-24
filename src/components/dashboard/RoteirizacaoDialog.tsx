@@ -568,6 +568,86 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
             <FileSpreadsheet className="h-3.5 w-3.5" />
             Exportar
           </Button>
+          <Popover open={usePopoverOpen} onOpenChange={setUsePopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={templates.length === 0}
+                title={templates.length === 0 ? "Nenhum template salvo" : "Aplicar template salvo"}
+              >
+                <Bookmark className="h-3.5 w-3.5" />
+                Templates
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-2" align="start">
+              <div className="text-xs font-semibold text-muted-foreground uppercase mb-2 px-1">
+                Aplicar template
+              </div>
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {templates.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleUseTemplate(t)}
+                    className="w-full text-left rounded-md px-2 py-1.5 hover:bg-accent transition-colors"
+                  >
+                    <div className="text-sm font-medium truncate">{t.nome}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {t.paradas.length} paradas · usado {t.times_used}x
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Popover open={savePopoverOpen} onOpenChange={setSavePopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={activeGroups.filter((g) => g.cidade && g.uf).length < 2}
+              >
+                <BookmarkPlus className="h-3.5 w-3.5" />
+                Salvar template
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-3 space-y-2" align="start">
+              <div className="text-xs font-semibold text-muted-foreground uppercase">
+                Salvar como template
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome *</Label>
+                <Input
+                  value={tplNome}
+                  onChange={(e) => setTplNome(e.target.value)}
+                  placeholder="Ex.: Rota Sul GO terças"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Descrição (opcional)</Label>
+                <Input
+                  value={tplDesc}
+                  onChange={(e) => setTplDesc(e.target.value)}
+                  placeholder="Detalhes da rota"
+                />
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {activeGroups.filter((g) => g.cidade && g.uf).length} paradas serão salvas (na ordem atual).
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="ghost" size="sm" onClick={() => setSavePopoverOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button size="sm" onClick={handleSaveTemplate} disabled={createTemplate.isPending}>
+                  {createTemplate.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                  Salvar
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="default"
             size="sm"
