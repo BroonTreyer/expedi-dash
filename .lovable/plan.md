@@ -1,13 +1,18 @@
-## Adicionar "peso faltante a carregar" no card Peso Total
+## Reorganizar cards de KPI em `src/pages/Consolidado.tsx`
 
-**Arquivo:** `src/components/dashboard/KpiCards.tsx`
+**Nova ordem (4 cards):**
+1. **Peso Total** — valor principal `pesoTotal kg`; sub: `"X veículos"` (usa `totalVeiculos`).
+2. **Peso a Carregar** — `Math.max(0, pesoTotal - pesoCarregando - pesoExpedido)` em kg; estilo âmbar.
+3. **Carregando** — mantém atual.
+4. **Expedidos** — mantém atual.
 
-- Calcular `pesoFaltante = Math.max(0, pesoTotal - pesoCarregado - pesoCarregando)` usando as variáveis já existentes no componente.
-- No objeto do card "Peso Total", adicionar `sub: pesoFaltante > 0 ? "<valor> kg a carregar" : undefined`, reaproveitando o mesmo estilo de `sub` já usado no card de Rupturas.
-- Atualizar o `tooltip` do card "Peso Total" para incluir a explicação: peso planejado total e quanto ainda falta carregar (Aguardando, descontando rupturas).
-- Esconder o `sub` automaticamente quando `pesoFaltante === 0`.
+**Remover:**
+- Card "No pátio" (informação já visível em outra parte da tela).
+- Card "Veículos" (consolidado dentro do Peso Total como sub).
 
-### Comportamento resultante
-- Card "Peso Total" mostra o valor total em destaque + linha pequena "X kg a carregar" abaixo.
-- Quando tudo já foi embarcado, a linha some.
-- Respeita seleção (`selectedData`) — usa o mesmo `source`.
+**Limpeza:**
+- Remover imports não usados de `lucide-react` (`ParkingCircle`, `Truck` se ficarem órfãos).
+
+**Comportamento:**
+- Sub do Peso Total sempre visível (mostra contagem de veículos).
+- Peso a Carregar exibe `0 kg` quando tudo embarcado (ou ocultar se = 0 — manter visível para consistência).
