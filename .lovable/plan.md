@@ -1,14 +1,13 @@
-## Reorganizar colunas da tabela do Painel
+## Adicionar "peso faltante a carregar" no card Peso Total
 
-### `src/pages/Index.tsx`
-- Atualizar prop `hideColumns` do `<CarregamentoTable>` para:
-  `["etapa", "tipo_caminhao", "motorista", "nome_carga"]`
+**Arquivo:** `src/components/dashboard/KpiCards.tsx`
 
-### `src/components/dashboard/CarregamentoTable.tsx`
-- **Reordenar**: mover a coluna "Dt. Cadastro" (`created_at`) para a primeira posição após a coluna de Status (e checkbox de seleção quando aplicável). Aplicar nos templates: Header, linha única, linha agrupada (pai) e linhas filhas.
-- **Ocultação condicional**: envolver `TableHead` e `TableCell` de "Caminhão" (`tipo_caminhao`), "Motorista" (`motorista`) e "Carga" (`nome_carga`) com guards `!hideColumns.includes(...)`.
-- **colCount dinâmico**: recalcular `colCount` subtraindo cada coluna oculta presente em `hideColumns` para manter `colSpan` correto nas linhas expandidas/agrupadas.
-- **Mobile (`MobileCardItem`)**: respeitar `hideColumns` e não renderizar os blocos Caminhão, Motorista e Carga quando ocultos.
+- Calcular `pesoFaltante = Math.max(0, pesoTotal - pesoCarregado - pesoCarregando)` usando as variáveis já existentes no componente.
+- No objeto do card "Peso Total", adicionar `sub: pesoFaltante > 0 ? "<valor> kg a carregar" : undefined`, reaproveitando o mesmo estilo de `sub` já usado no card de Rupturas.
+- Atualizar o `tooltip` do card "Peso Total" para incluir a explicação: peso planejado total e quanto ainda falta carregar (Aguardando, descontando rupturas).
+- Esconder o `sub` automaticamente quando `pesoFaltante === 0`.
 
 ### Comportamento resultante
-- Painel principal: Dt. Cadastro fica como primeira coluna de dados; Etapa, Caminhão, Motorista e Carga ficam ocultos. Demais telas que usam `CarregamentoTable` sem `hideColumns` não são afetadas.
+- Card "Peso Total" mostra o valor total em destaque + linha pequena "X kg a carregar" abaixo.
+- Quando tudo já foi embarcado, a linha some.
+- Respeita seleção (`selectedData`) — usa o mesmo `source`.
