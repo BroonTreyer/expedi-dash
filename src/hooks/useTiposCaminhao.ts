@@ -20,12 +20,25 @@ export function useTiposCaminhao() {
 export function useCreateTipoCaminhao() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: { nome_tipo: string }) => {
+    mutationFn: async (values: { nome_tipo: string; consumo_km_litro?: number | null }) => {
       const { data, error } = await supabase.from("tipos_caminhao").insert(values).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["tipos_caminhao"] }); toast.success("Tipo criado"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+export function useUpdateTipoCaminhao() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...values }: { id: string; nome_tipo?: string; consumo_km_litro?: number | null }) => {
+      const { data, error } = await supabase.from("tipos_caminhao").update(values).eq("id", id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["tipos_caminhao"] }); toast.success("Tipo atualizado"); },
     onError: (e: any) => toast.error(e.message),
   });
 }

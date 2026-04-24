@@ -35,6 +35,10 @@ interface Props {
   coordsCache?: Map<string, { lat: number; lng: number }>;
   /** Quando true, a rota foi calculada por estimativa haversine (OSRM indisponível) */
   estimado?: boolean;
+  /** Custo estimado de combustível em R$ (calculado externamente). */
+  custoCombustivel?: number | null;
+  /** Tipo de caminhão usado para o cálculo (apenas exibição). */
+  tipoCaminhaoLabel?: string | null;
 }
 
 interface Coords {
@@ -207,6 +211,8 @@ export function RotaMap({
   loading: externalLoading,
   coordsCache,
   estimado,
+  custoCombustivel,
+  tipoCaminhaoLabel,
 }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
@@ -395,6 +401,12 @@ export function RotaMap({
         <div className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm">
           {/* BUG 24 FIX: Format with locale number separator */}
           <span className="font-semibold">{distanciaTotal.toLocaleString("pt-BR")} km total</span>
+          {custoCombustivel != null && custoCombustivel > 0 && (
+            <span className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">
+              ⛽ R$ {custoCombustivel.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {tipoCaminhaoLabel ? <span className="ml-1 font-normal opacity-80">({tipoCaminhaoLabel})</span> : null}
+            </span>
+          )}
           {estimado && (
             <span className="inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-600 dark:text-yellow-400">
               Distância estimada
