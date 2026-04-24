@@ -422,11 +422,13 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
     });
   };
 
-  const colCount = 12
+  const colCount = 10
     + (selectable ? 1 : 0)
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
     + (hideColumns.includes("nome_carga") ? 0 : 1)
+    + (hideColumns.includes("tipo_caminhao") ? 0 : 1)
+    + (hideColumns.includes("motorista") ? 0 : 1)
     + (showPesoAprox ? 1 : 0)
     + (hasActions ? 1 : 0);
 
@@ -449,19 +451,19 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               <TableHead className="w-[32px]"></TableHead>
               {!hideColumns.includes("etapa") && <SortableTableHead sort={sort} sortKey="etapa" onSort={toggleSort} className="w-[120px]">Etapa</SortableTableHead>}
               <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="w-[160px] text-center">Status</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="created_at" onSort={toggleSort}>Dt. Cadastro</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="vendedor" onSort={toggleSort}>Vendedor</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Cód. Produto</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Produto</SortableTableHead>
               {!hideColumns.includes("peso") && <SortableTableHead sort={sort} sortKey="peso" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>}
-              <SortableTableHead sort={sort} sortKey="tipo_caminhao" onSort={toggleSort}>Caminhão</SortableTableHead>
-              <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
+              {!hideColumns.includes("tipo_caminhao") && <SortableTableHead sort={sort} sortKey="tipo_caminhao" onSort={toggleSort}>Caminhão</SortableTableHead>}
+              {!hideColumns.includes("motorista") && <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>}
               <SortableTableHead sort={sort} sortKey="cliente" onSort={toggleSort}>Cliente</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
               {!hideColumns.includes("nome_carga") && <SortableTableHead sort={sort} sortKey="nome_carga" onSort={toggleSort}>Carga</SortableTableHead>}
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
               <SortableTableHead sort={sort} sortKey="tipo_frete" onSort={toggleSort}>Frete</SortableTableHead>
-              <SortableTableHead sort={sort} sortKey="created_at" onSort={toggleSort}>Dt. Cadastro</SortableTableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>
