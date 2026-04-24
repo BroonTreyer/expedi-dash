@@ -508,6 +508,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         <StatusBadge status={c.status} statusColors={statusColors} />
                       )}
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.created_at)}</TableCell>
                     <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell className="text-sm font-mono">
                       <span className="flex items-center gap-1.5">
@@ -522,8 +523,8 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     </TableCell>
                     <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
-                    <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
-                    <TableCell><PendingCell value={c.motorista} /></TableCell>
+                    {!hideColumns.includes("tipo_caminhao") && <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>}
+                    {!hideColumns.includes("motorista") && <TableCell><PendingCell value={c.motorista} /></TableCell>}
                     <TableCell className="text-sm">
                       <span className="flex items-center gap-1.5">
                         {c.codigo_cliente ? `${c.codigo_cliente} – ${c.cliente ?? ""}` : (c.cliente ?? "—")}
@@ -550,7 +551,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{c.tipo_frete ?? "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.created_at)}</TableCell>
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
