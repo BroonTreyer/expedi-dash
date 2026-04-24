@@ -242,14 +242,14 @@ export function ManualTab({ categoria }: ManualTabProps) {
             <Step n={3}>Veículos já conferidos ficam marcados com ✅.</Step>
             <Step n={4}>Pode <strong>autorizar</strong> ou <strong>recusar</strong> uma entrada (autorizado por / motivo da recusa).</Step>
             <Step n={5}>Para <strong>importar planilha</strong>: botão <Badge variant="outline">Importar</Badge> no topo (Admin/Logística).</Step>
-            <Step n={6}>Veículos que aparecem sem aviso prévio são marcados como <strong>walk-in</strong>.</Step>
+            <Step n={6}>Veículos que chegam sem aviso prévio são marcados como <strong>chegada sem agendamento</strong>.</Step>
             <Warn>Se um veículo está previsto para amanhã mas chegou hoje, aparece um aviso. Confirme antes de registrar.</Warn>
           </Section>
 
           <Section value="s10" icon={Bell} title="10. Solicitações e Cargas Aguardando">
             <What>Painéis que aparecem acima das abas, avisando o que precisa de atenção AGORA.</What>
             <p className="text-sm font-semibold mt-3">📥 Solicitações Pendentes</p>
-            <p className="text-sm">Quando alguém pede entrada (walk-in) sem estar na planilha, aparece aqui pra você aprovar ou negar.</p>
+            <p className="text-sm">Quando alguém pede entrada sem estar na planilha (chegada sem agendamento), aparece aqui pra você aprovar ou negar.</p>
             <p className="text-sm font-semibold mt-3">📦 Cargas Fechadas Aguardando</p>
             <p className="text-sm">Cargas que a logística já fechou e estão esperando o caminhão chegar pra carregar. Permite vincular o caminhão à carga em 1 clique.</p>
             <Tip>Confira esses painéis sempre que entrar na tela — eles são prioridade.</Tip>
@@ -335,7 +335,7 @@ export function ManualTab({ categoria }: ManualTabProps) {
                   <tr><td className="border p-2">Registrar entrada/saída</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td></tr>
                   <tr><td className="border p-2">Editar registro</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td></tr>
                   <tr><td className="border p-2">Importar planilha de esperados</td><td className="border p-2 text-center">—</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td></tr>
-                  <tr><td className="border p-2">Autorizar/recusar walk-in</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td></tr>
+                  <tr><td className="border p-2">Autorizar/recusar chegada sem agendamento</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td></tr>
                   <tr><td className="border p-2">Vincular carga ao caminhão</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td></tr>
                   <tr><td className="border p-2">Deletar registro</td><td className="border p-2 text-center">—</td><td className="border p-2 text-center">—</td><td className="border p-2 text-center">✅</td></tr>
                   <tr><td className="border p-2">Exportar histórico (CSV)</td><td className="border p-2 text-center">—</td><td className="border p-2 text-center">✅</td><td className="border p-2 text-center">✅</td></tr>
@@ -371,7 +371,7 @@ export function ManualTab({ categoria }: ManualTabProps) {
               </div>
               <div>
                 <p className="font-semibold">❓ Veículo chegou mas não está em "Esperados".</p>
-                <p className="text-muted-foreground">Use o botão <Badge>+ Registrar Chegada</Badge> ou <Badge>+ Registrar Movimento</Badge> e marque como <strong>walk-in</strong>. Funciona normal.</p>
+                <p className="text-muted-foreground">Use o botão <Badge>+ Registrar Chegada</Badge> ou <Badge>+ Registrar Movimento</Badge> e marque como <strong>chegada sem agendamento</strong>. Funciona normal.</p>
               </div>
               <div>
                 <p className="font-semibold">❓ Tirei foto errada, e agora?</p>
