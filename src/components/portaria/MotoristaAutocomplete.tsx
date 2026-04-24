@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { CapturaFoto } from "./CapturaFoto";
 import { useMotoristas, useCreateMotorista, useUpdateMotorista, type Motorista } from "@/hooks/useMotoristas";
 import { supabase } from "@/integrations/supabase/client";
-import { Phone, FileText, Plus, Pencil, Check } from "lucide-react";
+import { Phone, FileText, Plus, Pencil, Check, Truck } from "lucide-react";
 import { maskCPF, maskPhone } from "@/lib/masks";
 import { toast } from "sonner";
 
@@ -88,6 +88,7 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
   const [selectedMotorista, setSelectedMotorista] = useState<Motorista | null>(null);
   const [editingPhone, setEditingPhone] = useState(false);
   const [newPhone, setNewPhone] = useState("");
+  const [transportadoraVinculada, setTransportadoraVinculada] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const updateMot = useUpdateMotorista();
 
@@ -136,6 +137,7 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
         tipo_caminhao = caminhao.tipo_caminhao || undefined;
         transportadora = caminhao.transportadora || undefined;
       }
+      setTransportadoraVinculada(caminhao?.transportadora || null);
     } catch {}
 
     onSelect?.({ nome_completo: m.nome_completo, telefone: m.telefone || undefined, cpf: m.cpf || undefined, placa, tipo_caminhao, transportadora });
@@ -167,6 +169,7 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
     if (selectedMotorista && query !== selectedMotorista.nome_completo) {
       setSelectedMotorista(null);
       setEditingPhone(false);
+      setTransportadoraVinculada(null);
     }
   }, [query, selectedMotorista]);
 
@@ -258,6 +261,13 @@ export function MotoristaAutocomplete({ value, onChange, onSelect, disabled }: P
               </Button>
             </div>
           )}
+        </div>
+      )}
+
+      {selectedMotorista && transportadoraVinculada && (
+        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+          <Truck className="h-3 w-3" />
+          <span className="font-medium text-foreground/80">{transportadoraVinculada}</span>
         </div>
       )}
 
