@@ -46,7 +46,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
         .in("carga_id", ids);
       if (cancelled) return;
       const set = new Set<string>(
-        ((data ?? []) as { carga_id: string | null }[])
+        ((data ?? []) as unknown as { carga_id: string | null }[])
           .map((r) => r.carga_id)
           .filter((v): v is string => !!v)
       );
