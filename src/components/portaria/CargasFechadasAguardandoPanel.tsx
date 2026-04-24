@@ -90,7 +90,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                         variant="outline"
                         className="text-[10px] h-5 gap-0.5 border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                       >
-                        <UserCheck className="h-3 w-3" /> Walk-in autorizado
+                        <UserCheck className="h-3 w-3" /> Motorista já no pátio
                       </Badge>
                     )}
                     <Badge variant="secondary" className="text-[10px] h-5 font-mono">
@@ -120,7 +120,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                   <div className="flex flex-col gap-1.5 shrink-0 sm:items-end">
                     <Button size="sm" className="h-8 text-xs gap-1" onClick={() => openRegistro(c, grupo)}>
                       <LogIn className="h-3.5 w-3.5" />
-                      {isWalkIn ? "Confirmar entrada do walk-in" : "Registrar chegada do veículo"}
+                      {isWalkIn ? "Confirmar entrada do motorista" : "Registrar chegada do veículo"}
                     </Button>
                     <span className="text-[10px] text-muted-foreground text-right">
                       {isWalkIn ? "Motorista já está no pátio" : "Pré-preenche com dados previstos da carga"}
