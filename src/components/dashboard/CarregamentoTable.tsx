@@ -285,10 +285,18 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
         )}
         {!isGrouped && (
           <>
-            <div className="text-muted-foreground">Caminhão</div>
-            <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
-            <div className="text-muted-foreground">Motorista</div>
-            <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+            {!hideColumns.includes("tipo_caminhao") && (
+              <>
+                <div className="text-muted-foreground">Caminhão</div>
+                <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+              </>
+            )}
+            {!hideColumns.includes("motorista") && (
+              <>
+                <div className="text-muted-foreground">Motorista</div>
+                <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+              </>
+            )}
             <div className="text-muted-foreground">Cliente</div>
             <div>{c.codigo_cliente ? `${c.codigo_cliente} – ${c.cliente ?? ""}` : (c.cliente ?? "—")}</div>
             <div className="text-muted-foreground">Cidade</div>
