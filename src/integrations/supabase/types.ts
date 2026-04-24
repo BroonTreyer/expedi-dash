@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -736,18 +757,105 @@ export type Database = {
         }
         Relationships: []
       }
+      route_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          destinos: Json
+          duracao_min: number | null
+          geometry: Json | null
+          hit_count: number
+          id: string
+          km_total: number | null
+          last_used_at: string
+          ordem_otimizada: Json | null
+          origem: string
+          provider: string | null
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          destinos?: Json
+          duracao_min?: number | null
+          geometry?: Json | null
+          hit_count?: number
+          id?: string
+          km_total?: number | null
+          last_used_at?: string
+          ordem_otimizada?: Json | null
+          origem: string
+          provider?: string | null
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          destinos?: Json
+          duracao_min?: number | null
+          geometry?: Json | null
+          hit_count?: number
+          id?: string
+          km_total?: number | null
+          last_used_at?: string
+          ordem_otimizada?: Json | null
+          origem?: string
+          provider?: string | null
+        }
+        Relationships: []
+      }
+      route_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          origem: string
+          paradas: Json
+          times_used: number
+          tipo_caminhao: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          origem: string
+          paradas?: Json
+          times_used?: number
+          tipo_caminhao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          origem?: string
+          paradas?: Json
+          times_used?: number
+          tipo_caminhao?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tipos_caminhao: {
         Row: {
+          consumo_km_litro: number | null
           created_at: string
           id: string
           nome_tipo: string
         }
         Insert: {
+          consumo_km_litro?: number | null
           created_at?: string
           id?: string
           nome_tipo: string
         }
         Update: {
+          consumo_km_litro?: number | null
           created_at?: string
           id?: string
           nome_tipo?: string
