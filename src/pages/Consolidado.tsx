@@ -111,6 +111,7 @@ interface CargaGroup {
   ufs: Set<string>;
   status: string;
   data: string;
+  horarioPrevisto: string | null;
   items: Carregamento[];
 }
 
@@ -138,11 +139,13 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         ufs: new Set(),
         status: item.status,
         data: item.data,
+        horarioPrevisto: item.horario_previsto ?? null,
         items: [],
       };
       map.set(item.carga_id, g);
       freteMap.set(item.carga_id, new Set());
     }
+    if (!g.horarioPrevisto && item.horario_previsto) g.horarioPrevisto = item.horario_previsto;
     g.pesoPlanejado += item.peso ?? 0;
     g.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
     if (item.ruptura) g.rupturaCount += 1;
@@ -450,6 +453,7 @@ export default function Consolidado() {
     pesoTotal: (g) => g.pesoTotal,
     qtdPedidos: (g) => g.qtdPedidos,
     rupturaCount: (g) => g.rupturaCount,
+    horarioPrevisto: (g) => g.horarioPrevisto ?? "99:99",
     clientes: (g) => g.clientes.size,
     ufs: (g) => [...g.ufs].sort().join(", "),
     tipoFrete: (g) => g.tipoFrete,
@@ -682,7 +686,13 @@ export default function Consolidado() {
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                         <div><span className="text-muted-foreground">Tipo: </span>{g.tipoCaminhao ?? "—"}</div>
-                        <div><span className="text-muted-foreground">Data: </span>{format(new Date(g.data + "T12:00:00"), "dd/MM")}</div>
+                        <div>
+                          <span className="text-muted-foreground">Data: </span>
+                          {format(new Date(g.data + "T12:00:00"), "dd/MM")}
+                          {g.horarioPrevisto && (
+                            <span className="ml-1 font-mono text-muted-foreground">· {g.horarioPrevisto.substring(0, 5)}</span>
+                          )}
+                        </div>
                         <div><span className="text-muted-foreground">Motorista: </span><span className="truncate">{g.motorista ?? "—"}</span></div>
                         <div><span className="text-muted-foreground">Carga: </span><span className="truncate">{g.nomeCarga ?? "—"}</span></div>
                         <div>
@@ -747,7 +757,7 @@ export default function Consolidado() {
                   <SortableTableHead sort={sort} sortKey="nomeCarga" onSort={toggleSort}>Carga</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="pesoTotal" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="qtdPedidos" onSort={toggleSort} className="text-center">Pedidos</SortableTableHead>
-                  <SortableTableHead sort={sort} sortKey="rupturaCount" onSort={toggleSort} className="text-center">Rupturas</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="horarioPrevisto" onSort={toggleSort} className="text-center">Hr. Previsto</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="clientes" onSort={toggleSort} className="text-center">Clientes</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="tipoFrete" onSort={toggleSort}>Frete</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="ufs" onSort={toggleSort}>UFs</SortableTableHead>
@@ -794,7 +804,20 @@ export default function Consolidado() {
                           </div>
                         </TableCell>
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
-                        <TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
+                        <TableCell className="text-xs font-mono">
+                          <div className="flex items-center gap-1.5">
+                            <span>{g.placa ?? "—"}</span>
+                            {g.rupturaCount > 0 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); navigate(`/rupturas?carga=${encodeURIComponent(g.nomeCarga || g.cargaId)}`); }}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
+                                title="Ver rupturas desta carga"
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" />{g.rupturaCount}
+                              </button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-xs">{g.motorista ?? "—"}</TableCell>
                         <TableCell className="text-xs">
                           {g.nomeCarga
@@ -821,18 +844,10 @@ export default function Consolidado() {
                           )}
                         </TableCell>
                         <TableCell className="text-center text-xs">{g.qtdPedidos}</TableCell>
-                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                          {g.rupturaCount > 0 ? (
-                            <button
-                              onClick={() => navigate(`/rupturas?carga=${encodeURIComponent(g.nomeCarga || g.cargaId)}`)}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
-                              title="Ver rupturas desta carga"
-                            >
-                              <AlertTriangle className="h-3 w-3" />{g.rupturaCount}
-                            </button>
-                          ) : (
-                            <span className="text-muted-foreground/40 text-xs">—</span>
-                          )}
+                        <TableCell className="text-center text-xs font-mono">
+                          {g.horarioPrevisto
+                            ? g.horarioPrevisto.substring(0, 5)
+                            : <span className="text-muted-foreground/40">—</span>}
                         </TableCell>
                         <TableCell className="text-center text-xs">{g.clientes.size}</TableCell>
                         <TableCell className="text-xs">{g.tipoFrete}</TableCell>
