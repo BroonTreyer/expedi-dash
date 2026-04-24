@@ -21,7 +21,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUp, ArrowDown, MapPin, Package, GripVertical, Route, Loader2, ArrowRight, FileSpreadsheet } from "lucide-react";
+import { ArrowUp, ArrowDown, MapPin, Package, GripVertical, Route, Loader2, ArrowRight, FileSpreadsheet, Bookmark, BookmarkPlus } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { useRouteTemplates, useCreateRouteTemplate, bumpTemplateUsage, type RouteTemplate } from "@/hooks/useRouteTemplates";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,6 +161,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [estimado, setEstimado] = useState(false);
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
+
+  // Templates
+  const { data: templates = [] } = useRouteTemplates();
+  const createTemplate = useCreateRouteTemplate();
+  const [tplNome, setTplNome] = useState("");
+  const [tplDesc, setTplDesc] = useState("");
+  const [savePopoverOpen, setSavePopoverOpen] = useState(false);
+  const [usePopoverOpen, setUsePopoverOpen] = useState(false);
 
   useEffect(() => {
     if (open && items.length > 0) {
