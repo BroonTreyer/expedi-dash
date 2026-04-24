@@ -21,6 +21,7 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
   const pesoCarregando = source
     .filter(c => c.status === "Carregando" && !c.ruptura)
     .reduce((s, c) => s + (c.peso ?? 0), 0);
+  const pesoFaltante = Math.max(0, pesoTotal - pesoCarregado - pesoCarregando);
   const totalVeiculos = new Set(source.filter(c => c.placa).map(c => c.placa)).size;
   // Rupturas por pedido único
   const totalPedidosUnicos = new Set(source.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
@@ -45,7 +46,14 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
       color: "text-amber-600",
       tooltip: rupturaTooltip,
     },
-    { label: selectedData ? "Peso Sel." : "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground", tooltip: "Soma do peso planejado (pedido). Para o peso fisicamente embarcado, veja 'Peso Carregado'." },
+    {
+      label: selectedData ? "Peso Sel." : "Peso Total",
+      value: `${pesoTotal.toLocaleString("pt-BR")} kg`,
+      sub: pesoFaltante > 0 ? `${pesoFaltante.toLocaleString("pt-BR")} kg a carregar` : undefined,
+      icon: Weight,
+      color: "text-foreground",
+      tooltip: `Soma do peso planejado (pedido). Faltam ${pesoFaltante.toLocaleString("pt-BR")} kg a carregar (status Aguardando, descontando rupturas).`,
+    },
     { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado", tooltip: "Peso efetivo embarcado nos status 'Carregado' (desconsidera itens em ruptura)." },
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary", tooltip: "Quantidade de veículos (placas) distintos" },
   ];
