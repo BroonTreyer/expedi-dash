@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, forwardRef } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -185,8 +185,7 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
   return rows;
 }
 
-export const ImportarPlanilhaDialog = forwardRef<HTMLDivElement, Props>(
-  function ImportarPlanilhaDialog({ open, onOpenChange, onConfirm, isImporting }, _ref) {
+export function ImportarPlanilhaDialog({ open, onOpenChange, onConfirm, isImporting }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
 
