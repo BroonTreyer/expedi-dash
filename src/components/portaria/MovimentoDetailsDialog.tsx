@@ -630,4 +630,6 @@ export const MovimentoDetailsDialog = forwardRef<HTMLDivElement, Props>(
       <EditMovimentoDialog open={editOpen} onOpenChange={setEditOpen} movimento={movimento} />
     </>
   );
-}
+  }
+);
+MovimentoDetailsDialog.displayName = "MovimentoDetailsDialog";
