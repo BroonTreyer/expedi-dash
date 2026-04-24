@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Clock, ParkingCircle, Package, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -34,7 +35,7 @@ interface Props {
   className?: string;
 }
 
-export function PortariaStatusBadge({ info, className }: Props) {
+export const PortariaStatusBadge = forwardRef<HTMLSpanElement, Props>(function PortariaStatusBadge({ info, className }, ref) {
   const data: StatusPortariaInfo = info ?? { etapa: "aguardando", label: "Aguardando chegada", chegada: null, saida: null };
   const { className: cls, Icon } = STYLE[data.etapa];
   const chegada = fmtHora(data.chegada);
@@ -51,16 +52,16 @@ export function PortariaStatusBadge({ info, className }: Props) {
   );
 
   if (!chegada && !saida) {
-    return badge;
+    return <span ref={ref} className="inline-flex">{badge}</span>;
   }
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild><span className="inline-flex">{badge}</span></TooltipTrigger>
+      <TooltipTrigger asChild><span ref={ref} className="inline-flex">{badge}</span></TooltipTrigger>
       <TooltipContent side="bottom" className="text-xs">
         {chegada && <div>Chegou às {chegada}</div>}
         {saida && <div>Saiu às {saida}</div>}
       </TooltipContent>
     </Tooltip>
   );
-}
+});

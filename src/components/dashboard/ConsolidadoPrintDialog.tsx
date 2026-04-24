@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, forwardRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
@@ -33,7 +33,7 @@ interface Props {
   data: ConsolidadoPrintData | null;
 }
 
-export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
+export const ConsolidadoPrintDialog = forwardRef<HTMLDivElement, Props>(function ConsolidadoPrintDialog({ open, onOpenChange, data }, _ref) {
   const cleanup = useCallback(() => {
     document.body.classList.remove("printing-carga");
     const root = document.getElementById("carga-print-root");
@@ -169,4 +169,4 @@ export function ConsolidadoPrintDialog({ open, onOpenChange, data }: Props) {
       </DialogContent>
     </Dialog>
   );
-}
+});
