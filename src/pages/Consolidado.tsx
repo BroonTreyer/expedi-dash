@@ -480,8 +480,9 @@ export default function Consolidado() {
     const c = { patio: 0, carregando: 0, expedido: 0 };
     for (const g of groups) {
       const etapa = statusPortariaMap?.get(g.cargaId)?.etapa ?? "aguardando";
+      const temItemCarregando = g.items.some((it) => it.status === "Carregando");
       if (etapa === "patio" || etapa === "carregando") c.patio += 1;
-      if (etapa === "carregando") c.carregando += 1;
+      if (etapa === "carregando" || temItemCarregando) c.carregando += 1;
       if (etapa === "expedido") c.expedido += 1;
     }
     return c;
@@ -538,7 +539,6 @@ export default function Consolidado() {
   const kpis = [
     { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
     { label: "Peso Total", value: `${pesoTotal.toLocaleString("pt-BR")} kg`, icon: Weight, color: "text-foreground" },
-    { label: "Pedidos", value: totalPedidos, icon: Package, color: "text-primary" },
     { label: "No pátio", value: portariaCounts.patio, icon: ParkingCircle, color: "text-blue-600 dark:text-blue-400" },
     { label: "Carregando", value: portariaCounts.carregando, icon: Package, color: "text-amber-600 dark:text-amber-400" },
     { label: "Expedidos", value: portariaCounts.expedido, icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-400" },
@@ -628,7 +628,7 @@ export default function Consolidado() {
 
         {/* KPI Cards */}
         <TooltipProvider delayDuration={300}>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
             {kpis.map((k) => (
               <Card key={k.label} className="border-border/60">
                 <CardContent className="p-3 sm:p-4 flex flex-col gap-1">
