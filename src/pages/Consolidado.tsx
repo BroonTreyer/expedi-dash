@@ -736,6 +736,7 @@ export default function Consolidado() {
                   <TableHead className="w-8" />
                   <SortableTableHead sort={sort} sortKey="data" onSort={toggleSort}>Data</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="text-center">Status</SortableTableHead>
+                  <SortableTableHead sort={sort} sortKey="portaria" onSort={toggleSort} className="text-center">Portaria</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="tipoCaminhao" onSort={toggleSort}>Tipo</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="placa" onSort={toggleSort}>Placa</SortableTableHead>
                   <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
