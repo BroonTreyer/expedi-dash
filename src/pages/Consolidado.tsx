@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import { CalendarIcon, Truck, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil, FileText, ParkingCircle, CheckCircle2 } from "lucide-react";
+import { CalendarIcon, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil, FileText, CheckCircle2, Hourglass } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useSortableTable } from "@/hooks/useSortableTable";
@@ -543,19 +543,21 @@ export default function Consolidado() {
     });
   };
 
+  const pesoFaltante = Math.max(0, pesoTotal - portariaCounts.pesoCarregando - portariaCounts.pesoExpedido);
   const kpis: Array<{ label: string; value: string | number; sub?: string; icon: any; color: string }> = [
-    { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary" },
     {
       label: "Peso Total",
       value: `${pesoTotal.toLocaleString("pt-BR")} kg`,
-      sub: (() => {
-        const faltante = Math.max(0, pesoTotal - portariaCounts.pesoCarregando - portariaCounts.pesoExpedido);
-        return faltante > 0 ? `${faltante.toLocaleString("pt-BR")} kg a carregar` : undefined;
-      })(),
+      sub: `${totalVeiculos} ${totalVeiculos === 1 ? "veículo" : "veículos"}`,
       icon: Weight,
       color: "text-foreground",
     },
-    { label: "No pátio", value: portariaCounts.patio, icon: ParkingCircle, color: "text-blue-600 dark:text-blue-400" },
+    {
+      label: "Peso a Carregar",
+      value: `${pesoFaltante.toLocaleString("pt-BR")} kg`,
+      icon: Hourglass,
+      color: "text-amber-600 dark:text-amber-400",
+    },
     {
       label: "Carregando",
       value: `${portariaCounts.pesoCarregando.toLocaleString("pt-BR")} kg`,
