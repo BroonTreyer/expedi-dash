@@ -146,6 +146,8 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["carregamentos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
       reset();
       onOpenChange(false);
     } catch (e: any) {

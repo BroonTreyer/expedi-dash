@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, Truck, LogIn, Clock } from "lucide-react";
+import { Package, Truck, LogIn, Clock, UserCheck } from "lucide-react";
 import { useCargasFechadasAguardando, type CargaFechadaAguardando } from "@/hooks/useCarregamentos";
 import { RegistroEntradaDialog } from "./RegistroEntradaDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   /** Filter by carga categoria (PRÓPRIA = sem transportadora; TERCEIRIZADO = com transportadora) */
@@ -17,6 +18,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   const { data: cargasRaw = [], isLoading } = useCargasFechadasAguardando();
   const [prefill, setPrefill] = useState<CargaFechadaAguardando | null>(null);
   const [grupoDialog, setGrupoDialog] = useState<"PRÓPRIA" | "TERCEIRIZADO" | null>(null);
+  const [walkInIds, setWalkInIds] = useState<Set<string>>(new Set());
 
   const canAct = role === "admin" || role === "logistica" || role === "portaria";
 
@@ -25,6 +27,33 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
     const isPropria = !c.transportadora;
     return categoria === "carga_propria" ? isPropria : !isPropria;
   });
+
+  // Identifica quais cargas vieram de um walk-in já no pátio
+  useEffect(() => {
+    const ids = cargas.map((c) => c.carga_id).filter(Boolean);
+    if (ids.length === 0) {
+      setWalkInIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("veiculos_esperados" as any)
+        .select("carga_id")
+        .eq("walk_in", true)
+        .eq("conferido", false)
+        .eq("status_autorizacao", "autorizado")
+        .in("carga_id", ids);
+      if (cancelled) return;
+      const set = new Set<string>(
+        ((data ?? []) as unknown as { carga_id: string | null }[])
+          .map((r) => r.carga_id)
+          .filter((v): v is string => !!v)
+      );
+      setWalkInIds(set);
+    })();
+    return () => { cancelled = true; };
+  }, [cargas.map((c) => c.carga_id).join("|")]);
 
   if (isLoading || cargas.length === 0) return null;
 
@@ -48,6 +77,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
         <CardContent className="p-3 space-y-2">
           {cargas.map((c) => {
             const grupo: "PRÓPRIA" | "TERCEIRIZADO" = c.transportadora ? "TERCEIRIZADO" : "PRÓPRIA";
+            const isWalkIn = !!c.carga_id && walkInIds.has(c.carga_id);
             return (
               <div key={c.carga_id} className="rounded-md border bg-card p-3 flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0 space-y-1">
@@ -55,6 +85,14 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                     <span className="font-semibold text-sm truncate">
                       {c.nome_carga || c.carga_id}
                     </span>
+                    {isWalkIn && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-5 gap-0.5 border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                      >
+                        <UserCheck className="h-3 w-3" /> Walk-in autorizado
+                      </Badge>
+                    )}
                     <Badge variant="secondary" className="text-[10px] h-5 font-mono">
                       <Package className="h-3 w-3 mr-1" />
                       {c.qtd_pedidos} {c.qtd_pedidos === 1 ? "pedido" : "pedidos"}
@@ -81,10 +119,11 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                 {canAct && (
                   <div className="flex flex-col gap-1.5 shrink-0 sm:items-end">
                     <Button size="sm" className="h-8 text-xs gap-1" onClick={() => openRegistro(c, grupo)}>
-                      <LogIn className="h-3.5 w-3.5" /> Registrar chegada do veículo
+                      <LogIn className="h-3.5 w-3.5" />
+                      {isWalkIn ? "Confirmar entrada do walk-in" : "Registrar chegada do veículo"}
                     </Button>
                     <span className="text-[10px] text-muted-foreground text-right">
-                      Pré-preenche com dados previstos da carga
+                      {isWalkIn ? "Motorista já está no pátio" : "Pré-preenche com dados previstos da carga"}
                     </span>
                   </div>
                 )}
