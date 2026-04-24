@@ -285,10 +285,18 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
         )}
         {!isGrouped && (
           <>
-            <div className="text-muted-foreground">Caminhão</div>
-            <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
-            <div className="text-muted-foreground">Motorista</div>
-            <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+            {!hideColumns.includes("tipo_caminhao") && (
+              <>
+                <div className="text-muted-foreground">Caminhão</div>
+                <div>{c.tipo_caminhao || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+              </>
+            )}
+            {!hideColumns.includes("motorista") && (
+              <>
+                <div className="text-muted-foreground">Motorista</div>
+                <div>{c.motorista || <span className="text-muted-foreground/60 italic">Pendente</span>}</div>
+              </>
+            )}
             <div className="text-muted-foreground">Cliente</div>
             <div>{c.codigo_cliente ? `${c.codigo_cliente} – ${c.cliente ?? ""}` : (c.cliente ?? "—")}</div>
             <div className="text-muted-foreground">Cidade</div>
@@ -422,11 +430,13 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
     });
   };
 
-  const colCount = 12
+  const colCount = 10
     + (selectable ? 1 : 0)
     + (hideColumns.includes("etapa") ? 0 : 1)
     + (hideColumns.includes("peso") ? 0 : 1)
     + (hideColumns.includes("nome_carga") ? 0 : 1)
+    + (hideColumns.includes("tipo_caminhao") ? 0 : 1)
+    + (hideColumns.includes("motorista") ? 0 : 1)
     + (showPesoAprox ? 1 : 0)
     + (hasActions ? 1 : 0);
 
@@ -449,19 +459,19 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               <TableHead className="w-[32px]"></TableHead>
               {!hideColumns.includes("etapa") && <SortableTableHead sort={sort} sortKey="etapa" onSort={toggleSort} className="w-[120px]">Etapa</SortableTableHead>}
               <SortableTableHead sort={sort} sortKey="status" onSort={toggleSort} className="w-[160px] text-center">Status</SortableTableHead>
+              <SortableTableHead sort={sort} sortKey="created_at" onSort={toggleSort}>Dt. Cadastro</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="vendedor" onSort={toggleSort}>Vendedor</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="codigo_produto" onSort={toggleSort}>Cód. Produto</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="nome_produto" onSort={toggleSort}>Produto</SortableTableHead>
               {!hideColumns.includes("peso") && <SortableTableHead sort={sort} sortKey="peso" onSort={toggleSort} className="text-right">Peso (kg)</SortableTableHead>}
-              <SortableTableHead sort={sort} sortKey="tipo_caminhao" onSort={toggleSort}>Caminhão</SortableTableHead>
-              <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>
+              {!hideColumns.includes("tipo_caminhao") && <SortableTableHead sort={sort} sortKey="tipo_caminhao" onSort={toggleSort}>Caminhão</SortableTableHead>}
+              {!hideColumns.includes("motorista") && <SortableTableHead sort={sort} sortKey="motorista" onSort={toggleSort}>Motorista</SortableTableHead>}
               <SortableTableHead sort={sort} sortKey="cliente" onSort={toggleSort}>Cliente</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="cidade" onSort={toggleSort}>Cidade</SortableTableHead>
               <SortableTableHead sort={sort} sortKey="uf" onSort={toggleSort}>UF</SortableTableHead>
               {!hideColumns.includes("nome_carga") && <SortableTableHead sort={sort} sortKey="nome_carga" onSort={toggleSort}>Carga</SortableTableHead>}
               {showPesoAprox && <TableHead>Peso Aprox.</TableHead>}
               <SortableTableHead sort={sort} sortKey="tipo_frete" onSort={toggleSort}>Frete</SortableTableHead>
-              <SortableTableHead sort={sort} sortKey="created_at" onSort={toggleSort}>Dt. Cadastro</SortableTableHead>
               {hasActions && <TableHead className="w-[110px]"></TableHead>}
             </TableRow>
           </TableHeader>
@@ -506,6 +516,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         <StatusBadge status={c.status} statusColors={statusColors} />
                       )}
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.created_at)}</TableCell>
                     <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell className="text-sm font-mono">
                       <span className="flex items-center gap-1.5">
@@ -520,8 +531,8 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     </TableCell>
                     <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
-                    <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>
-                    <TableCell><PendingCell value={c.motorista} /></TableCell>
+                    {!hideColumns.includes("tipo_caminhao") && <TableCell><PendingCell value={c.tipo_caminhao} /></TableCell>}
+                    {!hideColumns.includes("motorista") && <TableCell><PendingCell value={c.motorista} /></TableCell>}
                     <TableCell className="text-sm">
                       <span className="flex items-center gap-1.5">
                         {c.codigo_cliente ? `${c.codigo_cliente} – ${c.cliente ?? ""}` : (c.cliente ?? "—")}
@@ -548,7 +559,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(c.peso, c.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{c.tipo_frete ?? "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.created_at)}</TableCell>
                     {hasActions && (
                       <TableCell>
                         <div className="flex gap-1">
@@ -659,13 +669,14 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         <StatusBadge status={first.status} statusColors={statusColors} />
                       )}
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.created_at)}</TableCell>
                     <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
                       {group.items.length} produtos
                     </TableCell>
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
-                    <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>
-                    <TableCell><PendingCell value={first.motorista} /></TableCell>
+                    {!hideColumns.includes("tipo_caminhao") && <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>}
+                    {!hideColumns.includes("motorista") && <TableCell><PendingCell value={first.motorista} /></TableCell>}
                     <TableCell className="text-sm font-mono font-bold text-primary">
                       <span className="flex items-center gap-1.5 flex-wrap">
                         {group.codigoCliente} – {group.nomeCliente ?? ""}
@@ -697,7 +708,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     )}
                     {showPesoAprox && <TableCell className="text-sm font-medium whitespace-nowrap">{formatPesoAprox(totalPeso, first.tipo_caminhao)}</TableCell>}
                     <TableCell className="text-sm">{first.tipo_frete ?? "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.created_at)}</TableCell>
                     {hasActions && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
@@ -758,6 +768,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       {!hideColumns.includes("etapa") && <TableCell />}
                       <TableCell />
                       <TableCell />
+                      <TableCell />
                       <TableCell className="text-sm font-mono">
                         <span className="flex items-center gap-1.5">
                           {c.codigo_produto ?? "—"}
@@ -770,8 +781,8 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       </TableCell>
                       <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
                       {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
-                      <TableCell />
-                      <TableCell />
+                      {!hideColumns.includes("tipo_caminhao") && <TableCell />}
+                      {!hideColumns.includes("motorista") && <TableCell />}
                       <TableCell />
                       <TableCell />
                       <TableCell />
