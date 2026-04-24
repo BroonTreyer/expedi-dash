@@ -405,6 +405,7 @@ export default function Consolidado() {
       motorista: group.motorista ?? "—",
       transportadora: group.items[0]?.transportadora ?? undefined,
       horarioPrevisto: group.items[0]?.horario_previsto ?? undefined,
+      tipoFrete: group.tipoFrete ?? undefined,
       groups: groupsArr,
       totalPeso,
       totalRuptura,
