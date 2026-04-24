@@ -607,11 +607,24 @@ export default function Consolidado() {
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={filterEtapaPortaria} onValueChange={(v) => setFilterEtapaPortaria(v as typeof filterEtapaPortaria)}>
+            <SelectTrigger className="h-9 w-[150px] sm:w-[190px] text-xs sm:text-sm">
+              <SelectValue placeholder="Etapa Portaria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas etapas portaria</SelectItem>
+              <SelectItem value="aguardando">{ETAPA_PORTARIA_LABELS.aguardando}</SelectItem>
+              <SelectItem value="patio">{ETAPA_PORTARIA_LABELS.patio}</SelectItem>
+              <SelectItem value="carregando">{ETAPA_PORTARIA_LABELS.carregando}</SelectItem>
+              <SelectItem value="expedido">{ETAPA_PORTARIA_LABELS.expedido}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* KPI Cards */}
         <TooltipProvider delayDuration={300}>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
             {kpis.map((k) => (
               <Card key={k.label} className="border-border/60">
                 <CardContent className="p-3 sm:p-4 flex flex-col gap-1">
