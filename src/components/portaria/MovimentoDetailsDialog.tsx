@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, differenceInMinutes, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle, FileText } from "lucide-react";
+import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle, FileText, Printer } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { CATEGORIAS, SETORES, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
 import { PhotoViewerDialog } from "./PhotoViewerDialog";
 import { EditMovimentoDialog } from "./EditMovimentoDialog";
+import { ComprovantePortariaDialog } from "./ComprovantePortariaDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -62,6 +63,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const { role } = useAuth();
   const deleteMov = useDeleteMovimentacao();
   const [editOpen, setEditOpen] = useState(false);
+  const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const isAdmin = role === "admin";
 
   const placaBusca = movimento?.placa?.trim().toUpperCase() || "";
@@ -122,6 +124,22 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
         if (filtered.length > 0) rows = filtered;
       }
       return rows;
+    },
+  });
+
+  // Fetch latest portal token for this carga (if any), used in QR of receipt
+  const { data: portalTokenRow } = useQuery({
+    queryKey: ["portal-token-for-carga", movimento?.carga_id],
+    enabled: open && !!movimento?.carga_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("portal_tokens")
+        .select("token")
+        .eq("carga_id", movimento!.carga_id!)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
     },
   });
 
@@ -440,9 +458,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               )}
             </div>
 
-            {/* Admin actions */}
-            {isAdmin && (
-              <div className="flex gap-2 flex-wrap">
+            {/* Actions */}
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setComprovanteOpen(true)}>
+                <Printer className="h-3 w-3" /> Comprovante
+              </Button>
+              {isAdmin && (<>
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
                   <Pencil className="h-3 w-3" /> Editar
                 </Button>
@@ -492,8 +513,8 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                     </AlertDialogContent>
                   </AlertDialog>
                 )}
-              </div>
-            )}
+              </>)}
+            </div>
 
             {/* Basic info */}
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -627,6 +648,13 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
       </Dialog>
 
       <EditMovimentoDialog open={editOpen} onOpenChange={setEditOpen} movimento={movimento} />
+      <ComprovantePortariaDialog
+        open={comprovanteOpen}
+        onOpenChange={setComprovanteOpen}
+        movimento={movimento}
+        movimentoSaida={movimentoSaida}
+        portalToken={(portalTokenRow as any)?.token || null}
+      />
     </>
   );
 }
