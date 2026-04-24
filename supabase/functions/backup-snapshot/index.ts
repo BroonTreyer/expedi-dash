@@ -249,9 +249,9 @@ Deno.serve(async (req) => {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("backup-snapshot error:", err);
-    return new Response(JSON.stringify({ error: err.message || "Erro interno" }), {
+    return new Response(JSON.stringify({ error: err?.message || "Erro interno" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
