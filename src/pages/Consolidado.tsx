@@ -658,7 +658,7 @@ export default function Consolidado() {
 
         {/* KPI Cards */}
         <TooltipProvider delayDuration={300}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             {kpis.map((k) => (
               <Card key={k.label} className="border-border/60">
                 <CardContent className="p-3 sm:p-4 flex flex-col gap-1">
