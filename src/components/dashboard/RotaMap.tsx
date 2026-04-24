@@ -211,6 +211,8 @@ export function RotaMap({
   loading: externalLoading,
   coordsCache,
   estimado,
+  custoCombustivel,
+  tipoCaminhaoLabel,
 }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
