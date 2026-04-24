@@ -284,6 +284,77 @@ function buildCityGroups(geocoded: GeocodedDestino[]): CityGroup[] {
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
+// ── Route cache helpers ────────────────────────────────────────────────────
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function buildCacheKey(origemCidade: string, origemUf: string, destinos: Destino[]): Promise<string> {
+  const oNorm = `${normalizarCidade(origemCidade)},${origemUf.toUpperCase().trim()}`;
+  const dNorm = destinos
+    .map((d) => `${normalizarCidade(d.cidade)},${d.uf.toUpperCase().trim()}`)
+    .sort()
+    .join("|");
+  return await sha256Hex(`${oNorm}>>${dNorm}`);
+}
+
+async function readRouteCache(cacheKey: string, maxAgeDays = 30): Promise<any | null> {
+  const supabase = getSupabase();
+  const { data } = await supabase
+    .from("route_cache")
+    .select("*")
+    .eq("cache_key", cacheKey)
+    .maybeSingle();
+  if (!data) return null;
+  const ageDays = (Date.now() - new Date(data.last_used_at).getTime()) / 86400000;
+  if (ageDays > maxAgeDays) return null;
+  // Bump usage stats (fire-and-forget)
+  supabase
+    .from("route_cache")
+    .update({ last_used_at: new Date().toISOString(), hit_count: (data.hit_count ?? 0) + 1 })
+    .eq("cache_key", cacheKey)
+    .then(() => {});
+  return data;
+}
+
+async function readRouteCacheStale(cacheKey: string): Promise<any | null> {
+  const supabase = getSupabase();
+  const { data } = await supabase
+    .from("route_cache")
+    .select("*")
+    .eq("cache_key", cacheKey)
+    .maybeSingle();
+  return data ?? null;
+}
+
+async function writeRouteCache(
+  cacheKey: string,
+  origem: string,
+  destinos: Destino[],
+  km: number,
+  duracao: number,
+  geometry: [number, number][],
+  ordemOtimizada: any[],
+  provider: string
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("route_cache").upsert(
+    {
+      cache_key: cacheKey,
+      origem,
+      destinos: destinos as any,
+      km_total: km,
+      duracao_min: duracao,
+      geometry: geometry as any,
+      ordem_otimizada: ordemOtimizada as any,
+      provider,
+      last_used_at: new Date().toISOString(),
+    },
+    { onConflict: "cache_key" }
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -329,6 +400,26 @@ Deno.serve(async (req) => {
     const oUfNorm = oUf.toUpperCase().trim();
 
     const t0 = Date.now();
+
+    // ── CACHE LOOKUP ───────────────────────────────────────────────────────
+    const cacheKey = await buildCacheKey(oCidade, oUf, destinos);
+    const cached = await readRouteCache(cacheKey);
+    if (cached) {
+      console.log(`[roteirizar] Cache hit (${cached.provider}) in ${Date.now() - t0}ms`);
+      return new Response(
+        JSON.stringify({
+          ordemOtimizada: cached.ordem_otimizada || [],
+          geometria: cached.geometry || [],
+          distanciaTotal: cached.km_total ?? 0,
+          trechos: [],
+          estimado: cached.provider === "haversine",
+          fromCache: true,
+          origemCidadeNorm: oCidadeNorm,
+          origemUfNorm: oUfNorm,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // ── BATCH GEOCODE ──────────────────────────────────────────────────────
     const coordsMap = await batchGeocode(destinos, oCidade, oUf);
@@ -517,6 +608,18 @@ Deno.serve(async (req) => {
 
     console.log(`[roteirizar] Total time: ${Date.now() - t0}ms`);
 
+    // ── PERSIST CACHE (fire-and-forget) ───────────────────────────────────
+    writeRouteCache(
+      cacheKey,
+      `${oCidade},${oUf}`,
+      destinos,
+      distanciaTotal,
+      trechos.reduce((acc, t) => acc + (t.duracao || 0), 0),
+      geometry,
+      ordemOtimizada,
+      usedOrs ? "ors" : "haversine"
+    ).catch((e) => console.warn(`[roteirizar] cache write failed: ${e?.message}`));
+
     return new Response(
       JSON.stringify({
         ordemOtimizada,
@@ -533,6 +636,31 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error(`[roteirizar] Unhandled error: ${(err as Error).message}`);
+    // Last-resort: try stale cache if we have a key (timeout/provider failure)
+    try {
+      const body = await req.clone().json().catch(() => null);
+      if (body?.destinos?.length) {
+        const oCidade = body.origemCidade || "Goiânia";
+        const oUf = body.origemUf || "GO";
+        const cacheKey = await buildCacheKey(oCidade, oUf, body.destinos);
+        const stale = await readRouteCacheStale(cacheKey);
+        if (stale) {
+          console.log(`[roteirizar] Returning STALE cache after error`);
+          return new Response(
+            JSON.stringify({
+              ordemOtimizada: stale.ordem_otimizada || [],
+              geometria: stale.geometry || [],
+              distanciaTotal: stale.km_total ?? 0,
+              trechos: [],
+              estimado: true,
+              fromCache: true,
+              stale: true,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    } catch { /* ignore */ }
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
