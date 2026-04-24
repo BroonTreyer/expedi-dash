@@ -73,7 +73,10 @@ export function useVeiculosWalkInAtivos() {
         .select("*")
         .eq("walk_in", true)
         .eq("conferido", false)
-        .in("status_autorizacao", ["aguardando_vinculo", "autorizado"])
+        // Mostra: aguardando_vinculo (qualquer) OU autorizado SEM carga_id.
+        // Walk-ins autorizados COM carga_id são responsabilidade do
+        // CargasFechadasAguardandoPanel (card azul), evitando duplicação.
+        .or("status_autorizacao.eq.aguardando_vinculo,and(status_autorizacao.eq.autorizado,carga_id.is.null)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       const rows = (data ?? []) as unknown as VeiculoEsperado[];
@@ -119,14 +122,16 @@ export function useWalkInPendentesCount() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("veiculos_esperados" as any)
-        .select("status_autorizacao")
+        .select("status_autorizacao,carga_id")
         .eq("walk_in", true)
         .eq("conferido", false)
         .in("status_autorizacao", ["aguardando_vinculo", "autorizado"]);
       if (error) throw error;
-      const rows = (data ?? []) as unknown as { status_autorizacao: StatusAutorizacao }[];
+      const rows = (data ?? []) as unknown as { status_autorizacao: StatusAutorizacao; carga_id: string | null }[];
+      // Mantém paridade com useVeiculosWalkInAtivos: ignora autorizados já vinculados a carga
+      // (eles aparecem no painel "Cargas fechadas aguardando veículo").
       const aguardando = rows.filter((r) => r.status_autorizacao === "aguardando_vinculo").length;
-      const liberados = rows.filter((r) => r.status_autorizacao === "autorizado").length;
+      const liberados = rows.filter((r) => r.status_autorizacao === "autorizado" && !r.carga_id).length;
       return { aguardando, liberados, total: aguardando + liberados };
     },
   });
