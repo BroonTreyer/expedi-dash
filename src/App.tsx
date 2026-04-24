@@ -35,6 +35,7 @@ const Relatorios = lazy(() => import("./pages/Relatorios"));
 const Logs = lazy(() => import("./pages/Logs"));
 const Lixeira = lazy(() => import("./pages/Lixeira"));
 const PortalMotorista = lazy(() => import("./pages/PortalMotorista"));
+const TemplatesRota = lazy(() => import("./pages/TemplatesRota"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const PageFallback = () => (
@@ -93,6 +94,7 @@ function AppRoutes() {
           <Route path="/logs" element={<SuperAdminRoute><Logs /></SuperAdminRoute>} />
           <Route path="/lixeira" element={<SuperAdminRoute><Lixeira /></SuperAdminRoute>} />
           <Route path="/relatorios" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Relatorios /></ProtectedRoute>} />
+          <Route path="/templates-rota" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><TemplatesRota /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

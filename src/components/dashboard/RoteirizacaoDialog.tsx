@@ -21,7 +21,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUp, ArrowDown, MapPin, Package, GripVertical, Route, Loader2, ArrowRight, FileSpreadsheet } from "lucide-react";
+import { ArrowUp, ArrowDown, MapPin, Package, GripVertical, Route, Loader2, ArrowRight, FileSpreadsheet, Bookmark, BookmarkPlus } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { useRouteTemplates, useCreateRouteTemplate, bumpTemplateUsage, type RouteTemplate } from "@/hooks/useRouteTemplates";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,6 +161,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [estimado, setEstimado] = useState(false);
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
+
+  // Templates
+  const { data: templates = [] } = useRouteTemplates();
+  const createTemplate = useCreateRouteTemplate();
+  const [tplNome, setTplNome] = useState("");
+  const [tplDesc, setTplDesc] = useState("");
+  const [savePopoverOpen, setSavePopoverOpen] = useState(false);
+  const [usePopoverOpen, setUsePopoverOpen] = useState(false);
 
   useEffect(() => {
     if (open && items.length > 0) {
@@ -417,6 +428,78 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     onOpenChange(false);
   };
 
+  // ─── Template handlers ───
+  const handleSaveTemplate = useCallback(async () => {
+    const nome = tplNome.trim();
+    if (!nome) {
+      toast.error("Informe um nome para o template");
+      return;
+    }
+    const paradas = activeGroups
+      .filter((g) => g.cidade && g.uf)
+      .map((g, i) => ({
+        codigo_cliente: g.codigoCliente,
+        cliente: g.nomeCliente,
+        cidade: g.cidade!,
+        uf: g.uf!,
+        ordem: i + 1,
+      }));
+    if (paradas.length < 2) {
+      toast.error("É necessário ter ao menos 2 paradas com cidade/UF");
+      return;
+    }
+    await createTemplate.mutateAsync({
+      nome,
+      descricao: tplDesc.trim() || null,
+      origem: "Goiânia, GO",
+      paradas,
+    });
+    setTplNome("");
+    setTplDesc("");
+    setSavePopoverOpen(false);
+  }, [tplNome, tplDesc, activeGroups, createTemplate]);
+
+  const handleUseTemplate = useCallback((tpl: RouteTemplate) => {
+    // Reordena os groups atuais segundo a ordem das paradas do template (cidade+uf+codigo_cliente quando disponível)
+    const normCity = (s: string) =>
+      s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+
+    setGroups((prev) => {
+      const used = new Set<RotaGroup>();
+      const ordered: RotaGroup[] = [];
+      for (const p of tpl.paradas) {
+        const key = `${normCity(p.cidade)}|${(p.uf || "").toUpperCase().trim()}`;
+        // Prefer match by codigo_cliente when present
+        let match = prev.find(
+          (g) =>
+            !used.has(g) &&
+            p.codigo_cliente &&
+            g.codigoCliente === p.codigo_cliente,
+        );
+        if (!match) {
+          match = prev.find(
+            (g) =>
+              !used.has(g) &&
+              g.cidade &&
+              g.uf &&
+              `${normCity(g.cidade)}|${g.uf.toUpperCase().trim()}` === key,
+          );
+        }
+        if (match) {
+          ordered.push(match);
+          used.add(match);
+        }
+      }
+      // Append remaining groups not matched
+      for (const g of prev) if (!used.has(g)) ordered.push(g);
+      return renumber(ordered);
+    });
+    clearRouteGeometry();
+    bumpTemplateUsage(tpl.id).catch(() => {});
+    toast.success(`Template "${tpl.nome}" aplicado`);
+    setUsePopoverOpen(false);
+  }, [clearRouteGeometry]);
+
   const rotaDestinos = useMemo(
     () => activeGroups
       .filter((g) => g.cidade && g.uf)
@@ -485,6 +568,86 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
             <FileSpreadsheet className="h-3.5 w-3.5" />
             Exportar
           </Button>
+          <Popover open={usePopoverOpen} onOpenChange={setUsePopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={templates.length === 0}
+                title={templates.length === 0 ? "Nenhum template salvo" : "Aplicar template salvo"}
+              >
+                <Bookmark className="h-3.5 w-3.5" />
+                Templates
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-2" align="start">
+              <div className="text-xs font-semibold text-muted-foreground uppercase mb-2 px-1">
+                Aplicar template
+              </div>
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {templates.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleUseTemplate(t)}
+                    className="w-full text-left rounded-md px-2 py-1.5 hover:bg-accent transition-colors"
+                  >
+                    <div className="text-sm font-medium truncate">{t.nome}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {t.paradas.length} paradas · usado {t.times_used}x
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Popover open={savePopoverOpen} onOpenChange={setSavePopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={activeGroups.filter((g) => g.cidade && g.uf).length < 2}
+              >
+                <BookmarkPlus className="h-3.5 w-3.5" />
+                Salvar template
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-3 space-y-2" align="start">
+              <div className="text-xs font-semibold text-muted-foreground uppercase">
+                Salvar como template
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome *</Label>
+                <Input
+                  value={tplNome}
+                  onChange={(e) => setTplNome(e.target.value)}
+                  placeholder="Ex.: Rota Sul GO terças"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Descrição (opcional)</Label>
+                <Input
+                  value={tplDesc}
+                  onChange={(e) => setTplDesc(e.target.value)}
+                  placeholder="Detalhes da rota"
+                />
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {activeGroups.filter((g) => g.cidade && g.uf).length} paradas serão salvas (na ordem atual).
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="ghost" size="sm" onClick={() => setSavePopoverOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button size="sm" onClick={handleSaveTemplate} disabled={createTemplate.isPending}>
+                  {createTemplate.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                  Salvar
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="default"
             size="sm"
