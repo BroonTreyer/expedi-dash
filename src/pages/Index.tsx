@@ -508,7 +508,7 @@ export default function Index() {
           </div>
         </div>
 
-        <KpiCards data={filtered} selectedData={selectedInView.length > 0 ? selectedItems : undefined} />
+        <KpiCards data={kpiSource} selectedData={selectedInView.length > 0 ? selectedItems : undefined} />
 
         <Filters
           filters={filters}
