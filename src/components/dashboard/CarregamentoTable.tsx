@@ -760,6 +760,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       {!hideColumns.includes("etapa") && <TableCell />}
                       <TableCell />
                       <TableCell />
+                      <TableCell />
                       <TableCell className="text-sm font-mono">
                         <span className="flex items-center gap-1.5">
                           {c.codigo_produto ?? "—"}
@@ -772,8 +773,8 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       </TableCell>
                       <TableCell className="text-sm">{c.nome_produto ?? "—"}</TableCell>
                       {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-medium">{(c.peso ?? 0).toLocaleString("pt-BR")}</TableCell>}
-                      <TableCell />
-                      <TableCell />
+                      {!hideColumns.includes("tipo_caminhao") && <TableCell />}
+                      {!hideColumns.includes("motorista") && <TableCell />}
                       <TableCell />
                       <TableCell />
                       <TableCell />
