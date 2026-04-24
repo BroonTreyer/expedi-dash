@@ -698,6 +698,10 @@ export default function Consolidado() {
                         <div><span className="text-muted-foreground">Frete: </span>{g.tipoFrete}</div>
                         <div><span className="text-muted-foreground">UFs: </span>{[...g.ufs].sort().join(", ") || "—"}</div>
                       </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">Portaria:</span>
+                        <PortariaStatusBadge info={getStatusPortaria(g.cargaId)} />
+                      </div>
                       {g.parcialCount > 0 && (
                         <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/60 rounded px-2 py-1 flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3 shrink-0" />
