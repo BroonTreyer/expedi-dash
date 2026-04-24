@@ -1,96 +1,86 @@
 
 
-## Status Portaria Terceirizados ↔ Consolidado: integração ponta-a-ponta
+## Trocar coluna "Rupturas" por "Horário Previsto" no Consolidado
 
 ### Diagnóstico
 
-A página `/consolidado` agrupa cargas finalizadas por `carga_id` mas hoje só mostra dados logísticos (placa, motorista, peso, status do pedido). **Não há nenhuma visão do que está acontecendo na portaria**: o usuário não sabe se o terceirizado já chegou, se está carregando, se já saiu ou ainda está aguardando.
+Na tabela desktop de `/consolidado`, a coluna **"Rupturas"** (linha 750 do header e células 824-836) ocupa um slot central que o usuário quer reaproveitar para exibir o **horário previsto** de carregamento — informação operacional muito mais útil no dia-a-dia (saber a janela esperada do veículo). O campo `horario_previsto` já existe em `carregamentos_dia` (`time without time zone`) e é preenchido durante o fechamento de carga (`FechamentoLoteDialog`/`AdicionarCargaDialog`).
 
-A informação existe em `movimentacoes_portaria` (campos `tipo_movimento`, `etapa_terceirizado`, `horario_entrada`, `data_hora`, `carga_id`) e está indexada por `carga_id` — basta cruzar.
+A informação de ruptura **não pode se perder**: hoje ela só é exibida no desktop nessa coluna (no mobile já tem badge ao lado da placa, linhas 663-671). Vou preservar o acesso replicando o badge ao lado da placa também no desktop.
 
-### Modelo de "Etapa Portaria" para terceirizados (derivada)
+### Mudança 1 — agregar `horarioPrevisto` ao grupo
 
-Para cada `carga_id` agrupado no Consolidado, derivo **uma etapa única** consultando todas as movimentações daquela carga e aplicando regras na ordem (a "mais avançada" vence):
+Em `src/pages/Consolidado.tsx`:
 
-| Etapa Portaria | Regra de derivação | Cor / Ícone |
-|---|---|---|
-| **Aguardando chegada** | Carga fechada, **nenhum** registro em `movimentacoes_portaria` para esse `carga_id` | cinza / `Clock` |
-| **No pátio** | Existe `tipo_movimento='entrada'` (ou `etapa_terceirizado='chegada'`), sem etapa posterior | azul / `ParkingCircle` |
-| **Carregando** | `etapa_terceirizado='liberado'` **ou** status logístico = "Carregando" enquanto veículo no pátio | âmbar / `Package` |
-| **Expedido / Finalizado** | Existe `tipo_movimento='saida'` **ou** `etapa_terceirizado='finalizado'` **ou** `horario_saida_final` preenchido | verde / `CheckCircle2` |
+a) **`interface CargaGroup`** (linha 95): adicionar `horarioPrevisto: string | null`.
 
-> Foco apenas em **terceirizados** (categoria `terceirizado` nas movimentações). Cargas próprias mantêm o badge atual (sem este novo indicador).
+b) **`groupByCarga`** (linha 117): no inicializador do grupo (linha 124), pegar `horario_previsto` do primeiro item: `horarioPrevisto: item.horario_previsto ?? null`. Como todos os itens da mesma `carga_id` compartilham o mesmo horário (cascade no fechamento), pegar o primeiro é suficiente; se vier nulo no primeiro mas preenchido em outro, fazer fallback `g.horarioPrevisto ??= item.horario_previsto ?? null`.
 
-### Mudança 1 — novo hook `useStatusPortariaPorCarga(cargaIds)`
+c) **`sortAccessors`** (linha 450): adicionar `horarioPrevisto: (g) => g.horarioPrevisto ?? "99:99"` (nulos vão pro fim do sort ascendente).
 
-Arquivo novo: **`src/hooks/useStatusPortariaPorCarga.ts`**
+### Mudança 2 — substituir coluna no desktop
 
-- Recebe `cargaIds: string[]` ativos no Consolidado.
-- **Uma única query batch**: `movimentacoes_portaria.select("carga_id, tipo_movimento, categoria, etapa_terceirizado, horario_entrada, horario_saida_final, data_hora").in("carga_id", cargaIds).eq("categoria", "terceirizado")`.
-- Agrupa por `carga_id` em `Map<string, StatusPortariaInfo>` aplicando a tabela acima.
-- Retorna `{ etapa, label, iconKey, colorClass, timestamps: { chegada, saida } }`.
-- **Realtime**: subscreve `movimentacoes_portaria` com debounce de 1.5s (regra global) e invalida o cache.
-- Protegido por `enabled: !!session && cargaIds.length > 0`.
-- Performance: `Map` pré-indexado (lookup O(1)), `useMemo` para derivar etapas.
+a) **Header** (linha 750): trocar
+```
+<SortableTableHead sort={sort} sortKey="rupturaCount" ... className="text-center">Rupturas</SortableTableHead>
+```
+por
+```
+<SortableTableHead sort={sort} sortKey="horarioPrevisto" ... className="text-center">Hr. Previsto</SortableTableHead>
+```
 
-### Mudança 2 — novo componente `<PortariaStatusBadge>`
+b) **Célula** (linhas 824-836): trocar todo o bloco do botão de ruptura por:
+```tsx
+<TableCell className="text-center text-xs font-mono">
+  {g.horarioPrevisto
+    ? g.horarioPrevisto.substring(0, 5)  // "HH:MM"
+    : <span className="text-muted-foreground/40">—</span>}
+</TableCell>
+```
+Formato `HH:MM` em pt-BR (consistente com `style/data-formatting`).
 
-Arquivo novo: **`src/components/dashboard/PortariaStatusBadge.tsx`**
+### Mudança 3 — preservar badge de ruptura ao lado da placa (desktop)
 
-- Recebe `etapa` + `timestamps` opcionais.
-- Renderiza Badge no mesmo padrão visual do `StatusBadge`/`EtapaBadge` (consistência com `style/ui-components`): outline com cor semântica + ícone Lucide à esquerda.
-- **Tooltip** mostra horários reais quando existirem ("Chegou às 09:42 · Saiu às 11:05").
-- Variante discreta (cinza claro) para "Aguardando chegada".
+Para não perder o link rápido para `/rupturas?carga=...`, na célula da **Placa** (linha 797) trocar:
+```tsx
+<TableCell className="text-xs font-mono">{g.placa ?? "—"}</TableCell>
+```
+por uma célula com flex contendo a placa **+** o mesmo botão-badge usado hoje no mobile (linhas 664-671), só visível quando `g.rupturaCount > 0`. Mesma estética: `bg-destructive/10 text-destructive`, ícone `AlertTriangle`, navega para `/rupturas?carga=${nomeCarga||cargaId}`. `onClick` com `e.stopPropagation()` para não disparar o expand da linha.
 
-### Mudança 3 — integrar em `src/pages/Consolidado.tsx`
+### Mudança 4 — mobile permanece igual
 
-a) **3 KPIs novos** ao lado dos atuais (Veículos / Peso / Pedidos):
-   - **"No pátio"** — cargas com etapa `No pátio` ou `Carregando`.
-   - **"Carregando"** — cargas com etapa `Carregando`.
-   - **"Expedidos"** — cargas com etapa `Expedido / Finalizado`.
-   
-   Layout: `grid-cols-3 sm:grid-cols-6` (3 originais + 3 portaria). Mobile: 2 linhas de 3.
+O card mobile (linhas 650-732) já mostra o badge de ruptura ao lado da placa e **não tem** coluna "Rupturas" — não precisa alterar nada lá. Opcionalmente, posso adicionar uma linha no grid `Hr. Previsto` ao lado de `Data` para paridade. **Proposta**: adicionar.
 
-b) **Coluna "Portaria"** na tabela desktop, entre **Status** e **Tipo**:
-   - Renderiza `<PortariaStatusBadge>`.
-   - **Sortable** por etapa (ordem cronológica: Aguardando → Pátio → Carregando → Expedido).
-
-c) **Card mobile**: linha extra `Portaria: <badge>` no grid de informações da carga.
-
-d) **Filtro novo "Etapa Portaria"** no topo (Select), com opções: Todas / Aguardando chegada / No pátio / Carregando / Expedido.
-
-e) **Linha expandida (detalhes)**: abaixo dos itens da carga, mini-timeline com horários (chegada → saída) reaproveitando visual do `AuditTimeline`.
-
-### Mudança 4 — Realtime cross-table
-
-O hook `useConsolidado` já subscreve `carregamentos_dia`. O novo hook adiciona subscrição a `movimentacoes_portaria` filtrando `categoria=terceirizado` — quando portaria registra entrada/saída, o badge **atualiza automaticamente** sem refresh, em ≤1.5s.
-
-### Performance
-
-- **Uma query batch** para todas as `carga_id` visíveis (sem N+1).
-- `Map` pré-indexado por `carga_id` (`tech/performance/data-grouping`).
-- `useMemo` no derivar de etapa para evitar recomputação.
-- Debounce de 1.5s no realtime (`tech/realtime-concurrency`).
-
-### Validação (cenários)
-
-1. Carga fechada, nada na portaria → badge cinza "Aguardando chegada", KPIs zerados.
-2. Portaria registra entrada terceirizado → badge azul "No pátio", KPI "No pátio" incrementa em ≤1.5s.
-3. Status logístico muda para "Carregando" + veículo no pátio → badge âmbar "Carregando".
-4. Portaria registra saída (`tipo_movimento='saida'` ou `etapa_terceirizado='finalizado'`) → badge verde "Expedido", KPI "Expedidos" incrementa.
-5. Filtro "Etapa Portaria = Carregando" mostra só as cargas em pátio sendo carregadas.
-6. Tooltip do badge mostra horário de chegada e saída quando disponíveis.
-7. Mobile: linha "Portaria:" aparece no card.
-8. Linha expandida: timeline com chegada/saída.
+No bloco linha 683-700, substituir a célula `Data` por uma com data + horário previsto:
+```tsx
+<div>
+  <span className="text-muted-foreground">Data: </span>
+  {format(new Date(g.data + "T12:00:00"), "dd/MM")}
+  {g.horarioPrevisto && (
+    <span className="ml-1 font-mono text-muted-foreground">
+      · {g.horarioPrevisto.substring(0, 5)}
+    </span>
+  )}
+</div>
+```
 
 ### Fora do escopo
 
-- Cargas próprias (mantêm o fluxo atual sem este novo badge).
-- Mudar trigger `on_carga_fechada` ou criar coluna persistida — derivamos no front.
-- Editar registros da Portaria a partir do Consolidado (apenas leitura).
-- Outras telas (Painel principal, Kanban).
+- Não alteramos nenhum dado do banco; `horario_previsto` já é capturado no fechamento.
+- Não mexemos nos KPIs (continuam Veículos / Peso / Pedidos / No pátio / Carregando / Expedidos).
+- Não mexemos no filtro "Etapa Portaria" nem no "Status".
+- Página de Rupturas e o link via `?carga=...` continuam funcionando — apenas mudamos o ponto de entrada visual na tabela desktop.
+
+### Validação (cenários)
+
+1. Carga fechada com `horario_previsto = '08:30:00'` → coluna "Hr. Previsto" mostra `08:30`.
+2. Carga sem horário previsto → mostra `—` em cinza claro.
+3. Sort ascendente por "Hr. Previsto" → cargas com horário aparecem primeiro em ordem cronológica, sem horário no final.
+4. Carga com rupturas no desktop → badge vermelho `⚠ N` aparece ao lado da placa, clicável, navega para `/rupturas?carga=...`.
+5. Carga sem rupturas → só a placa, sem badge.
+6. Mobile: linha "Data: 24/04 · 08:30" exibe data + horário lado a lado; badge de ruptura ao lado da placa permanece igual.
 
 ### Resultado
 
-A página `/consolidado` passa a ser a **visão única ponta-a-ponta** do ciclo do terceirizado: do fechamento da carga (Logística) até a expedição final (Portaria). Em uma linha o usuário enxerga quem está aguardando, quem está no pátio, quem está carregando e quem já saiu — com KPIs no topo, badges coloridos por linha, filtro dedicado, timeline nos detalhes e atualização em tempo real.
+A coluna central da tabela desktop agora mostra o **horário previsto** de cada carga em formato `HH:MM` ordenável, dando ao operador a janela de expedição esperada. A informação de ruptura migra para um badge compacto ao lado da placa (mesmo padrão já usado no mobile), mantendo o acesso rápido à página de Rupturas e a consistência visual entre as duas visões.
 
