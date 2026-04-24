@@ -1,28 +1,20 @@
-## Correção de bugs de refs (warnings React)
+## Correção manual: lacres trocados na portaria
 
-### Arquivos a editar
-1. **`src/components/portaria/ImportarPlanilhaDialog.tsx`**
-   - Envolver o componente em `forwardRef<HTMLDivElement, Props>`
-   - Manter toda a lógica atual intacta
-   - Exportar com `displayName = "ImportarPlanilhaDialog"`
+A portaria registrou os lacres invertidos entre dois motoristas na saída. Vou aplicar a troca de `numero_lacre` e `foto_lacre_url` entre os dois registros, mantendo placa, motorista, empresa e horários intactos.
 
-2. **`src/components/portaria/MovimentoDetailsDialog.tsx`**
-   - Envolver o componente em `forwardRef<HTMLDivElement, Props>`
-   - Manter toda a lógica atual intacta
-   - Exportar com `displayName = "MovimentoDetailsDialog"`
+### Operação
 
-### Padrão aplicado
-```typescript
-import { forwardRef } from "react";
+**2 UPDATEs em `movimentacoes_portaria`:**
 
-export const ImportarPlanilhaDialog = forwardRef<HTMLDivElement, Props>(
-  function ImportarPlanilhaDialog(props, _ref) {
-    // lógica existente sem alterações
-  }
-);
-```
+| ID | Motorista / Placa | Antes (lacre / foto) | Depois |
+|---|---|---|---|
+| `196adb61-...` | ANTONIO / SMU6F31 | `0006654` / `joyes3ewgh9.jpg` | `0006658` / `261afvjr83d.jpg` |
+| `1979b373-...` | MARCIO / QDN4F76 | `0006658` / `261afvjr83d.jpg` | `0006654` / `joyes3ewgh9.jpg` |
 
-### Resultado esperado
-- Eliminação dos warnings "Function components cannot be given refs" no console
-- Zero alteração de comportamento funcional
-- Padronização com os demais dialogs do projeto
+### Auditoria
+
+O trigger `audit_movimentacoes` já registra automaticamente a alteração de `numero_lacre` no `audit_log`. Vou complementar com um `log_audit` explícito marcando a ação como `CORRECAO_MANUAL_LACRE_TROCADO` em ambos os registros, para deixar a justificativa clara no histórico.
+
+### Sem impacto em outros campos
+
+Placa, motorista, empresa, `movimento_vinculado_id`, `etapa_carga_propria`, `horario_saida_final` e demais campos permanecem inalterados.
