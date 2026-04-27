@@ -337,7 +337,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
 
 // ─── Desktop ───
 
-export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, onDelete, onDeleteMany, onComplete, onClone, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
+export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, onEditGroup, onDelete, onDeleteMany, onComplete, onClone, onUndoCarga, onPrintCarga, userRole, statuses, statusColors, showPesoAprox, hideColumns = [], canChangeStatus: canChangeStatusProp, selectable, selectedIds = [], onSelectionChange }: Props) {
   const isMobile = useIsMobile();
   const portalMut = useCreatePortalToken();
   const isAdmin = userRole === "admin";
