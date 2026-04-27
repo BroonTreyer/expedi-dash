@@ -18,15 +18,16 @@ interface ItemRow {
   peso: number;
   pesoPadrao: number;
   pesoManual: boolean;
+  precoUnitario: number;
 }
 
 const emptyItem = (): ItemRow => ({
-  codigo_produto: "", nome_produto: "", quantidade: 1, peso: 0, pesoPadrao: 0, pesoManual: true,
+  codigo_produto: "", nome_produto: "", quantidade: 1, peso: 0, pesoPadrao: 0, pesoManual: true, precoUnitario: 0,
 });
 
 export interface NovoPedidoSubmit {
   cliente: { codigo_cliente: string; nome_cliente: string; cidade: string | null; uf: string | null };
-  items: Array<{ codigo_produto: string; nome_produto: string; quantidade: number; peso: number }>;
+  items: Array<{ codigo_produto: string; nome_produto: string; quantidade: number; peso: number; preco_unitario: number; preco_total: number }>;
   observacoes: string;
   enviarParaAprovacao: boolean;
   editingId?: string;
@@ -48,6 +49,7 @@ interface Props {
     nome_produto: string | null;
     quantidade: number | null;
     peso: number | null;
+    preco_unitario?: number | null;
     observacoes: string | null;
   } | null;
 }
@@ -80,6 +82,7 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
         peso: Number(editing.peso ?? 0),
         pesoPadrao: 0,
         pesoManual: true,
+        precoUnitario: Number(editing.preco_unitario ?? 0),
       }]);
       setObservacoes(editing.observacoes ?? "");
     } else {
@@ -147,12 +150,17 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
         nome_produto: r.nome_produto,
         quantidade: r.quantidade,
         peso: r.peso,
+        preco_unitario: r.precoUnitario || 0,
+        preco_total: (r.precoUnitario || 0) * (r.quantidade || 0),
       })),
       observacoes: observacoes.trim(),
       enviarParaAprovacao: enviar,
       editingId: editing?.id,
     });
   };
+
+  const totalPedido = items.reduce((s, r) => s + (r.precoUnitario || 0) * (r.quantidade || 0), 0);
+  const semPreco = items.some((r) => !r.precoUnitario);
 
   return (
     <>
@@ -195,8 +203,9 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
               <div className="space-y-2">
                 {items.map((r, i) => {
                   const porUnidade = r.codigo_produto ? isPorUnidade(r.codigo_produto, r.nome_produto) : false;
+                  const totalLinha = (r.precoUnitario || 0) * (r.quantidade || 0);
                   return (
-                    <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_90px_auto] gap-2 items-end p-2 rounded-md bg-muted/30 border">
+                    <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_90px_110px_auto] gap-2 items-end p-2 rounded-md bg-muted/30 border">
                       <div>
                         <Label className="text-xs">Produto</Label>
                         <Select value={r.codigo_produto} onValueChange={(v) => handleProdutoChange(i, v)}>
@@ -218,6 +227,22 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
                         <Label className="text-xs">{porUnidade ? "Unidades" : "Qtd"}</Label>
                         <Input type="number" step="1" min="1" value={r.quantidade} onChange={(e) => handleQtdChange(i, Number(e.target.value))} />
                       </div>
+                      <div>
+                        <Label className="text-xs">Preço unit. (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={r.precoUnitario || ""}
+                          placeholder="0,00"
+                          onChange={(e) => updateItem(i, { precoUnitario: Number(e.target.value) })}
+                        />
+                        {totalLinha > 0 && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
+                            = {totalLinha.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                        )}
+                      </div>
                       <Button type="button" variant="ghost" size="icon" disabled={items.length === 1} onClick={() => setItems(items.filter((_, idx) => idx !== i))}>
                         <X className="h-4 w-4" />
                       </Button>
@@ -230,6 +255,16 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
             <div>
               <Label>Observações</Label>
               <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={2} placeholder="Algo que o faturamento precise saber" />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md bg-muted/40 border px-3 py-2">
+              <div className="text-xs text-muted-foreground">
+                Total do pedido
+                {semPreco && <span className="ml-2 text-amber-700">· alguns itens sem preço</span>}
+              </div>
+              <div className="text-base font-semibold tabular-nums">
+                {totalPedido.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </div>
             </div>
           </div>
 
