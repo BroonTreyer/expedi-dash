@@ -8,6 +8,7 @@ export interface MeuPainelData {
   vendedorId: string | null;
   vendedorNome: string | null;
   carregamentos: any[];
+  meusPedidos: any[];
 }
 
 /** Busca o vendedor vinculado ao login + os pedidos dele no intervalo. */
@@ -64,7 +65,7 @@ function useMeuPainelInternal(dateRange: DateRange, override: string | null | un
       }
 
       if (!vendedorId) {
-        return { vendedorId: null, vendedorNome: null, carregamentos: [] };
+        return { vendedorId: null, vendedorNome: null, carregamentos: [], meusPedidos: [] };
       }
 
       // Admin não tem RLS de vendedor, precisa filtrar manualmente; vendedor já é restrito por RLS.
@@ -88,7 +89,15 @@ function useMeuPainelInternal(dateRange: DateRange, override: string | null | un
         cursor += PAGE;
       }
 
-      return { vendedorId, vendedorNome, carregamentos: all };
+      // Separa: pedidos em rascunho/aguardando ficam fora do "fluxo aprovado"
+      // mas aparecem na aba "Meus Pedidos".
+      const meusPedidos = all.filter(
+        (c) => c.etapa === "rascunho" || c.etapa === "aguardando_faturamento",
+      );
+      const carregamentos = all.filter(
+        (c) => c.etapa !== "rascunho" && c.etapa !== "aguardando_faturamento",
+      );
+      return { vendedorId, vendedorNome, carregamentos, meusPedidos };
     },
   });
 }
