@@ -149,11 +149,16 @@ export default function MeuPainel() {
             </TabsList>
 
             <TabsContent value="pedidos" className="space-y-4">
+              {isAdminView && (
+                <div className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-900 flex items-center gap-2">
+                  <Shield className="h-3.5 w-3.5" />
+                  Você está lançando pedidos em nome de <strong>{data?.vendedorNome ?? "—"}</strong>.
+                </div>
+              )}
               <MeusPedidos
                 vendedorId={data!.vendedorId!}
                 meusPedidos={meusPedidos}
                 carregamentos={carregamentos}
-                readOnly={isAdminView}
               />
             </TabsContent>
 
