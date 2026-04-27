@@ -39,6 +39,7 @@ interface Props {
   currentDate?: string;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (c: Carregamento) => void;
+  onEditGroup?: (items: Carregamento[]) => void;
   onDelete: (id: string) => void;
   onDeleteMany?: (ids: string[]) => void;
   onComplete: (c: Carregamento) => void;
