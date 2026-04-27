@@ -183,7 +183,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
               {isOpen && (
                 <div className="divide-y divide-border/40">
                   {group.items.map((c, idx) => (
-                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onDeleteMany={onDeleteMany} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} groupItems={group.items} />
+                    <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onEditGroup={onEditGroup} onDelete={onDelete} onDeleteMany={onDeleteMany} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={idx > 0} groupItems={group.items} />
                   ))}
                 </div>
               )}
@@ -191,15 +191,15 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
           );
         }
         const c = group.items[0];
-        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onDelete={onDelete} onDeleteMany={onDeleteMany} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} groupItems={group.items} />;
+        return <MobileCardItem key={c.id} c={c} isAdmin={isAdmin} canEdit={canEdit} canDelete={canDelete} canComplete={canComplete} hasActions={hasActions} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} onEdit={onEdit} onEditGroup={onEditGroup} onDelete={onDelete} onDeleteMany={onDeleteMany} onComplete={onComplete} onClone={onClone} statuses={statuses} statusColors={statusColors} showPesoAprox={showPesoAprox} hideColumns={hideColumns} isGrouped={false} groupItems={group.items} />;
       })}
     </div>
   );
 }
 
-function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onDelete, onDeleteMany, onComplete, onClone, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped, groupItems }: {
+function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasActions, canChangeStatus, onStatusChange, onEdit, onEditGroup, onDelete, onDeleteMany, onComplete, onClone, statuses, statusColors, showPesoAprox, hideColumns = [], isGrouped, groupItems }: {
   c: Carregamento; isAdmin: boolean; canEdit: boolean; canDelete: boolean; canComplete: boolean; hasActions: boolean; canChangeStatus: boolean;
-  onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onDelete: (id: string) => void; onDeleteMany?: (ids: string[]) => void; onComplete: (c: Carregamento) => void;
+  onStatusChange: (id: string, s: string) => void; onEdit: (c: Carregamento) => void; onEditGroup?: (items: Carregamento[]) => void; onDelete: (id: string) => void; onDeleteMany?: (ids: string[]) => void; onComplete: (c: Carregamento) => void;
   onClone?: (items: Carregamento[]) => void;
   statuses?: readonly string[]; statusColors?: Record<string, string>; showPesoAprox?: boolean; hideColumns?: string[]; isGrouped: boolean; groupItems?: Carregamento[];
 }) {
