@@ -958,6 +958,32 @@ export type Database = {
         }
         Relationships: []
       }
+      vendedor_users: {
+        Row: {
+          created_at: string
+          user_id: string
+          vendedor_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          vendedor_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          vendedor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendedor_users_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: true
+            referencedRelation: "vendedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendedores: {
         Row: {
           ativo: boolean
@@ -987,6 +1013,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_vendedor_id: { Args: never; Returns: string }
       get_portal_data_public: { Args: { _token: string }; Returns: Json }
       get_portal_token_public: {
         Args: { _token: string }
