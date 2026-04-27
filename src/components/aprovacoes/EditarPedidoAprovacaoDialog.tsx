@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, X, Check, ChevronsUpDown, CheckCircle2, Save } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Plus, X, Check, ChevronsUpDown, CheckCircle2, Save, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos } from "@/hooks/useProdutos";
 import { isPorUnidade } from "@/lib/constants";
@@ -16,6 +18,7 @@ interface RowState extends EditItemPayload {
   _key: string;
   pesoPadrao: number;
   pesoManual: boolean;
+  ruptura: boolean;
 }
 
 interface Props {
@@ -51,6 +54,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
           motivo_ruptura: r.motivo_ruptura ?? null,
           pesoPadrao: Number(p?.peso_padrao ?? 0),
           pesoManual: !!r.peso_manual,
+          ruptura: !!r.ruptura,
         };
       })
     );
@@ -125,6 +129,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
         motivo_ruptura: null,
         pesoPadrao: 0,
         pesoManual: true,
+        ruptura: false,
       },
     ]);
   };
@@ -157,6 +162,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
         preco_unitario: r.preco_unitario || 0,
         preco_total: (r.preco_unitario || 0) * (r.quantidade || 0),
         motivo_ruptura: r.motivo_ruptura,
+        ruptura: r.ruptura,
       })),
       removedIds,
       aprovarAposSalvar: aprovar,
@@ -266,6 +272,42 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
                           className="h-10"
                         />
                       </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/20 px-2 py-2">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id={`ruptura-${r._key}`}
+                          checked={r.ruptura}
+                          onCheckedChange={(checked) =>
+                            update(i, {
+                              ruptura: checked,
+                              motivo_ruptura: checked ? r.motivo_ruptura ?? "estoque" : null,
+                            })
+                          }
+                        />
+                        <Label htmlFor={`ruptura-${r._key}`} className="text-xs font-medium flex items-center gap-1 cursor-pointer">
+                          <AlertTriangle className={cn("h-3.5 w-3.5", r.ruptura ? "text-destructive" : "text-muted-foreground")} />
+                          Ruptura
+                        </Label>
+                      </div>
+                      {r.ruptura && (
+                        <div className="flex-1 min-w-[160px]">
+                          <Select
+                            value={r.motivo_ruptura ?? ""}
+                            onValueChange={(v) => update(i, { motivo_ruptura: v || null })}
+                          >
+                            <SelectTrigger className="h-9 text-xs">
+                              <SelectValue placeholder="Selecione o motivo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="estoque">Estoque</SelectItem>
+                              <SelectItem value="qualidade">Qualidade</SelectItem>
+                              <SelectItem value="logistica">Logística</SelectItem>
+                              <SelectItem value="outro">Outro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                     {subtotal > 0 && (
                       <p className="text-[11px] text-muted-foreground tabular-nums text-right">
