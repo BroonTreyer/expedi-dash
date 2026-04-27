@@ -595,6 +595,7 @@ export default function Index() {
             currentDate={dateFromStr}
             onStatusChange={handleStatusChange}
             onEdit={handleEdit}
+            onEditGroup={handleEditGroup}
             onClone={handleClone}
             onDelete={handleDeleteRequest}
             onDeleteMany={handleDeleteManyRequest}
