@@ -104,10 +104,11 @@ function buildGroups(data: Carregamento[]): Group[] {
   for (const c of data) {
     if (c.codigo_cliente) {
       // Quando há numero_pedido, agrupa por cliente+pedido (separa pedidos distintos do mesmo cliente).
-      // Quando não há, agrupa por cliente+data (fallback: pedidos legados sem número ficam juntos por dia).
+      // Sem numero_pedido, usa created_at: itens cadastrados juntos compartilham o mesmo timestamp,
+      // enquanto pedidos lançados em momentos distintos ficam separados.
       const key = c.numero_pedido != null
         ? `${c.codigo_cliente}__p${c.numero_pedido}`
-        : `${c.codigo_cliente}__d${c.data}`;
+        : `${c.codigo_cliente}__t${c.created_at}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
