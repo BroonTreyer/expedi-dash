@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { forwardRef, useState, useEffect, type ReactNode } from "react";
-import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn, BookOpen, History, Trash2, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn, BookOpen, History, Trash2, ShieldCheck, User } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RegistroEntradaBadge } from "@/components/portaria/RegistroEntradaBadge";
 
-type Role = "admin" | "logistica" | "faturamento" | "portaria";
+type Role = "admin" | "logistica" | "faturamento" | "portaria" | "vendedor";
 
 interface NavLeaf {
   to: string;
@@ -32,6 +32,7 @@ type NavNode = NavLeaf | NavGroup;
 const isGroup = (n: NavNode): n is NavGroup => (n as NavGroup).children !== undefined;
 
 const navTree: NavNode[] = [
+  { to: "/meu-painel", label: "Meu Painel", icon: User, roles: ["vendedor"] },
   { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
   { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
