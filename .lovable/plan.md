@@ -1,41 +1,71 @@
+## Portal do Vendedor
 
-# Separar pedidos distintos do mesmo cliente
+Cada vendedor da Frico ganha um login próprio que abre um painel restrito aos pedidos vinculados ao seu `vendedor_id`. Admin/Logística/Faturamento continuam vendo tudo no sistema atual; quem entra como "vendedor" vai direto para `/meu-painel` e não enxerga o restante.
 
-## Diagnóstico
+### O que o vendedor verá
 
-Sim, o agrupamento está acontecendo, e identifiquei a causa olhando o banco de dados.
+- **Cabeçalho com nome do vendedor + filtro de período** (padrão: Últimos 7 dias; atalhos Hoje, 7 dias, Mês atual, intervalo customizado).
+- **KPIs**: Pedidos no período, Peso total expedido (kg), Ticket médio (kg/pedido), % de Ruptura.
+- **Cargas / Pedidos em andamento**: lista compacta agrupada por etapa (Vendas → Logística → Carregado), com cliente, peso, placa e status. Linha clicável abre modal somente-leitura com os itens.
+- **Gráficos** (4 mini-charts em grid 2×2): evolução diária de peso, Top 10 clientes (barra horizontal), Top 10 produtos, distribuição por UF.
+- **Minhas Rupturas**: bloco vermelho com pedidos do vendedor que tiveram falta no período (produto, cliente, motivo, data).
 
-A lógica de agrupamento em `CarregamentoTable.tsx` (`buildGroups`) faz:
+Tudo somente-leitura. Vendedor não cria, edita ou exclui nada.
 
-- Se o registro tem `numero_pedido` preenchido → agrupa por `codigo_cliente + numero_pedido` (separa corretamente).
-- Se `numero_pedido` está vazio → cai no fallback: agrupa por `codigo_cliente + data` (junta tudo do mesmo cliente no mesmo dia).
+### Como o acesso funciona
 
-Consultando os registros de hoje, **todos os pedidos novos têm `numero_pedido = NULL`**. Ou seja, o campo não está sendo preenchido no formulário de criação, e por isso dois "pedidos diferentes" do mesmo cliente acabam sendo identificados como o mesmo grupo.
+1. Admin abre **Usuários** (Super Admin) e cria a conta do vendedor escolhendo:
+   - papel = `vendedor`
+   - vínculo = qual cadastro de `vendedores` pertence a esse login (dropdown).
+2. Vendedor recebe email/senha e entra em `/auth` normalmente.
+3. Ao logar, é redirecionado automaticamente para `/meu-painel` e a sidebar mostra apenas: **Meu Painel** e **Sair**.
+4. Todas as queries filtram por `vendedor_id = (meu vínculo)` via RLS — vendedor não consegue ver dados de colega nem mesmo via API.
 
-## Solução
+---
 
-Mudar o fallback de agrupamento para que, quando `numero_pedido` for nulo, cada lançamento em momentos distintos seja tratado como um pedido separado — em vez de agrupar tudo do cliente no dia.
+## Detalhes técnicos
 
-### Alteração
+### Banco (migration)
 
-`src/components/dashboard/CarregamentoTable.tsx` — função `buildGroups` (linhas 101-121):
+1. Adicionar valor `'vendedor'` ao enum `app_role`.
+2. Nova tabela `vendedor_users` (vínculo 1:1 entre `auth.users` e `vendedores`):
+   - `user_id uuid PK references auth.users on delete cascade`
+   - `vendedor_id uuid not null references vendedores(id) on delete cascade`
+   - `unique(vendedor_id)`  ← um vendedor = um login
+   - RLS: `select` próprio + admin lê todos; `insert/update/delete` só admin.
+3. Função `security definer` `public.get_my_vendedor_id()` → retorna o `vendedor_id` do `auth.uid()`.
+4. **Novas políticas RLS** em `carregamentos_dia` e `clientes` para o papel `vendedor` (somente SELECT, sem mexer nas existentes):
+   - `carregamentos_dia`: `vendedor_id = public.get_my_vendedor_id()`.
+   - `clientes`: liberado SELECT (precisa para o nome) — ou via view se quisermos restringir.
+5. Atualizar `handle_new_user()`: se metadata trouxer `role = 'vendedor'` + `vendedor_id`, criar entrada em `user_roles` e `vendedor_users` em vez do default `logistica`.
 
-Trocar o fallback `${codigo_cliente}__d${data}` por uma chave baseada no instante de criação compartilhado pelos itens criados juntos. Pedidos cadastrados na mesma "leva" (multi-produto) compartilham o mesmo `created_at` ao milissegundo (visível na consulta: vários itens com `created_at = 2026-04-27 12:24:29.493623`); pedidos lançados em momentos diferentes terão `created_at` distintos.
+### Frontend
 
-Nova lógica:
+- `src/hooks/useAuth.ts`: incluir `'vendedor'` em `AppRole`.
+- `src/components/ProtectedRoute.tsx`: redirecionamento por papel — se `role === 'vendedor'`, fallback é `/meu-painel`.
+- `src/components/AppSidebar.tsx`: árvore reduzida para vendedor (apenas item "Meu Painel" + Sair).
+- `src/App.tsx`: nova rota `/meu-painel` protegida por `allowedRoles={["vendedor"]}` (lazy).
+- `src/pages/MeuPainel.tsx` (nova): orquestra os blocos abaixo.
+- `src/components/vendedor/`:
+  - `KpiVendedor.tsx` (4 cards)
+  - `CargasAndamentoVendedor.tsx` (lista agrupada por etapa)
+  - `GraficosVendedor.tsx` (Recharts, paleta já memorizada)
+  - `RupturasVendedor.tsx` (bloco vermelho — usa cor reservada para Rupturas)
+- `src/hooks/useMeuPainel.ts`: query única `enabled: !!session && role === 'vendedor'`, com `dateRange`. Reaproveita estrutura paginada do `useCarregamentos` mas sem filtro de etapa.
+- **Página Usuários** (`src/pages/Usuarios.tsx`): no formulário de novo usuário, ao escolher papel `vendedor`, exibir um `Select` obrigatório com a lista de `vendedores` ainda não vinculados. Edge function `create-user` recebe `vendedor_id` e cria a linha em `vendedor_users` após criar o auth user.
 
-```ts
-const key = c.numero_pedido != null
-  ? `${c.codigo_cliente}__p${c.numero_pedido}`
-  : `${c.codigo_cliente}__t${c.created_at}`;
-```
+### Formato
 
-### Resultado
+- Datas/números em pt-BR (já padrão).
+- Mobile-first: KPIs viram coluna única, gráficos empilham, lista vira cards.
+- Responsivo conforme padrão do projeto (Slate, vermelho só em rupturas).
 
-- Pedido com `numero_pedido` preenchido: continua agrupando por cliente+pedido (inalterado).
-- Pedido sem `numero_pedido` cadastrado de uma vez (múltiplos produtos no mesmo dialog): agrupado corretamente como um pedido só (mesmo `created_at`).
-- Dois pedidos distintos do mesmo cliente, lançados em momentos diferentes: aparecem como pedidos separados na tabela.
+### Fora de escopo
 
-### Observação
+- Edição de pedidos pelo vendedor.
+- Notificações em tempo real para o vendedor (pode entrar numa v2).
+- Comissões/valor financeiro (sistema não rastreia preço hoje — confirmado em "Operational scope").
 
-Essa correção resolve o sintoma. A causa raiz é que o `numero_pedido` não está sendo capturado no cadastro — se quiser, em uma próxima iteração podemos tornar esse campo mais visível ou obrigatório no `CarregamentoDialog`.
+---
+
+Pronto para implementar assim que você aprovar.
