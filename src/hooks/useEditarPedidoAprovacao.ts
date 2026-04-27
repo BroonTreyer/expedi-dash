@@ -11,6 +11,7 @@ export interface EditItemPayload {
   preco_unitario: number;
   preco_total: number;
   motivo_ruptura?: string | null;
+  ruptura?: boolean;
 }
 
 export interface EditarPedidoPayload {
@@ -58,6 +59,7 @@ export function useEditarPedidoAprovacao() {
             preco_unitario: it.preco_unitario || null,
             preco_total: it.preco_total || null,
             motivo_ruptura: it.motivo_ruptura || null,
+            ruptura: !!it.ruptura,
             observacoes: meta.observacoes || null,
             ...(aprovarAposSalvar ? { etapa: "vendas", status: "Aguardando" } : {}),
           })
@@ -84,6 +86,7 @@ export function useEditarPedidoAprovacao() {
           preco_unitario: it.preco_unitario || null,
           preco_total: it.preco_total || null,
           motivo_ruptura: it.motivo_ruptura || null,
+          ruptura: !!it.ruptura,
           observacoes: meta.observacoes || null,
           etapa: aprovarAposSalvar ? "vendas" : "aguardando_faturamento",
           status: "Aguardando",
