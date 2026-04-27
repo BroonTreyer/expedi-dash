@@ -1,71 +1,32 @@
-# Editar pedido inteiro (todos os produtos) + corrigir duplicação ao trocar nº pedido / cliente
+# Remover edição isolada de produto
 
-## Problema
+Atualmente o sistema oferece dois caminhos de edição:
+1. **Edição de pedido completo** (group edit) — acionada no cabeçalho de pedidos com múltiplos produtos.
+2. **Edição isolada de produto** — botão de lápis em cada linha individual (desktop) e em cada card de produto filho (mobile), além de pedidos com um único produto.
 
-Hoje, ao clicar em editar um item do pedido 3301 e trocar o número para 33011 (ou trocar o cliente), o sistema parece "criar outro pedido". Acontece porque:
+A solicitação é manter **apenas a edição completa do pedido**, eliminando a edição isolada por produto.
 
-1. O botão **Editar** envia ao diálogo apenas **uma linha de produto**, nunca os irmãos do mesmo pedido.
-2. Ao salvar, só essa linha recebe o novo `numero_pedido` / `cliente`. Os outros produtos do pedido continuam com os valores antigos.
-3. A propagação automática (`SHARED_FIELDS` em `src/pages/Index.tsx`) busca irmãos pelo `numero_pedido` **antigo** e copia alguns campos — mas `numero_pedido` e `data` **não estão na lista**, então os irmãos não são renumerados nem o cliente é atualizado neles de forma consistente.
-4. Resultado visual: o pedido aparece "partido em dois" — um grupo com 33011/cliente novo e outro com 3301/cliente antigo, dando a impressão de duplicação.
+## Comportamento após a mudança
 
-## Solução
+- Ao clicar em "Editar" em qualquer linha (pai, filho, ou pedido com produto único), o diálogo abrirá em **modo grupo**, carregando **todos os produtos** que compartilham o mesmo `numero_pedido` (e cliente/data) — mesmo quando o pedido tiver apenas 1 item.
+- Não haverá mais botão de edição que atue sobre um único produto isolado dentro de um pedido com múltiplos itens.
+- A propagação de campos (`SHARED_FIELDS`) permanece, mas se torna redundante — todas as edições já passam pelo fluxo de grupo.
 
-### 1. Botão "Editar pedido inteiro" no agrupamento
+## Alterações técnicas
 
-Em `src/components/dashboard/CarregamentoTable.tsx`, quando o grupo tem mais de 1 produto (mesmo cliente + mesmo `numero_pedido`), o ícone de editar passa a chamar um novo callback `onEditGroup(group.items)` em vez de `onEdit(first)`. Para grupos de 1 item, mantém o comportamento atual.
+### `src/components/dashboard/CarregamentoTable.tsx`
+- **Desktop (linha ~593 e ~820)**: substituir `onClick={() => onEdit(c)}` nos botões de lápis por uma chamada que sempre dispara `onEditGroup(group.items)` (usando os itens do grupo ao qual a linha pertence). Para o caso de pedido único, `group.items` terá um único elemento e ainda assim entrará no fluxo de grupo.
+- **Cabeçalho de grupo (linha ~748)**: simplificar — sempre chamar `onEditGroup(group.items)`, removendo o fallback `onEdit(first)`.
+- **Mobile (`MobileCardItem`, linha ~241)**: o `onClick` do botão de editar passa a sempre invocar `onEditGroup(groupItems)` quando disponível. O ramo `onEdit(c)` para item filho (`isGrouped`) é removido.
+- A prop `onEdit` permanece na interface para evitar refator em cascata, mas deixa de ser invocada pelos botões de UI (poderá ser removida em limpeza posterior).
 
-Aplicar nos três pontos da tabela onde `onEdit` é chamado (desktop expandido, mobile, header do grupo) e no `MobileCardView`.
+### `src/pages/Index.tsx`
+- O fluxo de `handleEditGroup` já existe e já trata corretamente pedidos de 1 item (carrega `cloneItems`, ativa `editingGroup`).
+- Ajustar `CarregamentoDialog` para garantir que, mesmo com 1 item, abra com a grade de produtos (modo grupo) — verificar se há early-return quando `cloneItems.length === 1`. Se houver, remover a condição.
 
-### 2. Novo handler em `Index.tsx`
+### `src/components/dashboard/CarregamentoDialog.tsx`
+- Garantir que `editingGroup === true` sempre renderize o editor multi-produto, independentemente de `cloneItems.length`.
+- Manter validação e payload (`_batchUpdates`, `_batch`, `_deleteIds`) inalterados.
 
-Adicionar `handleEditGroup(items)` que abre o `CarregamentoDialog` no modo `editar` com:
-- `editing` = primeiro item do grupo (mantém id real para update)
-- `cloneItems` = todos os itens do grupo (reaproveita a lógica de hidratar múltiplos produtos já existente em `CarregamentoDialog` linha 100-114)
-- Um novo flag `editingGroup: true` para o diálogo saber que é edição em grupo.
-
-### 3. `CarregamentoDialog`: salvar pedido inteiro
-
-Quando `editingGroup === true`:
-- Linha 1 do array de itens → UPDATE no `editing.id` (já funciona).
-- Linhas 2..N que correspondem a itens originais existentes → UPDATE pelos respectivos `id` (carregar via `cloneItems` e mapear `id` → item).
-- Linhas adicionadas pelo usuário → INSERT (`_batch`).
-- Linhas originais que o usuário removeu → DELETE pelos ids ausentes (`_deleteIds`).
-
-O payload enviado a `onSubmit` ganha:
-```ts
-{ ...updatePayload, _batchUpdates: [...], _batch: [...], _deleteIds: [...] }
-```
-
-### 4. `Index.tsx` `handleSubmit`: aplicar batch e remover cascata por irmãos
-
-Quando recebe `_batchUpdates` / `_deleteIds`:
-- Roda `batchUpdateMut` com todos os updates (inclusive o principal — todos compartilham o mesmo `basePayload` com `numero_pedido`, `cliente`, `codigo_cliente`, `cidade`, `uf` etc., garantindo consistência).
-- Roda `batchCreateMut` para `_batch` (novos produtos).
-- Roda delete em massa para `_deleteIds`.
-- **Pula a cascata por `numero_pedido` antigo** (já não é necessária, pois todos os irmãos foram explicitamente atualizados).
-
-Para edição de item único (modo atual), mantém a cascata existente e adiciona `numero_pedido` ao `SHARED_FIELDS` para resolver o caso onde alguém edita apenas 1 produto e troca o nº — assim os irmãos acompanham.
-
-### 5. UX
-
-- Título do diálogo em modo grupo: "Editar pedido completo (N produtos)".
-- Manter ações "+ adicionar produto" e remover linha (já existem).
-- Toast de confirmação informando quantos produtos foram atualizados/criados/removidos.
-
-## Detalhes técnicos
-
-**Arquivos alterados**:
-- `src/components/dashboard/CarregamentoTable.tsx` — novo prop `onEditGroup`, redirecionar clique de editar quando `group.items.length > 1`.
-- `src/components/dashboard/CarregamentoDialog.tsx` — receber `editingGroup`, mapear ids originais nos `items`, montar payload com `_batchUpdates` e `_deleteIds`.
-- `src/pages/Index.tsx` — novo `handleEditGroup`, processar `_batchUpdates`/`_deleteIds` em `handleSubmit`, adicionar `numero_pedido` em `SHARED_FIELDS`.
-- `src/hooks/useCarregamentos.ts` — verificar/adicionar `batchDeleteMut` se ainda não existir (usar o existente se houver).
-
-**Sem mudanças** em banco de dados, RLS, edge functions ou tipos gerados.
-
-## Resultado esperado
-
-- Clicar em editar um pedido com vários produtos abre o diálogo com **todos** os produtos pré-carregados.
-- Trocar nº do pedido (3301 → 33011) ou cliente atualiza **todas** as linhas do pedido em uma única operação.
-- Não aparece mais "pedido duplicado" — o grupo permanece coeso na tabela.
-- Edição de produto único continua funcionando, agora também propagando alteração de `numero_pedido` para os irmãos.
+## Resumo
+Um único caminho de edição: **sempre o pedido inteiro**. Mais previsível, elimina o risco de criar duplicatas/órfãos por edição parcial e alinha com o fluxo de criação (que já é multi-produto).
