@@ -277,7 +277,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
 
     if (editing && editing.id && !editing.id.startsWith("clone-")) {
-      // First item is an update; additional items are batch inserts
+      // First item is the main update; additional items are inserts (or updates when editingGroup)
       const firstItem = finalItems[0];
       const updatePayload = {
         ...basePayload,
@@ -290,7 +290,45 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         ruptura: firstItem.ruptura,
       };
 
-      if (finalItems.length > 1) {
+      if (editingGroup && cloneItems && cloneItems.length > 0) {
+        // Group edit: classify each "extra" item as update (originalId) or insert
+        const batchUpdates: Record<string, any>[] = [];
+        const batchInserts: Record<string, any>[] = [];
+        for (const item of finalItems.slice(1)) {
+          const row = {
+            ...basePayload,
+            codigo_produto: item.codigo_produto,
+            nome_produto: item.nome_produto,
+            quantidade: item.quantidade,
+            peso: item.peso,
+            peso_manual: item.pesoManual,
+            ruptura: item.ruptura,
+          };
+          if ((item as any).originalId) {
+            batchUpdates.push({ id: (item as any).originalId, ...row });
+          } else {
+            batchInserts.push(row);
+          }
+        }
+        // Detect rows the user removed: present in cloneItems but not among kept originalIds
+        const keptIds = new Set(
+          finalItems
+            .map((it) => (it as any).originalId)
+            .filter((id): id is string => !!id)
+        );
+        keptIds.add(editing.id);
+        const deleteIds = cloneItems
+          .map((c) => c.id)
+          .filter((id) => !keptIds.has(id));
+
+        onSubmit({
+          ...updatePayload,
+          _batchUpdates: batchUpdates,
+          _batch: batchInserts,
+          _deleteIds: deleteIds,
+          _editingGroup: true,
+        });
+      } else if (finalItems.length > 1) {
         const extraRows = finalItems.slice(1).map(item => ({
           ...basePayload,
           codigo_produto: item.codigo_produto,
