@@ -211,7 +211,7 @@ export default function Index() {
   const SHARED_FIELDS = useMemo(() => [
     'vendedor_id', 'codigo_cliente', 'cliente', 'cidade', 'uf', 'tipo_frete',
     'tipo_caminhao', 'placa', 'motorista', 'transportadora', 'carga_id', 'nome_carga',
-    'horario_previsto', 'observacoes', 'status', 'etapa',
+    'horario_previsto', 'observacoes', 'status', 'etapa', 'numero_pedido',
   ], []);
 
   const handleSubmit = useCallback((values: Record<string, any>) => {
@@ -224,16 +224,33 @@ export default function Index() {
     };
 
     if (values.id) {
-      // Edit mode: update the main item
-      const { _batch, ...updatePayload } = values;
+      // Edit mode
+      const { _batch, _batchUpdates, _deleteIds, _editingGroup, ...updatePayload } = values;
+
+      if (_editingGroup) {
+        // Full group edit: explicit updates/inserts/deletes — no implicit cascade needed.
+        updateMut.mutate(updatePayload, onFkError);
+        if (Array.isArray(_batchUpdates) && _batchUpdates.length > 0) {
+          batchUpdateMut.mutate(_batchUpdates, onFkError);
+        }
+        if (Array.isArray(_batch) && _batch.length > 0) {
+          batchCreateMut.mutate(_batch, onFkError);
+        }
+        if (Array.isArray(_deleteIds) && _deleteIds.length > 0) {
+          batchDeleteMut.mutate(_deleteIds);
+        }
+        return;
+      }
+
+      // Single-item edit
       updateMut.mutate(updatePayload, onFkError);
 
-      // If there are additional items from multi-product edit, insert them
       if (Array.isArray(_batch) && _batch.length > 0) {
         batchCreateMut.mutate(_batch, onFkError);
       }
 
-      // Cascade: propagate shared fields to sibling rows (same numero_pedido + data)
+      // Cascade: propagate shared fields to sibling rows (same numero_pedido + data).
+      // Match by the OLD numero_pedido so renumbering also propagates.
       const editedItem = carregamentos.find((c) => c.id === values.id);
       if (editedItem && editedItem.numero_pedido) {
         const siblings = carregamentos.filter(
@@ -265,7 +282,7 @@ export default function Index() {
         createMut.mutate(values, onFkError);
       }
     }
-  }, [updateMut, createMut, batchCreateMut, batchUpdateMut, carregamentos, SHARED_FIELDS]);
+  }, [updateMut, createMut, batchCreateMut, batchUpdateMut, batchDeleteMut, carregamentos, SHARED_FIELDS]);
 
   const handleEdit = useCallback((c: Carregamento) => {
     if (!canEdit) return;
