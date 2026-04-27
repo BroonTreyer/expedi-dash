@@ -368,8 +368,16 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
-          <DialogTitle>{TITLES[mode]}</DialogTitle>
-          <DialogDescription>{DESCRIPTIONS[mode]}</DialogDescription>
+          <DialogTitle>
+            {editingGroup
+              ? `Editar pedido completo${cloneItems?.length ? ` (${cloneItems.length} produtos)` : ""}`
+              : TITLES[mode]}
+          </DialogTitle>
+          <DialogDescription>
+            {editingGroup
+              ? "Alterações em cliente, número do pedido e logística serão aplicadas a todos os produtos abaixo."
+              : DESCRIPTIONS[mode]}
+          </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* === VENDAS FIELDS === */}
