@@ -237,8 +237,8 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
-                title={isGroupHeader ? "Editar pedido completo" : "Editar"}
-                onClick={() => isGroupHeader && onEditGroup && groupItems ? onEditGroup(groupItems) : onEdit(c)}
+                title="Editar pedido completo"
+                onClick={() => onEditGroup && groupItems ? onEditGroup(groupItems) : onEdit(c)}
               >
                 <Edit className="h-3.5 w-3.5" />
               </Button>
@@ -590,7 +590,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canEdit && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar pedido completo" onClick={() => onEditGroup ? onEditGroup(group.items) : onEdit(c)}>
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -743,9 +743,9 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              title={group.items.length > 1 ? "Editar pedido completo" : "Editar"}
+                              title="Editar pedido completo"
                               onClick={() => {
-                                if (group.items.length > 1 && onEditGroup) {
+                                if (onEditGroup) {
                                   onEditGroup(group.items);
                                 } else {
                                   onEdit(first);
@@ -817,7 +817,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                               </Button>
                             )}
                             {canEdit && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar pedido completo" onClick={() => onEditGroup ? onEditGroup(group.items) : onEdit(c)}>
                                 <Edit className="h-3.5 w-3.5" />
                               </Button>
                             )}
