@@ -38,6 +38,7 @@ const PortalMotorista = lazy(() => import("./pages/PortalMotorista"));
 const TemplatesRota = lazy(() => import("./pages/TemplatesRota"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MeuPainel = lazy(() => import("./pages/MeuPainel"));
+const VendedoresPainel = lazy(() => import("./pages/VendedoresPainel"));
 
 const PageFallback = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -97,6 +98,8 @@ function AppRoutes() {
           <Route path="/relatorios" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Relatorios /></ProtectedRoute>} />
           <Route path="/templates-rota" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><TemplatesRota /></ProtectedRoute>} />
           <Route path="/meu-painel" element={<ProtectedRoute allowedRoles={["vendedor"]}><MeuPainel /></ProtectedRoute>} />
+          <Route path="/meu-painel/:vendedorId" element={<ProtectedRoute allowedRoles={["admin"]}><MeuPainel /></ProtectedRoute>} />
+          <Route path="/vendedores-painel" element={<ProtectedRoute allowedRoles={["admin"]}><VendedoresPainel /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

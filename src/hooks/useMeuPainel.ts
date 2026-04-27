@@ -18,36 +18,69 @@ export function useMeuPainel(dateRange: DateRange) {
   const from = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : null;
   const to = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : from;
 
+  return useMeuPainelInternal(dateRange, undefined);
+}
+
+/** Variante para Admin visualizar o painel de um vendedor específico. */
+export function useMeuPainelAdmin(dateRange: DateRange, vendedorId: string | null) {
+  return useMeuPainelInternal(dateRange, vendedorId);
+}
+
+function useMeuPainelInternal(dateRange: DateRange, override: string | null | undefined) {
+  const session = useSession();
+  const { role } = useAuth();
+
+  const isAdminView = override !== undefined;
+  const from = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : null;
+  const to = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : from;
+
   return useQuery<MeuPainelData>({
-    queryKey: ["meu-painel", from, to],
-    enabled: !!session && role === "vendedor" && !!from && !!to,
+    queryKey: ["meu-painel", isAdminView ? `admin:${override ?? ""}` : "self", from, to],
+    enabled: !!session && !!from && !!to && (
+      isAdminView ? (role === "admin" && !!override) : role === "vendedor"
+    ),
     staleTime: 30_000,
     queryFn: async () => {
-      // 1. Descobrir vendedor vinculado
-      const { data: link } = await supabase
-        .from("vendedor_users")
-        .select("vendedor_id, vendedores:vendedor_id(id, nome_vendedor)")
-        .maybeSingle();
+      let vendedorId: string | null = null;
+      let vendedorNome: string | null = null;
 
-      const vendedorId = (link as any)?.vendedor_id ?? null;
-      const vendedorNome = (link as any)?.vendedores?.nome_vendedor ?? null;
+      if (isAdminView) {
+        vendedorId = override ?? null;
+        if (vendedorId) {
+          const { data: v } = await supabase
+            .from("vendedores")
+            .select("nome_vendedor")
+            .eq("id", vendedorId)
+            .maybeSingle();
+          vendedorNome = (v as any)?.nome_vendedor ?? null;
+        }
+      } else {
+        const { data: link } = await supabase
+          .from("vendedor_users")
+          .select("vendedor_id, vendedores:vendedor_id(id, nome_vendedor)")
+          .maybeSingle();
+        vendedorId = (link as any)?.vendedor_id ?? null;
+        vendedorNome = (link as any)?.vendedores?.nome_vendedor ?? null;
+      }
 
       if (!vendedorId) {
         return { vendedorId: null, vendedorNome: null, carregamentos: [] };
       }
 
-      // 2. Pedidos do vendedor no intervalo (RLS já restringe por vendedor_id, mas filtramos por data)
+      // Admin não tem RLS de vendedor, precisa filtrar manualmente; vendedor já é restrito por RLS.
       let all: any[] = [];
       let cursor = 0;
       const PAGE = 1000;
       while (true) {
-        const { data, error } = await supabase
+        let q = supabase
           .from("carregamentos_dia")
           .select("*")
           .gte("data", from!)
           .lte("data", to!)
           .order("data", { ascending: false })
           .range(cursor, cursor + PAGE - 1);
+        if (isAdminView) q = q.eq("vendedor_id", vendedorId);
+        const { data, error } = await q;
         if (error) throw error;
         if (!data || data.length === 0) break;
         all = all.concat(data);
