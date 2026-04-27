@@ -287,16 +287,33 @@ export default function Index() {
   const handleEdit = useCallback((c: Carregamento) => {
     if (!canEdit) return;
     setEditing(c);
+    setCloneItems([]);
+    setEditingGroup(false);
     setDialogMode("editar");
     setDialogOpen(true);
   }, [canEdit]);
 
   const [cloneItems, setCloneItems] = useState<Carregamento[]>([]);
+  const [editingGroup, setEditingGroup] = useState(false);
+
+  const handleEditGroup = useCallback((items: Carregamento[]) => {
+    if (!canEdit || items.length === 0) return;
+    if (items.length === 1) {
+      handleEdit(items[0]);
+      return;
+    }
+    setEditing(items[0]);
+    setCloneItems(items);
+    setEditingGroup(true);
+    setDialogMode("editar");
+    setDialogOpen(true);
+  }, [canEdit, handleEdit]);
 
   const handleClone = useCallback((items: Carregamento[]) => {
     if (!canEdit || items.length === 0) return;
     const cloned = { ...items[0], id: `clone-${crypto.randomUUID()}`, numero_pedido: null } as Carregamento;
     setCloneItems(items);
+    setEditingGroup(false);
     setEditing(cloned);
     setDialogMode("vendas");
     setDialogOpen(true);
