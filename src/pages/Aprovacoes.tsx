@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, CheckCircle2, XCircle, Inbox } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Inbox, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAprovacoesPendentes, useAprovarPedidos, useRejeitarPedidos } from "@/hooks/useAprovacoes";
+import { EditarPedidoAprovacaoDialog } from "@/components/aprovacoes/EditarPedidoAprovacaoDialog";
 
 export default function Aprovacoes() {
   const { data: pedidos = [], isLoading } = useAprovacoesPendentes();
@@ -18,6 +19,7 @@ export default function Aprovacoes() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rejectOpen, setRejectOpen] = useState(false);
   const [motivo, setMotivo] = useState("");
+  const [editGrupo, setEditGrupo] = useState<any[] | null>(null);
 
   const grupos = useMemo(() => {
     const map = new Map<string, any[]>();
@@ -126,6 +128,16 @@ export default function Aprovacoes() {
                       {head.observacoes && (
                         <p className="mt-1 text-[11px] italic text-muted-foreground">"{head.observacoes}"</p>
                       )}
+                      <div className="mt-2 flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() => setEditGrupo(g)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Editar
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -148,6 +160,12 @@ export default function Aprovacoes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditarPedidoAprovacaoDialog
+        open={!!editGrupo}
+        onOpenChange={(o) => { if (!o) setEditGrupo(null); }}
+        grupo={editGrupo}
+      />
     </Layout>
   );
 }
