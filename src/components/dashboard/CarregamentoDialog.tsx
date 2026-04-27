@@ -23,6 +23,7 @@ interface ProductItem {
   pesoPadrao: number;
   ruptura: boolean;
   pesoManual: boolean;
+  originalId?: string;
 }
 
 const emptyItem = (): ProductItem => ({
@@ -48,6 +49,8 @@ interface Props {
   selectedDate: string;
   defaultRuptura?: boolean;
   cloneItems?: Carregamento[];
+  /** When true, all rows in cloneItems represent siblings of the same order being edited together. */
+  editingGroup?: boolean;
   isSubmitting?: boolean;
 }
 
@@ -63,7 +66,7 @@ const DESCRIPTIONS: Record<DialogMode, string> = {
   editar: "Edite todos os campos do carregamento",
 };
 
-export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura, cloneItems, isSubmitting }: Props) {
+export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode, vendedores, tiposCaminhao, produtos, clientes, selectedDate, defaultRuptura, cloneItems, editingGroup, isSubmitting }: Props) {
   const session = useSession();
   const [form, setForm] = useState<Record<string, any>>({});
   const [codigoVendedorInput, setCodigoVendedorInput] = useState("");
@@ -110,9 +113,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         pesoPadrao: pp,
         ruptura: row.ruptura ?? false,
         pesoManual: true,
+        // Track original DB id only when editing a full group
+        originalId: editingGroup ? row.id : undefined,
       };
     }));
-  }, [editing, open, produtos, vendedores, cloneItems]);
+  }, [editing, open, produtos, vendedores, cloneItems, editingGroup]);
 
   useEffect(() => {
     if (!open) return;
@@ -272,7 +277,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     }
 
     if (editing && editing.id && !editing.id.startsWith("clone-")) {
-      // First item is an update; additional items are batch inserts
+      // First item is the main update; additional items are inserts (or updates when editingGroup)
       const firstItem = finalItems[0];
       const updatePayload = {
         ...basePayload,
@@ -285,7 +290,45 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         ruptura: firstItem.ruptura,
       };
 
-      if (finalItems.length > 1) {
+      if (editingGroup && cloneItems && cloneItems.length > 0) {
+        // Group edit: classify each "extra" item as update (originalId) or insert
+        const batchUpdates: Record<string, any>[] = [];
+        const batchInserts: Record<string, any>[] = [];
+        for (const item of finalItems.slice(1)) {
+          const row = {
+            ...basePayload,
+            codigo_produto: item.codigo_produto,
+            nome_produto: item.nome_produto,
+            quantidade: item.quantidade,
+            peso: item.peso,
+            peso_manual: item.pesoManual,
+            ruptura: item.ruptura,
+          };
+          if ((item as any).originalId) {
+            batchUpdates.push({ id: (item as any).originalId, ...row });
+          } else {
+            batchInserts.push(row);
+          }
+        }
+        // Detect rows the user removed: present in cloneItems but not among kept originalIds
+        const keptIds = new Set(
+          finalItems
+            .map((it) => (it as any).originalId)
+            .filter((id): id is string => !!id)
+        );
+        keptIds.add(editing.id);
+        const deleteIds = cloneItems
+          .map((c) => c.id)
+          .filter((id) => !keptIds.has(id));
+
+        onSubmit({
+          ...updatePayload,
+          _batchUpdates: batchUpdates,
+          _batch: batchInserts,
+          _deleteIds: deleteIds,
+          _editingGroup: true,
+        });
+      } else if (finalItems.length > 1) {
         const extraRows = finalItems.slice(1).map(item => ({
           ...basePayload,
           codigo_produto: item.codigo_produto,
@@ -325,8 +368,16 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
-          <DialogTitle>{TITLES[mode]}</DialogTitle>
-          <DialogDescription>{DESCRIPTIONS[mode]}</DialogDescription>
+          <DialogTitle>
+            {editingGroup
+              ? `Editar pedido completo${cloneItems?.length ? ` (${cloneItems.length} produtos)` : ""}`
+              : TITLES[mode]}
+          </DialogTitle>
+          <DialogDescription>
+            {editingGroup
+              ? "Alterações em cliente, número do pedido e logística serão aplicadas a todos os produtos abaixo."
+              : DESCRIPTIONS[mode]}
+          </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* === VENDAS FIELDS === */}
