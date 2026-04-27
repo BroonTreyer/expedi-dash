@@ -146,13 +146,13 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+        <div className="min-w-0">
           <h2 className="text-base font-semibold">Meus Pedidos</h2>
           <p className="text-xs text-muted-foreground">Crie pedidos, salve como rascunho e envie para o faturamento aprovar.</p>
         </div>
         {!readOnly && (
-          <Button size="sm" className="gap-1" onClick={() => { setEditing(null); setOpenDialog(true); }}>
+          <Button size="sm" className="gap-1 w-full sm:w-auto" onClick={() => { setEditing(null); setOpenDialog(true); }}>
             <Plus className="h-4 w-4" /> Novo pedido
           </Button>
         )}
@@ -169,7 +169,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Section
           title="Rascunhos"
           icon={<FileText className="h-4 w-4 text-muted-foreground" />}
@@ -242,7 +242,7 @@ function Section({
       {groups.length === 0 ? (
         <p className="text-xs text-muted-foreground py-3 text-center">{empty}</p>
       ) : (
-        <div className="space-y-2 max-h-[420px] overflow-y-auto">
+        <div className="space-y-2 lg:max-h-[420px] lg:overflow-y-auto">
           {groups.map((g, i) => {
             const head = g[0];
             const totalPeso = g.reduce((s, r) => s + Number(r.peso ?? 0), 0);

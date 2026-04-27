@@ -136,16 +136,16 @@ export default function MeuPainel() {
           </div>
         ) : (
           <Tabs defaultValue="pedidos" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="pedidos">
+            <TabsList className="w-full overflow-x-auto justify-start sm:justify-center sm:w-auto">
+              <TabsTrigger value="pedidos" className="flex-shrink-0">
                 Meus Pedidos
                 {meusPedidos.length > 0 && (
                   <Badge variant="secondary" className="ml-2">{meusPedidos.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="cargas">Cargas em andamento</TabsTrigger>
-              <TabsTrigger value="rupturas">Rupturas</TabsTrigger>
-              <TabsTrigger value="resumo">Resumo</TabsTrigger>
+              <TabsTrigger value="cargas" className="flex-shrink-0">Cargas</TabsTrigger>
+              <TabsTrigger value="rupturas" className="flex-shrink-0">Rupturas</TabsTrigger>
+              <TabsTrigger value="resumo" className="flex-shrink-0">Resumo</TabsTrigger>
             </TabsList>
 
             <TabsContent value="pedidos" className="space-y-4">
