@@ -987,6 +987,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_portal_data_public: { Args: { _token: string }; Returns: Json }
+      get_portal_token_public: {
+        Args: { _token: string }
+        Returns: {
+          carga_id: string
+          expires_at: string
+          motorista: string
+          nome_carga: string
+          placa: string
+          transportadora: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -50,23 +50,19 @@ export default function PortalMotorista() {
     if (!token) { setError("Link inválido"); setLoading(false); return; }
 
     async function load() {
-      // Fetch token
-      const { data: tk, error: tkErr } = await supabase
-        .from("portal_tokens")
-        .select("*")
-        .eq("token", token)
-        .maybeSingle();
+      // Public RPC — entrega token + pedidos sem expor a tabela inteira
+      const { data: payload, error: rpcErr } = await supabase
+        .rpc("get_portal_data_public", { _token: token });
 
-      if (tkErr || !tk) { setError("Link não encontrado ou inválido"); setLoading(false); return; }
-      if (new Date(tk.expires_at) < new Date()) { setError("Este link expirou"); setLoading(false); return; }
+      if (rpcErr || !payload || (payload as any).error) {
+        setError("Link não encontrado, inválido ou expirado");
+        setLoading(false);
+        return;
+      }
 
-      setTokenData(tk as TokenData);
-
-      // Fetch carga info
-      const { data: pedidos } = await supabase
-        .from("carregamentos_dia")
-        .select("*")
-        .eq("carga_id", tk.carga_id);
+      const tk = (payload as any).token as TokenData;
+      const pedidos = ((payload as any).pedidos || []) as any[];
+      setTokenData(tk);
 
       if (!pedidos || pedidos.length === 0) {
         setCarga({
