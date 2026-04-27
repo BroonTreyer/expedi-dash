@@ -1,27 +1,27 @@
-## Adicionar campo de preço no pedido do vendedor
+## Melhorias no NovoPedidoDialog (vendedor)
 
-### Banco de dados
-- Adicionar duas colunas opcionais em `carregamentos_dia`:
-  - `preco_unitario numeric` — valor por unidade/kg
-  - `preco_total numeric` — calculado (preço unitário × quantidade), persistido para facilitar relatórios
+Dois ajustes no formulário de pedido do vendedor:
 
-### Formulário (`NovoPedidoDialog.tsx`)
-- Nova coluna **Preço unit. (R$)** em cada linha de item, ao lado de Peso/Qtd.
-- Cálculo automático bidirecional simples: ao alterar Preço unit. ou Quantidade, recalcular Preço total exibido na linha.
-- Mostrar **Total do item** e **Total do pedido** (soma) no rodapé do dialog, formatado em pt-BR (R$ 1.234,56).
-- Campo opcional: vendedor pode salvar rascunho sem preço; mas, ao **enviar para faturamento**, exibir aviso (não bloqueia) caso algum item esteja sem preço.
+### 1. Campo de produto com busca (digitar código OU nome)
 
-### Persistência (`MeusPedidos.tsx`)
-- Incluir `preco_unitario` e `preco_total` no INSERT/UPDATE dos itens.
-- Adicionar `preco_unitario` ao SELECT do registro em edição para preencher o form.
+Substituir o `Select` atual de produto por um **Combobox com busca** (padrão `Command` do shadcn, igual ao usado no `CarregamentoDialog`):
 
-### Listagem
-- **Card do pedido** (Rascunhos / Aguardando / Aprovados): mostrar “Total: R$ X.XXX,XX” logo abaixo do peso total.
-- **Tela de Aprovações** (`/aprovacoes`): exibir o preço unitário e o total por item, e total geral do pedido para o faturamento conferir.
+- Input de busca livre que filtra a lista por **código** ou **nome** do produto enquanto digita.
+- Resultado em dropdown mostrando `código – nome`.
+- Ao selecionar, preenche código + nome + peso padrão como hoje.
+- Mantém a lista limitada aos produtos `ativo = true`.
 
-### Tipos
-- Atualizar `NovoPedidoSubmit.items` para incluir `preco_unitario` e `preco_total`.
+### 2. Peso ↔ Quantidade bidirecional
 
-### Fora de escopo
-- Sem alterar regras de RLS (campos novos seguem as mesmas políticas já existentes).
-- Sem mudança no fluxo de aprovação.
+Hoje a relação só funciona num sentido (qtd → peso). Vou tornar bidirecional, igual ao padrão da memória `data-automation`:
+
+- **Mudou Quantidade** → recalcula `peso = pesoPadrao × qtd` (como já é hoje).
+- **Mudou Peso** → recalcula `quantidade = round(peso / pesoPadrao)` quando há `pesoPadrao > 0`.
+- Marca `peso_manual = true` apenas quando o usuário digita um peso que NÃO bate com `pesoPadrao × qtd` (preserva a regra de não sobrescrever depois).
+- Para produtos sem peso padrão (ex.: Pão de Alho – por unidade) ou sem produto ainda selecionado, peso e qtd ficam independentes.
+
+### Arquivos afetados
+
+- `src/components/vendedor/NovoPedidoDialog.tsx` — substituir Select por Combobox + atualizar `handlePesoChange` para recalcular qtd.
+
+Sem mudanças de banco. Sem impacto em outros fluxos.
