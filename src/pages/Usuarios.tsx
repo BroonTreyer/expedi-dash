@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
+import { useVendedores } from "@/hooks/useVendedores";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   logistica: "Logística",
   faturamento: "Faturamento",
   portaria: "Portaria",
+  vendedor: "Vendedor",
 };
 
 function RoleSelect({ value, onChange }: { value: AppRole | null; onChange: (v: AppRole) => void }) {
@@ -38,6 +40,7 @@ function RoleSelect({ value, onChange }: { value: AppRole | null; onChange: (v: 
         <SelectItem value="logistica">Logística</SelectItem>
         <SelectItem value="faturamento">Faturamento</SelectItem>
         <SelectItem value="portaria">Portaria</SelectItem>
+        <SelectItem value="vendedor">Vendedor</SelectItem>
       </SelectContent>
     </Select>
   );
@@ -102,7 +105,16 @@ export default function Usuarios() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ email: "", password: "", nome: "", role: "logistica" as AppRole });
+  const [form, setForm] = useState({ email: "", password: "", nome: "", role: "logistica" as AppRole, vendedor_id: "" });
+  const { data: vendedoresList = [] } = useVendedores();
+
+  const [vinculados, setVinculados] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    supabase.from("vendedor_users").select("vendedor_id").then(({ data }) => {
+      setVinculados(new Set((data ?? []).map((v: any) => v.vendedor_id)));
+    });
+  }, [users]);
+  const vendedoresDisponiveis = vendedoresList.filter((v: any) => v.ativo && !vinculados.has(v.id));
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -146,10 +158,14 @@ export default function Usuarios() {
       toast.error("Preencha todos os campos");
       return;
     }
+    if (form.role === "vendedor" && !form.vendedor_id) {
+      toast.error("Selecione o cadastro de vendedor a ser vinculado");
+      return;
+    }
     setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email: form.email, password: form.password, nome: form.nome, role: form.role },
+        body: { email: form.email, password: form.password, nome: form.nome, role: form.role, vendedor_id: form.role === "vendedor" ? form.vendedor_id : undefined },
       });
       if (error) {
         toast.error(error.message || "Erro ao criar usuário");
@@ -157,7 +173,7 @@ export default function Usuarios() {
         toast.error(data.error);
       } else {
         toast.success("Usuário criado com sucesso");
-        setForm({ email: "", password: "", nome: "", role: "logistica" });
+        setForm({ email: "", password: "", nome: "", role: "logistica", vendedor_id: "" });
         setDialogOpen(false);
         fetchUsers();
       }
@@ -206,7 +222,7 @@ export default function Usuarios() {
                 </div>
                 <div className="space-y-2">
                   <Label>Nível de Acesso</Label>
-                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as AppRole })}>
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as AppRole, vendedor_id: "" })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -215,9 +231,34 @@ export default function Usuarios() {
                       <SelectItem value="logistica">Logística</SelectItem>
                       <SelectItem value="faturamento">Faturamento</SelectItem>
                       <SelectItem value="portaria">Portaria</SelectItem>
+                      <SelectItem value="vendedor">Vendedor</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                {form.role === "vendedor" && (
+                  <div className="space-y-2">
+                    <Label>Vendedor vinculado</Label>
+                    <Select value={form.vendedor_id} onValueChange={(v) => setForm({ ...form, vendedor_id: v })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um vendedor" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {vendedoresDisponiveis.length === 0 ? (
+                          <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                            Nenhum vendedor disponível (todos já vinculados)
+                          </div>
+                        ) : vendedoresDisponiveis.map((v: any) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.codigo_vendedor} – {v.nome_vendedor}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                      O vendedor verá apenas seus próprios pedidos e métricas.
+                    </p>
+                  </div>
+                )}
                 <Button type="submit" className="w-full" disabled={creating}>
                   {creating ? "Criando..." : "Criar Usuário"}
                 </Button>
