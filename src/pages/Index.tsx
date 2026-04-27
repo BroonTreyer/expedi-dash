@@ -614,7 +614,7 @@ export default function Index() {
 
         <CarregamentoDialog
           open={dialogOpen}
-          onOpenChange={(v) => { setDialogOpen(v); if (!v) setCloneItems([]); }}
+          onOpenChange={(v) => { setDialogOpen(v); if (!v) { setCloneItems([]); setEditingGroup(false); } }}
           onSubmit={handleSubmit}
           editing={editing}
           mode={dialogMode}
@@ -624,6 +624,7 @@ export default function Index() {
           clientes={clientesFromData}
           selectedDate={dateFromStr}
           cloneItems={cloneItems}
+          editingGroup={editingGroup}
           isSubmitting={createMut.isPending || batchCreateMut.isPending || updateMut.isPending || batchUpdateMut.isPending}
         />
 
