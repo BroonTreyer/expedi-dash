@@ -227,12 +227,12 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
         </div>
         {hasActions && (
           <div className="flex gap-1 shrink-0">
-            {canComplete && c.etapa === "vendas" && (
+            {!isGrouped && canComplete && c.etapa === "vendas" && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
                 <ClipboardCheck className="h-3.5 w-3.5" />
               </Button>
             )}
-            {canEdit && (
+            {!isGrouped && canEdit && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -243,12 +243,12 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
                 <Edit className="h-3.5 w-3.5" />
               </Button>
             )}
-            {canEdit && onClone && (
+            {!isGrouped && canEdit && onClone && (
               <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(groupItems ?? [c])}>
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             )}
-            {canDelete && (
+            {!isGrouped && canDelete && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title={isGroupHeader ? `Excluir pedido completo (${groupItems!.length} produtos)` : "Excluir"} onClick={handleDeleteClick}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -811,26 +811,6 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       {hasActions && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
-                            {canComplete && c.etapa === "vendas" && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Completar logística" onClick={() => onComplete(c)}>
-                                <ClipboardCheck className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {canEdit && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar pedido completo" onClick={() => onEditGroup ? onEditGroup(group.items) : onEdit(c)}>
-                                <Edit className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {canEdit && onClone && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar pedido" onClick={() => onClone(group.items)}>
-                                <Copy className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {canDelete && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(c.id)}>
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
                             <AuditTimeline
                               entityType="carregamento"
                               entityId={c.id}
