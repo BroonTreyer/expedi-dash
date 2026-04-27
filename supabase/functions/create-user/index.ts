@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const VALID_ROLES = ["admin", "logistica", "faturamento", "portaria"];
+const VALID_ROLES = ["admin", "logistica", "faturamento", "portaria", "vendedor"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, password, nome, role } = await req.json();
+    const { email, password, nome, role, vendedor_id } = await req.json();
 
     if (!email || !password || !nome || !role) {
       return new Response(
@@ -69,6 +69,13 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (role === "vendedor" && !vendedor_id) {
+      return new Response(
+        JSON.stringify({ error: "Para o nível 'vendedor' é obrigatório informar o cadastro de vendedor vinculado." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Create user with service role (auto-confirms email)
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -79,7 +86,7 @@ Deno.serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { nome },
+      user_metadata: role === "vendedor" ? { nome, role, vendedor_id } : { nome },
     });
 
     if (createError) {
@@ -102,6 +109,13 @@ Deno.serve(async (req) => {
         .delete()
         .eq("user_id", newUser.user.id)
         .eq("role", "logistica");
+    }
+
+    // Garantir o vínculo vendedor_users (idempotente — o trigger já tenta, mas reforçamos via service role)
+    if (role === "vendedor" && vendedor_id) {
+      await serviceClient
+        .from("vendedor_users")
+        .upsert({ user_id: newUser.user.id, vendedor_id }, { onConflict: "user_id" });
     }
 
     return new Response(
