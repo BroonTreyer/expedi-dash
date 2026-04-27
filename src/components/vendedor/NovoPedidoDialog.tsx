@@ -308,3 +308,65 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
     </>
   );
 }
+
+/* -------- Combobox de produto com busca por código ou nome -------- */
+function ProdutoCombobox({
+  produtos,
+  value,
+  label,
+  onSelect,
+}: {
+  produtos: any[];
+  value: string;
+  label: string;
+  onSelect: (codigo: string) => void;
+}) {
+  const [openPop, setOpenPop] = useState(false);
+  return (
+    <Popover open={openPop} onOpenChange={setOpenPop}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          className={cn("w-full justify-between font-normal", !value && "text-muted-foreground")}
+        >
+          <span className="truncate text-left">{label || "Selecione ou digite"}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command
+          filter={(itemValue, search) => {
+            const s = search.toLowerCase();
+            return itemValue.toLowerCase().includes(s) ? 1 : 0;
+          }}
+        >
+          <CommandInput placeholder="Buscar por código ou nome…" />
+          <CommandList>
+            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+            <CommandGroup>
+              {produtos.map((p) => {
+                const searchable = `${p.codigo_produto} ${p.nome_produto}`;
+                return (
+                  <CommandItem
+                    key={p.codigo_produto}
+                    value={searchable}
+                    onSelect={() => {
+                      onSelect(p.codigo_produto);
+                      setOpenPop(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", value === p.codigo_produto ? "opacity-100" : "opacity-0")} />
+                    <span className="font-mono text-xs text-muted-foreground mr-2">{p.codigo_produto}</span>
+                    <span className="truncate">{p.nome_produto}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
