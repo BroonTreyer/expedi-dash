@@ -23,6 +23,7 @@ interface ProductItem {
   pesoPadrao: number;
   ruptura: boolean;
   pesoManual: boolean;
+  originalId?: string;
 }
 
 const emptyItem = (): ProductItem => ({
@@ -48,6 +49,8 @@ interface Props {
   selectedDate: string;
   defaultRuptura?: boolean;
   cloneItems?: Carregamento[];
+  /** When true, all rows in cloneItems represent siblings of the same order being edited together. */
+  editingGroup?: boolean;
   isSubmitting?: boolean;
 }
 
