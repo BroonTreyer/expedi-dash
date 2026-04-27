@@ -1,57 +1,71 @@
-## 🔒 Itens finais de segurança
+# Editar pedido inteiro (todos os produtos) + corrigir duplicação ao trocar nº pedido / cliente
 
-Verifiquei o estado atual:
-- ✅ `realtime.messages` **já tem RLS habilitado** (`relrowsecurity = true`)
-- ⚠️ Mas **não tem nenhuma policy** criada → ninguém consegue receber eventos OU todos recebem (depende de como Supabase trata)
-- ⚠️ HIBP (senhas vazadas) ainda desativado
-- ⚠️ Tabelas publicadas no realtime: `carregamentos_dia`, `movimentacoes_portaria`, `notifications`
+## Problema
 
-### Problema concreto
-A tabela `notifications` é publicada no realtime e tem RLS por `user_id = auth.uid()` na tabela base. Mas o canal Realtime precisa de policy própria em `realtime.messages` para filtrar broadcasts por usuário — caso contrário um usuário autenticado pode tecnicamente assinar tópicos de `notifications` de outros usuários via canal genérico.
+Hoje, ao clicar em editar um item do pedido 3301 e trocar o número para 33011 (ou trocar o cliente), o sistema parece "criar outro pedido". Acontece porque:
 
-Para `carregamentos_dia` e `movimentacoes_portaria` é aceitável que todos os usuários operacionais recebam eventos (é colaborativo), então o filtro é apenas "estar autenticado com role válida".
+1. O botão **Editar** envia ao diálogo apenas **uma linha de produto**, nunca os irmãos do mesmo pedido.
+2. Ao salvar, só essa linha recebe o novo `numero_pedido` / `cliente`. Os outros produtos do pedido continuam com os valores antigos.
+3. A propagação automática (`SHARED_FIELDS` em `src/pages/Index.tsx`) busca irmãos pelo `numero_pedido` **antigo** e copia alguns campos — mas `numero_pedido` e `data` **não estão na lista**, então os irmãos não são renumerados nem o cliente é atualizado neles de forma consistente.
+4. Resultado visual: o pedido aparece "partido em dois" — um grupo com 33011/cliente novo e outro com 3301/cliente antigo, dando a impressão de duplicação.
 
----
+## Solução
 
-## 📋 Execução proposta
+### 1. Botão "Editar pedido inteiro" no agrupamento
 
-### 1. Migration SQL — RLS em `realtime.messages`
+Em `src/components/dashboard/CarregamentoTable.tsx`, quando o grupo tem mais de 1 produto (mesmo cliente + mesmo `numero_pedido`), o ícone de editar passa a chamar um novo callback `onEditGroup(group.items)` em vez de `onEdit(first)`. Para grupos de 1 item, mantém o comportamento atual.
 
-```sql
--- Permite que usuários autenticados recebam eventos APENAS dos canais
--- em que têm permissão de SELECT na tabela base (RLS já cuida do resto).
--- Para notifications: o canal genérico funciona, mas o front filtra por user_id
--- e a policy de SELECT em public.notifications já bloqueia leitura cruzada.
+Aplicar nos três pontos da tabela onde `onEdit` é chamado (desktop expandido, mobile, header do grupo) e no `MobileCardView`.
 
-CREATE POLICY "Authenticated can receive realtime"
-ON realtime.messages
-FOR SELECT
-TO authenticated
-USING (true);
+### 2. Novo handler em `Index.tsx`
 
--- Bloqueia broadcast/presence de qualquer fonte não-server
-CREATE POLICY "Block client-initiated broadcasts"
-ON realtime.messages
-FOR INSERT
-TO authenticated
-WITH CHECK (false);
+Adicionar `handleEditGroup(items)` que abre o `CarregamentoDialog` no modo `editar` com:
+- `editing` = primeiro item do grupo (mantém id real para update)
+- `cloneItems` = todos os itens do grupo (reaproveita a lógica de hidratar múltiplos produtos já existente em `CarregamentoDialog` linha 100-114)
+- Um novo flag `editingGroup: true` para o diálogo saber que é edição em grupo.
+
+### 3. `CarregamentoDialog`: salvar pedido inteiro
+
+Quando `editingGroup === true`:
+- Linha 1 do array de itens → UPDATE no `editing.id` (já funciona).
+- Linhas 2..N que correspondem a itens originais existentes → UPDATE pelos respectivos `id` (carregar via `cloneItems` e mapear `id` → item).
+- Linhas adicionadas pelo usuário → INSERT (`_batch`).
+- Linhas originais que o usuário removeu → DELETE pelos ids ausentes (`_deleteIds`).
+
+O payload enviado a `onSubmit` ganha:
+```ts
+{ ...updatePayload, _batchUpdates: [...], _batch: [...], _deleteIds: [...] }
 ```
 
-> Observação: o Supabase Realtime já força a checagem de RLS da tabela base antes de entregar `postgres_changes` quando a policy SELECT existe em `realtime.messages`. Sem nenhuma policy, ele entrega tudo. Adicionar SELECT TO authenticated + INSERT bloqueado é o padrão recomendado.
+### 4. `Index.tsx` `handleSubmit`: aplicar batch e remover cascata por irmãos
 
-### 2. Ativar HIBP (senhas vazadas)
+Quando recebe `_batchUpdates` / `_deleteIds`:
+- Roda `batchUpdateMut` com todos os updates (inclusive o principal — todos compartilham o mesmo `basePayload` com `numero_pedido`, `cliente`, `codigo_cliente`, `cidade`, `uf` etc., garantindo consistência).
+- Roda `batchCreateMut` para `_batch` (novos produtos).
+- Roda delete em massa para `_deleteIds`.
+- **Pula a cascata por `numero_pedido` antigo** (já não é necessária, pois todos os irmãos foram explicitamente atualizados).
 
-Via `cloud--configure_auth` com `password_hibp_enabled: true`. Bloqueia senhas que apareceram em vazamentos públicos no signup e troca de senha.
+Para edição de item único (modo atual), mantém a cascata existente e adiciona `numero_pedido` ao `SHARED_FIELDS` para resolver o caso onde alguém edita apenas 1 produto e troca o nº — assim os irmãos acompanham.
 
-### 3. Verificação pós-fix
+### 5. UX
 
-Rodar `security--run_security_scan` + `supabase--linter` novamente para confirmar que os achados críticos foram zerados.
+- Título do diálogo em modo grupo: "Editar pedido completo (N produtos)".
+- Manter ações "+ adicionar produto" e remover linha (já existem).
+- Toast de confirmação informando quantos produtos foram atualizados/criados/removidos.
 
----
+## Detalhes técnicos
 
-## ⚠️ Risco / impacto
+**Arquivos alterados**:
+- `src/components/dashboard/CarregamentoTable.tsx` — novo prop `onEditGroup`, redirecionar clique de editar quando `group.items.length > 1`.
+- `src/components/dashboard/CarregamentoDialog.tsx` — receber `editingGroup`, mapear ids originais nos `items`, montar payload com `_batchUpdates` e `_deleteIds`.
+- `src/pages/Index.tsx` — novo `handleEditGroup`, processar `_batchUpdates`/`_deleteIds` em `handleSubmit`, adicionar `numero_pedido` em `SHARED_FIELDS`.
+- `src/hooks/useCarregamentos.ts` — verificar/adicionar `batchDeleteMut` se ainda não existir (usar o existente se houver).
 
-- **Realtime:** após aplicar a policy, existing channels (`useNotifications`, `useCarregamentos`, `useMovimentacoesPortaria`) continuarão funcionando — apenas adicionamos a camada que antes faltava. Não há mudança no front.
-- **HIBP:** novos usuários e trocas de senha que usem senhas vazadas serão recusados com mensagem clara. Usuários existentes não são afetados até trocarem a senha.
+**Sem mudanças** em banco de dados, RLS, edge functions ou tipos gerados.
 
-Posso executar tudo em uma única operação após aprovação.
+## Resultado esperado
+
+- Clicar em editar um pedido com vários produtos abre o diálogo com **todos** os produtos pré-carregados.
+- Trocar nº do pedido (3301 → 33011) ou cliente atualiza **todas** as linhas do pedido em uma única operação.
+- Não aparece mais "pedido duplicado" — o grupo permanece coeso na tabela.
+- Edição de produto único continua funcionando, agora também propagando alteração de `numero_pedido` para os irmãos.
