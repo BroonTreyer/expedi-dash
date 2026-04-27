@@ -58,6 +58,7 @@ interface Props {
 }
 
 export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, editing }: Props) {
+  // (ProdutoCombobox declared below)
   const { data: clientesAll = [] } = useClientes();
   const { data: produtosAll = [] } = useProdutos();
 
