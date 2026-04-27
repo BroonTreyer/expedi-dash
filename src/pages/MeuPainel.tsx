@@ -14,6 +14,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { MeusPedidos } from "@/components/vendedor/MeusPedidos";
 import { CalendarIcon, Loader2, User, Shield, ArrowLeft } from "lucide-react";
 import { format, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -52,6 +54,7 @@ export default function MeuPainel() {
   });
 
   const carregamentos = data?.carregamentos ?? [];
+  const meusPedidos = data?.meusPedidos ?? [];
 
   return (
     <Layout>
@@ -132,14 +135,41 @@ export default function MeuPainel() {
             <p className="text-xs mt-1">Solicite ao administrador para concluir o vínculo.</p>
           </div>
         ) : (
-          <>
-            <KpiVendedor carregamentos={carregamentos} />
-            <GraficosVendedor carregamentos={carregamentos} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <Tabs defaultValue="pedidos" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="pedidos">
+                Meus Pedidos
+                {meusPedidos.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">{meusPedidos.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="cargas">Cargas em andamento</TabsTrigger>
+              <TabsTrigger value="rupturas">Rupturas</TabsTrigger>
+              <TabsTrigger value="resumo">Resumo</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pedidos" className="space-y-4">
+              <MeusPedidos
+                vendedorId={data!.vendedorId!}
+                meusPedidos={meusPedidos}
+                carregamentos={carregamentos}
+                readOnly={isAdminView}
+              />
+            </TabsContent>
+
+            <TabsContent value="cargas">
               <CargasAndamentoVendedor carregamentos={carregamentos} />
+            </TabsContent>
+
+            <TabsContent value="rupturas">
               <RupturasVendedor carregamentos={carregamentos} />
-            </div>
-          </>
+            </TabsContent>
+
+            <TabsContent value="resumo" className="space-y-4">
+              <KpiVendedor carregamentos={carregamentos} />
+              <GraficosVendedor carregamentos={carregamentos} />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </Layout>

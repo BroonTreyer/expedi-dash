@@ -149,7 +149,12 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
 
       const { data, error } = await q.order("created_at", { ascending: true });
       if (error) throw error;
-      return data as Carregamento[];
+      // Esconde rascunhos e pedidos aguardando aprovação do faturamento
+      // do painel operacional principal.
+      const filtered = (data as Carregamento[]).filter(
+        (c) => c.etapa !== "rascunho" && c.etapa !== "aguardando_faturamento",
+      );
+      return filtered;
     },
     staleTime: 30_000,
   });
