@@ -233,7 +233,13 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
               </Button>
             )}
             {canEdit && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                title={isGroupHeader ? "Editar pedido completo" : "Editar"}
+                onClick={() => isGroupHeader && onEditGroup && groupItems ? onEditGroup(groupItems) : onEdit(c)}
+              >
                 <Edit className="h-3.5 w-3.5" />
               </Button>
             )}
