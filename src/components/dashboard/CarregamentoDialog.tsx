@@ -113,9 +113,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         pesoPadrao: pp,
         ruptura: row.ruptura ?? false,
         pesoManual: true,
+        // Track original DB id only when editing a full group
+        originalId: editingGroup ? row.id : undefined,
       };
     }));
-  }, [editing, open, produtos, vendedores, cloneItems]);
+  }, [editing, open, produtos, vendedores, cloneItems, editingGroup]);
 
   useEffect(() => {
     if (!open) return;
