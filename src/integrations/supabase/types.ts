@@ -143,6 +143,8 @@ export type Database = {
           peso_manual: boolean
           peso_original: number | null
           placa: string | null
+          preco_total: number | null
+          preco_unitario: number | null
           quantidade: number | null
           quantidade_original: number | null
           ruptura: boolean
@@ -179,6 +181,8 @@ export type Database = {
           peso_manual?: boolean
           peso_original?: number | null
           placa?: string | null
+          preco_total?: number | null
+          preco_unitario?: number | null
           quantidade?: number | null
           quantidade_original?: number | null
           ruptura?: boolean
@@ -215,6 +219,8 @@ export type Database = {
           peso_manual?: boolean
           peso_original?: number | null
           placa?: string | null
+          preco_total?: number | null
+          preco_unitario?: number | null
           quantidade?: number | null
           quantidade_original?: number | null
           ruptura?: boolean
