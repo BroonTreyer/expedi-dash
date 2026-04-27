@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, UserPlus } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Plus, X, UserPlus, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useClientes } from "@/hooks/useClientes";
 import { useProdutos } from "@/hooks/useProdutos";
 import { isPorUnidade } from "@/lib/constants";
@@ -55,6 +57,7 @@ interface Props {
 }
 
 export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, editing }: Props) {
+  // (ProdutoCombobox declared below)
   const { data: clientesAll = [] } = useClientes();
   const { data: produtosAll = [] } = useProdutos();
 
@@ -133,7 +136,18 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
   };
 
   const handlePesoChange = (i: number, peso: number) => {
-    updateItem(i, { peso, pesoManual: true });
+    const it = items[i];
+    // Se tem peso padrão, recalcula a quantidade automaticamente (bidirecional).
+    if (it.pesoPadrao && it.pesoPadrao > 0) {
+      const novaQtd = Math.max(1, Math.round(peso / it.pesoPadrao));
+      const esperado = it.pesoPadrao * novaQtd;
+      // Se o peso digitado bate com qtd × pesoPadrao, mantém pesoManual=false (segue auto-calc).
+      // Caso contrário, marca como manual para preservar o valor digitado.
+      const manual = Math.abs(peso - esperado) > 0.001;
+      updateItem(i, { peso, quantidade: novaQtd, pesoManual: manual });
+    } else {
+      updateItem(i, { peso, pesoManual: true });
+    }
   };
 
   const isValid = useMemo(() => {
@@ -208,16 +222,12 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
                     <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_90px_110px_auto] gap-2 items-end p-2 rounded-md bg-muted/30 border">
                       <div>
                         <Label className="text-xs">Produto</Label>
-                        <Select value={r.codigo_produto} onValueChange={(v) => handleProdutoChange(i, v)}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                          <SelectContent>
-                            {produtosAll.filter((p: any) => p.ativo).map((p: any) => (
-                              <SelectItem key={p.codigo_produto} value={p.codigo_produto}>
-                                {p.codigo_produto} – {p.nome_produto}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <ProdutoCombobox
+                          produtos={produtosAll.filter((p: any) => p.ativo)}
+                          value={r.codigo_produto}
+                          label={r.codigo_produto ? `${r.codigo_produto} – ${r.nome_produto}` : ""}
+                          onSelect={(codigo) => handleProdutoChange(i, codigo)}
+                        />
                       </div>
                       <div>
                         <Label className="text-xs">Peso (kg)</Label>
@@ -295,5 +305,67 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
         }}
       />
     </>
+  );
+}
+
+/* -------- Combobox de produto com busca por código ou nome -------- */
+function ProdutoCombobox({
+  produtos,
+  value,
+  label,
+  onSelect,
+}: {
+  produtos: any[];
+  value: string;
+  label: string;
+  onSelect: (codigo: string) => void;
+}) {
+  const [openPop, setOpenPop] = useState(false);
+  return (
+    <Popover open={openPop} onOpenChange={setOpenPop}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          className={cn("w-full justify-between font-normal", !value && "text-muted-foreground")}
+        >
+          <span className="truncate text-left">{label || "Selecione ou digite"}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command
+          filter={(itemValue, search) => {
+            const s = search.toLowerCase();
+            return itemValue.toLowerCase().includes(s) ? 1 : 0;
+          }}
+        >
+          <CommandInput placeholder="Buscar por código ou nome…" />
+          <CommandList>
+            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+            <CommandGroup>
+              {produtos.map((p) => {
+                const searchable = `${p.codigo_produto} ${p.nome_produto}`;
+                return (
+                  <CommandItem
+                    key={p.codigo_produto}
+                    value={searchable}
+                    onSelect={() => {
+                      onSelect(p.codigo_produto);
+                      setOpenPop(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", value === p.codigo_produto ? "opacity-100" : "opacity-0")} />
+                    <span className="font-mono text-xs text-muted-foreground mr-2">{p.codigo_produto}</span>
+                    <span className="truncate">{p.nome_produto}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
