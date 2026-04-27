@@ -38,6 +38,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
   const rascunhos = useMemo(() => groupOrders(meusPedidos.filter((p) => p.etapa === "rascunho")), [meusPedidos]);
   const aguardando = useMemo(() => groupOrders(meusPedidos.filter((p) => p.etapa === "aguardando_faturamento")), [meusPedidos]);
   const aprovados = useMemo(() => groupOrders(carregamentos), [carregamentos]);
+  const totalPedidos = rascunhos.length + aguardando.length + aprovados.length;
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["meu-painel"] });
@@ -152,6 +153,17 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
           </Button>
         )}
       </div>
+
+      {!readOnly && totalPedidos === 0 && (
+        <Card className="p-6 mb-3 text-center border-dashed">
+          <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+          <h3 className="text-sm font-semibold">Você ainda não tem pedidos no período</h3>
+          <p className="text-xs text-muted-foreground mb-3">Comece registrando o primeiro pedido — você pode salvar como rascunho e enviar depois.</p>
+          <Button size="sm" className="gap-1" onClick={() => { setEditing(null); setOpenDialog(true); }}>
+            <Plus className="h-4 w-4" /> Registrar primeiro pedido
+          </Button>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Section
