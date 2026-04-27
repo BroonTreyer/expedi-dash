@@ -76,6 +76,8 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
           quantidade: it.quantidade,
           peso: it.peso,
           peso_manual: true,
+          preco_unitario: it.preco_unitario || null,
+          preco_total: it.preco_total || null,
           etapa,
           status: "Aguardando",
           observacoes: payload.observacoes || null,
@@ -99,6 +101,8 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
           quantidade: it.quantidade,
           peso: it.peso,
           peso_manual: true,
+          preco_unitario: it.preco_unitario || null,
+          preco_total: it.preco_total || null,
           etapa,
           status: "Aguardando",
           observacoes: payload.observacoes || null,
@@ -242,6 +246,7 @@ function Section({
           {groups.map((g, i) => {
             const head = g[0];
             const totalPeso = g.reduce((s, r) => s + Number(r.peso ?? 0), 0);
+            const totalValor = g.reduce((s, r) => s + Number(r.preco_total ?? 0), 0);
             return (
               <div key={i} className="rounded-md border bg-background p-2 text-xs">
                 <div className="flex items-start justify-between gap-2">
@@ -269,6 +274,9 @@ function Section({
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-[11px] text-muted-foreground">
                     Total: <span className="font-semibold text-foreground">{totalPeso.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg</span>
+                    {totalValor > 0 && (
+                      <> · <span className="font-semibold text-foreground">{totalValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></>
+                    )}
                   </span>
                   {renderActions?.(g)}
                 </div>
