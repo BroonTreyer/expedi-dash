@@ -739,7 +739,19 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                             </Button>
                           )}
                           {canEdit && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => group.items.length > 1 ? toggle(group.key) : onEdit(first)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title={group.items.length > 1 ? "Editar pedido completo" : "Editar"}
+                              onClick={() => {
+                                if (group.items.length > 1 && onEditGroup) {
+                                  onEditGroup(group.items);
+                                } else {
+                                  onEdit(first);
+                                }
+                              }}
+                            >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
