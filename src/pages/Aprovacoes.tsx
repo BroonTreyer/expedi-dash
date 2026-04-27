@@ -85,6 +85,7 @@ export default function Aprovacoes() {
               const head = g[0];
               const allSel = g.every((r) => selected.has(r.id));
               const totalPeso = g.reduce((s, r) => s + Number(r.peso ?? 0), 0);
+              const totalValor = g.reduce((s, r) => s + Number(r.preco_total ?? 0), 0);
               return (
                 <Card key={i} className="p-3">
                   <div className="flex items-start gap-2">
@@ -106,12 +107,21 @@ export default function Aprovacoes() {
                             <span className="truncate">{r.nome_produto ?? "—"}</span>
                             <span className="tabular-nums text-muted-foreground whitespace-nowrap">
                               {Number(r.peso ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg
+                              {Number(r.preco_unitario ?? 0) > 0 && (
+                                <> · {Number(r.preco_unitario).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/un
+                                  {" = "}
+                                  <span className="font-medium text-foreground">{Number(r.preco_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                                </>
+                              )}
                             </span>
                           </li>
                         ))}
                       </ul>
                       <div className="mt-2 text-xs text-muted-foreground">
                         Total: <span className="font-semibold text-foreground">{totalPeso.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg</span>
+                        {totalValor > 0 && (
+                          <> · <span className="font-semibold text-foreground">{totalValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></>
+                        )}
                       </div>
                       {head.observacoes && (
                         <p className="mt-1 text-[11px] italic text-muted-foreground">"{head.observacoes}"</p>
