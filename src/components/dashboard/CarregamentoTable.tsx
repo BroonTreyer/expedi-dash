@@ -112,12 +112,11 @@ function buildGroups(data: Carregamento[]): Group[] {
   const map = new Map<string, Group>();
   const singles: Group[] = [];
   for (const c of data) {
-    if (c.codigo_cliente && c.numero_pedido != null) {
-      // Agrupa por (data + código do cliente + número do pedido): cada pedido
-      // do cliente fica num card próprio. Pedidos distintos do MESMO cliente
-      // no mesmo dia (ex.: 2 vendas separadas) NÃO se misturam — isso evita
-      // que excluir/editar um pedido afete outro pedido do mesmo cliente.
-      const key = `${c.data}__${c.codigo_cliente}__${c.numero_pedido}`;
+    if (c.codigo_cliente) {
+      // Unidade visual do pedido = (data + código do cliente).
+      // Todos os produtos do mesmo cliente no mesmo dia ficam dentro do
+      // mesmo bloco expansível — não tiramos produto de dentro do pedido.
+      const key = `${c.data}__${c.codigo_cliente}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
