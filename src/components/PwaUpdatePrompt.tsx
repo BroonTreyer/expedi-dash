@@ -2,10 +2,30 @@ import { useEffect } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { toast } from "sonner";
 
-export function PwaUpdatePrompt() {
+const isInIframe = (() => {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+})();
+
+const hostname = window.location.hostname;
+const isPreviewHost =
+  hostname.includes("id-preview--") ||
+  hostname.includes("lovableproject.com") ||
+  hostname.includes("lovable.app") ||
+  hostname.includes("lovable.dev") ||
+  hostname === "localhost" ||
+  hostname === "127.0.0.1";
+
+const shouldRegisterPwa = !isPreviewHost && !isInIframe;
+
+function PwaUpdateRegistrar() {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
   } = useRegisterSW({
+    immediate: true,
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
 
@@ -53,4 +73,10 @@ export function PwaUpdatePrompt() {
   }, [needRefresh, setNeedRefresh]);
 
   return null;
+}
+
+export function PwaUpdatePrompt() {
+  if (!shouldRegisterPwa) return null;
+
+  return <PwaUpdateRegistrar />;
 }

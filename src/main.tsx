@@ -23,19 +23,41 @@ const isPreviewHost =
 
 const isEditorContext = isPreviewHost || isInIframe;
 
+const clearServiceWorkerState = async () => {
+  let hadState = false;
+
+  if ("serviceWorker" in navigator) {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    hadState ||= regs.length > 0;
+    await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+  }
+
+  if ("caches" in window) {
+    const keys = await caches.keys();
+    hadState ||= keys.length > 0;
+    await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+  }
+
+  return hadState;
+};
+
 // Hard-block SW registration inside editor/preview/iframe contexts.
 // vite-plugin-pwa calls navigator.serviceWorker.register; we shadow it.
 if (isEditorContext && "serviceWorker" in navigator) {
   try {
-    // Unregister any existing SWs and clear their caches
-    navigator.serviceWorker.getRegistrations().then((regs) => {
-      regs.forEach((r) => r.unregister().catch(() => {}));
+    // Unregister any existing SWs and clear their caches. If a previous SW was
+    // controlling this tab, one reload is required before the preview is fresh.
+    clearServiceWorkerState().then((hadState) => {
+      try {
+        const flag = "__preview_sw_purge_reloaded";
+        if (hadState && !sessionStorage.getItem(flag)) {
+          sessionStorage.setItem(flag, "1");
+          window.location.reload();
+        }
+      } catch {
+        if (hadState) window.location.reload();
+      }
     });
-    if ("caches" in window) {
-      caches.keys().then((keys) => {
-        keys.forEach((k) => caches.delete(k).catch(() => {}));
-      });
-    }
     // Prevent any future registration attempt (vite-plugin-pwa auto-register)
     const noopRegister = () =>
       Promise.reject(new Error("SW registration disabled in preview/iframe"));
@@ -60,11 +82,7 @@ if (!isEditorContext && typeof localStorage !== "undefined") {
   try {
     if (!localStorage.getItem(CLEANUP_FLAG)) {
       localStorage.setItem(CLEANUP_FLAG, "1");
-      if ("caches" in window) {
-        caches.keys().then((keys) => {
-          keys.forEach((k) => caches.delete(k).catch(() => {}));
-        });
-      }
+      clearServiceWorkerState().catch(() => {});
     }
   } catch {
     /* ignore */
@@ -85,14 +103,7 @@ const recoverFromChunkError = async () => {
   try {
     if (sessionStorage.getItem(RELOAD_FLAG)) return; // avoid loop
     sessionStorage.setItem(RELOAD_FLAG, "1");
-    if ("caches" in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
-    }
-    if ("serviceWorker" in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
-    }
+    await clearServiceWorkerState();
   } catch {
     /* ignore */
   } finally {

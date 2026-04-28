@@ -20,7 +20,9 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      injectRegister: "auto",
+      // Registration is controlled manually in React so preview/iframe hosts
+      // never receive the injected SW registration script before our guards run.
+      injectRegister: false,
       registerType: "autoUpdate",
       devOptions: { enabled: false },
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
