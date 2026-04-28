@@ -544,7 +544,6 @@ export default function Rupturas() {
           c.peso_original ?? "",
           c.ruptura ? 0 : (c.peso ?? 0),
           pesoNaoCarregado(c),
-          c.motivo_ruptura ?? "",
           c.status,
         ]);
       }
@@ -570,7 +569,7 @@ export default function Rupturas() {
       exportCsv(`rupturas_por_carga_${periodo}.csv`, rows);
     } else {
       // itens / visao -> exporta itens crus
-      const rows: (string | number)[][] = [["Pedido", "Cliente", "Cód cliente", "Produto", "Cód produto", "Carga", "Tipo", "Peso original", "Peso carregado", "Kg cortados", "Motivo", "Status"]];
+      const rows: (string | number)[][] = [["Pedido", "Cliente", "Cód cliente", "Produto", "Cód produto", "Carga", "Tipo", "Peso original", "Peso carregado", "Kg cortados", "Status"]];
       for (const c of rupturas) {
         rows.push([
           c.numero_pedido ?? "",
@@ -583,7 +582,6 @@ export default function Rupturas() {
           c.peso_original ?? "",
           c.ruptura ? 0 : (c.peso ?? 0),
           pesoNaoCarregado(c),
-          c.motivo_ruptura ?? "",
           c.status,
         ]);
       }
