@@ -77,6 +77,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   const lastInitId = useRef<string | null>(null);
   // Anti double-submit guard: blocks re-entrant submits within the same dialog session
   const submitGuard = useRef<boolean>(false);
+  // Idempotency: same key for ALL retries while this dialog session is open.
+  // Generated once per open, cleared on close. Combined with row index + codigo_produto
+  // to make every inserted row deterministic — protects against duplicate rows
+  // created by network retries (the previous design generated a new key per attempt).
+  const opIdRef = useRef<string | null>(null);
 
   const handleDialogOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
@@ -84,6 +89,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       // Só liberamos a trava no fechamento se NÃO houver submit em andamento.
       // Durante o envio, manter true previne reentrada.
       if (!isSubmitting) submitGuard.current = false;
+      opIdRef.current = null;
     }
     onOpenChange(nextOpen);
   }, [onOpenChange, isSubmitting]);
