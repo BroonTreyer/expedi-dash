@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,8 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
   const [openDialog, setOpenDialog] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Trava reentrante: bloqueia submits duplicados ANTES do React re-renderizar
+  const submittingRef = useRef(false);
 
   const rascunhos = useMemo(() => groupOrders(meusPedidos.filter((p) => p.etapa === "rascunho")), [meusPedidos]);
   const aguardando = useMemo(() => groupOrders(meusPedidos.filter((p) => p.etapa === "aguardando_faturamento")), [meusPedidos]);
@@ -47,43 +49,85 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
 
   const handleSubmit = async (payload: NovoPedidoSubmit) => {
     if (readOnly) return;
+    if (submittingRef.current) return; // bloqueia duplo clique antes do await
+    submittingRef.current = true;
     setSubmitting(true);
+    const operationId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
     try {
       const today = format(new Date(), "yyyy-MM-dd");
       const etapa = payload.enviarParaAprovacao ? "aguardando_faturamento" : "rascunho";
 
       if (payload.editingId) {
-        // Editar: atualiza todos os irmãos do mesmo pedido (mesma cliente+data+numero)
+        // Editar: estratégia DELTA (UPDATE existentes + INSERT novos + DELETE removidos)
+        // — substitui o antigo "DELETE + INSERT" que duplicava em duplo clique.
         const ed = meusPedidos.find((m) => m.id === payload.editingId);
         if (!ed) throw new Error("Pedido não encontrado");
         const irmaos = meusPedidos.filter(
           (m) => m.data === ed.data && m.numero_pedido === ed.numero_pedido && m.codigo_cliente === ed.codigo_cliente,
         );
-        // Estratégia simples: deletar irmãos e re-inserir os novos itens
-        const ids = irmaos.map((m) => m.id);
-        const { error: dErr } = await supabase.from("carregamentos_dia").delete().in("id", ids);
-        if (dErr) throw dErr;
-        const rows = payload.items.map((it) => ({
-          data: ed.data,
-          numero_pedido: ed.numero_pedido,
-          vendedor_id: vendedorId,
-          codigo_cliente: payload.cliente.codigo_cliente,
-          cliente: payload.cliente.nome_cliente,
-          cidade: payload.cliente.cidade,
-          uf: payload.cliente.uf,
-          codigo_produto: it.codigo_produto,
-          nome_produto: it.nome_produto,
-          quantidade: it.quantidade,
-          peso: it.peso,
-          peso_manual: true,
-          preco_unitario: it.preco_unitario || null,
-          preco_total: it.preco_total || null,
-          etapa,
-          status: "Aguardando",
-          observacoes: payload.observacoes || null,
-        }));
-        const { error: iErr } = await supabase.from("carregamentos_dia").insert(rows);
-        if (iErr) throw iErr;
+        // Mapa dos irmãos por id (existentes no banco)
+        const existentesById = new Map(irmaos.map((r) => [r.id, r]));
+        // Itens enviados que possuem id existente => UPDATE
+        // Itens enviados sem id (ou id que não bate com banco) => INSERT
+        const updates = payload.items.filter((it: any) => it.id && existentesById.has(it.id));
+        const novos = payload.items.filter((it: any) => !it.id || !existentesById.has(it.id));
+        // Ids que estavam no banco e não vieram no payload => DELETE
+        const enviadosIds = new Set(payload.items.map((it: any) => it.id).filter(Boolean));
+        const removerIds = irmaos.filter((m) => !enviadosIds.has(m.id)).map((m) => m.id);
+
+        // 1) DELETE removidos
+        if (removerIds.length) {
+          const { error } = await supabase.from("carregamentos_dia").delete().in("id", removerIds);
+          if (error) throw error;
+        }
+        // 2) UPDATE existentes
+        for (const it of updates as any[]) {
+          const { error } = await supabase
+            .from("carregamentos_dia")
+            .update({
+              codigo_cliente: payload.cliente.codigo_cliente,
+              cliente: payload.cliente.nome_cliente,
+              cidade: payload.cliente.cidade,
+              uf: payload.cliente.uf,
+              codigo_produto: it.codigo_produto,
+              nome_produto: it.nome_produto,
+              quantidade: it.quantidade,
+              peso: it.peso,
+              peso_manual: true,
+              preco_unitario: it.preco_unitario || null,
+              preco_total: it.preco_total || null,
+              etapa,
+              observacoes: payload.observacoes || null,
+            })
+            .eq("id", it.id);
+          if (error) throw error;
+        }
+        // 3) INSERT novos (com operation_id => idempotência server-side)
+        if (novos.length) {
+          const rows = novos.map((it: any) => ({
+            data: ed.data,
+            numero_pedido: ed.numero_pedido,
+            vendedor_id: vendedorId,
+            codigo_cliente: payload.cliente.codigo_cliente,
+            cliente: payload.cliente.nome_cliente,
+            cidade: payload.cliente.cidade,
+            uf: payload.cliente.uf,
+            codigo_produto: it.codigo_produto,
+            nome_produto: it.nome_produto,
+            quantidade: it.quantidade,
+            peso: it.peso,
+            peso_manual: true,
+            preco_unitario: it.preco_unitario || null,
+            preco_total: it.preco_total || null,
+            etapa,
+            status: "Aguardando",
+            observacoes: payload.observacoes || null,
+            operation_id: operationId,
+          }));
+          const { error: iErr } = await supabase.from("carregamentos_dia").insert(rows);
+          // 23505 = unique violation => operação repetida, ignorar silenciosamente
+          if (iErr && (iErr as any).code !== "23505") throw iErr;
+        }
       } else {
         // Criar: 1 número de pedido para o lote
         const { data: numero, error: nErr } = await supabase.rpc("next_numero_pedido", { _data: today });
@@ -106,9 +150,10 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
           etapa,
           status: "Aguardando",
           observacoes: payload.observacoes || null,
+          operation_id: operationId,
         }));
         const { error: iErr } = await supabase.from("carregamentos_dia").insert(rows);
-        if (iErr) throw iErr;
+        if (iErr && (iErr as any).code !== "23505") throw iErr;
       }
 
       toast.success(payload.enviarParaAprovacao ? "Pedido enviado para o faturamento" : "Rascunho salvo");
@@ -119,6 +164,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
       toast.error(e.message ?? "Erro ao salvar pedido");
     } finally {
       setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
