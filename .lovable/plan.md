@@ -1,34 +1,20 @@
-## Problema
+# Restaurar pedido #13 — FRIGORSUL / Ubatã-BA (EDIVAR)
 
-No diálogo **"Editar Carga"** (acessado pelo ícone de lápis), ao digitar/alterar a placa (ex: `ROO2C15`), os campos **Motorista**, **Transportadora** e **Tipo Caminhão** **não são auto-preenchidos** a partir do cadastro de caminhões — ficam vazios e o usuário precisa preencher manualmente.
+## Contexto
+O pedido foi **excluído manualmente** em 28/04 às 14:05 por `faturamento@frico.ind.br`. Os snapshots completos das 2 linhas estão preservados em `audit_log.changes.deleted_row`.
 
-A lógica de busca por placa já existe em outras partes do sistema (cadastro de caminhões + tabela `caminhoes` com link para `motoristas`), mas o `EditarCargaDialog.tsx` usa apenas um `<Input>` de texto livre sem lookup.
+## O que será restaurado
+Reinserção dos 2 itens originais na tabela `carregamentos_dia`, com os mesmos IDs e dados originais:
 
-Para a placa **ROO2C15** o cadastro já tem: motorista **HERMES TEIXEIRA DA COSTA**, transportadora **GLOG - CEARA**, tipo **Bitruck** — todos prontos para auto-fill.
+| Pedido | Cliente | Cidade | Produto | Qtd | Peso |
+|---|---|---|---|---|---|
+| #13 | FRIGORSUL TRANSPORTES E DISTRIBUIDORA (33175) | Ubatã-BA | LINGUIÇA TOSCANA MISTA 4x5kg | 50 | 1.000 kg |
+| #13 | FRIGORSUL TRANSPORTES E DISTRIBUIDORA (33175) | Ubatã-BA | LING SUÍNA FINA APIMENTADA CL 4x4,5kg | 56 | 1.008 kg |
 
-## Solução
+Vendedor: **EDIVAR** · Data: **28/04/2026** · Etapa: **vendas** · Status: **Aguardando** · Tipo Frete: **FOB** · `peso_manual: true`
 
-Adicionar lookup automático no `EditarCargaDialog.tsx`:
+## Implementação técnica
+Migração SQL com `INSERT ... ON CONFLICT (id) DO NOTHING` reusando os UUIDs originais (`82d3c85a-...` e `accab9b5-...`), preservando `peso_original`, `quantidade_original`, `numero_pedido = 13` e `vendedor_id` originais. Após o INSERT, o trigger `audit_carregamentos` registrará automaticamente a ação `criado` no log, deixando rastro da restauração.
 
-1. **Ao sair do campo Placa (onBlur)** ou após debounce de digitação, normalizar (uppercase + trim) e consultar `caminhoes` com join em `motoristas`:
-   ```sql
-   SELECT placa, transportadora, tipo_caminhao, motoristas(nome_completo)
-   FROM caminhoes
-   WHERE upper(trim(placa)) = <placa digitada> AND ativo = true
-   LIMIT 1
-   ```
-2. Se encontrar, **auto-preencher apenas os campos vazios** (não sobrescrever o que o usuário já digitou) — ou sobrescrever sempre, conforme preferência.
-3. Mostrar um indicador discreto (ícone check verde + texto "Caminhão encontrado: HERMES / GLOG - CEARA") abaixo do campo Placa.
-4. Se não encontrar, manter os campos como estão e mostrar um aviso suave ("Placa não cadastrada — preencha manualmente").
-
-## Pergunta antes de implementar
-
-Quando a placa for encontrada no cadastro, devo:
-- **(A)** Preencher apenas os campos que estiverem **vazios** (preserva edições manuais do usuário), ou
-- **(B)** **Sempre sobrescrever** motorista/transportadora/tipo com os dados do cadastro (garante consistência com `caminhoes`)?
-
-Default sugerido: **(B) sobrescrever sempre**, com toast informando "Dados atualizados pelo cadastro do caminhão" — assim corrige automaticamente cargas com transportadora vazia como esta da Hermes/GLOG.
-
-## Arquivos afetados
-
-- `src/components/dashboard/EditarCargaDialog.tsx` — adicionar `useEffect` (debounce ~400ms) que dispara o lookup quando `placa` muda; auto-preencher `motorista`, `transportadora`, `tipoCaminhao`.
+## Riscos
+Nenhum — IDs únicos não conflitam (já foram deletados); `ON CONFLICT DO NOTHING` é idempotente caso você execute novamente por engano.
