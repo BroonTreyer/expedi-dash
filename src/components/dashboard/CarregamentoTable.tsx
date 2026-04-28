@@ -162,6 +162,12 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
           const first = group.items[0];
           const isOpen = expanded.has(group.key);
           const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
+          const pedidosUnicos = Array.from(new Set(group.items.map(i => i.numero_pedido).filter((n): n is number => n != null)));
+          const pedidoLabel = pedidosUnicos.length === 1
+            ? `Pedido ${pedidosUnicos[0]}`
+            : pedidosUnicos.length > 1
+              ? `${pedidosUnicos.length} pedidos`
+              : null;
           return (
             <div key={`g-${group.key}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
               <button
@@ -173,7 +179,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
                   {isOpen ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
                   <span className="text-xs font-mono font-bold text-primary">
                     {group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}
-                    {first.numero_pedido != null && <> · Pedido {first.numero_pedido}</>}
+                    {pedidoLabel && <> · {pedidoLabel}</>}
                   </span>
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
