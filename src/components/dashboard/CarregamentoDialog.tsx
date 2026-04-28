@@ -286,6 +286,24 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       basePayload.etapa = "logistica";
     }
 
+    // Validate: ruptura requires a reason
+    const rupturaSemMotivo = finalItems.some(it => it.ruptura && !(form.motivo_ruptura && String(form.motivo_ruptura).trim()));
+    if (rupturaSemMotivo) {
+      submitGuard.current = false;
+      const { toast } = await import("sonner");
+      toast.error("Informe o motivo da ruptura antes de salvar.");
+      return;
+    }
+
+    // Deterministic idempotency key for this dialog session.
+    // Same key reused on every retry → DB unique index blocks duplicates.
+    if (!opIdRef.current) {
+      opIdRef.current = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    }
+    const opId = opIdRef.current;
+    const makeRowKey = (item: ProductItem, idx: number) =>
+      `${opId}__${item.codigo_produto || "x"}__${idx}`;
+
     if (editing && editing.id && !editing.id.startsWith("clone-")) {
       // First item is the main update; additional items are inserts (or updates when editingGroup)
       const firstItem = finalItems[0];
