@@ -82,11 +82,7 @@ if (!isEditorContext && typeof localStorage !== "undefined") {
   try {
     if (!localStorage.getItem(CLEANUP_FLAG)) {
       localStorage.setItem(CLEANUP_FLAG, "1");
-      if ("caches" in window) {
-        caches.keys().then((keys) => {
-          keys.forEach((k) => caches.delete(k).catch(() => {}));
-        });
-      }
+      clearServiceWorkerState().catch(() => {});
     }
   } catch {
     /* ignore */
@@ -107,14 +103,7 @@ const recoverFromChunkError = async () => {
   try {
     if (sessionStorage.getItem(RELOAD_FLAG)) return; // avoid loop
     sessionStorage.setItem(RELOAD_FLAG, "1");
-    if ("caches" in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
-    }
-    if ("serviceWorker" in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
-    }
+    await clearServiceWorkerState();
   } catch {
     /* ignore */
   } finally {
