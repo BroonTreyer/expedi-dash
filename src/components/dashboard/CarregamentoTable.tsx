@@ -695,7 +695,10 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.created_at)}</TableCell>
                     <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
-                      {group.items.length} produtos
+                      <span className="inline-flex items-center gap-1.5">
+                        {group.items.length} produtos
+                        {hasRuptura && <RupturaBadge />}
+                      </span>
                     </TableCell>
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                     {!hideColumns.includes("tipo_caminhao") && <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>}
