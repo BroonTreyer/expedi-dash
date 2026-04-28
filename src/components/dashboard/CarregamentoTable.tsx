@@ -70,6 +70,7 @@ interface Group {
   key: string;
   codigoCliente: string | null;
   nomeCliente: string | null;
+  numeroPedido: number | null;
   items: Carregamento[];
 }
 
@@ -111,19 +112,19 @@ function buildGroups(data: Carregamento[]): Group[] {
   const map = new Map<string, Group>();
   const singles: Group[] = [];
   for (const c of data) {
-    if (c.codigo_cliente) {
-      // Agrupa por (data + código do cliente): todos os produtos do mesmo cliente
-      // no mesmo dia ficam num único card, mesmo se foram lançados em momentos
-      // diferentes (com numero_pedido distintos). Códigos diferentes (filiais
-      // distintas, ex.: DMA D247 vs D243) NUNCA se misturam.
-      const key = `${c.data}__${c.codigo_cliente}`;
+    if (c.codigo_cliente && c.numero_pedido != null) {
+      // Agrupa por (data + código do cliente + número do pedido): cada pedido
+      // do cliente fica num card próprio. Pedidos distintos do MESMO cliente
+      // no mesmo dia (ex.: 2 vendas separadas) NÃO se misturam — isso evita
+      // que excluir/editar um pedido afete outro pedido do mesmo cliente.
+      const key = `${c.data}__${c.codigo_cliente}__${c.numero_pedido}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
-        map.set(key, { key, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
+        map.set(key, { key, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, numeroPedido: c.numero_pedido, items: [c] });
       }
     } else {
-      singles.push({ key: `single-${c.id}`, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, items: [c] });
+      singles.push({ key: `single-${c.id}`, codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, numeroPedido: c.numero_pedido, items: [c] });
     }
   }
   return [...map.values(), ...singles];
