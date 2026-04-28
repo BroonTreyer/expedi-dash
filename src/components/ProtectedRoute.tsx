@@ -14,15 +14,16 @@ export function ProtectedRoute({ children, allowedRoles }: Props) {
   const toastShown = useRef(false);
 
   // If user exists but role hasn't loaded yet, treat as loading
-  const roleStillLoading = !!user && role === null && !!allowedRoles;
+  const roleStillLoading = loading && !!user && role === null && !!allowedRoles;
+  const missingRole = !loading && !!user && role === null && !!allowedRoles;
   const accessDenied = !loading && !!user && !!allowedRoles && !!role && !allowedRoles.includes(role);
 
   useEffect(() => {
-    if (accessDenied && !toastShown.current) {
+    if ((accessDenied || missingRole) && !toastShown.current) {
       toastShown.current = true;
-      toast.error("Acesso não permitido para seu nível");
+      toast.error(missingRole ? "Perfil de acesso não encontrado" : "Acesso não permitido para seu nível");
     }
-  }, [accessDenied]);
+  }, [accessDenied, missingRole]);
 
   if (loading || roleStillLoading) {
     return (
@@ -35,7 +36,7 @@ export function ProtectedRoute({ children, allowedRoles }: Props) {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  if (accessDenied) {
+  if (accessDenied || missingRole) {
     const fallback =
       role === "portaria" ? "/portaria" :
       role === "vendedor" ? "/meu-painel" :
