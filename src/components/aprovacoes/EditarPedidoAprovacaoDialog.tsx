@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
   const [items, setItems] = useState<RowState[]>([]);
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState("");
+  // Trava reentrante contra duplo clique antes do React re-renderizar
+  const submittingRef = useRef(false);
 
   const head = grupo?.[0];
 
@@ -144,7 +146,10 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
 
   const salvar = async (aprovar: boolean) => {
     if (!head || !isValid) return;
-    await editar.mutateAsync({
+    if (submittingRef.current || editar.isPending) return;
+    submittingRef.current = true;
+    try {
+      await editar.mutateAsync({
       vendedor_id: head.vendedor_id,
       data: head.data,
       numero_pedido: head.numero_pedido,
@@ -166,8 +171,11 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
       })),
       removedIds,
       aprovarAposSalvar: aprovar,
-    });
-    onOpenChange(false);
+      });
+      onOpenChange(false);
+    } finally {
+      submittingRef.current = false;
+    }
   };
 
   if (!head) return null;

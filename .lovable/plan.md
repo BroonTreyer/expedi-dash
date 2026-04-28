@@ -1,64 +1,117 @@
-# Edição de Pedidos em Aprovações (Faturamento)
+# Auditoria: Duplicação/Triplicação ao editar pedidos
 
-## Situação atual
-A tela `/aprovacoes` só permite **Aprovar** ou **Devolver** o pedido ao vendedor. Não existe edição inline. Se o Faturamento detecta um erro (peso, quantidade, preço, produto, observação), só pode devolver — o que gera retrabalho para o vendedor.
+## Resumo dos problemas encontrados
 
-A RLS já permite Faturamento atualizar `carregamentos_dia` (`Ops update carregamentos_dia` cobre admin/faturamento/logística). Ou seja, **a infraestrutura de banco já suporta** a edição. Falta apenas a UI.
+Fiz um rastreamento completo de todos os pontos do código que escrevem em `carregamentos_dia` ao editar um pedido. Identifiquei **3 causas reais** de duplicação/triplicação, mais 1 risco de race condition. Eles se combinam — por isso às vezes duplica, às vezes triplica.
 
-## O que será entregue
+---
 
-### 1. Botão "Editar" em cada card de pedido (Aprovações)
-- Adicionar botão `Editar` no card do grupo (junto ao checkbox), visível apenas para `faturamento` e `admin`.
-- Abre um diálogo de edição reutilizando o mesmo padrão do `NovoPedidoDialog` do vendedor, mas em modo "edição faturamento".
+## Causa #1 — Edição do vendedor: estratégia "DELETE + INSERT" sem transação (CRÍTICO)
 
-### 2. Diálogo de edição (`EditarPedidoAprovacaoDialog`)
-Permite ajustar, para cada item do grupo (mesmo `vendedor_id + data + numero_pedido + codigo_cliente`):
-- **Produto** (combobox com busca por código/nome — mesmo componente `ProdutoCombobox`)
-- **Peso (kg)** e **Quantidade** com cálculo bidirecional (regra `peso_manual: true` quando o usuário digita peso à mão — preserva a memória existente)
-- **Preço unitário** e **Preço total** (cálculo bidirecional baseado em peso)
-- **Motivo da ruptura / observação do item** (opcional)
-- **Observações gerais do pedido** (campo único ao final, propagado a todos os itens do grupo)
-- Permitir **adicionar item** ou **remover item** dentro do grupo
-- Campos do cliente (nome/cidade/UF/código) ficam **read-only** — alterar cliente exige devolver ao vendedor
+**Arquivo:** `src/components/vendedor/MeusPedidos.tsx`, linhas 60-87 (`handleSubmit` no modo edição).
 
-### 3. Persistência
-- `UPDATE` por item para campos editados (peso, quantidade, preco_unitario, preco_total, codigo_produto, nome_produto, motivo_ruptura, peso_manual, observacoes)
-- `INSERT` para itens adicionados (mesma `etapa = 'aguardando_faturamento'`, mesmo `vendedor_id`, mesmo `numero_pedido`, mesmo `data`, mesmo `codigo_cliente/cliente/cidade/uf`)
-- `DELETE` para itens removidos
-- Tudo dentro de **uma única operação lógica** com `operation_id` (uuid) passado ao `log_audit` para que o histórico mostre como uma única edição
-- Após salvar: invalida `aprovacoes-pendentes` e `carregamentos` (React Query)
+Hoje, ao editar um rascunho, o código faz:
 
-### 4. Auditoria e rastreabilidade
-- Cada UPDATE já dispara `audit_carregamentos` (trigger existente) — sem mudanças de schema
-- Adicionamos um registro extra via `log_audit` com `action = 'editado_em_aprovacao'` e `changes` resumindo o diff agregado, para a timeline de auditoria mostrar "Faturamento editou pedido antes de aprovar"
+```text
+1. SELECT irmãos do mesmo (data + numero_pedido + codigo_cliente)
+2. DELETE in (ids antigos)
+3. INSERT (todos os itens novos)
+```
 
-### 5. UX
-- Botão **"Salvar e aprovar"** dentro do diálogo (atalho: salva edições + chama o mesmo fluxo de aprovação para o grupo)
-- Botão **"Salvar"** (apenas persiste, mantém na fila de aprovação)
-- Botão **"Cancelar"** (descarta)
-- Toast de sucesso/erro em pt-BR
-- Layout responsivo (mobile-first, mesmo padrão do `NovoPedidoDialog` recém-redesenhado): items em cards empilháveis, sem scroll horizontal
+Problemas:
 
-## Arquivos a alterar/criar
+- Se o usuário **clicar duas vezes em "Salvar"** (mobile é muito comum) antes do primeiro request voltar, o segundo clique pega a mesma lista `meusPedidos` (já cacheada) e roda `DELETE + INSERT` **de novo**. Como o primeiro DELETE já apagou os irmãos, o segundo DELETE não acha nada — mas o **INSERT roda mesmo assim** → resultado: 2x os itens. Triplica se clicar 3x.
+- Não há `setSubmitting(true)` antes do `await` no handler do dialog em si — o botão tem `disabled={isSubmitting}`, mas a `useState` só atualiza no próximo tick. Em conexão lenta dá pra disparar.
+- Se o INSERT falhar no meio, perde os itens originais (sem rollback).
 
-**Criar:**
-- `src/components/aprovacoes/EditarPedidoAprovacaoDialog.tsx` — diálogo de edição
-- `src/hooks/useEditarPedidoAprovacao.ts` — mutation que faz UPDATE/INSERT/DELETE em lote + log de auditoria
+## Causa #2 — Edição em Aprovações: identidade do grupo frágil para "novos itens" (CRÍTICO)
 
-**Editar:**
-- `src/pages/Aprovacoes.tsx` — botão "Editar" por card, abrir diálogo, passar grupo selecionado
-- `src/hooks/useAprovacoes.ts` — expor invalidação compartilhada (já existe, só reaproveitar)
+**Arquivo:** `src/hooks/useEditarPedidoAprovacao.ts`.
 
-**Reutilizar (sem alterar):**
-- `src/components/vendedor/ProdutoCombobox.tsx` — busca de produto
-- Lógica de cálculo bidirecional Peso ↔ Quantidade ↔ Preço (extrair do `NovoPedidoDialog` para um util compartilhado em `src/lib/pedido-calc.ts` se ainda não existir)
+A lógica está correta em teoria (UPDATE existentes + INSERT novos + DELETE removidos), **mas** os "novos itens" são identificados apenas por `!i.id` no estado React. Ao salvar:
 
-## Considerações de segurança
-- **RLS já cobre**: `Ops update/insert/delete carregamentos_dia` permite faturamento editar/excluir/inserir
-- O botão "Editar" aparece apenas via checagem de role no frontend (`useUserRole`) — defesa em profundidade já garantida pelo RLS
-- Não permite alterar `vendedor_id` (mantém atribuição original) nem `etapa` (continua `aguardando_faturamento` até aprovar)
+- Se o usuário clicar **"Salvar e aprovar"** e o request demorar, e ele clicar de novo, o segundo submit ainda enxerga os mesmos itens novos (sem `id` atribuído) e roda outro `INSERT`. Resultado: novos itens duplicados/triplicados.
+- O `mutationFn` não verifica `isPending` internamente; o botão tem `disabled={editar.isPending}` mas isso depende do React commitar antes do próximo clique.
+- Não há **idempotência no servidor** (sem `operation_id` na tabela, sem `upsert` com `onConflict`).
 
-## Não está no escopo
-- Edição em massa de múltiplos pedidos simultâneos (apenas 1 grupo por vez)
-- Alteração de cliente (continua exigindo devolver ao vendedor)
-- Edição depois de aprovado (aí volta para o fluxo normal de logística)
+## Causa #3 — Realtime + cache otimista geram "fantasma" temporário
+
+**Arquivos:** `src/hooks/useCarregamentos.ts` (subscribe INSERT linha 61), `src/pages/Consolidado.tsx` (linha 80).
+
+Sequência observada:
+
+```text
+1. UPDATE otimista do hook (item já aparece atualizado na UI)
+2. INSERT novos chega via realtime → adiciona na lista
+3. invalidateQueries dispara refetch → re-baixa tudo
+4. Durante esse intervalo, o usuário vê itens "duplicados" porque
+   o refetch pode trazer linhas que já estavam no cache otimista
+   sem deduplicação por id
+```
+
+Não é duplicação no banco, mas o usuário **vê** duplicação na tela e às vezes clica de novo achando que falhou — o que dispara a Causa #1 ou #2 e aí **vira duplicação real**.
+
+## Causa #4 — `next_numero_pedido` chamado fora de transação no INSERT do vendedor
+
+**Arquivo:** `src/components/vendedor/MeusPedidos.tsx`, linhas 89-94.
+
+No fluxo de **criar** (não editar), faz `rpc("next_numero_pedido")` e depois `INSERT`. Em duplo clique, dois RPCs sequenciais geram **dois números diferentes** com os mesmos itens → o sistema **não os agrupa** (vira 2 pedidos distintos com mesmo cliente/produtos), o que aparece como "duplicado" na tela de Aprovações.
+
+---
+
+## Plano de correção
+
+### 1. Proteção universal contra duplo clique (todos os submits)
+
+- Adicionar `useRef<boolean>` "submittingRef" em `MeusPedidos.handleSubmit`, `EditarPedidoAprovacaoDialog.salvar` e `NovoPedidoDialog.submit`. Bloquear reentrada **antes** do `await`, liberar no `finally`.
+- Garante que mesmo cliques rápidos antes do React re-renderizar não disparem 2 mutations.
+
+### 2. Trocar "DELETE + INSERT" por **UPDATE/INSERT/DELETE delta** no vendedor
+
+Refatorar `MeusPedidos.tsx → handleSubmit` (modo edição) para usar a mesma estratégia de delta que já existe em `useEditarPedidoAprovacao.ts`:
+
+- Comparar itens novos × irmãos atuais por `id`.
+- `UPDATE` os que mantêm `id`, `INSERT` os sem `id`, `DELETE` os removidos.
+- Elimina o "INSERT em cima de DELETE já consumido" que é a raiz da duplicação.
+
+### 3. Idempotência server-side com `operation_id`
+
+- Adicionar coluna `operation_id uuid` em `carregamentos_dia` (nullable) + índice único parcial `WHERE operation_id IS NOT NULL`.
+- Cada submit (cliente) gera um único UUID `crypto.randomUUID()` e envia em **todos** os INSERTs daquela operação.
+- Se o usuário "duplo-clicar" e o segundo request chegar, o `INSERT` rejeita por unique violation. O cliente trata o 23505 silenciosamente.
+- Migration via tool de migração; safe pois é coluna nullable e índice parcial.
+
+### 4. Travar `next_numero_pedido` no fluxo de criação
+
+- Mover o `rpc("next_numero_pedido")` + `INSERT` para uma **edge function** transacional (`criar-pedido-vendedor`), assim o número é alocado e o INSERT acontece atomicamente. Duplo clique na pior das hipóteses devolve o mesmo `numero_pedido` se usar idempotência por `operation_id`.
+- Alternativa mais leve (se preferir não criar edge function agora): apenas implementar #1 + #3 já elimina o sintoma; o #4 fica como melhoria.
+
+### 5. Deduplicação defensiva no realtime/cache
+
+- Em `useCarregamentos.ts`, ao receber `INSERT` via realtime e ao mesclar `setQueriesData`, deduplicar por `id` (`Map(items.map(i => [i.id, i]))`) antes de retornar a lista. Idem no `Consolidado.tsx`.
+- Garante que o usuário **nunca veja** duplicado na UI mesmo durante refetch — corta o feedback ruim que faz ele clicar de novo.
+
+### 6. Limpeza de duplicatas existentes (opcional)
+
+Se você confirmar que já tem duplicatas no banco, eu posso rodar uma query SELECT de auditoria pra mostrar quantas são, agrupadas por `(vendedor_id, data, numero_pedido, codigo_cliente, codigo_produto)`. Não vou apagar nada sem você ver e confirmar.
+
+---
+
+## Arquivos que serão alterados
+
+- `src/components/vendedor/MeusPedidos.tsx` — refatorar `handleSubmit` para delta + ref de bloqueio
+- `src/components/vendedor/NovoPedidoDialog.tsx` — ref de bloqueio + propagar `operation_id`
+- `src/hooks/useEditarPedidoAprovacao.ts` — adicionar `operation_id` em todos os INSERTs, tratar 23505
+- `src/hooks/useCarregamentos.ts` — dedup por id no merge do realtime
+- `src/pages/Consolidado.tsx` — dedup por id no merge do realtime
+- **Migration nova:** adicionar coluna `operation_id` + índice único parcial em `carregamentos_dia`
+- (Opcional) `supabase/functions/criar-pedido-vendedor/index.ts` — alocação atômica do `numero_pedido`
+
+## Ordem de implementação proposta
+
+1. Migration `operation_id` (base para tudo) + dedup defensivo no cache (ganho imediato)
+2. Refatorar edição do vendedor (Causa #1 — a mais grave hoje)
+3. Idempotência no `useEditarPedidoAprovacao` (Causa #2)
+4. (Opcional, depois) Edge function para `next_numero_pedido` atômico
+
+Após aprovação eu executo na ordem acima e te aviso a cada etapa.

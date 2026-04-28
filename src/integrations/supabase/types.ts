@@ -138,6 +138,7 @@ export type Database = {
           nome_produto: string | null
           numero_pedido: number | null
           observacoes: string | null
+          operation_id: string | null
           ordem_entrega: number | null
           peso: number | null
           peso_manual: boolean
@@ -176,6 +177,7 @@ export type Database = {
           nome_produto?: string | null
           numero_pedido?: number | null
           observacoes?: string | null
+          operation_id?: string | null
           ordem_entrega?: number | null
           peso?: number | null
           peso_manual?: boolean
@@ -214,6 +216,7 @@ export type Database = {
           nome_produto?: string | null
           numero_pedido?: number | null
           observacoes?: string | null
+          operation_id?: string | null
           ordem_entrega?: number | null
           peso?: number | null
           peso_manual?: boolean

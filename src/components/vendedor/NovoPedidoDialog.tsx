@@ -68,6 +68,8 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
   const [observacoes, setObservacoes] = useState("");
   const [novoClienteOpen, setNovoClienteOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  // Trava reentrante contra duplo clique antes do React re-renderizar
+  const submittingRefLocal = useRef(false);
 
   // Reset / hidrata editing
   useEffect(() => {
@@ -180,7 +182,10 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
 
   const submit = async (enviar: boolean) => {
     if (!clienteSel || !isValid) return;
-    await onSubmit({
+    if (submittingRefLocal.current) return;
+    submittingRefLocal.current = true;
+    try {
+      await onSubmit({
       cliente: clienteSel,
       items: items.map((r) => ({
         codigo_produto: r.codigo_produto,
@@ -193,7 +198,10 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
       observacoes: observacoes.trim(),
       enviarParaAprovacao: enviar,
       editingId: editing?.id,
-    });
+      });
+    } finally {
+      submittingRefLocal.current = false;
+    }
   };
 
   const totalPedido = items.reduce((s, r) => s + (r.precoUnitario || 0) * (r.quantidade || 0), 0);
