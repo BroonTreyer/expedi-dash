@@ -77,6 +77,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   const lastInitId = useRef<string | null>(null);
   // Anti double-submit guard: blocks re-entrant submits within the same dialog session
   const submitGuard = useRef<boolean>(false);
+  // Idempotency: same key for ALL retries while this dialog session is open.
+  // Generated once per open, cleared on close. Combined with row index + codigo_produto
+  // to make every inserted row deterministic — protects against duplicate rows
+  // created by network retries (the previous design generated a new key per attempt).
+  const opIdRef = useRef<string | null>(null);
 
   const handleDialogOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
@@ -84,6 +89,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       // Só liberamos a trava no fechamento se NÃO houver submit em andamento.
       // Durante o envio, manter true previne reentrada.
       if (!isSubmitting) submitGuard.current = false;
+      opIdRef.current = null;
     }
     onOpenChange(nextOpen);
   }, [onOpenChange, isSubmitting]);
@@ -280,6 +286,24 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       basePayload.etapa = "logistica";
     }
 
+    // Validate: ruptura requires a reason
+    const rupturaSemMotivo = finalItems.some(it => it.ruptura && !(form.motivo_ruptura && String(form.motivo_ruptura).trim()));
+    if (rupturaSemMotivo) {
+      submitGuard.current = false;
+      const { toast } = await import("sonner");
+      toast.error("Informe o motivo da ruptura antes de salvar.");
+      return;
+    }
+
+    // Deterministic idempotency key for this dialog session.
+    // Same key reused on every retry → DB unique index blocks duplicates.
+    if (!opIdRef.current) {
+      opIdRef.current = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    }
+    const opId = opIdRef.current;
+    const makeRowKey = (item: ProductItem, idx: number) =>
+      `${opId}__${item.codigo_produto || "x"}__${idx}`;
+
     if (editing && editing.id && !editing.id.startsWith("clone-")) {
       // First item is the main update; additional items are inserts (or updates when editingGroup)
       const firstItem = finalItems[0];
@@ -298,7 +322,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         // Group edit: classify each "extra" item as update (originalId) or insert
         const batchUpdates: Record<string, any>[] = [];
         const batchInserts: Record<string, any>[] = [];
-        for (const item of finalItems.slice(1)) {
+        for (let i = 0; i < finalItems.slice(1).length; i++) {
+          const item = finalItems.slice(1)[i];
           const row = {
             ...basePayload,
             codigo_produto: item.codigo_produto,
@@ -311,7 +336,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           if ((item as any).originalId) {
             batchUpdates.push({ id: (item as any).originalId, ...row });
           } else {
-            batchInserts.push(row);
+            batchInserts.push({
+              ...row,
+              operation_id: opId,
+              row_op_key: makeRowKey(item, i + 1),
+            });
           }
         }
         // Detect rows the user removed: present in cloneItems but not among kept originalIds
@@ -333,7 +362,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           _editingGroup: true,
         });
       } else if (finalItems.length > 1) {
-        const extraRows = finalItems.slice(1).map(item => ({
+        const extraRows = finalItems.slice(1).map((item, i) => ({
           ...basePayload,
           codigo_produto: item.codigo_produto,
           nome_produto: item.nome_produto,
@@ -341,13 +370,15 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           peso: item.peso,
           peso_manual: item.pesoManual,
           ruptura: item.ruptura,
+          operation_id: opId,
+          row_op_key: makeRowKey(item, i + 1),
         }));
         await onSubmit({ ...updatePayload, _batch: extraRows });
       } else {
         await onSubmit(updatePayload);
       }
     } else {
-      const batchRows = finalItems.map(item => ({
+      const batchRows = finalItems.map((item, i) => ({
         ...basePayload,
         codigo_produto: item.codigo_produto,
         nome_produto: item.nome_produto,
@@ -355,6 +386,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: item.peso,
         peso_manual: item.pesoManual,
         ruptura: item.ruptura,
+        operation_id: opId,
+        row_op_key: makeRowKey(item, i),
       }));
       if (batchRows.length === 1) {
         await onSubmit(batchRows[0]);

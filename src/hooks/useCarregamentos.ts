@@ -319,7 +319,11 @@ export function useUpdateCarregamento() {
       toast.error(e.message);
     },
     onSettled: () => {
-      // Don't invalidate — realtime will patch the cache
+      // Passive invalidation: marks cache stale so the next focus/refetch
+      // resyncs from the DB. We don't trigger an immediate refetch — realtime
+      // is still the primary sync — but if realtime is disconnected this
+      // ensures the UI eventually catches up.
+      qc.invalidateQueries({ queryKey: ["carregamentos"], refetchType: "none" });
     },
   });
 }

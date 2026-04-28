@@ -285,7 +285,12 @@ export default function Index() {
               id: s.id,
               ...sharedPayload,
             }));
-            await batchUpdateMut.mutateAsync(siblingUpdates).catch(() => {});
+            try {
+              await batchUpdateMut.mutateAsync(siblingUpdates);
+            } catch (e: any) {
+              // Surface the failure — silently swallowing was hiding cascade bugs.
+              toast.error("Falha ao propagar alterações para os irmãos: " + (e?.message ?? "erro desconhecido"));
+            }
           }
         }
       }
