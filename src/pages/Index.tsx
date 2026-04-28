@@ -492,13 +492,14 @@ export default function Index() {
     const first = itemsInCarga[0];
 
     // Group by cliente
-    const groupMap = new Map<string, { codigoCliente: string | null; nomeCliente: string | null; items: { id: string; nomeProduto: string | null; peso: number }[]; pesoTotal: number; ordem: number }>();
+    const groupMap = new Map<string, { codigoCliente: string | null; nomeCliente: string | null; formaPagamento: string | null; items: { id: string; nomeProduto: string | null; peso: number }[]; pesoTotal: number; ordem: number }>();
     for (const c of itemsInCarga) {
       const key = c.codigo_cliente ?? "__none__";
       if (!groupMap.has(key)) {
         groupMap.set(key, {
           codigoCliente: c.codigo_cliente,
           nomeCliente: c.cliente,
+          formaPagamento: (c as any).forma_pagamento ?? null,
           items: [],
           pesoTotal: 0,
           ordem: c.ordem_entrega ?? 999,

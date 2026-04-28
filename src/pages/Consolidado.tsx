@@ -351,6 +351,7 @@ export default function Consolidado() {
     const clienteMap = new Map<string, {
       codigoCliente: string | null;
       nomeCliente: string | null;
+      formaPagamento: string | null;
       items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean; pesoOriginal?: number | null }[];
       pesoTotal: number;
       rupturaCount: number;
@@ -363,6 +364,7 @@ export default function Consolidado() {
         c = {
           codigoCliente: item.codigo_cliente,
           nomeCliente: item.cliente ?? null,
+          formaPagamento: (item as any).forma_pagamento ?? null,
           items: [],
           pesoTotal: 0,
           rupturaCount: 0,
