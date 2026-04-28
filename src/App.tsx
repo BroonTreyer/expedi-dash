@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -14,7 +14,7 @@ import { Loader2 } from "lucide-react";
 import Auth from "./pages/Auth";
 
 // Retry helper for dynamic imports — recovers from stale chunks after deploy/HMR
-const lazyWithRetry = <T extends React.ComponentType<any>>(
+const lazyWithRetry = <T extends ComponentType<unknown>>(
   factory: () => Promise<{ default: T }>,
   retries = 2,
   delay = 400,
@@ -76,9 +76,10 @@ const queryClient = new QueryClient({
       staleTime: 10_000,
       gcTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
-      retry: (failureCount, error: any) => {
-        const msg = error?.message?.toLowerCase?.() ?? "";
-        const status = error?.status ?? error?.code;
+      retry: (failureCount, error: unknown) => {
+        const queryError = error as { message?: string; status?: number; code?: number | string } | null;
+        const msg = queryError?.message?.toLowerCase?.() ?? "";
+        const status = queryError?.status ?? queryError?.code;
         if (status === 401 || status === 403 || msg.includes("jwt") || msg.includes("refresh_token")) {
           // Don't retry auth errors aggressively — just fail and let auth handler redirect
           return false;
