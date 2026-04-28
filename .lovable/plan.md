@@ -1,20 +1,54 @@
-# Restaurar pedido #13 — FRIGORSUL / Ubatã-BA (EDIVAR)
+## O que está acontecendo
 
-## Contexto
-O pedido foi **excluído manualmente** em 28/04 às 14:05 por `faturamento@frico.ind.br`. Os snapshots completos das 2 linhas estão preservados em `audit_log.changes.deleted_row`.
+O erro que você está vendo no console é apenas um **warning** (aviso), não um erro que quebra a aplicação:
 
-## O que será restaurado
-Reinserção dos 2 itens originais na tabela `carregamentos_dia`, com os mesmos IDs e dados originais:
+```
+Warning: Function components cannot be given refs.
+Check the render method of `RotaMap` → at FitBounds
+```
 
-| Pedido | Cliente | Cidade | Produto | Qtd | Peso |
-|---|---|---|---|---|---|
-| #13 | FRIGORSUL TRANSPORTES E DISTRIBUIDORA (33175) | Ubatã-BA | LINGUIÇA TOSCANA MISTA 4x5kg | 50 | 1.000 kg |
-| #13 | FRIGORSUL TRANSPORTES E DISTRIBUIDORA (33175) | Ubatã-BA | LING SUÍNA FINA APIMENTADA CL 4x4,5kg | 56 | 1.008 kg |
+### Causa raiz
 
-Vendedor: **EDIVAR** · Data: **28/04/2026** · Etapa: **vendas** · Status: **Aguardando** · Tipo Frete: **FOB** · `peso_manual: true`
+No arquivo `src/components/dashboard/RotaMap.tsx`, o componente `FitBounds` (linha 182) é uma função simples sem `forwardRef`. Porém, o `react-leaflet` (na versão atual) tenta passar um `ref` automaticamente para todos os filhos do `<MapContainer>`, incluindo o `<FitBounds points={...} />` na linha 448.
 
-## Implementação técnica
-Migração SQL com `INSERT ... ON CONFLICT (id) DO NOTHING` reusando os UUIDs originais (`82d3c85a-...` e `accab9b5-...`), preservando `peso_original`, `quantidade_original`, `numero_pedido = 13` e `vendedor_id` originais. Após o INSERT, o trigger `audit_carregamentos` registrará automaticamente a ação `criado` no log, deixando rastro da restauração.
+Como `FitBounds` não usa `forwardRef`, o React imprime esse warning toda vez que o mapa de roteirização é renderizado.
 
-## Riscos
-Nenhum — IDs únicos não conflitam (já foram deletados); `ON CONFLICT DO NOTHING` é idempotente caso você execute novamente por engano.
+**Importante:** isso **não impede** o funcionamento do mapa, da roteirização ou de nada no app. É só ruído no console que polui o log e atrapalha quando você está debugando outras coisas.
+
+## Correção
+
+Envolver o componente `FitBounds` em `React.forwardRef` para aceitar (e ignorar) o ref que o react-leaflet tenta passar.
+
+### Mudança técnica
+
+**Arquivo:** `src/components/dashboard/RotaMap.tsx` (linhas 181-195)
+
+Trocar:
+```tsx
+function FitBounds({ points }: { points: Coords[] }) {
+  const map = useMap();
+  useEffect(() => { ... }, [points, map]);
+  return null;
+}
+```
+
+Por:
+```tsx
+const FitBounds = React.forwardRef<unknown, { points: Coords[] }>(
+  function FitBounds({ points }, _ref) {
+    const map = useMap();
+    useEffect(() => { ... }, [points, map]);
+    return null;
+  }
+);
+```
+
+Isso silencia o warning sem alterar o comportamento.
+
+## Resumo
+
+- 1 arquivo alterado: `src/components/dashboard/RotaMap.tsx`
+- Sem mudança de comportamento, apenas remove o warning do console
+- Nenhuma alteração de banco, edge function ou outras telas
+
+Quer que eu aplique?
