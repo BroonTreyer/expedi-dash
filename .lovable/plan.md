@@ -1,117 +1,120 @@
-# Auditoria: Duplicação/Triplicação ao editar pedidos
+Auditoria concluída. Encontrei evidências fortes de que a duplicidade não está vindo principalmente do botão “aprovar” simples, mas sim dos fluxos do faturamento que criam/clonam/editam pedidos pelo painel operacional.
 
-## Resumo dos problemas encontrados
+## O que a auditoria encontrou
 
-Fiz um rastreamento completo de todos os pontos do código que escrevem em `carregamentos_dia` ao editar um pedido. Identifiquei **3 causas reais** de duplicação/triplicação, mais 1 risco de race condition. Eles se combinam — por isso às vezes duplica, às vezes triplica.
+1. Duplicatas reais no banco
+- Existem grupos com 2 e 3 linhas fisicamente duplicadas em `carregamentos_dia`.
+- Nos últimos 30 dias, a maior parte dos grupos duplicados foi criada pelo usuário de faturamento.
+- Resultado da auditoria por criador:
+  - `faturamento@frico.ind.br`: 23 linhas em 11 grupos duplicados
+  - `debora@frico.ind.br`: 2 linhas em 1 grupo duplicado
 
----
+2. A coluna de idempotência não está protegendo o fluxo do faturamento
+- A tabela tem `operation_id`, mas no banco atual há 0 registros com `operation_id` preenchido.
+- Ou seja: os fluxos que o faturamento usa com mais frequência ainda estão inserindo sem trava anti-duplicação.
 
-## Causa #1 — Edição do vendedor: estratégia "DELETE + INSERT" sem transação (CRÍTICO)
+3. O principal fluxo suspeito é o painel operacional, não só “Aprovações”
+- Em `CarregamentoDialog` + `Index`, o faturamento pode:
+  - criar pedido,
+  - editar pedido completo,
+  - clonar pedido,
+  - inserir itens extras via `_batch`.
+- Esse caminho usa `useBatchCreateCarregamento`, que hoje faz `insert(rows)` direto, sem `operation_id`, sem chave lógica e sem proteção forte contra reenvio.
 
-**Arquivo:** `src/components/vendedor/MeusPedidos.tsx`, linhas 60-87 (`handleSubmit` no modo edição).
+4. O botão de clonar é um risco alto
+- A tabela mostra botão “Editar pedido completo” e logo ao lado “Clonar pedido”.
+- O clone cria novas linhas a partir de dados existentes e pode copiar inclusive carga, status e logística.
+- A auditoria encontrou registros criados pelo faturamento já com `carga_id`, `etapa = logistica` e `status = Pendente / Problema`, típico de clone/duplicação de item já operacional.
 
-Hoje, ao editar um rascunho, o código faz:
+5. O fechamento do modal reseta a trava cedo demais
+- `CarregamentoDialog` chama `onSubmit(...)` e fecha o modal imediatamente.
+- Ao fechar, ele reseta a trava interna (`submitGuard`).
+- Como a mutation ainda pode estar rodando, isso abre janela para reentrada/reenvio e duplicação.
 
-```text
-1. SELECT irmãos do mesmo (data + numero_pedido + codigo_cliente)
-2. DELETE in (ids antigos)
-3. INSERT (todos os itens novos)
-```
+6. `numero_pedido` quase não está sendo usado
+- 99,6% dos registros estão com `numero_pedido = null`.
+- Vários agrupamentos e cascatas dependem de `numero_pedido`; quando ele está vazio, o sistema agrupa por `created_at` ou não consegue encontrar “irmãos” do mesmo pedido de forma segura.
+- Isso aumenta o risco de editar uma linha e gerar/inserir outra em vez de atualizar o conjunto correto.
 
-Problemas:
-
-- Se o usuário **clicar duas vezes em "Salvar"** (mobile é muito comum) antes do primeiro request voltar, o segundo clique pega a mesma lista `meusPedidos` (já cacheada) e roda `DELETE + INSERT` **de novo**. Como o primeiro DELETE já apagou os irmãos, o segundo DELETE não acha nada — mas o **INSERT roda mesmo assim** → resultado: 2x os itens. Triplica se clicar 3x.
-- Não há `setSubmitting(true)` antes do `await` no handler do dialog em si — o botão tem `disabled={isSubmitting}`, mas a `useState` só atualiza no próximo tick. Em conexão lenta dá pra disparar.
-- Se o INSERT falhar no meio, perde os itens originais (sem rollback).
-
-## Causa #2 — Edição em Aprovações: identidade do grupo frágil para "novos itens" (CRÍTICO)
-
-**Arquivo:** `src/hooks/useEditarPedidoAprovacao.ts`.
-
-A lógica está correta em teoria (UPDATE existentes + INSERT novos + DELETE removidos), **mas** os "novos itens" são identificados apenas por `!i.id` no estado React. Ao salvar:
-
-- Se o usuário clicar **"Salvar e aprovar"** e o request demorar, e ele clicar de novo, o segundo submit ainda enxerga os mesmos itens novos (sem `id` atribuído) e roda outro `INSERT`. Resultado: novos itens duplicados/triplicados.
-- O `mutationFn` não verifica `isPending` internamente; o botão tem `disabled={editar.isPending}` mas isso depende do React commitar antes do próximo clique.
-- Não há **idempotência no servidor** (sem `operation_id` na tabela, sem `upsert` com `onConflict`).
-
-## Causa #3 — Realtime + cache otimista geram "fantasma" temporário
-
-**Arquivos:** `src/hooks/useCarregamentos.ts` (subscribe INSERT linha 61), `src/pages/Consolidado.tsx` (linha 80).
-
-Sequência observada:
-
-```text
-1. UPDATE otimista do hook (item já aparece atualizado na UI)
-2. INSERT novos chega via realtime → adiciona na lista
-3. invalidateQueries dispara refetch → re-baixa tudo
-4. Durante esse intervalo, o usuário vê itens "duplicados" porque
-   o refetch pode trazer linhas que já estavam no cache otimista
-   sem deduplicação por id
-```
-
-Não é duplicação no banco, mas o usuário **vê** duplicação na tela e às vezes clica de novo achando que falhou — o que dispara a Causa #1 ou #2 e aí **vira duplicação real**.
-
-## Causa #4 — `next_numero_pedido` chamado fora de transação no INSERT do vendedor
-
-**Arquivo:** `src/components/vendedor/MeusPedidos.tsx`, linhas 89-94.
-
-No fluxo de **criar** (não editar), faz `rpc("next_numero_pedido")` e depois `INSERT`. Em duplo clique, dois RPCs sequenciais geram **dois números diferentes** com os mesmos itens → o sistema **não os agrupa** (vira 2 pedidos distintos com mesmo cliente/produtos), o que aparece como "duplicado" na tela de Aprovações.
-
----
+7. A edição em Aprovações melhorou, mas ainda não é transacional
+- `useEditarPedidoAprovacao` faz DELETE, UPDATE e INSERT em passos separados.
+- Se houver falha parcial, refresh ou concorrência, pode deixar o pedido em estado inconsistente.
+- Também usa `operation_id` apenas nos itens novos, não em uma transação atômica do pedido inteiro.
 
 ## Plano de correção
 
-### 1. Proteção universal contra duplo clique (todos os submits)
+### 1. Blindar o fluxo operacional usado pelo faturamento
+- Atualizar `useCreateCarregamento` e `useBatchCreateCarregamento` para sempre enviar chave de operação/linha.
+- Impedir que qualquer insert manual do faturamento entre sem identificador idempotente.
+- Tratar erro de duplicidade como sucesso quando for o mesmo envio repetido.
 
-- Adicionar `useRef<boolean>` "submittingRef" em `MeusPedidos.handleSubmit`, `EditarPedidoAprovacaoDialog.salvar` e `NovoPedidoDialog.submit`. Bloquear reentrada **antes** do `await`, liberar no `finally`.
-- Garante que mesmo cliques rápidos antes do React re-renderizar não disparem 2 mutations.
+### 2. Corrigir o fechamento prematuro do modal
+- Em `CarregamentoDialog`, transformar `onSubmit` em fluxo aguardável.
+- Só fechar o modal depois que o insert/update terminar com sucesso.
+- Não resetar `submitGuard` enquanto a mutation estiver pendente.
+- Manter botão “Salvar” bloqueado durante todo o envio real.
 
-### 2. Trocar "DELETE + INSERT" por **UPDATE/INSERT/DELETE delta** no vendedor
+### 3. Separar claramente “Editar” de “Clonar”
+- Para reduzir erro operacional do faturamento:
+  - deixar “Clonar pedido” menos próximo do botão editar;
+  - exigir confirmação antes de clonar;
+  - mostrar aviso: “Isso criará um novo pedido, não editará o existente”.
+- Ao clonar, limpar campos operacionais perigosos por padrão:
+  - `carga_id`, `nome_carga`, `placa`, `motorista`, `transportadora`, `ordem_entrega`, horários, status operacional e etapa logística.
+- Clone deve voltar como novo pedido de vendas, não como duplicata de carga fechada.
 
-Refatorar `MeusPedidos.tsx → handleSubmit` (modo edição) para usar a mesma estratégia de delta que já existe em `useEditarPedidoAprovacao.ts`:
+### 4. Criar uma chave lógica segura para evitar duplicatas reais
+- Adicionar uma chave de deduplicação por linha, por exemplo `idempotency_key` ou composição equivalente.
+- Criar índice único parcial para impedir a repetição do mesmo envio.
+- Não usar somente `(operation_id, codigo_produto)`, porque um pedido legítimo pode ter duas linhas do mesmo produto.
+- A nova chave deve considerar linha/posição do item ou UUID por linha.
 
-- Comparar itens novos × irmãos atuais por `id`.
-- `UPDATE` os que mantêm `id`, `INSERT` os sem `id`, `DELETE` os removidos.
-- Elimina o "INSERT em cima de DELETE já consumido" que é a raiz da duplicação.
+### 5. Fortalecer edição de pedido completo
+- Quando editar um pedido completo, classificar com segurança:
+  - linhas existentes: UPDATE por `id`;
+  - linhas removidas: DELETE explícito;
+  - linhas novas: INSERT com chave idempotente;
+  - nunca recriar linhas existentes.
+- Aplicar isso tanto no painel operacional quanto no fluxo de Aprovações.
 
-### 3. Idempotência server-side com `operation_id`
+### 6. Corrigir dependência de `numero_pedido = null`
+- Garantir que novos pedidos criados pelo faturamento também recebam `numero_pedido` quando aplicável.
+- Para registros antigos sem número, usar agrupamento por chave mais estável: vendedor + data + cliente + timestamp/lote + carga quando necessário.
+- Evitar cascatas que só funcionam quando `numero_pedido` existe.
 
-- Adicionar coluna `operation_id uuid` em `carregamentos_dia` (nullable) + índice único parcial `WHERE operation_id IS NOT NULL`.
-- Cada submit (cliente) gera um único UUID `crypto.randomUUID()` e envia em **todos** os INSERTs daquela operação.
-- Se o usuário "duplo-clicar" e o segundo request chegar, o `INSERT` rejeita por unique violation. O cliente trata o 23505 silenciosamente.
-- Migration via tool de migração; safe pois é coluna nullable e índice parcial.
+### 7. Adicionar auditoria preventiva no código
+- Registrar audit log agregado para operações de criar, clonar e editar pedido completo.
+- Incluir `operation_id`, tipo da operação e origem: `criar`, `editar`, `clonar`, `aprovar`.
+- Isso vai permitir provar exatamente de onde veio qualquer duplicata futura.
 
-### 4. Travar `next_numero_pedido` no fluxo de criação
-
-- Mover o `rpc("next_numero_pedido")` + `INSERT` para uma **edge function** transacional (`criar-pedido-vendedor`), assim o número é alocado e o INSERT acontece atomicamente. Duplo clique na pior das hipóteses devolve o mesmo `numero_pedido` se usar idempotência por `operation_id`.
-- Alternativa mais leve (se preferir não criar edge function agora): apenas implementar #1 + #3 já elimina o sintoma; o #4 fica como melhoria.
-
-### 5. Deduplicação defensiva no realtime/cache
-
-- Em `useCarregamentos.ts`, ao receber `INSERT` via realtime e ao mesclar `setQueriesData`, deduplicar por `id` (`Map(items.map(i => [i.id, i]))`) antes de retornar a lista. Idem no `Consolidado.tsx`.
-- Garante que o usuário **nunca veja** duplicado na UI mesmo durante refetch — corta o feedback ruim que faz ele clicar de novo.
-
-### 6. Limpeza de duplicatas existentes (opcional)
-
-Se você confirmar que já tem duplicatas no banco, eu posso rodar uma query SELECT de auditoria pra mostrar quantas são, agrupadas por `(vendedor_id, data, numero_pedido, codigo_cliente, codigo_produto)`. Não vou apagar nada sem você ver e confirmar.
-
----
+### 8. Relatório de duplicatas existentes, sem apagar nada automaticamente
+- Criar uma query/relatório para listar duplicatas existentes com:
+  - cliente,
+  - produto,
+  - data,
+  - carga,
+  - usuário criador,
+  - horários de criação,
+  - IDs envolvidos.
+- Não remover dados automaticamente nesta etapa.
+- Depois, se você aprovar, fazemos uma limpeza controlada com confirmação e preservação da linha mais antiga/mais atual conforme regra definida.
 
 ## Arquivos que serão alterados
 
-- `src/components/vendedor/MeusPedidos.tsx` — refatorar `handleSubmit` para delta + ref de bloqueio
-- `src/components/vendedor/NovoPedidoDialog.tsx` — ref de bloqueio + propagar `operation_id`
-- `src/hooks/useEditarPedidoAprovacao.ts` — adicionar `operation_id` em todos os INSERTs, tratar 23505
-- `src/hooks/useCarregamentos.ts` — dedup por id no merge do realtime
-- `src/pages/Consolidado.tsx` — dedup por id no merge do realtime
-- **Migration nova:** adicionar coluna `operation_id` + índice único parcial em `carregamentos_dia`
-- (Opcional) `supabase/functions/criar-pedido-vendedor/index.ts` — alocação atômica do `numero_pedido`
+- `src/components/dashboard/CarregamentoDialog.tsx`
+- `src/pages/Index.tsx`
+- `src/hooks/useCarregamentos.ts`
+- `src/hooks/useEditarPedidoAprovacao.ts`
+- `src/components/aprovacoes/EditarPedidoAprovacaoDialog.tsx`
+- Possivelmente `src/components/dashboard/CarregamentoTable.tsx` para melhorar/confirmar o botão de clone
+- Nova migration para reforço de idempotência no banco
 
-## Ordem de implementação proposta
+## Resultado esperado
 
-1. Migration `operation_id` (base para tudo) + dedup defensivo no cache (ganho imediato)
-2. Refatorar edição do vendedor (Causa #1 — a mais grave hoje)
-3. Idempotência no `useEditarPedidoAprovacao` (Causa #2)
-4. (Opcional, depois) Edge function para `next_numero_pedido` atômico
-
-Após aprovação eu executo na ordem acima e te aviso a cada etapa.
+Depois da correção:
+- editar pedido não vai criar nova linha indevida;
+- duplo clique/reenvio não vai duplicar;
+- clone não será confundido com edição;
+- clone não copiará carga/logística de pedido já fechado;
+- novos pedidos terão rastreabilidade por operação;
+- duplicatas futuras serão bloqueadas no banco, não apenas na interface.
