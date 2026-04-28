@@ -2,11 +2,32 @@ import { useEffect } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { toast } from "sonner";
 
+const isInIframe = (() => {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+})();
+
+const hostname = window.location.hostname;
+const isPreviewHost =
+  hostname.includes("id-preview--") ||
+  hostname.includes("lovableproject.com") ||
+  hostname.includes("lovable.app") ||
+  hostname.includes("lovable.dev") ||
+  hostname === "localhost" ||
+  hostname === "127.0.0.1";
+
+const shouldRegisterPwa = !isPreviewHost && !isInIframe;
+
 export function PwaUpdatePrompt() {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
   } = useRegisterSW({
+    immediate: shouldRegisterPwa,
     onRegisteredSW(_swUrl, registration) {
+      if (!shouldRegisterPwa) return;
       if (!registration) return;
 
       // Periodic check every 60 seconds — catches new deploys quickly
