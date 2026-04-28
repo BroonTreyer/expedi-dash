@@ -24,6 +24,7 @@ export interface EditarPedidoPayload {
   cidade: string | null;
   uf: string | null;
   observacoes: string;
+  forma_pagamento?: string | null;
   items: EditItemPayload[];
   removedIds: string[];
   aprovarAposSalvar?: boolean;
@@ -61,6 +62,7 @@ export function useEditarPedidoAprovacao() {
             motivo_ruptura: it.motivo_ruptura || null,
             ruptura: !!it.ruptura,
             observacoes: meta.observacoes || null,
+            forma_pagamento: meta.forma_pagamento || null,
             ...(aprovarAposSalvar ? { etapa: "vendas", status: "Aguardando" } : {}),
           })
           .eq("id", it.id!);
@@ -88,6 +90,7 @@ export function useEditarPedidoAprovacao() {
           motivo_ruptura: it.motivo_ruptura || null,
           ruptura: !!it.ruptura,
           observacoes: meta.observacoes || null,
+          forma_pagamento: meta.forma_pagamento || null,
           etapa: aprovarAposSalvar ? "vendas" : "aguardando_faturamento",
           status: "Aguardando",
           operation_id: operationId,
