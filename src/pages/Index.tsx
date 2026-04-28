@@ -266,12 +266,13 @@ export default function Index() {
       // Cascade: propagate shared fields to sibling rows (same numero_pedido + data).
       // Match by the OLD numero_pedido so renumbering also propagates.
       const editedItem = carregamentos.find((c) => c.id === values.id);
-      if (editedItem && editedItem.numero_pedido) {
+      if (editedItem && editedItem.numero_pedido && editedItem.codigo_cliente) {
         const siblings = carregamentos.filter(
           (c) =>
             c.id !== values.id &&
             c.numero_pedido === editedItem.numero_pedido &&
-            c.data === editedItem.data
+            c.data === editedItem.data &&
+            c.codigo_cliente === editedItem.codigo_cliente
         );
         if (siblings.length > 0) {
           const sharedPayload: Record<string, any> = {};
