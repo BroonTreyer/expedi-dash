@@ -12,7 +12,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Plus, X, UserPlus, Check, ChevronsUpDown, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos } from "@/hooks/useProdutos";
-import { isPorUnidade } from "@/lib/constants";
+import { isPorUnidade, FORMAS_PAGAMENTO } from "@/lib/constants";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NovoClienteInline } from "./NovoClienteInline";
 
 interface ItemRow {
@@ -33,6 +34,7 @@ export interface NovoPedidoSubmit {
   cliente: { codigo_cliente: string; nome_cliente: string; cidade: string | null; uf: string | null };
   items: Array<{ codigo_produto: string; nome_produto: string; quantidade: number; peso: number; preco_unitario: number; preco_total: number }>;
   observacoes: string;
+  forma_pagamento: string;
   enviarParaAprovacao: boolean;
   editingId?: string;
 }
@@ -54,6 +56,7 @@ interface Props {
     peso: number | null;
     preco_unitario?: number | null;
     observacoes: string | null;
+    forma_pagamento?: string | null;
   } | null;
 }
 
@@ -66,6 +69,7 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
   const [clienteSel, setClienteSel] = useState<{ codigo_cliente: string; nome_cliente: string; cidade: string | null; uf: string | null } | null>(null);
   const [items, setItems] = useState<ItemRow[]>([emptyItem()]);
   const [observacoes, setObservacoes] = useState("");
+  const [formaPagamento, setFormaPagamento] = useState<string>("");
   const [novoClienteOpen, setNovoClienteOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   // Trava reentrante contra duplo clique antes do React re-renderizar
@@ -92,12 +96,14 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
         precoUnitario: Number(editing.preco_unitario ?? 0),
       }]);
       setObservacoes(editing.observacoes ?? "");
+      setFormaPagamento(editing.forma_pagamento ?? "");
     } else {
       setCodigoCliente("");
       setDebouncedCodigo("");
       setClienteSel(null);
       setItems([emptyItem()]);
       setObservacoes("");
+      setFormaPagamento("");
     }
   }, [open, editing]);
 
@@ -177,8 +183,9 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
 
   const isValid = useMemo(() => {
     if (!clienteSel) return false;
+    if (!formaPagamento) return false;
     return items.every((r) => r.codigo_produto && r.quantidade > 0);
-  }, [clienteSel, items]);
+  }, [clienteSel, items, formaPagamento]);
 
   const submit = async (enviar: boolean) => {
     if (!clienteSel || !isValid) return;
@@ -196,6 +203,7 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
         preco_total: (r.precoUnitario || 0) * (r.quantidade || 0),
       })),
       observacoes: observacoes.trim(),
+      forma_pagamento: formaPagamento,
       enviarParaAprovacao: enviar,
       editingId: editing?.id,
       });
