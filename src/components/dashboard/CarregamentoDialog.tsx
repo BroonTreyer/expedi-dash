@@ -299,8 +299,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     // tentativa falhou parcialmente (algumas linhas já entraram), a
     // próxima tentativa não colide na unique index `row_op_key`.
     const attemptSuffix = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).slice(0, 8);
-    const makeRowKey = (item: ProductItem, idx: number) =>
-      `${opId}__${attemptSuffix}__${item.codigo_produto || "x"}__${idx}`;
+    // Contador GLOBAL desta tentativa: garante chave única mesmo quando
+    // duas linhas têm o mesmo codigo_produto (ex: mesmo SKU repetido).
+    let rowCounter = 0;
+    const makeRowKey = (item: ProductItem) =>
+      `${opId}__${attemptSuffix}__${item.codigo_produto || "x"}__${rowCounter++}`;
 
     if (editing && editing.id && !editing.id.startsWith("clone-")) {
       // First item is the main update; additional items are inserts (or updates when editingGroup)
@@ -337,7 +340,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
             batchInserts.push({
               ...row,
               operation_id: opId,
-              row_op_key: makeRowKey(item, i + 1),
+              row_op_key: makeRowKey(item),
             });
           }
         }
@@ -369,7 +372,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           peso_manual: item.pesoManual,
           ruptura: item.ruptura,
           operation_id: opId,
-          row_op_key: makeRowKey(item, i + 1),
+          row_op_key: makeRowKey(item),
         }));
         await onSubmit({ ...updatePayload, _batch: extraRows });
       } else {
@@ -385,7 +388,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso_manual: item.pesoManual,
         ruptura: item.ruptura,
         operation_id: opId,
-        row_op_key: makeRowKey(item, i),
+        row_op_key: makeRowKey(item),
       }));
       if (batchRows.length === 1) {
         await onSubmit(batchRows[0]);
