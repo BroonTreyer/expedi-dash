@@ -68,6 +68,8 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
   const [observacoes, setObservacoes] = useState("");
   const [novoClienteOpen, setNovoClienteOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  // Trava reentrante contra duplo clique antes do React re-renderizar
+  const submittingRefLocal = useRef(false);
 
   // Reset / hidrata editing
   useEffect(() => {
