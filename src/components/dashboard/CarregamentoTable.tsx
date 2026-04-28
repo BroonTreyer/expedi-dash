@@ -693,11 +693,17 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     <TableCell className="text-sm font-mono font-bold text-primary">
                       <span className="flex items-center gap-1.5 flex-wrap">
                         {group.codigoCliente} – {group.nomeCliente ?? ""}
-                        {first.numero_pedido != null && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
-                            Pedido {first.numero_pedido}
-                          </Badge>
-                        )}
+                        {(() => {
+                          const pedidosUnicos = Array.from(new Set(group.items.map(i => i.numero_pedido).filter((n): n is number => n != null)));
+                          if (pedidosUnicos.length === 0) return null;
+                          const label = pedidosUnicos.length === 1 ? `Pedido ${pedidosUnicos[0]}` : `${pedidosUnicos.length} pedidos`;
+                          const title = pedidosUnicos.length > 1 ? `Pedidos: ${pedidosUnicos.join(", ")}` : undefined;
+                          return (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono" title={title}>
+                              {label}
+                            </Badge>
+                          );
+                        })()}
                         {first.ordem_entrega != null && (
                           <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold h-5 min-w-5 px-1">
                             {first.ordem_entrega}ª
