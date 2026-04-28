@@ -287,7 +287,7 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
           peso: it.ruptura ? 0 : it.peso,
           peso_manual: true,
           ruptura: it.ruptura,
-          motivo_ruptura: it.ruptura ? (it.motivo_ruptura || null) : null,
+          motivo_ruptura: null,
         });
       }
     }
@@ -496,16 +496,6 @@ export function ImportarPedidoPdfDialog({ open, onOpenChange, selectedDate, prod
                           <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItem(p.fileId, idx)} title="Remover">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                          {it.ruptura && (
-                            <div className="col-span-2 sm:col-span-6 -mt-1">
-                              <Input
-                                placeholder="Motivo da ruptura (opcional)"
-                                value={it.motivo_ruptura}
-                                onChange={(e) => updateItem(p.fileId, idx, { motivo_ruptura: e.target.value })}
-                                className="h-8 text-sm"
-                              />
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
