@@ -1,45 +1,39 @@
-# Corrigir badge de Ruptura ausente em algumas linhas
+Problema identificado
 
-## Problema
+No exemplo da imagem, a ruptura está registrada no banco em uma das linhas do grupo, mas o cabeçalho do grupo não mostra o badge.
 
-Em alguns pedidos com ruptura, o badge "Ruptura" (laranja) não aparece em todas as linhas. Isso acontece porque há **dois tipos** de ruptura no banco:
+O motivo é este:
 
-- `ruptura = true` → ruptura **total** (item zerado, marcado manualmente).
-- `ruptura_sinalizada = true` → ruptura **parcial** (peso atual menor que o `peso_original`, marcada automaticamente pelo trigger `preserve_peso_original`).
+- A tabela agrupa várias linhas pelo cliente/data, então o cabeçalho aparece como “4 produtos” e “2 pedidos”.
+- O código já calcula que o grupo tem ruptura (`hasRuptura`).
+- Porém, no Dashboard principal a coluna “Etapa” fica escondida (`hideColumns` inclui `etapa`).
+- O único indicador de ruptura do cabeçalho do grupo estava dentro dessa coluna escondida. Resultado: o grupo tem ruptura, mas o cabeçalho não mostra nada.
+- A linha individual com ruptura mostra o badge corretamente; as outras linhas sem `ruptura`/`ruptura_sinalizada` não devem receber badge individual para não parecer que todos os produtos romperam.
 
-Hoje, em vários componentes do painel principal, o badge só é exibido quando `c.ruptura === true`, ignorando os casos de ruptura parcial. Já em `RupturasVendedor.tsx` o filtro usa `c.ruptura || c.ruptura_sinalizada` — por isso lá aparece corretamente, mas no Dashboard/Tabela/Kanban não.
+Plano de correção
 
-## Solução
+1. Criar um badge visual reutilizável de ruptura na tabela
+   - Em `src/components/dashboard/CarregamentoTable.tsx`, extrair o badge “Ruptura” para um pequeno componente/helper local, para usar igual em linha individual, linha expandida e cabeçalho de grupo.
+   - Manter a cor âmbar/laranja já usada hoje.
 
-Unificar a regra: tratar como "tem ruptura" sempre que `c.ruptura || c.ruptura_sinalizada` for verdadeiro. Aplicar em todos os pontos onde o badge/realce aparece.
+2. Mostrar “Ruptura” no cabeçalho do grupo multi-produto
+   - Quando `group.items.some(temRuptura)` for verdadeiro, renderizar o badge “Ruptura” em uma coluna sempre visível do cabeçalho do grupo.
+   - Melhor local: ao lado de “4 produtos” ou ao lado do cliente/pedidos, pois essas áreas continuam visíveis mesmo com a coluna “Etapa” escondida.
+   - Assim, no exemplo da imagem, a linha principal “33175 – FRIGORSUL...” / “4 produtos” também indicará que existe ruptura dentro do grupo.
 
-### Arquivos a alterar
+3. Aplicar também no mobile
+   - No cabeçalho do card agrupado no mobile, mostrar o badge “Ruptura” quando qualquer item do grupo tiver ruptura.
+   - Isso evita o mesmo problema em tela menor.
 
-1. **`src/components/dashboard/CarregamentoTable.tsx`**
-   - Linha ~227 (card mobile): badge "Ruptura".
-   - Linha ~509 e ~790: classe de fundo amarelo da `TableRow`.
-   - Linha ~521: ícone `AlertTriangle` na coluna Etapa.
-   - Linha ~537 e ~806: badge "Ruptura" na coluna do código do produto.
-   - Linha ~634: cálculo de `hasRuptura` no grupo multi-item (header).
-   - Trocar todas essas checagens de `c.ruptura` para `(c.ruptura || c.ruptura_sinalizada)`. Criar um helper local `hasRup(c)` para evitar repetição.
+4. Manter a regra correta nas linhas individuais
+   - Linhas individuais continuam mostrando badge apenas quando aquela linha tiver `ruptura` ou `ruptura_sinalizada`.
+   - Não vou marcar todos os produtos do grupo como ruptura se só um produto rompeu.
+   - O cabeçalho do grupo mostrará “Ruptura” como aviso geral de que existe pelo menos uma ruptura dentro daquele grupo.
 
-2. **`src/components/dashboard/KanbanView.tsx`**
-   - Linha ~46 e ~52: borda esquerda âmbar e ícone `AlertTriangle` no card.
-   - Mesma troca para `(c.ruptura || c.ruptura_sinalizada)`.
+Resultado esperado
 
-3. **(Opcional, para consistência futura)** Adicionar helper compartilhado em `src/lib/peso-utils.ts` (ou novo `src/lib/ruptura-utils.ts`):
-   ```ts
-   export const temRuptura = (c: { ruptura?: boolean | null; ruptura_sinalizada?: boolean | null }) =>
-     !!(c.ruptura || c.ruptura_sinalizada);
-   ```
-   E usar em todos os componentes acima + `RupturasVendedor.tsx`.
+No caso da imagem:
 
-## O que NÃO muda
-
-- O badge específico "Parcial" (`ParcialBadge`) continua igual — ele já trata o caso parcial separadamente quando aplicável.
-- A lógica de salvar/marcar ruptura no `CarregamentoDialog` permanece inalterada.
-- Nenhuma mudança de banco de dados; apenas frontend.
-
-## Resultado esperado
-
-Toda linha de pedido (no Dashboard, na tabela expandida e no Kanban) que tenha ruptura total **ou** parcial mostrará o badge laranja "Ruptura" e o realce de fundo, igual ao comportamento já presente na lista "Minhas Rupturas" do vendedor.
+- A linha expandida que realmente tem ruptura continua com o badge.
+- O cabeçalho do grupo também passa a mostrar “Ruptura”, mesmo com a coluna “Etapa” escondida.
+- Produtos sem ruptura continuam sem badge individual.

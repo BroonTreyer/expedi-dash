@@ -35,6 +35,14 @@ function ParcialBadge({ c }: { c: Carregamento }) {
   );
 }
 
+function RupturaBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300/70 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+      <AlertTriangle className="h-3 w-3" /> Ruptura
+    </span>
+  );
+}
+
 interface Props {
   data: Carregamento[];
   currentDate?: string;
@@ -184,6 +192,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
                   </span>
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
+                  {group.items.some(i => temRuptura(i)) && <RupturaBadge />}
                 </div>
                 <span className="text-xs text-muted-foreground">{group.items.length} produtos · {totalPeso.toLocaleString("pt-BR")} kg</span>
               </button>
@@ -686,7 +695,10 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.created_at)}</TableCell>
                     <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
-                      {group.items.length} produtos
+                      <span className="inline-flex items-center gap-1.5">
+                        {group.items.length} produtos
+                        {hasRuptura && <RupturaBadge />}
+                      </span>
                     </TableCell>
                     {!hideColumns.includes("peso") && <TableCell className="text-sm text-right font-semibold">{totalPeso.toLocaleString("pt-BR")}</TableCell>}
                     {!hideColumns.includes("tipo_caminhao") && <TableCell><PendingCell value={first.tipo_caminhao} /></TableCell>}
