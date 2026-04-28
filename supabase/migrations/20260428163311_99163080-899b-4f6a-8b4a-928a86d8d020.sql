@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.carregamentos_dia_operation_unique;
