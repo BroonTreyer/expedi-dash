@@ -1,78 +1,80 @@
-## Diagnóstico
+## Diagnóstico definitivo
 
-O erro `duplicate key value violates unique constraint "carregamentos_dia_row_op_key_unique"` está sendo disparado quando você cria/edita um pedido no `CarregamentoDialog`.
+Achei a causa real olhando os logs do Postgres. O erro `duplicate key value violates unique constraint "carregamentos_dia_row_op_key_unique"` está vindo em **rajadas** (vários por milissegundo) e também está vindo um irmão dele: `carregamentos_dia_operation_unique`.
 
-### Causa raiz
+### As duas constraints únicas em jogo
 
-Em `src/components/dashboard/CarregamentoDialog.tsx` (linha 298–299), a função `makeRowKey` gera a chave de idempotência assim:
-
-```ts
-const makeRowKey = (item, idx) =>
-  `${opId}__${item.codigo_produto || "x"}__${idx}`;
+```sql
+carregamentos_dia_row_op_key_unique  ON (row_op_key)               WHERE row_op_key IS NOT NULL
+carregamentos_dia_operation_unique   ON (operation_id, codigo_produto)  WHERE operation_id IS NOT NULL
 ```
 
-E o `opId` (linha 84/294) é mantido em um `useRef` que **só é limpo quando o modal é fechado** (linha 92). Ou seja, o mesmo `opId` é reusado em todas as tentativas de submit dentro da mesma sessão do modal.
+### O cenário que quebra
 
-Isso é correto para impedir duplicatas em retry, **mas quebra em dois cenários reais**:
+Quando você abre um pedido para **editar e marcar ruptura**:
 
-1. **Adicionar produto, salvar com erro, corrigir e salvar de novo** — o segundo save reusa o mesmo `opId` + mesmo `codigo_produto` + mesmo índice, e o banco bloqueia (mesmo que a primeira tentativa também tenha gravado).
+1. O dialog abre em modo `editingGroup` (pedido com múltiplos itens, vindos via `cloneItems`).
+2. Os itens existentes têm `originalId` setado → vão para `batchUpdates` (UPDATE).
+3. Qualquer item **sem** `originalId` (linha que foi adicionada na UI ou que veio sem id rastreado) vai para `batchInserts` com:
+   - `operation_id: opId` (o opId NOVO desta sessão do dialog)
+   - `row_op_key: ${opId}__${attemptSuffix}__${codigo_produto}__${i+1}`
 
-2. **Editar grupo de pedidos**: ao adicionar uma nova linha, a chave fica `${opId}__${codigo_produto}__${i+1}`. Se o usuário adicionar **dois produtos com o mesmo código** (ex: o mesmo SKU em quantidades diferentes) — algo que acontece quando o pedido tem o mesmo item duplicado — `i+1` diferencia, ok. Mas no **fluxo de criação** (linha 384) usa `makeRowKey(item, i)` com `i` começando em 0, e no fluxo "extra rows" da edição (linha 368) usa `i+1`. Se o usuário re-tentar após uma falha parcial onde a primeira linha já entrou, a colisão é certa.
+4. **Se houver dois itens com o mesmo `codigo_produto`** no batch (super comum: o mesmo produto repetido em duas quantidades, ou o mesmo SKU adicionado duas vezes), a constraint `(operation_id, codigo_produto)` é violada — o índice único exige a tupla distinta dentro de uma mesma operação.
 
-3. **Casos com `codigo_produto` vazio/null**: o fallback `"x"` faz com que duas linhas sem código colidam pelo mesmo prefixo `opId__x__idx` se o índice coincidir entre tentativas.
+5. O `batchCreateMut` em `useBatchCreateCarregamento` chama `.insert(payload).select()` em **um único request**. Quando dá erro `23505`, o hook silencia (retorna `[]`) — mas a transação inteira é abortada pelo PostgreSQL, e o cascade subsequente também falha em cadeia, gerando as rajadas que aparecem nos logs.
 
-O caso mais comum que você está vendo agora (erro recorrente após tentar salvar) é o **#1**: o usuário fecha um toast de erro, ajusta algo e salva de novo — o `opIdRef` ainda está vivo, e o banco já tem alguma linha com aquela `row_op_key`.
+### Por que a correção anterior não pegou
+
+A correção anterior (regenerar `opId` após erro + sufixo por tentativa) protege contra colisões **entre tentativas diferentes** do usuário. Mas o problema atual é colisão **dentro da mesma tentativa**, entre linhas irmãs que compartilham o mesmo `codigo_produto`.
+
+A constraint `carregamentos_dia_operation_unique` foi criada (em uma migration de 28/04) com a intenção de bloquear "mesmo operation_id + mesmo produto = duplicata". Mas ela é incompatível com o caso legítimo de **um pedido ter o mesmo produto duas vezes** (ex: 2 caixas de Pão de Alho em quantidades distintas, ou ruptura parcial que vira duas linhas).
 
 ## Correção
 
-Tornar a chave de idempotência **mais robusta** sem perder a proteção contra duplo-clique/retry de rede.
+Duas mudanças, uma no banco e uma no front:
 
-### Mudanças em `src/components/dashboard/CarregamentoDialog.tsx`
+### 1. Migration: relaxar a constraint `operation_unique`
 
-1. **Resetar `opIdRef` após erro de submit** (não só ao fechar o modal). No bloco `finally` (linha ~393-403), quando `didSucceed` for `false`, gerar um **novo `opId`** para a próxima tentativa. Assim:
-   - Duplo-clique no mesmo botão: ainda protegido (o `opIdRef` só muda depois do submit terminar).
-   - Re-submit após erro corrigido: nova chave, sem colisão.
+A constraint `(operation_id, codigo_produto)` é boa demais. Substituir por `(row_op_key)` apenas (que já existe). A `row_op_key` já carrega o índice da linha (`__0`, `__1`, …), então duas linhas com o mesmo produto têm chaves diferentes naturalmente.
 
-2. **Incluir um sufixo aleatório curto** dentro do `makeRowKey`, gerado uma vez por tentativa de submit (não por linha):
-
-```ts
-const attemptSuffix = (globalThis.crypto?.randomUUID?.() ?? Date.now().toString()).slice(0, 8);
-const makeRowKey = (item, idx) =>
-  `${opId}__${attemptSuffix}__${item.codigo_produto || "x"}__${idx}`;
+```sql
+DROP INDEX IF EXISTS public.carregamentos_dia_operation_unique;
+-- mantém apenas carregamentos_dia_row_op_key_unique e o índice não-único de operation_id
 ```
 
-   - Isso garante que cada **tentativa** de submit produz chaves distintas, mesmo se o `opId` fosse reusado por engano.
-   - Para manter a proteção contra duplo-clique, o `attemptSuffix` é gerado **fora** do `makeRowKey`, dentro do `handleSubmit`, e só é regenerado em uma nova chamada de `handleSubmit` (que já está protegida pelo `submitGuard.current`).
+A proteção contra duplo-clique fica garantida por `row_op_key`, que já inclui `operation_id__attemptSuffix__codigo__idx`.
 
-3. **Tratar 23505 com mensagem amigável** já está feito nos hooks `useCreateCarregamento` / `useBatchCreateCarregamento` (retornam silenciosamente). Mas no fluxo de update + batch insert dentro do `useUpdateCarregamento`/handler do dialog, o erro 23505 está vazando como toast bruto. Vou garantir que o handler de submit principal também trate `23505` como sucesso silencioso (idempotência).
+### 2. Front (`CarregamentoDialog.tsx`): garantir índices globais únicos no batch
 
-### Mudança técnica resumida
+Hoje o `makeRowKey` usa `idx` que é o índice **dentro do slice atual** (extraRows usa `i+1`, primeira linha usa `i`). Quando o dialog tem 2 produtos iguais, ambos podem cair em índices diferentes — ok. Mas para reforçar e evitar regressões, vou usar um contador monótono dentro de cada `handleSubmit`:
 
 ```ts
-// Dentro de handleSubmit, antes do switch de modos:
-if (!opIdRef.current) {
-  opIdRef.current = crypto.randomUUID();
-}
-const opId = opIdRef.current;
-const attemptSuffix = crypto.randomUUID().slice(0, 8);  // NOVO: muda a cada tentativa
-const makeRowKey = (item, idx) =>
-  `${opId}__${attemptSuffix}__${item.codigo_produto || "x"}__${idx}`;
-
-// No finally, quando falhou:
-} else {
-  submitGuard.current = false;
-  opIdRef.current = null;  // NOVO: força nova chave na próxima tentativa
-}
+let rowCounter = 0;
+const makeRowKey = (item: ProductItem) =>
+  `${opId}__${attemptSuffix}__${item.codigo_produto || "x"}__${rowCounter++}`;
 ```
+
+E remover o parâmetro `idx` das chamadas (passa a ser um contador global do submit, não índice de array).
+
+### 3. Front (`useCarregamentos.ts`): tratar 23505 também no `batchUpdate`
+
+Já tratei isso para `useCreate` e `useBatchCreate`, mas o `useBatchUpdateCarregamento` faz `Promise.all(...update().single())` e se uma falhar com `23505` o erro vaza. Vou filtrar `23505` como sucesso silencioso lá também (caso muito raro mas possível em race com realtime).
 
 ## Arquivos alterados
 
-- `src/components/dashboard/CarregamentoDialog.tsx` — única mudança (~6 linhas).
+- `supabase/migrations/<timestamp>_drop_operation_unique.sql` — drop do índice problemático
+- `src/components/dashboard/CarregamentoDialog.tsx` — contador global no `makeRowKey`
+- `src/hooks/useCarregamentos.ts` — filtrar 23505 no `useBatchUpdateCarregamento`
 
 ## O que NÃO muda
 
-- Banco de dados / migrations / RLS — sem mudança.
-- Outros hooks (`useCarregamentos`, `useEditarPedidoAprovacao`, `MeusPedidos`) — esses já usam um `opId` novo a cada chamada de mutation, então não sofrem desse problema.
-- A proteção contra duplo-clique continua intacta (via `submitGuard.current`).
+- A proteção contra duplicatas continua via `carregamentos_dia_row_op_key_unique` (que combina opId + attemptSuffix + idx).
+- Nenhuma mudança no fluxo de sales/logistica/portaria.
+- Nenhuma mudança em RLS ou triggers.
+- A migration é segura: drop de índice único não afeta dados existentes (os valores continuam lá, só não são mais checados como tupla).
 
-Quer que eu aplique?
+## Verificação após aplicar
+
+Editar um pedido com 2 itens do mesmo produto (Pão de Alho duplicado) e marcar ruptura → deve salvar sem erro.
+
+Pode aplicar?

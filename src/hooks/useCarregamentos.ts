@@ -249,7 +249,9 @@ export function useBatchUpdateCarregamento() {
           supabase.from("carregamentos_dia").update(values).eq("id", id).select().single()
         )
       );
-      const firstError = results.find(r => r.error);
+      // 23505 (unique violation) é tratado como sucesso silencioso —
+      // protege contra raras colisões em cascade de irmãos.
+      const firstError = results.find(r => r.error && (r.error as any).code !== "23505");
       if (firstError?.error) throw firstError.error;
       return results.map(r => r.data);
     },
