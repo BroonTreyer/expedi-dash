@@ -3,94 +3,52 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// --- PWA service-worker guards ---
-const isInIframe = (() => {
-  try {
-    return window.self !== window.top;
-  } catch {
-    return true;
-  }
-})();
-
-const hostname = window.location.hostname;
-const isPreviewHost =
-  hostname.includes("id-preview--") ||
-  hostname.includes("lovableproject.com") ||
-  hostname.includes("lovable.app") ||
-  hostname.includes("lovable.dev") ||
-  hostname === "localhost" ||
-  hostname === "127.0.0.1";
-
-const isEditorContext = isPreviewHost || isInIframe;
-
+// --- Cleanup any service worker / cache left over from previous PWA setup ---
+// Runs in ALL contexts (preview, editor, production) because the app no longer
+// uses a service worker. Anyone who installed the old SW will be cleared and
+// reloaded once so they immediately get the fresh version.
 const clearServiceWorkerState = async () => {
   let hadState = false;
 
   if ("serviceWorker" in navigator) {
-    const regs = await navigator.serviceWorker.getRegistrations();
-    hadState ||= regs.length > 0;
-    await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      hadState ||= regs.length > 0;
+      await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+    } catch {
+      /* ignore */
+    }
   }
 
   if ("caches" in window) {
-    const keys = await caches.keys();
-    hadState ||= keys.length > 0;
-    await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+    try {
+      const keys = await caches.keys();
+      hadState ||= keys.length > 0;
+      await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+    } catch {
+      /* ignore */
+    }
   }
 
   return hadState;
 };
 
-// Hard-block SW registration inside editor/preview/iframe contexts.
-// vite-plugin-pwa calls navigator.serviceWorker.register; we shadow it.
-if (isEditorContext && "serviceWorker" in navigator) {
-  try {
-    // Unregister any existing SWs and clear their caches. If a previous SW was
-    // controlling this tab, one reload is required before the preview is fresh.
-    clearServiceWorkerState().then((hadState) => {
-      try {
-        const flag = "__preview_sw_purge_reloaded";
-        if (hadState && !sessionStorage.getItem(flag)) {
-          sessionStorage.setItem(flag, "1");
-          window.location.reload();
-        }
-      } catch {
-        if (hadState) window.location.reload();
-      }
-    });
-    // Prevent any future registration attempt (vite-plugin-pwa auto-register)
-    const noopRegister = () =>
-      Promise.reject(new Error("SW registration disabled in preview/iframe"));
+const PURGE_FLAG = "__sw_purge_reloaded_v1";
+clearServiceWorkerState()
+  .then((hadState) => {
     try {
-      Object.defineProperty(navigator.serviceWorker, "register", {
-        value: noopRegister,
-        configurable: true,
-        writable: true,
-      });
+      if (hadState && !sessionStorage.getItem(PURGE_FLAG)) {
+        sessionStorage.setItem(PURGE_FLAG, "1");
+        window.location.reload();
+      }
     } catch {
-      /* some browsers won't allow override; unregister loop above is enough */
+      if (hadState) window.location.reload();
     }
-  } catch {
-    /* ignore */
-  }
-}
-
-// --- One-time cleanup for users stuck on a bad cached version ---
-// Bumping this key forces a fresh cache wipe for all existing clients.
-const CLEANUP_FLAG = "__sw_cleanup_v3";
-if (!isEditorContext && typeof localStorage !== "undefined") {
-  try {
-    if (!localStorage.getItem(CLEANUP_FLAG)) {
-      localStorage.setItem(CLEANUP_FLAG, "1");
-      clearServiceWorkerState().catch(() => {});
-    }
-  } catch {
-    /* ignore */
-  }
-}
+  })
+  .catch(() => {});
 
 // --- Auto-recover from white-screen caused by stale chunk references ---
-// When a deploy invalidates the chunks the cached index.html points at,
+// When a deploy invalidates chunks the cached index.html points at,
 // dynamic imports throw. Reload once after clearing caches/SWs.
 const RELOAD_FLAG = "__chunk_reload_attempt";
 const isChunkLoadError = (msg: string) =>
@@ -130,7 +88,6 @@ window.addEventListener("unhandledrejection", (event) => {
   }
 });
 
-// Clear the reload flag once the app boots successfully (next tick after render)
 setTimeout(() => {
   try {
     sessionStorage.removeItem(RELOAD_FLAG);
