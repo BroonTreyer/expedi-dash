@@ -528,7 +528,7 @@ export default function Rupturas() {
   const handleExportCsv = () => {
     const periodo = `${format(dateRange.from ?? today, "dd-MM-yyyy")}_a_${format(dateRange.to ?? dateRange.from ?? today, "dd-MM-yyyy")}`;
     if (activeTab === "lista") {
-      const rows: (string | number)[][] = [["Data", "Carga", "Cód cliente", "Cliente", "UF", "Cód produto", "Produto", "Vendedor", "Tipo", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Motivo", "Status"]];
+      const rows: (string | number)[][] = [["Data", "Carga", "Cód cliente", "Cliente", "UF", "Cód produto", "Produto", "Vendedor", "Tipo", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Status"]];
       const sorted = [...rupturas].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || ((b.created_at ?? "").localeCompare(a.created_at ?? "")));
       for (const c of sorted) {
         rows.push([
