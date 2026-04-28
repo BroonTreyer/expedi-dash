@@ -9,10 +9,10 @@ export function PwaUpdatePrompt() {
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
 
-      // Periodic check every 5 minutes
+      // Periodic check every 60 seconds — catches new deploys quickly
       const interval = setInterval(() => {
         registration.update().catch(() => {});
-      }, 5 * 60 * 1000);
+      }, 60 * 1000);
 
       const checkForUpdate = () => {
         registration.update().catch(() => {});
@@ -40,12 +40,16 @@ export function PwaUpdatePrompt() {
   useEffect(() => {
     if (!needRefresh) return;
 
-    // autoUpdate already activated the new SW; show a brief informative toast.
-    toast.success("Aplicativo atualizado", {
-      description: "Nova versão carregada automaticamente.",
-      duration: 4000,
+    // autoUpdate activated the new SW. The current page still runs old JS,
+    // so force a reload to load fresh chunks. Brief toast for context.
+    toast.success("Nova versão disponível", {
+      description: "Recarregando o aplicativo...",
+      duration: 1500,
     });
     setNeedRefresh(false);
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
   }, [needRefresh, setNeedRefresh]);
 
   return null;

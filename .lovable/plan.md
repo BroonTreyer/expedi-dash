@@ -1,50 +1,64 @@
-# Forma de pagamento no pedido do vendedor
+# Correção: Preview travado em versão antiga e tela branca
 
-Adicionar um campo **Forma de pagamento** obrigatório no dialog de novo pedido do vendedor. Como todas as opções são boletos, o campo será um único select com as variações de prazo combinadas. Faturamento verá no momento da aprovação e o dado entra nas impressões/relatórios.
+## Diagnóstico
 
-## Opções disponíveis (select fixo)
-- Boleto 15 dias
-- Boleto 21 dias
-- Boleto 28 dias
-- Boleto 30 dias
-- Boleto 35 dias
-- Boleto 21/28 dias
-- Boleto 21/28/35 dias
+A causa raiz é a configuração do **Service Worker (PWA)** combinada com o cache do `NetworkFirst` do Supabase. Encontrei 3 problemas:
 
-## Mudanças
+### 1. Detecção de preview incompleta (`src/main.tsx`)
+A guarda atual checa apenas `id-preview--` e `lovableproject.com`, mas o domínio real do preview é `lovable.app` (ex: `id-preview--xxx.lovable.app`). Resultado: o Service Worker **se registra dentro do iframe do editor** e segura versões antigas.
 
-### 1. Banco (`carregamentos_dia`)
-Adicionar coluna `forma_pagamento text` (nullable) via migração. Pedidos antigos ficam sem valor, novos exigem preenchimento no front. Atualizar trigger `audit_carregamentos` para registrar mudanças nesse campo no log de auditoria.
+### 2. Cache agressivo da API Supabase
+O `runtimeCaching` usa `NetworkFirst` com `maxAgeSeconds: 300` (5 min) na API REST do Supabase. Quando você fica algum tempo sem mexer e a aba fica em background, o SW serve respostas em cache até você "cutucar" o app — daí a sensação de "preciso mandar mensagem pra atualizar".
 
-### 2. Dialog do vendedor (`src/components/vendedor/NovoPedidoDialog.tsx`)
-- Novo `Select` com as 7 opções acima, posicionado logo abaixo da seção Cliente, antes dos Itens.
-- Estado local `formaPagamento`, hidratado quando `editing` traz valor.
-- Adicionar `forma_pagamento` em `NovoPedidoSubmit`.
-- `isValid` exige `formaPagamento` preenchido (campo obrigatório, sempre — bloqueia tanto rascunho quanto envio para faturamento).
-- Label com asterisco e mensagem de validação visual.
+### 3. Tela branca após deploy
+Quando uma nova versão é publicada, o `index.html` antigo (em cache) referencia chunks JS com hashes que **não existem mais** no servidor → import falha → tela branca. O `cleanupOutdatedCaches: true` só age **depois** que o novo SW assume.
 
-### 3. Submit (`src/components/vendedor/MeusPedidos.tsx`)
-Incluir `forma_pagamento: payload.forma_pagamento` em todos os 3 caminhos de gravação:
-- INSERT de novos itens (criação)
-- UPDATE de itens existentes (edição)
-- INSERT de novos itens dentro de uma edição
+---
 
-Ao hidratar o `editing` para o dialog, repassar o `forma_pagamento` do primeiro irmão do grupo.
+## Plano de correção
 
-### 4. Aprovações (faturamento)
-Mostrar a forma de pagamento no card de cada pedido pendente em `src/pages/Aprovacoes.tsx` e no `src/components/aprovacoes/EditarPedidoAprovacaoDialog.tsx` (campo somente-leitura ou editável pelo faturamento, mantendo a validação de obrigatoriedade).
+### Passo 1 — Reforçar guarda anti-iframe e domínios Lovable
+Em `src/main.tsx`, ampliar a detecção de preview e **desregistrar SW + limpar caches** antes de qualquer coisa renderizar:
 
-### 5. Impressões / relatórios
-- `src/components/dashboard/CargaPrintDialog.tsx`: incluir "Forma de pagamento" no cabeçalho de cada pedido do manifesto A4.
-- `src/components/dashboard/ConsolidadoPrintDialog.tsx`: idem.
-- `src/hooks/useRelatorios.ts` (Resumo Diário e Performance de Vendedor XLSX): adicionar coluna `Forma de pagamento`.
+- Incluir `lovable.app`, `lovable.dev`, `id-preview--`, `lovableproject.com`
+- Detectar iframe (já feito) — mantém
+- Limpar `caches.keys()` além de desregistrar SWs
+- Bloquear o registro novo (não deixar `vite-plugin-pwa` registrar de novo nesses contextos)
 
-## Itens deliberadamente fora
-- Não aparece na lista "Meus Pedidos" do vendedor nem no Dashboard de carregamento (conforme escolhido).
-- Sem tabela auxiliar de formas de pagamento — lista é fixa em `src/lib/constants.ts` (`FORMAS_PAGAMENTO`) para fácil ajuste futuro.
+### Passo 2 — Desligar cache de API Supabase no SW
+Remover o bloco `runtimeCaching` da API REST (`/rest/.*`). Dados operacionais (carregamentos, pedidos, portaria) **nunca** devem vir de cache — sempre do servidor. Manter apenas o cache de Storage (imagens/fotos) que é seguro.
 
-## Detalhes técnicos
-- Tipagem: o select usa um union literal exportado de `constants.ts` para evitar typos.
-- RLS já permite vendedor inserir/atualizar a coluna (políticas são por linha, não por coluna).
-- `types.ts` do Supabase é regenerado automaticamente após a migração — nenhum ajuste manual.
-- Pedidos antigos sem `forma_pagamento` continuam visíveis; só **novos** envios exigem o campo.
+### Passo 3 — Recuperação automática de tela branca (chunk loading errors)
+Adicionar handler global em `src/main.tsx` para detectar `ChunkLoadError` / `Failed to fetch dynamically imported module` e fazer:
+1. Limpar todos os caches
+2. Desregistrar SWs
+3. `window.location.reload()` automático (apenas 1 vez, com flag em `sessionStorage` para evitar loop)
+
+Isso ataca direto a causa da tela branca após você ficar com a aba aberta enquanto eu publico nova versão.
+
+### Passo 4 — Aumentar agressividade da checagem de updates
+Em `src/components/PwaUpdatePrompt.tsx`:
+- Reduzir intervalo periódico de 5 min → 60 segundos
+- Já checa em `focus` e `visibilitychange` (ok, manter)
+- Quando detectar update pronto, em vez de só mostrar toast, **forçar reload** após 1.5s (a versão nova já está ativa via `skipWaiting + clientsClaim`, mas a página atual ainda roda o JS antigo)
+
+### Passo 5 — Limpeza única para usuários afetados
+Adicionar bloco em `main.tsx` que, na primeira visita após esta correção (controlado por flag em `localStorage` tipo `sw-cleanup-v2`), limpa **todos** os caches e SWs antigos. Isso garante que quem já está com o cache "ruim" se recupere sem precisar fazer Ctrl+Shift+R manualmente.
+
+---
+
+## Arquivos a editar
+
+- `src/main.tsx` — guardas, recuperação automática, limpeza única
+- `vite.config.ts` — remover `runtimeCaching` da API Supabase
+- `src/components/PwaUpdatePrompt.tsx` — checagem mais frequente + reload forçado
+
+## O que esperar depois
+
+- ✅ Editor (`*.lovable.app` em iframe) **nunca mais** registra SW → preview sempre fresco
+- ✅ Em produção (`fricotrack.com.br` / `expedi-dash.lovable.app`), a app detecta updates em até 60s e recarrega sozinha
+- ✅ Tela branca por chunk antigo → recuperação automática em 1 reload silencioso
+- ✅ Dados do Supabase sempre do servidor (zero risco de ver pedido desatualizado)
+
+## Observação importante
+Após aplicar, **na primeira vez** ainda pode ser necessário 1 refresh manual (Ctrl+Shift+R) na sua aba atual para destravar o SW antigo que já está rodando aí. Depois disso, nunca mais.
