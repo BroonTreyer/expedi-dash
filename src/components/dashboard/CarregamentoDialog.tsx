@@ -39,7 +39,7 @@ const emptyItem = (): ProductItem => ({
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (values: Record<string, any>) => void;
+  onSubmit: (values: Record<string, any>) => void | Promise<void>;
   editing: Carregamento | null;
   mode: DialogMode;
   vendedores: { id: string; nome_vendedor: string; codigo_vendedor: string }[];
@@ -81,10 +81,12 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
   const handleDialogOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
       lastInitId.current = null;
-      submitGuard.current = false;
+      // Só liberamos a trava no fechamento se NÃO houver submit em andamento.
+      // Durante o envio, manter true previne reentrada.
+      if (!isSubmitting) submitGuard.current = false;
     }
     onOpenChange(nextOpen);
-  }, [onOpenChange]);
+  }, [onOpenChange, isSubmitting]);
 
   useEffect(() => {
     if (!open) return;
@@ -256,6 +258,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     // Block re-entrant submits (double-click protection)
     if (submitGuard.current || isSubmitting) return;
     submitGuard.current = true;
+    let didSucceed = false;
+    try {
 
     // Clean payload: remove system/read-only fields
     const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada'];
@@ -321,7 +325,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           .map((c) => c.id)
           .filter((id) => !keptIds.has(id));
 
-        onSubmit({
+        await onSubmit({
           ...updatePayload,
           _batchUpdates: batchUpdates,
           _batch: batchInserts,
@@ -338,9 +342,9 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           peso_manual: item.pesoManual,
           ruptura: item.ruptura,
         }));
-        onSubmit({ ...updatePayload, _batch: extraRows });
+        await onSubmit({ ...updatePayload, _batch: extraRows });
       } else {
-        onSubmit(updatePayload);
+        await onSubmit(updatePayload);
       }
     } else {
       const batchRows = finalItems.map(item => ({
@@ -353,12 +357,22 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         ruptura: item.ruptura,
       }));
       if (batchRows.length === 1) {
-        onSubmit(batchRows[0]);
+        await onSubmit(batchRows[0]);
       } else {
-        onSubmit({ _batch: batchRows });
+        await onSubmit({ _batch: batchRows });
       }
     }
-    handleDialogOpenChange(false);
+      didSucceed = true;
+    } finally {
+      // Só fecha o modal após o submit terminar (com sucesso).
+      // Em erro, mantém o modal aberto e libera a trava para o usuário tentar de novo.
+      if (didSucceed) {
+        submitGuard.current = false;
+        handleDialogOpenChange(false);
+      } else {
+        submitGuard.current = false;
+      }
+    }
   };
 
   const showVendas = mode === "vendas" || mode === "editar";
