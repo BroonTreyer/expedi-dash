@@ -14,15 +14,16 @@ export function SuperAdminRoute({ children }: Props) {
   const { isSuperAdmin } = useSuperAdmin();
   const toastShown = useRef(false);
 
-  const roleStillLoading = !!user && role === null;
+  const roleStillLoading = loading && !!user && role === null;
+  const missingRole = !loading && !!user && role === null;
   const accessDenied = !loading && !!user && !!role && !isSuperAdmin;
 
   useEffect(() => {
-    if (accessDenied && !toastShown.current) {
+    if ((accessDenied || missingRole) && !toastShown.current) {
       toastShown.current = true;
-      toast.error("Área restrita ao Super Admin");
+      toast.error(missingRole ? "Perfil de acesso não encontrado" : "Área restrita ao Super Admin");
     }
-  }, [accessDenied]);
+  }, [accessDenied, missingRole]);
 
   if (loading || roleStillLoading) {
     return (
@@ -35,7 +36,7 @@ export function SuperAdminRoute({ children }: Props) {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  if (accessDenied) {
+  if (accessDenied || missingRole) {
     const fallback = role === "portaria" ? "/portaria" : "/";
     return <Navigate to={fallback} replace />;
   }
