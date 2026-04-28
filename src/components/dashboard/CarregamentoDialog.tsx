@@ -295,8 +295,12 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       opIdRef.current = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
     }
     const opId = opIdRef.current;
+    // Sufixo único por TENTATIVA de submit. Garante que se a primeira
+    // tentativa falhou parcialmente (algumas linhas já entraram), a
+    // próxima tentativa não colide na unique index `row_op_key`.
+    const attemptSuffix = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).slice(0, 8);
     const makeRowKey = (item: ProductItem, idx: number) =>
-      `${opId}__${item.codigo_produto || "x"}__${idx}`;
+      `${opId}__${attemptSuffix}__${item.codigo_produto || "x"}__${idx}`;
 
     if (editing && editing.id && !editing.id.startsWith("clone-")) {
       // First item is the main update; additional items are inserts (or updates when editingGroup)
@@ -398,6 +402,10 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         handleDialogOpenChange(false);
       } else {
         submitGuard.current = false;
+        // Falhou: regenera o opId para que a próxima tentativa do usuário
+        // (após corrigir o problema) gere chaves novas e não colida com
+        // linhas que já tenham sido gravadas parcialmente.
+        opIdRef.current = null;
       }
     }
   };
