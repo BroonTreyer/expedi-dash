@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { forwardRef, useEffect, useState, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -179,7 +179,7 @@ function createOrigemIcon(label: string) {
 }
 
 /** BUG 27 FIX: Wrap in forwardRef to silence react-leaflet ref warning */
-const FitBounds = React.forwardRef<unknown, { points: Coords[] }>(
+const FitBounds = forwardRef<unknown, { points: Coords[] }>(
   function FitBounds({ points }, _ref) {
     const map = useMap();
     // BUG 10 FIX: Use real centroid coords (no offsets) for bounds calculation
