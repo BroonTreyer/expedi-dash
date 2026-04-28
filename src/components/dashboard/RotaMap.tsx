@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { forwardRef, useEffect, useState, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -178,21 +178,23 @@ function createOrigemIcon(label: string) {
   });
 }
 
-/** BUG 27 FIX: Remove unnecessary forwardRef */
-function FitBounds({ points }: { points: Coords[] }) {
-  const map = useMap();
-  // BUG 10 FIX: Use real centroid coords (no offsets) for bounds calculation
-  useEffect(() => {
-    if (points.length === 0) return;
-    if (points.length === 1) {
-      map.setView([points[0].lat, points[0].lng], 8);
-    } else {
-      const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
-      map.fitBounds(bounds, { padding: [40, 40] });
-    }
-  }, [points, map]);
-  return null;
-}
+/** BUG 27 FIX: Wrap in forwardRef to silence react-leaflet ref warning */
+const FitBounds = forwardRef<unknown, { points: Coords[] }>(
+  function FitBounds({ points }, _ref) {
+    const map = useMap();
+    // BUG 10 FIX: Use real centroid coords (no offsets) for bounds calculation
+    useEffect(() => {
+      if (points.length === 0) return;
+      if (points.length === 1) {
+        map.setView([points[0].lat, points[0].lng], 8);
+      } else {
+        const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
+        map.fitBounds(bounds, { padding: [40, 40] });
+      }
+    }, [points, map]);
+    return null;
+  }
+);
 
 /** BUG 6 FIX: Convert minutes to human-readable duration */
 function formatDuracao(minutos: number): string {
