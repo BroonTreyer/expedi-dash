@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuthState, AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
-import { PwaUpdatePrompt } from "@/components/PwaUpdatePrompt";
 import { Loader2 } from "lucide-react";
 
 // Auth is kept eager since it's the landing page (LCP)
@@ -142,7 +141,6 @@ const App = () => (
     </TooltipProvider>
     <Toaster />
     <Sonner />
-    <PwaUpdatePrompt />
   </QueryClientProvider>
 );
 

@@ -1,64 +1,47 @@
-# Correção: Preview travado em versão antiga e tela branca
+# Plano: corrigir preview preso em versão antiga
 
-## Diagnóstico
+Pelo print, o preview ainda está sendo servido por um estado antigo/cachê. O ajuste anterior reduziu o problema, mas ainda existe risco porque o app continua importando o registrador de PWA e o plugin ainda gera manifest/service worker. Para o ambiente Lovable, a correção mais segura é separar totalmente preview/editor de PWA.
 
-A causa raiz é a configuração do **Service Worker (PWA)** combinada com o cache do `NetworkFirst` do Supabase. Encontrei 3 problemas:
+## O que será feito
 
-### 1. Detecção de preview incompleta (`src/main.tsx`)
-A guarda atual checa apenas `id-preview--` e `lovableproject.com`, mas o domínio real do preview é `lovable.app` (ex: `id-preview--xxx.lovable.app`). Resultado: o Service Worker **se registra dentro do iframe do editor** e segura versões antigas.
+### 1. Remover registro do PWA dentro do app
+- Remover `PwaUpdatePrompt` do `App.tsx`.
+- Parar de importar `virtual:pwa-register/react` no bundle principal.
+- Isso evita que qualquer código de service worker rode no preview/editor.
 
-### 2. Cache agressivo da API Supabase
-O `runtimeCaching` usa `NetworkFirst` com `maxAgeSeconds: 300` (5 min) na API REST do Supabase. Quando você fica algum tempo sem mexer e a aba fica em background, o SW serve respostas em cache até você "cutucar" o app — daí a sensação de "preciso mandar mensagem pra atualizar".
+### 2. Transformar `PwaUpdatePrompt` em componente inofensivo ou removê-lo
+- Se não for usado em nenhum lugar, deixar de renderizar.
+- Se for mantido, ele não deve chamar `useRegisterSW` no preview.
 
-### 3. Tela branca após deploy
-Quando uma nova versão é publicada, o `index.html` antigo (em cache) referencia chunks JS com hashes que **não existem mais** no servidor → import falha → tela branca. O `cleanupOutdatedCaches: true` só age **depois** que o novo SW assume.
+### 3. Desativar geração do Service Worker em desenvolvimento/preview
+- Ajustar `vite.config.ts` para manter o manifest/ícones se necessário, mas impedir registro/injeção automática.
+- Se necessário, remover `VitePWA` temporariamente para garantir que o preview não receba nenhum artefato de service worker.
 
----
+### 4. Adicionar “limpador” direto no `main.tsx`
+- Manter uma limpeza explícita no carregamento do preview:
+  - desregistrar service workers existentes;
+  - apagar caches antigos;
+  - recarregar uma única vez se havia SW/cachê controlando a aba.
+- Esse código fica antes do React renderizar, para limpar o preview o mais cedo possível.
 
-## Plano de correção
+### 5. Preservar comportamento do app publicado
+- No publicado (`fricotrack.com.br` e `expedi-dash.lovable.app`), se quisermos manter PWA instalável, podemos manter apenas o manifest.
+- Se offline/update automático não for essencial, a opção mais estável é remover o service worker completamente e deixar só instalação via manifest.
 
-### Passo 1 — Reforçar guarda anti-iframe e domínios Lovable
-Em `src/main.tsx`, ampliar a detecção de preview e **desregistrar SW + limpar caches** antes de qualquer coisa renderizar:
+## Resultado esperado
 
-- Incluir `lovable.app`, `lovable.dev`, `id-preview--`, `lovableproject.com`
-- Detectar iframe (já feito) — mantém
-- Limpar `caches.keys()` além de desregistrar SWs
-- Bloquear o registro novo (não deixar `vite-plugin-pwa` registrar de novo nesses contextos)
+- O preview deixa de abrir versão antiga ao ficar parado.
+- A tela branca por cache/chunk antigo deve parar de ocorrer.
+- Você não precisará mandar mensagem no chat para “forçar” atualização do preview.
+- O app publicado continua funcionando normalmente; se removido o SW, apenas perde cache/offline automático, mas ganha estabilidade.
 
-### Passo 2 — Desligar cache de API Supabase no SW
-Remover o bloco `runtimeCaching` da API REST (`/rest/.*`). Dados operacionais (carregamentos, pedidos, portaria) **nunca** devem vir de cache — sempre do servidor. Manter apenas o cache de Storage (imagens/fotos) que é seguro.
+## Arquivos envolvidos
 
-### Passo 3 — Recuperação automática de tela branca (chunk loading errors)
-Adicionar handler global em `src/main.tsx` para detectar `ChunkLoadError` / `Failed to fetch dynamically imported module` e fazer:
-1. Limpar todos os caches
-2. Desregistrar SWs
-3. `window.location.reload()` automático (apenas 1 vez, com flag em `sessionStorage` para evitar loop)
+- `src/App.tsx`
+- `src/main.tsx`
+- `src/components/PwaUpdatePrompt.tsx`
+- `vite.config.ts`
 
-Isso ataca direto a causa da tela branca após você ficar com a aba aberta enquanto eu publico nova versão.
+## Observação
 
-### Passo 4 — Aumentar agressividade da checagem de updates
-Em `src/components/PwaUpdatePrompt.tsx`:
-- Reduzir intervalo periódico de 5 min → 60 segundos
-- Já checa em `focus` e `visibilitychange` (ok, manter)
-- Quando detectar update pronto, em vez de só mostrar toast, **forçar reload** após 1.5s (a versão nova já está ativa via `skipWaiting + clientsClaim`, mas a página atual ainda roda o JS antigo)
-
-### Passo 5 — Limpeza única para usuários afetados
-Adicionar bloco em `main.tsx` que, na primeira visita após esta correção (controlado por flag em `localStorage` tipo `sw-cleanup-v2`), limpa **todos** os caches e SWs antigos. Isso garante que quem já está com o cache "ruim" se recupere sem precisar fazer Ctrl+Shift+R manualmente.
-
----
-
-## Arquivos a editar
-
-- `src/main.tsx` — guardas, recuperação automática, limpeza única
-- `vite.config.ts` — remover `runtimeCaching` da API Supabase
-- `src/components/PwaUpdatePrompt.tsx` — checagem mais frequente + reload forçado
-
-## O que esperar depois
-
-- ✅ Editor (`*.lovable.app` em iframe) **nunca mais** registra SW → preview sempre fresco
-- ✅ Em produção (`fricotrack.com.br` / `expedi-dash.lovable.app`), a app detecta updates em até 60s e recarrega sozinha
-- ✅ Tela branca por chunk antigo → recuperação automática em 1 reload silencioso
-- ✅ Dados do Supabase sempre do servidor (zero risco de ver pedido desatualizado)
-
-## Observação importante
-Após aplicar, **na primeira vez** ainda pode ser necessário 1 refresh manual (Ctrl+Shift+R) na sua aba atual para destravar o SW antigo que já está rodando aí. Depois disso, nunca mais.
+Depois da correção, pode ser necessário um último refresh forte no preview atual, porque service workers já instalados ficam presos no navegador até serem desregistrados. A partir daí, o preview não deve registrar novos service workers.
