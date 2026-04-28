@@ -103,12 +103,11 @@ function buildGroups(data: Carregamento[]): Group[] {
   const singles: Group[] = [];
   for (const c of data) {
     if (c.codigo_cliente) {
-      // Quando há numero_pedido, agrupa por cliente+pedido (separa pedidos distintos do mesmo cliente).
-      // Sem numero_pedido, usa created_at: itens cadastrados juntos compartilham o mesmo timestamp,
-      // enquanto pedidos lançados em momentos distintos ficam separados.
-      const key = c.numero_pedido != null
-        ? `${c.codigo_cliente}__p${c.numero_pedido}`
-        : `${c.codigo_cliente}__t${c.created_at}`;
+      // Agrupa por (data + código do cliente): todos os produtos do mesmo cliente
+      // no mesmo dia ficam num único card, mesmo se foram lançados em momentos
+      // diferentes (com numero_pedido distintos). Códigos diferentes (filiais
+      // distintas, ex.: DMA D247 vs D243) NUNCA se misturam.
+      const key = `${c.data}__${c.codigo_cliente}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
@@ -163,6 +162,12 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
           const first = group.items[0];
           const isOpen = expanded.has(group.key);
           const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
+          const pedidosUnicos = Array.from(new Set(group.items.map(i => i.numero_pedido).filter((n): n is number => n != null)));
+          const pedidoLabel = pedidosUnicos.length === 1
+            ? `Pedido ${pedidosUnicos[0]}`
+            : pedidosUnicos.length > 1
+              ? `${pedidosUnicos.length} pedidos`
+              : null;
           return (
             <div key={`g-${group.key}`} className="rounded-lg border-2 border-primary/20 overflow-hidden">
               <button
@@ -174,7 +179,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
                   {isOpen ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
                   <span className="text-xs font-mono font-bold text-primary">
                     {group.codigoCliente} – {group.nomeCliente ?? "Sem nome"}
-                    {first.numero_pedido != null && <> · Pedido {first.numero_pedido}</>}
+                    {pedidoLabel && <> · {pedidoLabel}</>}
                   </span>
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
@@ -688,11 +693,17 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     <TableCell className="text-sm font-mono font-bold text-primary">
                       <span className="flex items-center gap-1.5 flex-wrap">
                         {group.codigoCliente} – {group.nomeCliente ?? ""}
-                        {first.numero_pedido != null && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
-                            Pedido {first.numero_pedido}
-                          </Badge>
-                        )}
+                        {(() => {
+                          const pedidosUnicos = Array.from(new Set(group.items.map(i => i.numero_pedido).filter((n): n is number => n != null)));
+                          if (pedidosUnicos.length === 0) return null;
+                          const label = pedidosUnicos.length === 1 ? `Pedido ${pedidosUnicos[0]}` : `${pedidosUnicos.length} pedidos`;
+                          const title = pedidosUnicos.length > 1 ? `Pedidos: ${pedidosUnicos.join(", ")}` : undefined;
+                          return (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono" title={title}>
+                              {label}
+                            </Badge>
+                          );
+                        })()}
                         {first.ordem_entrega != null && (
                           <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold h-5 min-w-5 px-1">
                             {first.ordem_entrega}ª

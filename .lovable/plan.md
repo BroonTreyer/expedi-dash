@@ -1,68 +1,45 @@
-## Problema
+# Unificar linhas de produtos pelo código do cliente
 
-Pedidos com vários produtos para o mesmo cliente (ex.: DMA DISTRIBUIDORA, CEARA ALIMENTOS) estão sendo gravados com **um numero_pedido diferente para cada produto**. Resultado: um pedido único vira N "pedidos" no dashboard, prejudicando visualização e fechamento de carga.
+## O que vai mudar
 
-Exemplo confirmado no banco — CEARA ALIMENTOS com 13 produtos no mesmo `created_at` recebeu números 45 a 57 (um por linha).
+Hoje a tabela do dashboard agrupa por **código do cliente + número do pedido**. Resultado: se o mesmo cliente teve 2 lançamentos no dia (números 45 e 78), aparecem **2 cards**.
 
-## Causa raiz
+A nova regra: agrupar por **data + código do cliente**. Tudo do mesmo código, no mesmo dia, vira **1 card único**. Códigos diferentes (D247 vs D243 vs D196) continuam **separados** ✅.
 
-Na auditoria anterior foi criada a trigger `set_numero_pedido` (BEFORE INSERT) que chama `next_numero_pedido(NEW.data) = MAX(numero_pedido)+1` quando `numero_pedido IS NULL`. Como o trigger roda **por linha**, cada produto inserido vê o MAX já incrementado pela linha anterior e recebe um número novo. O frontend nunca preenche `numero_pedido` na criação (deixa null), então a trigger atribui sequencial diferente em todos os itens do `_batch`.
+## Comportamento
 
-## Correção
+```text
+Antes:
+  D208 (cód 33009) Pedido 45 — 12 produtos    → card 1
+  D208 (cód 33009) Pedido 78 — 3 produtos     → card 2
+  D243 (cód 32995) Pedido 50 — 5 produtos     → card 3
 
-### 1. Banco — agrupar por operation_id no trigger
+Depois:
+  D208 (cód 33009) — 15 produtos · 2 pedidos  → card único
+  D243 (cód 32995) — 5 produtos · Pedido 50   → card único
+```
 
-Reescrever `public.set_numero_pedido()` para reutilizar o `numero_pedido` de qualquer linha já inserida na mesma operação:
+- Cabeçalho do card: nome + código do cliente (igual hoje).
+- Quando há 1 só pedido: mostra "Pedido nº X". Quando há vários: mostra "**N pedidos**".
+- Total de peso e contagem de produtos somados.
+- Linhas sem `codigo_cliente` continuam exibidas individualmente.
 
-- Se `NEW.numero_pedido` já vier preenchido → manter.
-- Senão, se `NEW.operation_id` está setado → procurar `numero_pedido` em `carregamentos_dia` com mesmo `operation_id` e mesma `data`. Se existir, reutilizar.
-- Caso contrário → atribuir `next_numero_pedido(NEW.data)`.
+## Onde mexer
 
-Isso torna o agrupamento de pedido consistente: todas as linhas do mesmo `_batch` (já marcadas com o mesmo `operation_id` pelo CarregamentoDialog) compartilham o mesmo número.
+**1 arquivo só**: `src/components/dashboard/CarregamentoTable.tsx`
 
-### 2. Frontend — garantir operation_id em todo INSERT multi-produto
+- **Função `buildGroups`** (linha 101): trocar a chave de agrupamento de `${codigo_cliente}__p${numero_pedido}` para `${data}__${codigo_cliente}`.
+- **Cabeçalhos do card mobile e da linha desktop**: ajustar para mostrar "N pedidos" quando o grupo tem mais de um `numero_pedido` distinto.
 
-Auditar e padronizar `operation_id` nos pontos de criação para que o trigger consiga agrupar:
+Aplicado nas duas visualizações (Mobile cards + Desktop table).
 
-- `CarregamentoDialog.tsx` → já marca `operation_id`/`row_op_key` no `_batch`. OK.
-- `useCarregamentos.ts` (createMut) → criação single-row: gerar `operation_id` mesmo numa única linha (inofensivo).
-- `useEditarPedidoAprovacao.ts` e `MeusPedidos.tsx` (vendedor) → garantir `operation_id` único por submit do form (compartilhado entre produtos do mesmo pedido).
-- `Index.tsx` `handleClone` e fluxo de clone em batch → mesmo `operation_id` para todos os itens clonados.
-- `EditarCargaDialog.tsx` / `FechamentoLoteDialog.tsx` → revisar inserts indiretos.
+## O que NÃO muda
 
-### 3. Backfill dos pedidos quebrados recentes
-
-Para os pedidos já inseridos hoje que ficaram fragmentados (ex.: CEARA ALIMENTOS, possivelmente DMA), unificar `numero_pedido` por agrupamento natural: mesmo `data` + `codigo_cliente` + `created_at` (truncado a segundos) → atribuir o menor `numero_pedido` do grupo a todas as linhas, e renumerar as posições liberadas no fim da sequência da data, sem colidir com pedidos de outros clientes.
-
-A correção de backfill será conservadora:
-- Restrita aos últimos 7 dias.
-- Só agrupa linhas com mesma `data` + `codigo_cliente` + mesmo `created_at` em janela de 2 segundos (assinatura típica de batch).
-- Mantém o menor número como o número final do pedido; descarta os demais (resequenciamento opcional, pode ser pulado para evitar mexer demais).
+- **Banco**: trigger `set_numero_pedido` continua como está. Cada submit ainda gera 1 número de pedido — só a **visualização** consolida.
+- **Vínculo entre produtos**: ações em lote (excluir pedido inteiro, clonar, editar) continuam operando sobre os itens do grupo — só que agora "o grupo" passa a ser todos os produtos daquele código no dia.
+- **Outras telas** (Aprovações, Meus Pedidos do vendedor, Consolidado, Fechamento de carga, Roteirização, Impressão): mantêm sua lógica atual — não dependem dessa chave de agrupamento.
+- **Códigos diferentes nunca se misturam** — cada filial DMA permanece como pedido próprio.
 
 ## Resumo técnico
 
-```text
-Trigger atual (causa do bug):
-  INSERT linha 1 → numero_pedido = MAX+1 = 45
-  INSERT linha 2 → numero_pedido = MAX+1 = 46  ← deveria ser 45
-  INSERT linha 3 → numero_pedido = MAX+1 = 47  ← deveria ser 45
-  ...
-
-Trigger corrigido:
-  INSERT linha 1 (op=X) → não há outra com op=X → numero = 45
-  INSERT linha 2 (op=X) → encontra op=X com numero=45 → reutiliza 45
-  INSERT linha 3 (op=X) → reutiliza 45
-```
-
-## Arquivos / migrações
-
-- `supabase/migrations/<novo>.sql`:
-  - Substituir `public.set_numero_pedido()` pela versão que respeita `operation_id`.
-  - Backfill UPDATE para unificar `numero_pedido` dos pedidos fragmentados dos últimos 7 dias.
-- `src/components/dashboard/CarregamentoDialog.tsx` — confirmar que `operation_id` é incluído também em singletons (já está nos batches).
-- `src/hooks/useCarregamentos.ts` — `createMut` deve sempre setar `operation_id` (mesmo single-row).
-- `src/hooks/useEditarPedidoAprovacao.ts` — gerar `operation_id` por submit.
-- `src/components/vendedor/MeusPedidos.tsx` e `NovoPedidoDialog.tsx` — gerar `operation_id` por submit do vendedor.
-- `src/pages/Index.tsx` — `handleClone` e demais fluxos: propagar `operation_id` único por clonagem multi-item.
-
-Sem alterações de RLS, sem novas tabelas.
+Mudança isolada (~20 linhas) em `CarregamentoTable.tsx`. Sem migração, sem alteração de schema, sem impacto em outras telas.
