@@ -90,9 +90,12 @@ export function useEditarPedidoAprovacao() {
           observacoes: meta.observacoes || null,
           etapa: aprovarAposSalvar ? "vendas" : "aguardando_faturamento",
           status: "Aguardando",
+          operation_id: operationId,
         }));
         const { error } = await supabase.from("carregamentos_dia").insert(rows);
-        if (error) throw error;
+        // 23505 = unique violation => mesmo operation_id já gravado (duplo clique).
+        // Tratamos como sucesso silencioso para garantir idempotência.
+        if (error && (error as any).code !== "23505") throw error;
       }
 
       // 4) Audit log agregado
