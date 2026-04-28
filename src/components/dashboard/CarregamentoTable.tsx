@@ -192,6 +192,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
                   </span>
                   {!hideColumns.includes("etapa") && <EtapaBadge etapa={first.etapa} />}
                   <StatusBadge status={first.status} statusColors={statusColors} />
+                  {group.items.some(i => temRuptura(i)) && <RupturaBadge />}
                 </div>
                 <span className="text-xs text-muted-foreground">{group.items.length} produtos · {totalPeso.toLocaleString("pt-BR")} kg</span>
               </button>
