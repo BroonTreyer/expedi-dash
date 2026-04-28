@@ -21,13 +21,12 @@ const isPreviewHost =
 
 const shouldRegisterPwa = !isPreviewHost && !isInIframe;
 
-export function PwaUpdatePrompt() {
+function PwaUpdateRegistrar() {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
   } = useRegisterSW({
-    immediate: shouldRegisterPwa,
+    immediate: true,
     onRegisteredSW(_swUrl, registration) {
-      if (!shouldRegisterPwa) return;
       if (!registration) return;
 
       // Periodic check every 60 seconds — catches new deploys quickly
@@ -74,4 +73,10 @@ export function PwaUpdatePrompt() {
   }, [needRefresh, setNeedRefresh]);
 
   return null;
+}
+
+export function PwaUpdatePrompt() {
+  if (!shouldRegisterPwa) return null;
+
+  return <PwaUpdateRegistrar />;
 }
