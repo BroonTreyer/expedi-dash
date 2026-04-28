@@ -416,20 +416,6 @@ export default function Rupturas() {
     return [...map.values()].sort((a, b) => b.pesoCortado - a.pesoCortado);
   }, [rupturas, carregamentos]);
 
-  // ----- motivos -----
-  const motivosSummary = useMemo(() => {
-    const map = new Map<string, number>();
-    let total = 0;
-    for (const c of rupturas) {
-      const m = (c.motivo_ruptura ?? "").trim() || "Não informado";
-      map.set(m, (map.get(m) ?? 0) + 1);
-      total++;
-    }
-    return [...map.entries()]
-      .map(([motivo, count]) => ({ motivo, count, pct: total > 0 ? (count / total) * 100 : 0, naoInformado: motivo === "Não informado" }))
-      .sort((a, b) => b.count - a.count);
-  }, [rupturas]);
-
   // ----- audit log -----
   const rupturaIds = useMemo(() => rupturas.map(r => r.id), [rupturas]);
   const { data: auditEntries = [], isLoading: loadingAudit } = useAuditLogRupturas(rupturaIds);
@@ -465,7 +451,6 @@ export default function Rupturas() {
         peso: c.peso,
         peso_original: c.peso_original,
         ruptura: c.ruptura,
-        motivo_ruptura: c.motivo_ruptura,
       })),
     };
   }, [rupturas, dateFromStr, dateToStr, kpis.pesoTotal, productSummary]);
@@ -528,7 +513,7 @@ export default function Rupturas() {
   const handleExportCsv = () => {
     const periodo = `${format(dateRange.from ?? today, "dd-MM-yyyy")}_a_${format(dateRange.to ?? dateRange.from ?? today, "dd-MM-yyyy")}`;
     if (activeTab === "lista") {
-      const rows: (string | number)[][] = [["Data", "Carga", "Cód cliente", "Cliente", "UF", "Cód produto", "Produto", "Vendedor", "Tipo", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Motivo", "Status"]];
+      const rows: (string | number)[][] = [["Data", "Carga", "Cód cliente", "Cliente", "UF", "Cód produto", "Produto", "Vendedor", "Tipo", "Peso original (kg)", "Peso carregado (kg)", "Kg cortados", "Status"]];
       const sorted = [...rupturas].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || ((b.created_at ?? "").localeCompare(a.created_at ?? "")));
       for (const c of sorted) {
         rows.push([
@@ -544,7 +529,6 @@ export default function Rupturas() {
           c.peso_original ?? "",
           c.ruptura ? 0 : (c.peso ?? 0),
           pesoNaoCarregado(c),
-          c.motivo_ruptura ?? "",
           c.status,
         ]);
       }
@@ -570,7 +554,7 @@ export default function Rupturas() {
       exportCsv(`rupturas_por_carga_${periodo}.csv`, rows);
     } else {
       // itens / visao -> exporta itens crus
-      const rows: (string | number)[][] = [["Pedido", "Cliente", "Cód cliente", "Produto", "Cód produto", "Carga", "Tipo", "Peso original", "Peso carregado", "Kg cortados", "Motivo", "Status"]];
+      const rows: (string | number)[][] = [["Pedido", "Cliente", "Cód cliente", "Produto", "Cód produto", "Carga", "Tipo", "Peso original", "Peso carregado", "Kg cortados", "Status"]];
       for (const c of rupturas) {
         rows.push([
           c.numero_pedido ?? "",
@@ -583,7 +567,6 @@ export default function Rupturas() {
           c.peso_original ?? "",
           c.ruptura ? 0 : (c.peso ?? 0),
           pesoNaoCarregado(c),
-          c.motivo_ruptura ?? "",
           c.status,
         ]);
       }
@@ -834,9 +817,6 @@ export default function Rupturas() {
                                     )}
                                   </div>
                                 </div>
-                                {c.motivo_ruptura && (
-                                  <p className="text-[11px] text-muted-foreground italic">Motivo: {c.motivo_ruptura}</p>
-                                )}
                               </CardContent>
                             </Card>
                           );
@@ -857,7 +837,6 @@ export default function Rupturas() {
                               <TableHead className="text-xs text-right">Original</TableHead>
                               <TableHead className="text-xs text-right">Carregado</TableHead>
                               <TableHead className="text-xs text-right">Cortado</TableHead>
-                              <TableHead className="text-xs">Motivo</TableHead>
                               <TableHead className="text-xs text-center">Status</TableHead>
                               <TableHead className="text-xs text-right">Ações</TableHead>
                             </TableRow>
@@ -898,13 +877,6 @@ export default function Rupturas() {
                                     <TableCell className="text-xs text-right tabular-nums text-muted-foreground">{fmtKg(c.peso_original ?? 0)}</TableCell>
                                     <TableCell className="text-xs text-right tabular-nums">{fmtKg(tipoTotal ? 0 : (c.peso ?? 0))}</TableCell>
                                     <TableCell className="text-xs text-right tabular-nums font-semibold text-rose-600 dark:text-rose-400">−{fmtKg(cortado)}</TableCell>
-                                    <TableCell className="text-xs">
-                                      {c.motivo_ruptura ? (
-                                        <span className="truncate max-w-[160px] inline-block">{c.motivo_ruptura}</span>
-                                      ) : (
-                                        <Badge variant="outline" className="text-[10px] text-muted-foreground">Não informado</Badge>
-                                      )}
-                                    </TableCell>
                                     <TableCell className="text-xs text-center">
                                       {(isAdmin || isLogistica) ? (
                                         <StatusSelect
@@ -960,7 +932,7 @@ export default function Rupturas() {
               {rupturas.length === 0 ? (
                 <EmptyState />
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   <TopBars
                     title="Top 5 produtos cortados"
                     items={productSummary.slice(0, 5).map(p => ({
@@ -977,28 +949,6 @@ export default function Rupturas() {
                       sub: `${c.cargas.size} carga${c.cargas.size !== 1 ? "s" : ""}`,
                     }))}
                   />
-                  <Card className="h-full">
-                    <CardContent className="p-4">
-                      <p className="text-sm font-semibold mb-3">Motivos de ruptura</p>
-                      {motivosSummary.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-6 text-center">Sem dados no período</p>
-                      ) : (
-                        <div className="space-y-2.5">
-                          {motivosSummary.map((m) => (
-                            <div key={m.motivo} className="space-y-1">
-                              <div className="flex items-baseline justify-between gap-2 text-xs">
-                                <span className={cn("truncate", m.naoInformado && "text-rose-600 dark:text-rose-400 font-medium")}>{m.motivo}</span>
-                                <span className="font-mono shrink-0">{m.count} · {m.pct.toFixed(0)}%</span>
-                              </div>
-                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div className={cn("h-full rounded-full", m.naoInformado ? "bg-rose-500" : "bg-amber-500")} style={{ width: `${m.pct}%` }} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
                 </div>
               )}
             </TabsContent>
@@ -1324,9 +1274,6 @@ function TimelineRow({ entry, item }: { entry: AuditEntry; item?: Carregamento }
       tone: c.ruptura.para ? "danger" : "info",
       text: c.ruptura.para ? "marcado como ruptura total" : "ruptura total removida",
     });
-  }
-  if (c.motivo_ruptura?.para !== undefined) {
-    parts.push({ key: "motivo", text: <>motivo: <em>{c.motivo_ruptura.para || "—"}</em></>, tone: "info" });
   }
   if (c.peso_manual?.para === true && parts.length === 0) {
     parts.push({ key: "manual", text: "peso ajustado manualmente", tone: "warn" });

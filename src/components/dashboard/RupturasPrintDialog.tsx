@@ -172,8 +172,7 @@ export function RupturasPrintDialog({ open, onOpenChange, data }: Props) {
                   <th className="text-left py-1.5 pr-2 font-semibold">Tipo</th>
                   <th className="text-right py-1.5 pr-2 font-semibold">Original</th>
                   <th className="text-right py-1.5 pr-2 font-semibold">Carregado</th>
-                  <th className="text-right py-1.5 pr-2 font-semibold">Diferença</th>
-                  <th className="text-left py-1.5 font-semibold">Motivo</th>
+                  <th className="text-right py-1.5 font-semibold">Diferença</th>
                 </tr>
               </thead>
               <tbody>
@@ -191,8 +190,7 @@ export function RupturasPrintDialog({ open, onOpenChange, data }: Props) {
                       <td className="py-1 pr-2 font-semibold">{tipo}</td>
                       <td className="py-1 pr-2 text-right font-mono">{original.toLocaleString("pt-BR")}</td>
                       <td className="py-1 pr-2 text-right font-mono">{carregado.toLocaleString("pt-BR")}</td>
-                      <td className="py-1 pr-2 text-right font-mono">{diff.toLocaleString("pt-BR")}</td>
-                      <td className="py-1">{item.motivo_ruptura ?? "—"}</td>
+                      <td className="py-1 text-right font-mono">{diff.toLocaleString("pt-BR")}</td>
                     </tr>
                   );
                 })}

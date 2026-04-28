@@ -28,9 +28,6 @@ export function RupturasVendedor({ carregamentos }: Props) {
                   <span className="text-[11px] text-muted-foreground">
                     {r.cliente ?? "—"} • Pedido #{r.numero_pedido ?? "—"} • {format(new Date(r.data + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}
                   </span>
-                  {r.motivo_ruptura && (
-                    <span className="text-[11px] text-[#EF5350] mt-0.5">Motivo: {r.motivo_ruptura}</span>
-                  )}
                 </div>
                 <span className="text-xs font-mono text-muted-foreground shrink-0">
                   {Number(r.peso ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg

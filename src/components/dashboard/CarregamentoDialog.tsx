@@ -286,14 +286,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       basePayload.etapa = "logistica";
     }
 
-    // Validate: ruptura requires a reason
-    const rupturaSemMotivo = finalItems.some(it => it.ruptura && !(form.motivo_ruptura && String(form.motivo_ruptura).trim()));
-    if (rupturaSemMotivo) {
-      submitGuard.current = false;
-      const { toast } = await import("sonner");
-      toast.error("Informe o motivo da ruptura antes de salvar.");
-      return;
-    }
+    // Motivo da ruptura não é mais obrigatório (campo removido da UI).
+    basePayload.motivo_ruptura = null;
 
     // Deterministic idempotency key for this dialog session.
     // Same key reused on every retry → DB unique index blocks duplicates.

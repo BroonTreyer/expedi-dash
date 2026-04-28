@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { isRupturaParcial } from "@/lib/peso-utils";
@@ -40,7 +39,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [removeTarget, setRemoveTarget] = useState<Carregamento | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteCarga, setConfirmDeleteCarga] = useState(false);
-  // Edições pontuais por item (peso e motivo de ruptura parcial)
+  // Edições pontuais por item (apenas peso)
   const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; motivo_ruptura?: string | null }>>({});
 
   useEffect(() => {
@@ -155,7 +154,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                               <X className="h-3.5 w-3.5" />
                             </Button>
                           </div>
-                          {/* Linha de peso + motivo */}
+                          {/* Linha de peso */}
                           {!item.ruptura && (
                             <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_1fr] sm:items-center gap-2 pl-1">
                               <div className="flex items-center gap-1.5">
@@ -185,23 +184,6 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                                   <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
                                     → Ruptura parcial: {diff.toLocaleString("pt-BR")} kg
                                   </span>
-                                  <Select
-                                    value={edit.motivo_ruptura ?? item.motivo_ruptura ?? ""}
-                                    onValueChange={(v) => setItemEdits((prev) => ({
-                                      ...prev,
-                                      [item.id]: { ...prev[item.id], motivo_ruptura: v || null },
-                                    }))}
-                                  >
-                                    <SelectTrigger className="h-7 w-32 text-[10px]">
-                                      <SelectValue placeholder="Motivo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="estoque">Estoque</SelectItem>
-                                      <SelectItem value="qualidade">Qualidade</SelectItem>
-                                      <SelectItem value="logistica">Logística</SelectItem>
-                                      <SelectItem value="outro">Outro</SelectItem>
-                                    </SelectContent>
-                                  </Select>
                                 </div>
                               )}
                             </div>

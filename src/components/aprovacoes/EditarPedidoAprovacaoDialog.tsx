@@ -54,7 +54,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
           peso: Number(r.peso ?? 0),
           preco_unitario: Number(r.preco_unitario ?? 0),
           preco_total: Number(r.preco_total ?? 0),
-          motivo_ruptura: r.motivo_ruptura ?? null,
+          motivo_ruptura: null,
           pesoPadrao: Number(p?.peso_padrao ?? 0),
           pesoManual: !!r.peso_manual,
           ruptura: !!r.ruptura,
@@ -309,7 +309,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
                           onCheckedChange={(checked) =>
                             update(i, {
                               ruptura: checked,
-                              motivo_ruptura: checked ? r.motivo_ruptura ?? "estoque" : null,
+                              motivo_ruptura: null,
                             })
                           }
                         />
@@ -318,24 +318,6 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
                           Ruptura
                         </Label>
                       </div>
-                      {r.ruptura && (
-                        <div className="flex-1 min-w-[160px]">
-                          <Select
-                            value={r.motivo_ruptura ?? ""}
-                            onValueChange={(v) => update(i, { motivo_ruptura: v || null })}
-                          >
-                            <SelectTrigger className="h-9 text-xs">
-                              <SelectValue placeholder="Selecione o motivo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="estoque">Estoque</SelectItem>
-                              <SelectItem value="qualidade">Qualidade</SelectItem>
-                              <SelectItem value="logistica">Logística</SelectItem>
-                              <SelectItem value="outro">Outro</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                     </div>
                     {subtotal > 0 && (
                       <p className="text-[11px] text-muted-foreground tabular-nums text-right">
