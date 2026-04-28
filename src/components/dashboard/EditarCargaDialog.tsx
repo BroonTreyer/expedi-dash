@@ -3,10 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle } from "lucide-react";
+import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle, CheckCircle2 } from "lucide-react";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { isRupturaParcial } from "@/lib/peso-utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface CargaGroup {
   cargaId: string;
@@ -39,6 +41,8 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [removeTarget, setRemoveTarget] = useState<Carregamento | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteCarga, setConfirmDeleteCarga] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState<"idle" | "searching" | "found" | "notfound">("idle");
+  const [lookupInfo, setLookupInfo] = useState<string>("");
   // Edições pontuais por item (apenas peso)
   const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; motivo_ruptura?: string | null }>>({});
 
@@ -51,8 +55,53 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       setTransportadora(group.items[0]?.transportadora ?? "");
       setRemovedIds(new Set());
       setItemEdits({});
+      setLookupStatus("idle");
+      setLookupInfo("");
     }
   }, [group, open]);
+
+  // Auto-fill motorista, transportadora e tipo a partir do cadastro de caminhões quando placa muda
+  useEffect(() => {
+    if (!open) return;
+    const placaNorm = placa.trim().toUpperCase();
+    if (placaNorm.length < 5) {
+      setLookupStatus("idle");
+      setLookupInfo("");
+      return;
+    }
+    let cancelled = false;
+    setLookupStatus("searching");
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from("caminhoes")
+        .select("placa, transportadora, tipo_caminhao, motoristas:motorista_id(nome_completo)")
+        .ilike("placa", placaNorm)
+        .eq("ativo", true)
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        setLookupStatus("notfound");
+        setLookupInfo("");
+        return;
+      }
+      const nomeMotorista = (data as any).motoristas?.nome_completo ?? "";
+      const transp = data.transportadora ?? "";
+      const tipo = data.tipo_caminhao ?? "";
+      // Sempre sobrescrever para garantir consistência com o cadastro
+      if (nomeMotorista) setMotorista(nomeMotorista);
+      if (transp) setTransportadora(transp);
+      if (tipo) setTipoCaminhao(tipo);
+      setLookupStatus("found");
+      setLookupInfo([nomeMotorista, transp, tipo].filter(Boolean).join(" • "));
+      toast.success("Dados do caminhão preenchidos pelo cadastro");
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placa, open]);
 
   if (!group) return null;
 
@@ -97,6 +146,17 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
               <div className="space-y-1.5">
                 <Label htmlFor="ec-placa">Placa</Label>
                 <Input id="ec-placa" value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} />
+                {lookupStatus === "found" && lookupInfo && (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 shrink-0" /> <span className="truncate">{lookupInfo}</span>
+                  </p>
+                )}
+                {lookupStatus === "notfound" && (
+                  <p className="text-[10px] text-muted-foreground">Placa não cadastrada — preencha manualmente</p>
+                )}
+                {lookupStatus === "searching" && (
+                  <p className="text-[10px] text-muted-foreground">Buscando cadastro…</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ec-motorista">Motorista</Label>
