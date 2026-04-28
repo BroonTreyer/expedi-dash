@@ -70,7 +70,7 @@ export function useEditarPedidoAprovacao() {
       // 3) INSERT novos
       const novos = items.filter((i) => !i.id);
       if (novos.length) {
-        const rows = novos.map((it) => ({
+        const rows = novos.map((it, idx) => ({
           vendedor_id: meta.vendedor_id,
           data: meta.data,
           numero_pedido: meta.numero_pedido,
@@ -91,6 +91,9 @@ export function useEditarPedidoAprovacao() {
           etapa: aprovarAposSalvar ? "vendas" : "aguardando_faturamento",
           status: "Aguardando",
           operation_id: operationId,
+          // Chave única por linha: bloqueia o MESMO envio repetido,
+          // mas permite legitimamente o mesmo produto duas vezes se o usuário quiser.
+          row_op_key: `${operationId}__novo__${idx}`,
         }));
         const { error } = await supabase.from("carregamentos_dia").insert(rows);
         // 23505 = unique violation => mesmo operation_id já gravado (duplo clique).
