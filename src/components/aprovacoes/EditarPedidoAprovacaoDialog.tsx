@@ -208,6 +208,23 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
             </div>
           </section>
 
+          {/* Forma de pagamento */}
+          <section className="space-y-2 rounded-lg border bg-muted/30 p-3">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Forma de pagamento <span className="text-destructive">*</span>
+            </Label>
+            <Select value={formaPagamento} onValueChange={setFormaPagamento}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Selecione a forma de pagamento" />
+              </SelectTrigger>
+              <SelectContent>
+                {FORMAS_PAGAMENTO.map((f) => (
+                  <SelectItem key={f} value={f}>{f}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </section>
+
           {/* Itens */}
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-2">
