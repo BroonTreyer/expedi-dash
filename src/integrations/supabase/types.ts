@@ -128,6 +128,7 @@ export type Database = {
           created_at: string
           data: string
           etapa: string
+          forma_pagamento: string | null
           horario_fim: string | null
           horario_inicio: string | null
           horario_previsto: string | null
@@ -168,6 +169,7 @@ export type Database = {
           created_at?: string
           data?: string
           etapa?: string
+          forma_pagamento?: string | null
           horario_fim?: string | null
           horario_inicio?: string | null
           horario_previsto?: string | null
@@ -208,6 +210,7 @@ export type Database = {
           created_at?: string
           data?: string
           etapa?: string
+          forma_pagamento?: string | null
           horario_fim?: string | null
           horario_inicio?: string | null
           horario_previsto?: string | null
