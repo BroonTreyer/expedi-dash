@@ -13,31 +13,54 @@ import { Loader2 } from "lucide-react";
 // Auth is kept eager since it's the landing page (LCP)
 import Auth from "./pages/Auth";
 
+// Retry helper for dynamic imports — recovers from stale chunks after deploy/HMR
+const lazyWithRetry = <T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+  retries = 2,
+  delay = 400,
+) =>
+  lazy(async () => {
+    let lastErr: unknown;
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await factory();
+      } catch (err) {
+        lastErr = err;
+        await new Promise((r) => setTimeout(r, delay * (i + 1)));
+      }
+    }
+    // Final attempt: hard reload to fetch fresh asset manifest
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+    throw lastErr;
+  });
+
 // Lazy-loaded routes
-const Index = lazy(() => import("./pages/Index"));
-const Produtos = lazy(() => import("./pages/Produtos"));
-const Vendedores = lazy(() => import("./pages/Vendedores"));
-const TiposCaminhao = lazy(() => import("./pages/TiposCaminhao"));
-const Usuarios = lazy(() => import("./pages/Usuarios"));
-const Rupturas = lazy(() => import("./pages/Rupturas"));
-const Clientes = lazy(() => import("./pages/Clientes"));
-const Consolidado = lazy(() => import("./pages/Consolidado"));
-const PortariaCargaPropria = lazy(() => import("./pages/PortariaCargaPropria"));
-const PortariaTerceirizado = lazy(() => import("./pages/PortariaTerceirizado"));
-const PortariaManual = lazy(() => import("./pages/PortariaManual"));
-const RegistroEntrada = lazy(() => import("./pages/RegistroEntrada"));
-const Motoristas = lazy(() => import("./pages/Motoristas"));
-const Caminhoes = lazy(() => import("./pages/Caminhoes"));
-const Cadastros = lazy(() => import("./pages/Cadastros"));
-const Analytics = lazy(() => import("./pages/Analytics"));
-const Backups = lazy(() => import("./pages/Backups"));
-const Relatorios = lazy(() => import("./pages/Relatorios"));
-const Logs = lazy(() => import("./pages/Logs"));
-const Lixeira = lazy(() => import("./pages/Lixeira"));
-const PortalMotorista = lazy(() => import("./pages/PortalMotorista"));
-const TemplatesRota = lazy(() => import("./pages/TemplatesRota"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const MeuPainel = lazy(() => import("./pages/MeuPainel"));
+const Index = lazyWithRetry(() => import("./pages/Index"));
+const Produtos = lazyWithRetry(() => import("./pages/Produtos"));
+const Vendedores = lazyWithRetry(() => import("./pages/Vendedores"));
+const TiposCaminhao = lazyWithRetry(() => import("./pages/TiposCaminhao"));
+const Usuarios = lazyWithRetry(() => import("./pages/Usuarios"));
+const Rupturas = lazyWithRetry(() => import("./pages/Rupturas"));
+const Clientes = lazyWithRetry(() => import("./pages/Clientes"));
+const Consolidado = lazyWithRetry(() => import("./pages/Consolidado"));
+const PortariaCargaPropria = lazyWithRetry(() => import("./pages/PortariaCargaPropria"));
+const PortariaTerceirizado = lazyWithRetry(() => import("./pages/PortariaTerceirizado"));
+const PortariaManual = lazyWithRetry(() => import("./pages/PortariaManual"));
+const RegistroEntrada = lazyWithRetry(() => import("./pages/RegistroEntrada"));
+const Motoristas = lazyWithRetry(() => import("./pages/Motoristas"));
+const Caminhoes = lazyWithRetry(() => import("./pages/Caminhoes"));
+const Cadastros = lazyWithRetry(() => import("./pages/Cadastros"));
+const Analytics = lazyWithRetry(() => import("./pages/Analytics"));
+const Backups = lazyWithRetry(() => import("./pages/Backups"));
+const Relatorios = lazyWithRetry(() => import("./pages/Relatorios"));
+const Logs = lazyWithRetry(() => import("./pages/Logs"));
+const Lixeira = lazyWithRetry(() => import("./pages/Lixeira"));
+const PortalMotorista = lazyWithRetry(() => import("./pages/PortalMotorista"));
+const TemplatesRota = lazyWithRetry(() => import("./pages/TemplatesRota"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const MeuPainel = lazyWithRetry(() => import("./pages/MeuPainel"));
 const VendedoresPainel = lazy(() => import("./pages/VendedoresPainel"));
 const Aprovacoes = lazy(() => import("./pages/Aprovacoes"));
 
