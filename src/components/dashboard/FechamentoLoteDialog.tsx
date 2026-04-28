@@ -126,7 +126,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
   const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0;
 
+  // Submit guard: blocks double-clicks on "Fechar Carga" while the batch is in flight.
+  // Without this, the user could trigger 2 simultaneous batch updates and create duplicate
+  // carga_id rows + duplicate veiculos_esperados entries.
+  const submitGuard = useRef<boolean>(false);
+
   const handleSubmit = async () => {
+    if (submitGuard.current) return;
+    submitGuard.current = true;
+    try {
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
     const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
