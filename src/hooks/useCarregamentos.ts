@@ -154,7 +154,15 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
       const filtered = (data as Carregamento[]).filter(
         (c) => c.etapa !== "rascunho" && c.etapa !== "aguardando_faturamento",
       );
-      return filtered;
+      // Dedup defensivo por id — protege a UI contra qualquer linha
+      // duplicada que tenha entrado no banco antes da correção (legacy).
+      const seen = new Set<string>();
+      const deduped = filtered.filter((c) => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+      return deduped;
     },
     staleTime: 30_000,
   });
