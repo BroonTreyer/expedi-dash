@@ -1,157 +1,68 @@
+## Problema
 
-# Auditoria Completa do Sistema — Achados e Correções
+Pedidos com vários produtos para o mesmo cliente (ex.: DMA DISTRIBUIDORA, CEARA ALIMENTOS) estão sendo gravados com **um numero_pedido diferente para cada produto**. Resultado: um pedido único vira N "pedidos" no dashboard, prejudicando visualização e fechamento de carga.
 
-Rodei uma varredura no banco, no código e nas políticas. Abaixo estão os problemas reais encontrados, ordenados por gravidade, com evidência numérica.
+Exemplo confirmado no banco — CEARA ALIMENTOS com 13 produtos no mesmo `created_at` recebeu números 45 a 57 (um por linha).
 
----
+## Causa raiz
 
-## 1. CRÍTICO — Duplicatas continuam sendo geradas em `etapa=logistica`
+Na auditoria anterior foi criada a trigger `set_numero_pedido` (BEFORE INSERT) que chama `next_numero_pedido(NEW.data) = MAX(numero_pedido)+1` quando `numero_pedido IS NULL`. Como o trigger roda **por linha**, cada produto inserido vê o MAX já incrementado pela linha anterior e recebe um número novo. O frontend nunca preenche `numero_pedido` na criação (deixa null), então a trigger atribui sequencial diferente em todos os itens do `_batch`.
 
-**Evidência:**
-- 31 grupos duplicados / 67 linhas nos últimos 30 dias.
-- 100% das duplicatas estão em `etapa=logistica`, com `numero_pedido NULL`, `operation_id NULL`, `row_op_key NULL`.
-- Diferença de tempo entre as duplicatas vai de **1 minuto a 24 horas** — não é double-click, é **re-submissão deliberada de fluxos sem chave de idempotência**.
-- Adoção da idempotência hoje: **0 de 651 linhas** em `etapa=logistica` têm `operation_id`. As proteções criadas só atuam em `useCreateCarregamento` e `useBatchCreateCarregamento`, mas o fluxo de logística usa **`supabase.from(...).insert(...)` direto** em vários lugares.
+## Correção
 
-**Causa raiz (3 pontos no código):**
-1. `src/pages/Index.tsx` linha 447 — insert direto em `veiculos_esperados` (ok), mas o **fechamento de lote** (`handleLoteSubmit`) atualiza `carregamentos_dia` via `batchUpdateMut` sem proteção contra reentrada quando o usuário aperta "Fechar Carga" duas vezes rápido.
-2. `CarregamentoDialog.tsx` linha 314 (`batchInserts.push(row)`) — quando faturamento edita um pedido em modo "grupo" e a primeira tentativa falha por rede mas a linha foi gravada, a segunda tentativa **insere de novo sem `row_op_key`** porque o caminho `batchInserts` não passa por `useBatchCreateCarregamento` — vai pelo `_batch` no `handleSubmit` (linha 239), que de fato chama o hook protegido. Confirmado: o hook gera `operation_id`, mas a chave é **gerada por tentativa**, então cada retry produz uma chave nova → não bloqueia nada.
-3. **Cascata de irmãos** (`Index.tsx` linhas 269-291): o matching de irmãos usa `numero_pedido`, mas **99,3% das linhas (1.092 de 1.099) não têm `numero_pedido`** em logística. Resultado: a cascata silenciosamente nunca encontra irmãos e não causa o bug, mas o sistema de pedidos está cego.
+### 1. Banco — agrupar por operation_id no trigger
 
-**Correção:**
-- Mover geração de `operation_id`/`row_op_key` para o **chamador** (não para o hook), usando o `id` da operação em curso (ex.: `editing.id` + hash dos campos). Assim retries usam a mesma chave e o índice unique bloqueia.
-- Criar `numero_pedido` automaticamente em todo INSERT via trigger DB (`next_numero_pedido` já existe — usar como `DEFAULT` ou via trigger BEFORE INSERT). Resolve cascata, dedup e rastreabilidade.
-- Adicionar `submitGuard` (já existe em `CarregamentoDialog`) também no `FechamentoLoteDialog` e `EditarCargaDialog`.
-- Limpar as 67 linhas duplicadas atuais (manter a mais antiga de cada grupo).
+Reescrever `public.set_numero_pedido()` para reutilizar o `numero_pedido` de qualquer linha já inserida na mesma operação:
 
----
+- Se `NEW.numero_pedido` já vier preenchido → manter.
+- Senão, se `NEW.operation_id` está setado → procurar `numero_pedido` em `carregamentos_dia` com mesmo `operation_id` e mesma `data`. Se existir, reutilizar.
+- Caso contrário → atribuir `next_numero_pedido(NEW.data)`.
 
-## 2. CRÍTICO — `numero_pedido` ausente em 99% das linhas
+Isso torna o agrupamento de pedido consistente: todas as linhas do mesmo `_batch` (já marcadas com o mesmo `operation_id` pelo CarregamentoDialog) compartilham o mesmo número.
 
-**Evidência:**
-| Etapa | Total | Sem numero_pedido |
-|-------|-------|-------------------|
-| logistica | 651 | 647 (99,4%) |
-| vendas | 117 | 117 (100%) |
-| rascunho | 1 | 0 |
+### 2. Frontend — garantir operation_id em todo INSERT multi-produto
 
-**Impactos:**
-- Cascata de edição de pedido (Index.tsx:269) **nunca dispara** → editar um produto não propaga cliente/carga para os irmãos.
-- Função RPC `next_numero_pedido(date)` existe mas **nunca é chamada**.
-- Agrupamento "pedido completo" no UI agrupa por timestamp, instável.
+Auditar e padronizar `operation_id` nos pontos de criação para que o trigger consiga agrupar:
 
-**Correção:** trigger `BEFORE INSERT` em `carregamentos_dia` que preenche `numero_pedido := next_numero_pedido(NEW.data)` quando NULL.
+- `CarregamentoDialog.tsx` → já marca `operation_id`/`row_op_key` no `_batch`. OK.
+- `useCarregamentos.ts` (createMut) → criação single-row: gerar `operation_id` mesmo numa única linha (inofensivo).
+- `useEditarPedidoAprovacao.ts` e `MeusPedidos.tsx` (vendedor) → garantir `operation_id` único por submit do form (compartilhado entre produtos do mesmo pedido).
+- `Index.tsx` `handleClone` e fluxo de clone em batch → mesmo `operation_id` para todos os itens clonados.
+- `EditarCargaDialog.tsx` / `FechamentoLoteDialog.tsx` → revisar inserts indiretos.
 
----
+### 3. Backfill dos pedidos quebrados recentes
 
-## 3. ALTO — Cargas órfãs (sem veículo esperado)
+Para os pedidos já inseridos hoje que ficaram fragmentados (ex.: CEARA ALIMENTOS, possivelmente DMA), unificar `numero_pedido` por agrupamento natural: mesmo `data` + `codigo_cliente` + `created_at` (truncado a segundos) → atribuir o menor `numero_pedido` do grupo a todas as linhas, e renumerar as posições liberadas no fim da sequência da data, sem colidir com pedidos de outros clientes.
 
-**Evidência:** 25 cargas com `etapa <> 'vendas'` e `carga_id` preenchido, mas **sem nenhum registro em `veiculos_esperados`** nos últimos 30 dias.
+A correção de backfill será conservadora:
+- Restrita aos últimos 7 dias.
+- Só agrupa linhas com mesma `data` + `codigo_cliente` + mesmo `created_at` em janela de 2 segundos (assinatura típica de batch).
+- Mantém o menor número como o número final do pedido; descarta os demais (resequenciamento opcional, pode ser pulado para evitar mexer demais).
 
-**Causa:** o trigger `on_carga_fechada` cria veículo esperado **só quando `placa IS NOT NULL`** no momento do fechamento. Se a carga é fechada sem placa (lote/roteirização) e a placa é preenchida depois, a portaria nunca recebe o veículo esperado.
-
-**Correção:** criar um trigger `AFTER UPDATE` que detecta `placa IS NULL → NOT NULL` em linhas de etapa logística e cria/vincula o veículo esperado.
-
----
-
-## 4. ALTO — Inconsistências de ruptura e peso
-
-**Evidência:**
-- 46 linhas com `ruptura=true` mas **sem `motivo_ruptura`**.
-- 34 linhas com `peso > peso_original` (impossível por regra de negócio — ruptura só reduz).
-- `ruptura_sinalizada` está OK (0 inconsistentes).
-
-**Correção:**
-- Validação no `CarregamentoDialog`: `motivo_ruptura` obrigatório quando `ruptura=true`.
-- Trigger `BEFORE UPDATE` que rejeita `peso > peso_original` (ou usa `LEAST`).
-
----
-
-## 5. MÉDIO — 38 funções `SECURITY DEFINER` executáveis por anônimos/autenticados
-
-**Evidência:** linter reporta 38 warnings de funções `SECURITY DEFINER` no schema `public` callable sem grants restritos. Inclui `has_role`, `notify_role`, `get_my_vendedor_id`, etc.
-
-**Risco real:** baixo (a maioria valida `auth.uid()` internamente), mas `notify_role` e `log_audit` **podem ser chamadas por qualquer authenticated user via PostgREST RPC** e gravar lixo nas tabelas de notificação/auditoria.
-
-**Correção:** `REVOKE EXECUTE ... FROM anon, authenticated` em `notify_role`, `log_audit`, `sync_clients_to_orders`. Manter apenas `has_role`, `get_my_vendedor_id`, `get_portal_data_public`, `get_portal_token_public`, `next_numero_pedido` acessíveis.
-
----
-
-## 6. MÉDIO — Optimistic update sem rollback completo no `useUpdateCarregamento`
-
-**Arquivo:** `src/hooks/useCarregamentos.ts:286-325`. O `onSettled` está vazio confiando no realtime — se o realtime estiver desconectado (status disconnected), o cache pode ficar com dado errado por minutos. A cascata de irmãos no `Index.tsx:288` faz `.catch(() => {})` — engole erro silenciosamente.
-
-**Correção:** invalidar query no `onSettled` com `refetchType: 'none'` (atualização passiva), e remover o `.catch(() => {})` da cascata para mostrar toast.
-
----
-
-## Diagrama do bug de duplicação
+## Resumo técnico
 
 ```text
-Usuário (Faturamento)
-   │
-   │ Edita pedido com 3 produtos
-   ▼
-CarregamentoDialog.handleSubmit
-   │
-   ├─► UPDATE produto 1 (id existente)        ─ ok, idempotente
-   │
-   ├─► _batchUpdates: [produto 2 (id)]        ─ ok via batchUpdateMut
-   │
-   └─► _batch: [produto 3 (sem id)]           ◄── INSERT
-                  │
-                  ▼
-       useBatchCreateCarregamento gera NOVO operation_id
-                  │
-       Se rede falha + retry do React Query:
-                  ▼
-       NOVO operation_id de novo → unique não bloqueia
-                  │
-                  ▼
-       2 linhas iguais no banco
+Trigger atual (causa do bug):
+  INSERT linha 1 → numero_pedido = MAX+1 = 45
+  INSERT linha 2 → numero_pedido = MAX+1 = 46  ← deveria ser 45
+  INSERT linha 3 → numero_pedido = MAX+1 = 47  ← deveria ser 45
+  ...
+
+Trigger corrigido:
+  INSERT linha 1 (op=X) → não há outra com op=X → numero = 45
+  INSERT linha 2 (op=X) → encontra op=X com numero=45 → reutiliza 45
+  INSERT linha 3 (op=X) → reutiliza 45
 ```
 
-A **fix correta** é gerar `row_op_key` **determinístico** baseado em `(editing.id, codigo_produto, índice)` no momento em que o dialog monta o payload, ANTES do hook.
+## Arquivos / migrações
 
----
+- `supabase/migrations/<novo>.sql`:
+  - Substituir `public.set_numero_pedido()` pela versão que respeita `operation_id`.
+  - Backfill UPDATE para unificar `numero_pedido` dos pedidos fragmentados dos últimos 7 dias.
+- `src/components/dashboard/CarregamentoDialog.tsx` — confirmar que `operation_id` é incluído também em singletons (já está nos batches).
+- `src/hooks/useCarregamentos.ts` — `createMut` deve sempre setar `operation_id` (mesmo single-row).
+- `src/hooks/useEditarPedidoAprovacao.ts` — gerar `operation_id` por submit.
+- `src/components/vendedor/MeusPedidos.tsx` e `NovoPedidoDialog.tsx` — gerar `operation_id` por submit do vendedor.
+- `src/pages/Index.tsx` — `handleClone` e demais fluxos: propagar `operation_id` único por clonagem multi-item.
 
-## Plano de execução (priorizado)
-
-### Fase 1 — Parar a sangria (migração + 2 arquivos)
-1. **Migração SQL:**
-   - Trigger `BEFORE INSERT` para preencher `numero_pedido` automaticamente.
-   - Trigger `BEFORE UPDATE` que impede `peso > peso_original`.
-   - Trigger `AFTER UPDATE` para vincular veículo esperado quando placa é preenchida tardiamente.
-   - `REVOKE EXECUTE` em `notify_role`, `log_audit`, `sync_clients_to_orders` de `anon, authenticated`.
-   - Limpeza: `DELETE` das 67 linhas duplicadas mantendo a mais antiga de cada grupo `(codigo_produto, numero_pedido, cliente, data)`.
-
-2. **`src/components/dashboard/CarregamentoDialog.tsx`:** gerar `operation_id` (uma vez por abertura do dialog) e `row_op_key` determinístico (`${operation_id}__${codigo_produto}__${index}`) **dentro do dialog**, passar nos payloads. Isso garante que retries do React Query reusam a mesma chave.
-
-3. **`src/components/dashboard/FechamentoLoteDialog.tsx`:** adicionar `submitGuard` ref para bloquear duplo-clique no botão "Fechar Carga".
-
-### Fase 2 — Validações
-4. **`CarregamentoDialog`**: `motivo_ruptura` obrigatório quando `ruptura=true` (validação no submit + asterisco no label).
-5. **`useUpdateCarregamento`**: trocar `onSettled` vazio por `qc.invalidateQueries({ ..., refetchType: 'none' })`.
-6. **`Index.tsx:288`**: remover `.catch(() => {})` da cascata de irmãos.
-
-### Fase 3 — Verificação
-7. Rodar query de auditoria pós-deploy para confirmar duplicatas = 0 e adoção de `operation_id` = 100%.
-
----
-
-## Detalhes técnicos
-
-**Arquivos a editar:**
-- `src/components/dashboard/CarregamentoDialog.tsx` (gerar chave determinística)
-- `src/components/dashboard/FechamentoLoteDialog.tsx` (submit guard)
-- `src/hooks/useCarregamentos.ts` (remover geração de chave do hook; aceitar a do chamador; melhorar onSettled)
-- `src/pages/Index.tsx` (remover catch silencioso)
-- 1 nova migração SQL com 4 triggers + 1 REVOKE + 1 DELETE de cleanup
-
-**Não vai mexer:** RLS de tabelas, fluxo do vendedor (já idempotente), portaria, edge functions.
-
----
-
-## Pergunta antes de executar
-
-Posso prosseguir com **as 3 fases de uma vez**, ou você prefere que eu pare entre cada fase para você validar? E confirma o **DELETE das 67 linhas duplicadas legacy** (mantendo a mais antiga de cada grupo)?
+Sem alterações de RLS, sem novas tabelas.
