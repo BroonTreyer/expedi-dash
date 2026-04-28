@@ -180,7 +180,10 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
 
   const submit = async (enviar: boolean) => {
     if (!clienteSel || !isValid) return;
-    await onSubmit({
+    if (submittingRefLocal.current) return;
+    submittingRefLocal.current = true;
+    try {
+      await onSubmit({
       cliente: clienteSel,
       items: items.map((r) => ({
         codigo_produto: r.codigo_produto,
@@ -193,7 +196,10 @@ export function NovoPedidoDialog({ open, onOpenChange, onSubmit, isSubmitting, e
       observacoes: observacoes.trim(),
       enviarParaAprovacao: enviar,
       editingId: editing?.id,
-    });
+      });
+    } finally {
+      submittingRefLocal.current = false;
+    }
   };
 
   const totalPedido = items.reduce((s, r) => s + (r.precoUnitario || 0) * (r.quantidade || 0), 0);
