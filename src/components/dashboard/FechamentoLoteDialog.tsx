@@ -231,6 +231,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         totalPedidos,
       });
     }
+    } finally {
+      // Libera após o submit; o dialog já foi fechado por onOpenChange(false) acima.
+      submitGuard.current = false;
+    }
   };
 
   const rotaDestinos = useMemo(
