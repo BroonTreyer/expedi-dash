@@ -35,6 +35,14 @@ function ParcialBadge({ c }: { c: Carregamento }) {
   );
 }
 
+function RupturaBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300/70 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+      <AlertTriangle className="h-3 w-3" /> Ruptura
+    </span>
+  );
+}
+
 interface Props {
   data: Carregamento[];
   currentDate?: string;
