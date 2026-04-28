@@ -98,6 +98,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
               preco_total: it.preco_total || null,
               etapa,
               observacoes: payload.observacoes || null,
+              forma_pagamento: payload.forma_pagamento || null,
             })
             .eq("id", it.id);
           if (error) throw error;
@@ -122,6 +123,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
             etapa,
             status: "Aguardando",
             observacoes: payload.observacoes || null,
+            forma_pagamento: payload.forma_pagamento || null,
             operation_id: operationId,
             row_op_key: `${operationId}__edit_novo__${idx}`,
           }));
@@ -151,6 +153,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
           etapa,
           status: "Aguardando",
           observacoes: payload.observacoes || null,
+          forma_pagamento: payload.forma_pagamento || null,
           operation_id: operationId,
           row_op_key: `${operationId}__new__${idx}`,
         }));

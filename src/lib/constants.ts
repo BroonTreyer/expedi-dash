@@ -50,3 +50,16 @@ export const UF_LIST = [
   'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA',
   'PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
 ];
+
+// Formas de pagamento (todas via boleto, variando o prazo)
+export const FORMAS_PAGAMENTO = [
+  'Boleto 15 dias',
+  'Boleto 21 dias',
+  'Boleto 28 dias',
+  'Boleto 30 dias',
+  'Boleto 35 dias',
+  'Boleto 21/28 dias',
+  'Boleto 21/28/35 dias',
+] as const;
+
+export type FormaPagamento = typeof FORMAS_PAGAMENTO[number];

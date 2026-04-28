@@ -7,6 +7,7 @@ import fricoLogo from "@/assets/frico-logo-optimized.webp";
 interface ClienteGroup {
   codigoCliente: string | null;
   nomeCliente: string | null;
+  formaPagamento?: string | null;
   items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean; pesoOriginal?: number | null }[];
   pesoTotal: number;
   rupturaCount?: number;
@@ -196,6 +197,11 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                     {group.pesoTotal.toLocaleString("pt-BR")} kg
                   </span>
                 </div>
+                {group.formaPagamento && (
+                  <p className="text-[11px] text-muted-foreground mb-1">
+                    Pagamento: <span className="font-semibold text-foreground">{group.formaPagamento}</span>
+                  </p>
+                )}
                 {group.items.some((i) => i.ruptura) && (
                   <ul className="mt-1 space-y-0.5 text-[11px]">
                     {group.items.filter((i) => i.ruptura).map((i) => (

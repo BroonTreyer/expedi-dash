@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, X, Check, ChevronsUpDown, CheckCircle2, Save, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos } from "@/hooks/useProdutos";
-import { isPorUnidade } from "@/lib/constants";
+import { isPorUnidade, FORMAS_PAGAMENTO } from "@/lib/constants";
 import { useEditarPedidoAprovacao, type EditItemPayload } from "@/hooks/useEditarPedidoAprovacao";
 
 interface RowState extends EditItemPayload {
@@ -34,6 +34,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
   const [items, setItems] = useState<RowState[]>([]);
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState("");
+  const [formaPagamento, setFormaPagamento] = useState<string>("");
   // Trava reentrante contra duplo clique antes do React re-renderizar
   const submittingRef = useRef(false);
 
@@ -62,6 +63,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
     );
     setRemovedIds([]);
     setObservacoes(grupo[0]?.observacoes ?? "");
+    setFormaPagamento(grupo[0]?.forma_pagamento ?? "");
   }, [open, grupo, produtosAll]);
 
   const update = (i: number, patch: Partial<RowState>) => {
@@ -137,8 +139,8 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
   };
 
   const isValid = useMemo(
-    () => items.length > 0 && items.every((r) => r.codigo_produto && r.quantidade > 0),
-    [items]
+    () => items.length > 0 && !!formaPagamento && items.every((r) => r.codigo_produto && r.quantidade > 0),
+    [items, formaPagamento]
   );
 
   const totalPedido = items.reduce((s, r) => s + (r.preco_unitario || 0) * (r.quantidade || 0), 0);
@@ -158,6 +160,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
       cidade: head.cidade,
       uf: head.uf,
       observacoes: observacoes.trim(),
+      forma_pagamento: formaPagamento || null,
       items: items.map((r) => ({
         id: r.id,
         codigo_produto: r.codigo_produto,
@@ -203,6 +206,23 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
               {head.codigo_cliente ? `Cód. ${head.codigo_cliente}` : "Sem código"}
               {head.cidade ? ` · ${head.cidade}/${head.uf ?? ""}` : ""}
             </div>
+          </section>
+
+          {/* Forma de pagamento */}
+          <section className="space-y-2 rounded-lg border bg-muted/30 p-3">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Forma de pagamento <span className="text-destructive">*</span>
+            </Label>
+            <Select value={formaPagamento} onValueChange={setFormaPagamento}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Selecione a forma de pagamento" />
+              </SelectTrigger>
+              <SelectContent>
+                {FORMAS_PAGAMENTO.map((f) => (
+                  <SelectItem key={f} value={f}>{f}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </section>
 
           {/* Itens */}

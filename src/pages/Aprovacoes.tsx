@@ -103,6 +103,13 @@ export default function Aprovacoes() {
                         Vendedor: <span className="font-medium text-foreground">{head.vendedores?.nome_vendedor ?? "—"}</span>
                         {head.cidade ? ` · ${head.cidade}/${head.uf ?? ""}` : ""}
                       </p>
+                      {head.forma_pagamento && (
+                        <p className="text-[11px] mt-1">
+                          <Badge variant="outline" className="font-normal">
+                            {head.forma_pagamento}
+                          </Badge>
+                        </p>
+                      )}
                       <ul className="mt-2 space-y-0.5">
                         {g.map((r) => (
                           <li key={r.id} className="text-xs flex justify-between gap-2">

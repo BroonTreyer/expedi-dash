@@ -1,45 +1,50 @@
-# Unificar linhas de produtos pelo código do cliente
+# Forma de pagamento no pedido do vendedor
 
-## O que vai mudar
+Adicionar um campo **Forma de pagamento** obrigatório no dialog de novo pedido do vendedor. Como todas as opções são boletos, o campo será um único select com as variações de prazo combinadas. Faturamento verá no momento da aprovação e o dado entra nas impressões/relatórios.
 
-Hoje a tabela do dashboard agrupa por **código do cliente + número do pedido**. Resultado: se o mesmo cliente teve 2 lançamentos no dia (números 45 e 78), aparecem **2 cards**.
+## Opções disponíveis (select fixo)
+- Boleto 15 dias
+- Boleto 21 dias
+- Boleto 28 dias
+- Boleto 30 dias
+- Boleto 35 dias
+- Boleto 21/28 dias
+- Boleto 21/28/35 dias
 
-A nova regra: agrupar por **data + código do cliente**. Tudo do mesmo código, no mesmo dia, vira **1 card único**. Códigos diferentes (D247 vs D243 vs D196) continuam **separados** ✅.
+## Mudanças
 
-## Comportamento
+### 1. Banco (`carregamentos_dia`)
+Adicionar coluna `forma_pagamento text` (nullable) via migração. Pedidos antigos ficam sem valor, novos exigem preenchimento no front. Atualizar trigger `audit_carregamentos` para registrar mudanças nesse campo no log de auditoria.
 
-```text
-Antes:
-  D208 (cód 33009) Pedido 45 — 12 produtos    → card 1
-  D208 (cód 33009) Pedido 78 — 3 produtos     → card 2
-  D243 (cód 32995) Pedido 50 — 5 produtos     → card 3
+### 2. Dialog do vendedor (`src/components/vendedor/NovoPedidoDialog.tsx`)
+- Novo `Select` com as 7 opções acima, posicionado logo abaixo da seção Cliente, antes dos Itens.
+- Estado local `formaPagamento`, hidratado quando `editing` traz valor.
+- Adicionar `forma_pagamento` em `NovoPedidoSubmit`.
+- `isValid` exige `formaPagamento` preenchido (campo obrigatório, sempre — bloqueia tanto rascunho quanto envio para faturamento).
+- Label com asterisco e mensagem de validação visual.
 
-Depois:
-  D208 (cód 33009) — 15 produtos · 2 pedidos  → card único
-  D243 (cód 32995) — 5 produtos · Pedido 50   → card único
-```
+### 3. Submit (`src/components/vendedor/MeusPedidos.tsx`)
+Incluir `forma_pagamento: payload.forma_pagamento` em todos os 3 caminhos de gravação:
+- INSERT de novos itens (criação)
+- UPDATE de itens existentes (edição)
+- INSERT de novos itens dentro de uma edição
 
-- Cabeçalho do card: nome + código do cliente (igual hoje).
-- Quando há 1 só pedido: mostra "Pedido nº X". Quando há vários: mostra "**N pedidos**".
-- Total de peso e contagem de produtos somados.
-- Linhas sem `codigo_cliente` continuam exibidas individualmente.
+Ao hidratar o `editing` para o dialog, repassar o `forma_pagamento` do primeiro irmão do grupo.
 
-## Onde mexer
+### 4. Aprovações (faturamento)
+Mostrar a forma de pagamento no card de cada pedido pendente em `src/pages/Aprovacoes.tsx` e no `src/components/aprovacoes/EditarPedidoAprovacaoDialog.tsx` (campo somente-leitura ou editável pelo faturamento, mantendo a validação de obrigatoriedade).
 
-**1 arquivo só**: `src/components/dashboard/CarregamentoTable.tsx`
+### 5. Impressões / relatórios
+- `src/components/dashboard/CargaPrintDialog.tsx`: incluir "Forma de pagamento" no cabeçalho de cada pedido do manifesto A4.
+- `src/components/dashboard/ConsolidadoPrintDialog.tsx`: idem.
+- `src/hooks/useRelatorios.ts` (Resumo Diário e Performance de Vendedor XLSX): adicionar coluna `Forma de pagamento`.
 
-- **Função `buildGroups`** (linha 101): trocar a chave de agrupamento de `${codigo_cliente}__p${numero_pedido}` para `${data}__${codigo_cliente}`.
-- **Cabeçalhos do card mobile e da linha desktop**: ajustar para mostrar "N pedidos" quando o grupo tem mais de um `numero_pedido` distinto.
+## Itens deliberadamente fora
+- Não aparece na lista "Meus Pedidos" do vendedor nem no Dashboard de carregamento (conforme escolhido).
+- Sem tabela auxiliar de formas de pagamento — lista é fixa em `src/lib/constants.ts` (`FORMAS_PAGAMENTO`) para fácil ajuste futuro.
 
-Aplicado nas duas visualizações (Mobile cards + Desktop table).
-
-## O que NÃO muda
-
-- **Banco**: trigger `set_numero_pedido` continua como está. Cada submit ainda gera 1 número de pedido — só a **visualização** consolida.
-- **Vínculo entre produtos**: ações em lote (excluir pedido inteiro, clonar, editar) continuam operando sobre os itens do grupo — só que agora "o grupo" passa a ser todos os produtos daquele código no dia.
-- **Outras telas** (Aprovações, Meus Pedidos do vendedor, Consolidado, Fechamento de carga, Roteirização, Impressão): mantêm sua lógica atual — não dependem dessa chave de agrupamento.
-- **Códigos diferentes nunca se misturam** — cada filial DMA permanece como pedido próprio.
-
-## Resumo técnico
-
-Mudança isolada (~20 linhas) em `CarregamentoTable.tsx`. Sem migração, sem alteração de schema, sem impacto em outras telas.
+## Detalhes técnicos
+- Tipagem: o select usa um union literal exportado de `constants.ts` para evitar typos.
+- RLS já permite vendedor inserir/atualizar a coluna (políticas são por linha, não por coluna).
+- `types.ts` do Supabase é regenerado automaticamente após a migração — nenhum ajuste manual.
+- Pedidos antigos sem `forma_pagamento` continuam visíveis; só **novos** envios exigem o campo.
