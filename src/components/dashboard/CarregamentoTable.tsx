@@ -103,12 +103,11 @@ function buildGroups(data: Carregamento[]): Group[] {
   const singles: Group[] = [];
   for (const c of data) {
     if (c.codigo_cliente) {
-      // Quando há numero_pedido, agrupa por cliente+pedido (separa pedidos distintos do mesmo cliente).
-      // Sem numero_pedido, usa created_at: itens cadastrados juntos compartilham o mesmo timestamp,
-      // enquanto pedidos lançados em momentos distintos ficam separados.
-      const key = c.numero_pedido != null
-        ? `${c.codigo_cliente}__p${c.numero_pedido}`
-        : `${c.codigo_cliente}__t${c.created_at}`;
+      // Agrupa por (data + código do cliente): todos os produtos do mesmo cliente
+      // no mesmo dia ficam num único card, mesmo se foram lançados em momentos
+      // diferentes (com numero_pedido distintos). Códigos diferentes (filiais
+      // distintas, ex.: DMA D247 vs D243) NUNCA se misturam.
+      const key = `${c.data}__${c.codigo_cliente}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
