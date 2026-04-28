@@ -322,7 +322,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         // Group edit: classify each "extra" item as update (originalId) or insert
         const batchUpdates: Record<string, any>[] = [];
         const batchInserts: Record<string, any>[] = [];
-        for (const item of finalItems.slice(1)) {
+        for (let i = 0; i < finalItems.slice(1).length; i++) {
+          const item = finalItems.slice(1)[i];
           const row = {
             ...basePayload,
             codigo_produto: item.codigo_produto,
@@ -335,7 +336,11 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           if ((item as any).originalId) {
             batchUpdates.push({ id: (item as any).originalId, ...row });
           } else {
-            batchInserts.push(row);
+            batchInserts.push({
+              ...row,
+              operation_id: opId,
+              row_op_key: makeRowKey(item, i + 1),
+            });
           }
         }
         // Detect rows the user removed: present in cloneItems but not among kept originalIds
@@ -357,7 +362,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           _editingGroup: true,
         });
       } else if (finalItems.length > 1) {
-        const extraRows = finalItems.slice(1).map(item => ({
+        const extraRows = finalItems.slice(1).map((item, i) => ({
           ...basePayload,
           codigo_produto: item.codigo_produto,
           nome_produto: item.nome_produto,
@@ -365,13 +370,15 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           peso: item.peso,
           peso_manual: item.pesoManual,
           ruptura: item.ruptura,
+          operation_id: opId,
+          row_op_key: makeRowKey(item, i + 1),
         }));
         await onSubmit({ ...updatePayload, _batch: extraRows });
       } else {
         await onSubmit(updatePayload);
       }
     } else {
-      const batchRows = finalItems.map(item => ({
+      const batchRows = finalItems.map((item, i) => ({
         ...basePayload,
         codigo_produto: item.codigo_produto,
         nome_produto: item.nome_produto,
@@ -379,6 +386,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: item.peso,
         peso_manual: item.pesoManual,
         ruptura: item.ruptura,
+        operation_id: opId,
+        row_op_key: makeRowKey(item, i),
       }));
       if (batchRows.length === 1) {
         await onSubmit(batchRows[0]);
