@@ -18,6 +18,7 @@ import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { AppRole } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
+import { temRuptura } from "@/lib/ruptura-utils";
 
 function ParcialBadge({ c }: { c: Carregamento }) {
   if (!isRupturaParcial(c)) return null;
@@ -224,7 +225,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
         <div className="flex items-center gap-2 flex-wrap">
           {!isGrouped && !hideColumns.includes("etapa") && <EtapaBadge etapa={c.etapa} />}
           {!isGrouped && <StatusBadge status={c.status} statusColors={statusColors} />}
-          {c.ruptura && (
+          {temRuptura(c) && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
               <AlertTriangle className="h-3 w-3" /> Ruptura
             </span>
@@ -506,7 +507,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               if (!isMulti) {
                 const c = group.items[0];
                 return (
-                  <TableRow key={c.id} className={cn("hover:bg-muted/30", c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20")}>
+                  <TableRow key={c.id} className={cn("hover:bg-muted/30", temRuptura(c) && "bg-amber-50/40 dark:bg-amber-950/20")}>
                     {selectable && (
                       <TableCell className="w-[40px]">
                         <Checkbox checked={selectedSet.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
@@ -518,7 +519,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         <div className="flex items-center gap-1.5">
                           <EtapaBadge etapa={c.etapa} />
                           
-                          {c.ruptura && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                          {temRuptura(c) && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                         </div>
                       </TableCell>
                     )}
@@ -534,7 +535,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                     <TableCell className="text-sm font-mono">
                       <span className="flex items-center gap-1.5">
                         {c.codigo_produto ?? "—"}
-                        {c.ruptura && (
+                        {temRuptura(c) && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
                             <AlertTriangle className="h-3 w-3" /> Ruptura
                           </span>
@@ -631,7 +632,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
               const first = group.items[0];
               const isOpen = expanded.has(group.key);
               const totalPeso = group.items.reduce((s, i) => s + (i.peso ?? 0), 0);
-              const hasRuptura = group.items.some(i => i.ruptura);
+              const hasRuptura = group.items.some(i => temRuptura(i));
               const groupAllSelected = selectable && group.items.every(i => selectedSet.has(i.id));
 
               return (
@@ -787,7 +788,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       key={c.id}
                       className={cn(
                         "hover:bg-muted/20 bg-primary/[0.02]",
-                        c.ruptura && "bg-amber-50/40 dark:bg-amber-950/20"
+                        temRuptura(c) && "bg-amber-50/40 dark:bg-amber-950/20"
                       )}
                     >
                       {selectable && (
@@ -803,7 +804,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                       <TableCell className="text-sm font-mono">
                         <span className="flex items-center gap-1.5">
                           {c.codigo_produto ?? "—"}
-                          {c.ruptura && (
+                          {temRuptura(c) && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
                               <AlertTriangle className="h-3 w-3" /> Ruptura
                             </span>
