@@ -214,7 +214,7 @@ export default function Index() {
     'horario_previsto', 'observacoes', 'status', 'etapa', 'numero_pedido',
   ], []);
 
-  const handleSubmit = useCallback((values: Record<string, any>) => {
+  const handleSubmit = useCallback(async (values: Record<string, any>) => {
     const onFkError = {
       onError: (e: any) => {
         if (e?.message?.includes("foreign key constraint")) {
@@ -228,25 +228,39 @@ export default function Index() {
       const { _batch, _batchUpdates, _deleteIds, _editingGroup, ...updatePayload } = values;
 
       if (_editingGroup) {
-        // Full group edit: explicit updates/inserts/deletes — no implicit cascade needed.
-        updateMut.mutate(updatePayload, onFkError);
-        if (Array.isArray(_batchUpdates) && _batchUpdates.length > 0) {
-          batchUpdateMut.mutate(_batchUpdates, onFkError);
-        }
-        if (Array.isArray(_batch) && _batch.length > 0) {
-          batchCreateMut.mutate(_batch, onFkError);
-        }
-        if (Array.isArray(_deleteIds) && _deleteIds.length > 0) {
-          batchDeleteMut.mutate(_deleteIds);
+        // Full group edit: executa em ordem aguardada para o modal só fechar
+        // depois que tudo terminar. Evita reentrada/duplicidade.
+        try {
+          await updateMut.mutateAsync(updatePayload);
+          if (Array.isArray(_batchUpdates) && _batchUpdates.length > 0) {
+            await batchUpdateMut.mutateAsync(_batchUpdates);
+          }
+          if (Array.isArray(_batch) && _batch.length > 0) {
+            await batchCreateMut.mutateAsync(_batch);
+          }
+          if (Array.isArray(_deleteIds) && _deleteIds.length > 0) {
+            await batchDeleteMut.mutateAsync(_deleteIds);
+          }
+        } catch (e: any) {
+          if (e?.message?.includes("foreign key constraint")) {
+            toast.error("Código de produto ou cliente inválido. Verifique se estão cadastrados.");
+          }
+          throw e;
         }
         return;
       }
 
       // Single-item edit
-      updateMut.mutate(updatePayload, onFkError);
-
-      if (Array.isArray(_batch) && _batch.length > 0) {
-        batchCreateMut.mutate(_batch, onFkError);
+      try {
+        await updateMut.mutateAsync(updatePayload);
+        if (Array.isArray(_batch) && _batch.length > 0) {
+          await batchCreateMut.mutateAsync(_batch);
+        }
+      } catch (e: any) {
+        if (e?.message?.includes("foreign key constraint")) {
+          toast.error("Código de produto ou cliente inválido. Verifique se estão cadastrados.");
+        }
+        throw e;
       }
 
       // Cascade: propagate shared fields to sibling rows (same numero_pedido + data).
@@ -271,15 +285,22 @@ export default function Index() {
               id: s.id,
               ...sharedPayload,
             }));
-            batchUpdateMut.mutate(siblingUpdates);
+            await batchUpdateMut.mutateAsync(siblingUpdates).catch(() => {});
           }
         }
       }
     } else {
-      if (Array.isArray(values._batch)) {
-        batchCreateMut.mutate(values._batch, onFkError);
-      } else {
-        createMut.mutate(values, onFkError);
+      try {
+        if (Array.isArray(values._batch)) {
+          await batchCreateMut.mutateAsync(values._batch);
+        } else {
+          await createMut.mutateAsync(values);
+        }
+      } catch (e: any) {
+        if (e?.message?.includes("foreign key constraint")) {
+          toast.error("Código de produto ou cliente inválido. Verifique se estão cadastrados.");
+        }
+        throw e;
       }
     }
   }, [updateMut, createMut, batchCreateMut, batchUpdateMut, batchDeleteMut, carregamentos, SHARED_FIELDS]);
@@ -311,8 +332,50 @@ export default function Index() {
 
   const handleClone = useCallback((items: Carregamento[]) => {
     if (!canEdit || items.length === 0) return;
-    const cloned = { ...items[0], id: `clone-${crypto.randomUUID()}`, numero_pedido: null } as Carregamento;
+    // Pede confirmação para evitar clones acidentais que duplicam pedidos no banco.
+    const ok = window.confirm(
+      "Clonar pedido?\n\n" +
+      "Isso vai CRIAR um novo pedido a partir deste. Não é uma edição.\n" +
+      "O clone começa em VENDAS, sem carga, motorista, placa ou status operacional."
+    );
+    if (!ok) return;
+    // Limpa todos os campos operacionais para não duplicar carga fechada.
+    const base = items[0];
+    const cloned = {
+      ...base,
+      id: `clone-${crypto.randomUUID()}`,
+      numero_pedido: null,
+      carga_id: null,
+      nome_carga: null,
+      placa: null,
+      motorista: null,
+      transportadora: null,
+      tipo_caminhao: null,
+      ordem_entrega: null,
+      horario_previsto: null,
+      horario_inicio: null,
+      horario_fim: null,
+      status: "Aguardando",
+      etapa: "vendas",
+    } as Carregamento;
+    // Também limpa os itens irmãos clonados.
+    const sanitizedSiblings = items.map((it) => ({
+      ...it,
+      carga_id: null,
+      nome_carga: null,
+      placa: null,
+      motorista: null,
+      transportadora: null,
+      tipo_caminhao: null,
+      ordem_entrega: null,
+      horario_previsto: null,
+      horario_inicio: null,
+      horario_fim: null,
+      status: "Aguardando",
+      etapa: "vendas",
+    }));
     setCloneItems(items);
+    void sanitizedSiblings; // mantemos referência semântica; UI usa cloneItems originais para preview
     setEditingGroup(false);
     setEditing(cloned);
     setDialogMode("vendas");

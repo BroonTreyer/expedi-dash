@@ -174,7 +174,23 @@ export function useCreateCarregamento() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: Record<string, any>) => {
-      const { data, error } = await supabase.from("carregamentos_dia").insert(values).select().single();
+      // Idempotência: gera chave por linha se não vier do chamador.
+      // Esta chave é única no banco (índice parcial) e bloqueia
+      // duplicatas geradas por duplo-clique, retry de rede ou refresh.
+      const opId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+      const payload = {
+        ...values,
+        operation_id: values.operation_id ?? opId,
+        row_op_key: values.row_op_key ?? `${opId}__0`,
+      };
+      const { data, error } = await supabase
+        .from("carregamentos_dia")
+        .insert(payload)
+        .select()
+        .single();
+      // 23505 = unique violation => mesma operação chegou duas vezes.
+      // Tratamos como sucesso silencioso (idempotência).
+      if (error && (error as any).code === "23505") return null;
       if (error) throw error;
       return data;
     },
@@ -192,13 +208,30 @@ export function useBatchCreateCarregamento() {
   return useMutation({
     mutationFn: async (rows: Record<string, any>[]) => {
       if (rows.length === 0) return [];
-      const { data, error } = await supabase.from("carregamentos_dia").insert(rows).select();
+      // Idempotência por lote: um único operation_id para o lote inteiro
+      // e uma row_op_key por linha (operation_id + índice).
+      // Garante que se o mesmo lote chegar duas vezes, o banco bloqueia.
+      const opId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+      const payload = rows.map((r, idx) => ({
+        ...r,
+        operation_id: r.operation_id ?? opId,
+        row_op_key: r.row_op_key ?? `${r.operation_id ?? opId}__${idx}`,
+      }));
+      const { data, error } = await supabase
+        .from("carregamentos_dia")
+        .insert(payload)
+        .select();
+      if (error && (error as any).code === "23505") {
+        // Mesmo lote já gravado — idempotência silenciosa.
+        return [];
+      }
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["carregamentos"] });
-      toast.success(`${data?.length ?? 0} pedido(s) criado(s)`);
+      const n = data?.length ?? 0;
+      if (n > 0) toast.success(`${n} pedido(s) criado(s)`);
     },
     onError: (e: any) => toast.error(e.message),
   });

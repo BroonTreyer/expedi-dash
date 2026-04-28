@@ -148,6 +148,7 @@ export type Database = {
           preco_unitario: number | null
           quantidade: number | null
           quantidade_original: number | null
+          row_op_key: string | null
           ruptura: boolean
           ruptura_sinalizada: boolean
           status: string
@@ -187,6 +188,7 @@ export type Database = {
           preco_unitario?: number | null
           quantidade?: number | null
           quantidade_original?: number | null
+          row_op_key?: string | null
           ruptura?: boolean
           ruptura_sinalizada?: boolean
           status?: string
@@ -226,6 +228,7 @@ export type Database = {
           preco_unitario?: number | null
           quantidade?: number | null
           quantidade_original?: number | null
+          row_op_key?: string | null
           ruptura?: boolean
           ruptura_sinalizada?: boolean
           status?: string

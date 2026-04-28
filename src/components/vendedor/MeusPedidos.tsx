@@ -104,7 +104,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
         }
         // 3) INSERT novos (com operation_id => idempotência server-side)
         if (novos.length) {
-          const rows = novos.map((it: any) => ({
+          const rows = novos.map((it: any, idx: number) => ({
             data: ed.data,
             numero_pedido: ed.numero_pedido,
             vendedor_id: vendedorId,
@@ -123,6 +123,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
             status: "Aguardando",
             observacoes: payload.observacoes || null,
             operation_id: operationId,
+            row_op_key: `${operationId}__edit_novo__${idx}`,
           }));
           const { error: iErr } = await supabase.from("carregamentos_dia").insert(rows);
           // 23505 = unique violation => operação repetida, ignorar silenciosamente
@@ -132,7 +133,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
         // Criar: 1 número de pedido para o lote
         const { data: numero, error: nErr } = await supabase.rpc("next_numero_pedido", { _data: today });
         if (nErr) throw nErr;
-        const rows = payload.items.map((it) => ({
+        const rows = payload.items.map((it, idx) => ({
           data: today,
           numero_pedido: numero,
           vendedor_id: vendedorId,
@@ -151,6 +152,7 @@ export function MeusPedidos({ vendedorId, meusPedidos, carregamentos, readOnly }
           status: "Aguardando",
           observacoes: payload.observacoes || null,
           operation_id: operationId,
+          row_op_key: `${operationId}__new__${idx}`,
         }));
         const { error: iErr } = await supabase.from("carregamentos_dia").insert(rows);
         if (iErr && (iErr as any).code !== "23505") throw iErr;
