@@ -138,7 +138,13 @@ export default function Expedicao() {
     let kgACarregar = 0;
     for (const c of cargasDoDia) {
       const etapa = statusPortariaMap?.get(c.carga_id)?.etapa ?? "aguardando";
-      if (etapa === "carregando" || etapa === "expedido") {
+      // "Carregado/em carregamento" quando:
+      //  - portaria já registrou pátio/carregando/expedido OU
+      //  - status do carregamento = "Carregado" (faturamento finalizou)
+      const finalizadoNoFaturamento = c.status === "Carregado";
+      const noPatioOuAdiante =
+        etapa === "patio" || etapa === "carregando" || etapa === "expedido";
+      if (noPatioOuAdiante || finalizadoNoFaturamento) {
         kgCarregado += c.pesoTotal;
       } else {
         kgACarregar += c.pesoTotal;
