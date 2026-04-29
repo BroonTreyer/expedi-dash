@@ -1,40 +1,59 @@
-## Problema
-Quando um motorista aparece e a carga não pode ser executada (espera demais, ele vai embora, ocorre algum problema), hoje não existe forma de cancelar/abortar a carga registrando o motivo. A carga fica "pendurada" como fechada aguardando veículo, e o problema operacional desaparece sem rastro.
-
 ## Objetivo
-1. Permitir **cancelar uma carga fechada** (abortar a expedição) direto do painel "Cargas fechadas aguardando veículo", informando **motivo obrigatório**.
-2. Devolver os pedidos da carga para a etapa de logística (sem `carga_id`/`nome_carga`), liberando-os para serem refeitos em outra carga.
-3. Registrar o cancelamento no **audit_log** + criar um histórico próprio de "Ocorrências de carga" para visualização rápida.
-4. Criar uma **tela "Ocorrências"** para Admin/Logística verem todos esses problemas (motorista foi embora, carga cancelada por X, etc.) com filtros por data e motivo.
 
-## Fluxo de uso
-1. Na portaria (e no painel da logística), no card de cada carga fechada aguardando veículo, aparece um botão `Cancelar carga` (vermelho, ghost).
-2. Abre dialog: motivo (obrigatório, com sugestões: "Motorista foi embora", "Atraso operacional", "Veículo recusado", "Cliente cancelou", "Outro") + observação livre.
-3. Confirma → cria registro em `ocorrencias_carga` + reverte os pedidos (remove `carga_id`, `nome_carga`, volta `etapa = 'vendas'`, limpa placa/motorista/transportadora/tipo_caminhao) + remove `veiculos_esperados` daquela carga + apaga movimentação de chegada se existir e ainda não entrou no pátio.
-4. Toast de sucesso + invalidate.
-5. Aparece nova entrada `/ocorrencias` no menu (Admin/Logística), com tabela: data, carga, motorista, placa, motivo, observação, quem registrou, peso/qtd da carga cancelada.
+Tornar visíveis no Painel de Motoristas as observações registradas pela portaria/logística/admin (ex.: "celular da portaria bugou", explicando atrasos, falta de KM, baixas tardias) — e permitir imprimir o histórico completo do motorista para auditoria.
 
-## Mudanças técnicas
+## Onde estão os dados (já existem no banco)
 
-**Banco (migração):**
-- Nova tabela `public.ocorrencias_carga`:
-  - `id uuid pk`, `created_at timestamptz`, `tipo text` (default `'carga_cancelada'`), `motivo text not null`, `observacao text`, `carga_id text`, `nome_carga text`, `placa text`, `motorista text`, `transportadora text`, `peso_total numeric`, `qtd_pedidos int`, `data_carga date`, `registrado_por uuid`, `registrado_por_email text`.
-- RLS:
-  - SELECT: admin/logística/portaria/faturamento.
-  - INSERT: admin/logística/portaria.
-  - UPDATE/DELETE: somente admin.
-- Índice em `created_at desc` e `carga_id`.
+A tabela `movimentacoes_portaria` já possui dois campos textuais que cobrem o cenário, mas hoje só `ocorrencia` aparece (parcialmente) no drawer:
 
-**Frontend:**
-- `src/components/portaria/CancelarCargaDialog.tsx` — novo. Recebe a `CargaFechadaAguardando`, faz: insert em `ocorrencias_carga`, batch update dos pedidos (`useBatchUpdateCarregamento` aplicando `etapa: 'vendas'`, `carga_id: null`, `nome_carga: null`, `placa: null`, `motorista: null`, `transportadora: null`, `tipo_caminhao: null`, `horario_inicio: null`, `horario_fim: null`), delete em `veiculos_esperados` por `carga_id`, delete da movimentação `tipo_movimento='entrada'` com `horario_entrada is null` para essa `carga_id`. Tudo seguido de `log_audit('carga','<carga_id>','cancelada', {...})`.
-- `CargasFechadasAguardandoPanel.tsx` — adicionar botão `Cancelar carga` (variant ghost, texto vermelho) ao lado dos botões de ação atuais, abre o dialog acima. Visível para `admin/logistica/portaria`.
-- `src/hooks/useOcorrencias.ts` — `useOcorrencias()` (lista com filtros opcionais data/motivo) + `useCreateOcorrencia()`.
-- `src/pages/Ocorrencias.tsx` — tabela responsiva (cards em mobile) com filtros: período (default últimos 30 dias) e busca livre (motivo/placa/motorista/carga). Mostra contador no topo. Sem ações de edição (apenas leitura para auditoria).
-- `App.tsx` — rota `/ocorrencias` (admin, logistica).
-- `AppSidebar.tsx` — entrada `Ocorrências` (ícone `AlertOctagon`) sob "Painel"/após "Rupturas", roles admin/logística.
+- `observacoes` — texto livre digitado em qualquer dialog (entrada, edição, walk-in).
+- `ocorrencia` — texto de ocorrência operacional registrada pela portaria.
 
-**Tabela `carregamentos_dia`:** apenas updates (sem schema change). O cascade lógico já é coberto pelo `useBatchUpdateCarregamento` existente.
+Nenhuma mudança de schema é necessária.
 
-## Fora do escopo
-- Não vamos cancelar carga depois que o veículo já entrou no pátio (o card só aparece no painel "aguardando" — após `horario_entrada` o registro some dele). Para casos pós-entrada usaremos o fluxo de portaria normal.
-- Não estamos criando notificação push automática — pode ser próxima iteração.
+## Mudanças
+
+### 1. Drawer de detalhe (`MotoristaDetalheDrawer.tsx`)
+
+Em cada card de rota do histórico:
+
+- Mostrar **ambos** os campos quando preenchidos, com rótulos claros:
+  - "Ocorrência" (ícone amarelo de alerta) — já existe, mantém.
+  - "Observações da portaria" (novo bloco, ícone de mensagem, fundo `bg-muted/40`).
+- Adicionar um indicador visual no cabeçalho da rota ("Tem observação") quando qualquer um dos dois estiver preenchido, para facilitar varredura.
+- Mostrar também o campo `conferente` (quem deu baixa) e o `usuario_id` resolvido como e-mail quando disponível, ajudando a entender o horário/responsável da baixa.
+
+### 2. Sinal na tabela de ranking (`MotoristaRankingTable.tsx`)
+
+- Adicionar um pequeno badge "⚠ obs" ao lado do nome quando o motorista tiver pelo menos uma rota no período com `observacoes` ou `ocorrencia` preenchidos. Tooltip com a contagem (ex.: "3 rotas com observação").
+- Adicionar essa contagem ao agregado em `useMotoristasPainel.ts` (`obs_count: number`), calculada percorrendo `items` — sem nova query.
+
+### 3. Impressão completa do motorista (novo)
+
+Criar um botão "Imprimir histórico" no header do drawer que abre um diálogo de impressão A4 padrão (mesmo estilo dos `CargaPrintDialog` / `ConsolidadoPrintDialog`), contendo:
+
+- **Cabeçalho:** nome, CPF, telefone, foto (se houver), período do filtro aplicado, KPIs agregados (rotas, KM total, KM médio, tempo médio, peso, entregas).
+- **Tabela cronológica de rotas** (ordem decrescente), com colunas: data, placa, carga, rota, KM (ini→fim ou rodado), saída real, retorno real, peso, entregas, conferente.
+- **Coluna/seção de observações:** abaixo de cada linha, em fonte menor, imprimir `ocorrencia` e `observacoes` por extenso (não truncar). Linhas sem texto ficam compactas.
+- Rodapé com data/hora da impressão e usuário logado.
+
+Arquivo novo: `src/components/motoristas/MotoristaPrintDialog.tsx` (segue padrão dos demais print dialogs do projeto, `window.print()` com CSS `@media print`).
+
+### 4. Memória
+
+Atualizar `mem://features/drivers-panel.md` para registrar que o painel exibe `observacoes` + `ocorrencia` por rota e oferece impressão A4 do histórico completo do motorista.
+
+## Detalhes técnicos
+
+- Ajustar `MotoristaAgg` em `useMotoristasPainel.ts` adicionando `obs_count: number` (computado no `for` que já agrega rotas — custo zero adicional).
+- Reaproveitar `formatDuracao`, `calcKm`, `tempoMin` do drawer para o print dialog (extrair para `src/lib/motorista-utils.ts` se houver duplicação).
+- Print dialog usa `react-to-print`-style via `window.print()` com `@media print { ... }` no próprio componente, igual aos existentes (sem nova dependência).
+- Sem alterações em RLS — os campos já são lidos pela política `Ops select movimentacoes_portaria` (admin/logística/portaria).
+
+## Arquivos
+
+- Editar: `src/components/motoristas/MotoristaDetalheDrawer.tsx`
+- Editar: `src/components/motoristas/MotoristaRankingTable.tsx`
+- Editar: `src/hooks/useMotoristasPainel.ts`
+- Criar: `src/components/motoristas/MotoristaPrintDialog.tsx`
+- Editar: `mem/features/drivers-panel.md`
