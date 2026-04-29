@@ -313,77 +313,46 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                             </div>
                           )}
                         </div>
-                        {/* Itens do cliente */}
-                        {cg.itens.map((item) => (
-                    (() => {
-                      const edit = itemEdits[item.id] ?? {};
-                      const pesoAtual = edit.peso ?? item.peso ?? 0;
-                      const original = item.peso_original ?? item.peso ?? 0;
-                      const diff = Math.max(0, original - pesoAtual);
-                      const parcial = !item.ruptura && diff > 0 && original > 0;
-                      return (
-                        <div key={item.id} className="flex flex-col gap-1.5 px-3 py-2 text-xs hover:bg-muted/30">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium flex items-center gap-1.5 flex-wrap">
-                                <span>Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}</span>
-                                {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
-                                {parcial && <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-400"><MinusCircle className="h-2.5 w-2.5" /> Parcial</span>}
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-                              onClick={() => setRemoveTarget(item)}
-                              title="Remover pedido da carga"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                          {/* Linha de peso */}
-                          {!item.ruptura && (
-                            <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_1fr] sm:items-center gap-2 pl-1">
-                              <div className="flex items-center gap-1.5">
-                                <Label htmlFor={`peso-${item.id}`} className="text-[10px] text-muted-foreground">Peso (kg)</Label>
-                                <Input
-                                  id={`peso-${item.id}`}
-                                  type="number"
-                                  inputMode="decimal"
-                                  step="0.01"
-                                  min="0"
-                                  className="h-7 w-24 text-xs"
-                                  value={pesoAtual}
-                                  onChange={(e) => {
-                                    const v = parseFloat(e.target.value);
-                                    setItemEdits((prev) => ({
-                                      ...prev,
-                                      [item.id]: { ...prev[item.id], peso: isNaN(v) ? 0 : v },
-                                    }));
-                                  }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                Pedido original: <span className="font-mono font-medium text-foreground">{original.toLocaleString("pt-BR")} kg</span>
-                              </span>
-                              {parcial && (
-                                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                                  <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
-                                    → Ruptura parcial: {diff.toLocaleString("pt-BR")} kg
+                        {/* Resumo agregado da parada (somente cliente, sem produtos) */}
+                        {(() => {
+                          const pesoCliente = cg.itens.reduce(
+                            (s, it) => s + (it.ruptura ? 0 : (it.peso ?? 0)),
+                            0,
+                          );
+                          const rupturas = cg.itens.filter((it) => it.ruptura).length;
+                          const parciais = cg.itens.filter((it) => {
+                            const orig = it.peso_original ?? it.peso ?? 0;
+                            return !it.ruptura && orig > 0 && (it.peso ?? 0) < orig;
+                          }).length;
+                          return (
+                            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-1.5 text-[11px] text-muted-foreground">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span>
+                                  Peso: <span className="font-mono font-medium text-foreground">{pesoCliente.toLocaleString("pt-BR")} kg</span>
+                                </span>
+                                {rupturas > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-destructive font-medium">
+                                    <AlertTriangle className="h-3 w-3" /> {rupturas} ruptura{rupturas !== 1 ? "s" : ""}
                                   </span>
-                                </div>
-                              )}
+                                )}
+                                {parciais > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
+                                    <MinusCircle className="h-3 w-3" /> {parciais} parcial{parciais !== 1 ? "is" : ""}
+                                  </span>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[11px] text-muted-foreground hover:text-destructive"
+                                onClick={() => cg.itens.forEach((it) => { onRemoveItem(it.id); setRemovedIds((prev) => { const n = new Set(prev); n.add(it.id); return n; }); })}
+                                title="Remover esta parada (cliente) da carga"
+                              >
+                                <X className="h-3 w-3 mr-1" /> Remover parada
+                              </Button>
                             </div>
-                          )}
-                          {item.ruptura && (
-                            <div className="text-[10px] text-muted-foreground pl-1">
-                              {(item.peso ?? 0).toLocaleString("pt-BR")} kg (em ruptura total)
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()
-                        ))}
+                          );
+                        })()}
                       </div>
                     );
                   })
