@@ -1,47 +1,40 @@
-## Verificação do sistema — Expedição (Terceirizado)
+## Problema
 
-Cruzei a lógica atual do `Expedicao.tsx` com os dados reais de hoje (29/04/2026). Existem 3 cargas terceirizadas:
+O usuário vê várias notificações **"Perfil de acesso não encontrado"** em sequência. Causa raiz combinada:
 
-| Carga | Status (carregamento) | Etapa Portaria | Peso efetivo |
-|---|---|---|---|
-| EDIVAR + VANESSA | **Carregado** | patio | 26.038,20 kg |
-| DVA +ROBSON | Carregando | patio | 18.808,00 kg |
-| EDIVAR+VANESSA+ELIAS | Pronto para carregar | chegou | 20.382,54 kg |
-| **Total** | | | **65.228,74 kg** |
+1. **Falha intermitente no fetch da role** (`useAuth.ts` → `fetchRoleWithRetry`). A query a `user_roles` está corrida contra um `Promise.race` com timeout de 5s. Quando a rede fica lenta, realtime está saturado ou há cold start, o timeout vence, a função retorna `null` mesmo o usuário tendo role válida no banco (verificado: `matheuscarneiro004@gmail.com → admin`, `matheuss-s@hotmail.com → vendedor`). Logs confirmam: `[Auth] Role fetch failed after retry` repetido.
+2. **Toast disparado por componente, sem deduplicação global**. `ProtectedRoute` e `SuperAdminRoute` usam `useRef` local — quando o usuário troca de rota, navega entre páginas lazy, ou múltiplos guards montam, **cada um dispara seu próprio `toast.error`**, gerando a cascata.
+3. **Redirect prematuro**: `missingRole` é considerado verdadeiro assim que `loading=false` e `role===null`, mesmo se o motivo foi um timeout transitório — disparando navegação + toast em cada montagem subsequente.
 
-### Problemas identificados
+## Solução
 
-**1. Carga "EDIVAR + VANESSA" classificada errada como "A carregar"**
-Status do carregamento = `Carregado` (faturamento já marcou tudo carregado), mas a portaria ainda registra como `patio` (motorista entrou e ainda não saiu / não foi marcado "liberado"). A lógica atual só olha portaria e devolve `patio` → contabiliza esses 26 t como **"A carregar"**. Operacionalmente está errado — a carga já foi carregada, está só aguardando saída.
+### 1) Tornar o fetch da role mais resiliente (`src/hooks/useAuth.ts`)
 
-**2. Etapa `patio` está em "A carregar"**
-Quando o caminhão já está dentro do pátio, na prática está em processo de carregamento (esperando doca ou sendo carregado). Hoje os 18,8 t do DVA+ROBSON aparecem como "A carregar" mesmo já estando no pátio.
+- Aumentar `ROLE_TIMEOUT_MS` de 5s para 12s (rede lenta + RLS).
+- Aumentar retries de 2 para 4 com backoff exponencial (1s, 2s, 4s).
+- Distinguir **erro/timeout** de **role realmente ausente**:
+  - Retornar um sentinel `{ role: AppRole | null, failed: boolean }`.
+  - Se `failed=true`, **não setar `role=null` definitivamente** — manter `role` indefinido e tentar refetch ao focar a janela / reconectar.
+- Adicionar listener `window` `online` e `visibilitychange` para refazer o fetch da role caso esteja faltando.
 
-**3. Carry-over de 30 dias inflando o "Total previsto do dia"**
-A Expedição é um painel de operação **do dia**. Hoje o painel pode mostrar pedidos pendentes de dias anteriores como se fossem do dia, distorcendo o "Total previsto".
+### 2) Deduplicar e silenciar o toast (`ProtectedRoute.tsx`, `SuperAdminRoute.tsx`)
 
-### Correções propostas
+- Usar **toast.error com `id` fixo** (`sonner` deduplica por id): `toast.error("...", { id: "auth-missing-role" })`. Garante uma única notificação visível em qualquer momento, independente de quantos guards montem.
+- Adicionar um pequeno **grace period** (≈1.5s) antes de mostrar o toast/redirect quando `role===null`: renderiza o spinner de loading nesse intervalo e tenta um refetch. Evita flash de erro durante navegação.
+- Quando o refetch durante o grace period retorna a role corretamente, nem toast nem redirect ocorrem.
 
-**A. Fallback por status quando portaria não cobre**
-Se `status = 'Carregado'` no `carregamentos_dia` e a portaria ainda não registrou `expedido` → tratar como **Carregado** (não como "A carregar"). Resolve o caso EDIVAR+VANESSA.
+### 3) Evitar redirect em loop
 
-**B. Etapa `patio` conta como "Carregado/Em carregamento"**
-Mover `patio` do bucket "A carregar" para "Carregado/Em carregamento", junto com `carregando` e `expedido`. Mantém `aguardando` e `chegou` em "A carregar".
+- Só executar o `Navigate` para `/auth` (no caso de `missingRole`) depois do grace period e de uma tentativa explícita de refetch falhar. Caso contrário, manter o usuário na rota atual com fallback de loading.
 
-**C. Remover carry-over de 30 dias da Expedição**
-O hook `useCargasDiaExpedicao` passa a buscar **somente a data selecionada**, sem incluir cargas pendentes de dias anteriores. O carry-over continua existindo no Consolidado (que é visão gerencial), mas na Expedição cada dia mostra só o seu universo.
+## Arquivos a editar
 
-### Resultado esperado para hoje após o fix
+- `src/hooks/useAuth.ts` — fetch resiliente, refetch em `online`/`visibilitychange`, expor função `refreshRole`.
+- `src/components/ProtectedRoute.tsx` — toast com id fixo, grace period com refetch, evitar redirect prematuro.
+- `src/components/SuperAdminRoute.tsx` — mesmo tratamento.
 
-- Carregado / em carregamento: **26.038 + 18.808 = 44.846 kg** (2 cargas)
-- A carregar: **20.382 kg** (1 carga — EDIVAR+VANESSA+ELIAS, ainda em "chegou")
-- Total previsto: **65.228 kg** (3 cargas)
+## Resultado esperado
 
-### Arquivos a alterar
-
-- `src/hooks/useCargasDiaExpedicao.ts` — remover bloco do carry-over de 30 dias; manter apenas `eq('data', dateStr)`. Trazer também `status` (já traz).
-- `src/pages/Expedicao.tsx` — no `useMemo` `pesosKpi`:
-  - bucket "Carregado" = `etapa ∈ {patio, carregando, expedido}` **OU** `status = 'Carregado'`
-  - bucket "A carregar" = restante (`aguardando`, `chegou`)
-
-Sem mudanças de UI, sem mudanças de banco, sem migração.
+- Sem cascata de notificações mesmo se a role demorar para chegar.
+- Usuário com role válida no banco nunca verá "Perfil de acesso não encontrado" por causa de timeout transitório.
+- Caso a role realmente esteja ausente, **uma única** notificação aparece.
