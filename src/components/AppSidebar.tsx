@@ -34,6 +34,7 @@ const isGroup = (n: NavNode): n is NavGroup => (n as NavGroup).children !== unde
 const navTree: NavNode[] = [
   { to: "/meu-painel", label: "Meu Painel", icon: User, roles: ["vendedor"] },
   { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/expedicao", label: "Expedição", icon: Monitor, roles: ["admin", "logistica", "portaria"] },
   { to: "/aprovacoes", label: "Aprovações", icon: Inbox, roles: ["admin", "faturamento"] },
   { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
@@ -52,7 +53,6 @@ const navTree: NavNode[] = [
     children: [
       { to: "/portaria/carga-propria", label: "Carga Própria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
       { to: "/portaria/terceirizado", label: "Terceirizados", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
-      { to: "/expedicao", label: "Visão Expedição", icon: Monitor, roles: ["admin", "logistica", "portaria"] },
       { to: "/portaria/registro-entrada", label: "Registro de Entrada", icon: LogIn, roles: ["admin", "logistica", "portaria"], badge: ({ collapsed }) => <RegistroEntradaBadge collapsed={collapsed} /> },
       { to: "/cadastros", label: "Cadastros", icon: FolderCog, roles: ["admin", "logistica", "portaria"] },
       { to: "/cadastros?focus=buscar", label: "Buscar/Consultar", icon: Search, roles: ["admin", "logistica", "portaria"] },

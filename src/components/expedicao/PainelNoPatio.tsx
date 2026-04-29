@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ParkingCircle, AlertTriangle } from "lucide-react";
+import { ParkingCircle, AlertTriangle, Weight } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
@@ -16,11 +16,22 @@ function formatTempo(min: number) {
   return `${h}h ${m.toString().padStart(2, "0")}min`;
 }
 
-function tempoClass(min: number) {
-  if (min >= 480) return "text-destructive font-semibold";
-  if (min >= 240) return "text-yellow-600 dark:text-yellow-400 font-medium";
-  return "text-muted-foreground";
+function tempoPill(min: number) {
+  if (min >= 480)
+    return "bg-red-600 text-white animate-pulse";
+  if (min >= 240)
+    return "bg-amber-500 text-black";
+  return "bg-emerald-600 text-white";
 }
+
+function borderClass(min: number) {
+  if (min >= 480) return "border-l-red-600";
+  if (min >= 240) return "border-l-amber-500";
+  return "border-l-emerald-600";
+}
+
+const fmtKg = (n: number | null | undefined) =>
+  n != null ? `${Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg` : null;
 
 export function PainelNoPatio({ movimentacoes, now }: Props) {
   const lista = movimentacoes
@@ -38,50 +49,54 @@ export function PainelNoPatio({ movimentacoes, now }: Props) {
     );
 
   return (
-    <Card className="border-emerald-500/30">
-      <CardHeader className="py-3 px-4 bg-emerald-500/5 border-b">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <ParkingCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+    <Card className="overflow-hidden border-emerald-600/40 shadow-md">
+      <CardHeader className="py-3 px-4 bg-emerald-600 text-white">
+        <CardTitle className="text-base flex items-center gap-2 font-bold">
+          <ParkingCircle className="h-5 w-5" />
           No Pátio
-          <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+          <Badge className="ml-auto bg-white text-emerald-700 hover:bg-white text-sm font-bold px-2.5">
             {lista.length}
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 space-y-2">
         {lista.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-6">Nenhum veículo no pátio</p>
+          <p className="text-sm text-muted-foreground text-center py-6">Nenhum veículo no pátio</p>
         ) : (
-          lista.map((m) => {
+          lista.map((m, idx) => {
             const ref = new Date(m.horario_entrada || m.data_hora);
             const min = differenceInMinutes(now, ref);
+            const kg = fmtKg(m.peso);
             return (
               <div
                 key={m.id}
-                className={`rounded-md border bg-card p-3 flex flex-col sm:flex-row sm:items-center gap-2 ${
-                  min >= 480 ? "border-destructive/40 bg-destructive/5" : min >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""
-                }`}
+                className={`rounded-md border border-l-4 ${borderClass(min)} ${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} p-3 flex flex-col sm:flex-row sm:items-center gap-2`}
               >
-                <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
+                    <span className="font-mono font-extrabold text-base sm:text-lg">{m.placa || "—"}</span>
                     {m.carga_id && (
-                      <Badge variant="secondary" className="text-[10px] h-5 font-mono">{m.carga_id}</Badge>
+                      <Badge variant="secondary" className="text-xs h-6 font-mono">{m.carga_id}</Badge>
+                    )}
+                    {kg && (
+                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-200 text-xs h-6 gap-1">
+                        <Weight className="h-3 w-3" /> {kg}
+                      </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
-                    {m.motorista && <span>Motorista: <span className="text-foreground">{m.motorista}</span></span>}
-                    {m.empresa && <span>Transp.: <span className="text-foreground">{m.empresa}</span></span>}
-                    {m.tipo_caminhao && <span>Tipo: {m.tipo_caminhao}</span>}
+                  <div className="text-sm text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
+                    {m.motorista && <span>Motorista: <span className="text-foreground font-medium">{m.motorista}</span></span>}
+                    {m.empresa && <span>Transp.: <span className="text-foreground font-medium">{m.empresa}</span></span>}
+                    {m.tipo_caminhao && <span>Tipo: <span className="text-foreground">{m.tipo_caminhao}</span></span>}
                   </div>
-                  <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-3">
+                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
                     <span>Chegada: <strong className="text-foreground">{format(new Date(m.horario_chegada || m.data_hora), "HH:mm")}</strong></span>
                     {m.horario_entrada && <span>Entrada: <strong className="text-foreground">{format(new Date(m.horario_entrada), "HH:mm")}</strong></span>}
                   </div>
                 </div>
-                <div className={`text-xs sm:text-sm whitespace-nowrap ${tempoClass(min)}`}>
-                  {min >= 480 && <AlertTriangle className="h-3.5 w-3.5 inline mr-1" />}
-                  no pátio há {formatTempo(min)}
+                <div className={`text-sm font-bold whitespace-nowrap rounded-full px-3 py-1.5 inline-flex items-center gap-1 ${tempoPill(min)}`}>
+                  {min >= 480 && <AlertTriangle className="h-4 w-4" />}
+                  {formatTempo(min)} no pátio
                 </div>
               </div>
             );
