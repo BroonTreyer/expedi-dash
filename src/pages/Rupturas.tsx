@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback, Fragment } from "react";
+import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
@@ -35,6 +36,7 @@ import {
   ChevronRight,
   History,
   Activity,
+  RefreshCw,
 } from "lucide-react";
 import { isPorUnidade } from "@/lib/constants";
 import { pesoNaoCarregado } from "@/lib/peso-utils";
@@ -116,15 +118,53 @@ interface AtualProps {
 
 function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   // Espelha exatamente o Painel principal: hoje + carry-over de pedidos não finalizados.
   // Passar a mesma data em from/to ativa a regra especial do hook (carry-over 30d, status != 'Carregado').
   const today = new Date();
   const todayStr = format(today, "yyyy-MM-dd");
-  const { data: carregamentos = [], isLoading } = useCarregamentos(todayStr, todayStr);
+  const { data: carregamentos = [], isLoading, dataUpdatedAt, refetch } = useCarregamentos(todayStr, todayStr);
   const [cargaFilter, setCargaFilter] = useState(() => searchParams.get("carga") || "todos");
   const [busca, setBusca] = useState("");
   const [printOpen, setPrintOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  // Rede de segurança: realtime é o canal primário, mas se cair (aba em background,
+  // sleep, wifi instável) os dados ficam parados. Aqui forçamos refetch:
+  // (1) a cada 20s enquanto a aba estiver visível,
+  // (2) ao voltar foco da aba,
+  // (3) quando a internet voltar.
+  useEffect(() => {
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+    };
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") invalidate();
+    }, 20_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") invalidate();
+    };
+    const onOnline = () => invalidate();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [queryClient]);
+
+  // Tick para re-renderizar o "Atualizado há Xs" sem refetch.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 5_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const segundosAtras = Math.max(0, Math.floor((Date.now() - (dataUpdatedAt || Date.now())) / 1000));
+  const atualizadoLabel =
+    segundosAtras < 5 ? "agora" :
+    segundosAtras < 60 ? `há ${segundosAtras}s` :
+    `há ${Math.floor(segundosAtras / 60)}min`;
 
   // Mesmos filtros de visibilidade do Painel: ruptura aberta, fora de logística e não finalizada.
   const todasRupturas = useMemo(
@@ -242,10 +282,25 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Itens marcados como ruptura total ainda em aberto. A lista atualiza automaticamente quando alguém marca ou resolve uma ruptura.
-        </p>
+        <div className="flex flex-col gap-1 min-w-0">
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Itens marcados como ruptura total ainda em aberto. A lista atualiza automaticamente quando alguém marca ou resolve uma ruptura.
+          </p>
+          <p className="text-[11px] text-muted-foreground/80 inline-flex items-center gap-1">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Atualizado {atualizadoLabel}
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetch()}
+            title="Atualizar agora"
+            className="h-9 w-9 p-0"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           {productSummary.length > 0 && (
             <>
               <Button variant="outline" size="sm" onClick={handleExportCsv}>
