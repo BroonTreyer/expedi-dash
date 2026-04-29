@@ -1,30 +1,48 @@
-Vou corrigir isso em duas frentes, porque o problema não é só “não atualizar”: a linha já foi salva no banco com `peso = 2000`, mas a aba `Faltando agora` continua calculando o faltante por `peso_original` quando `ruptura = true`. Por isso ela mostra 40.000 kg em vez dos 2.000 kg que estão agora na tela/pedido.
+## Problema
 
-Plano de correção:
+Na correção anterior eu mudei o cálculo de "Faltando agora" para usar `c.peso` quando `ruptura === true`. Isso quebrou os totais corretos de produtos como Carne Moída (caiu de 11.050kg para 7.050kg), porque o `peso` da linha em ruptura nem sempre representa o peso pedido — em muitos casos ele já está zerado/reduzido, e o valor verdadeiro do que foi cortado está em `peso_original`.
 
-1. Ajustar o cálculo da aba `Faltando agora`
-   - Para ruptura total (`ruptura = true`), a aba passará a somar exatamente o `peso` atual da linha.
-   - Exemplo do print: produto 400 com `peso = 2000` passará a aparecer como `2.000 kg`, não `40.000 kg`.
-   - Manterei o histórico do mês separado: ele pode continuar usando a lógica de perda histórica quando fizer sentido, sem contaminar o “agora”.
+O caso anterior (cód. 400, peso editado para 2.000kg) era uma **exceção isolada**, não a regra.
 
-2. Corrigir a quantidade exibida em produtos por unidade
-   - Hoje o código de `Faltando agora` também usa `quantidade_original` para ruptura total, o que pode deixar quantidade velha depois de edição.
-   - Vou trocar para usar a `quantidade` atual quando `ruptura = true`, igual ao peso atual.
+## Decisão
 
-3. Fazer a atualização aparecer imediatamente após edição
-   - No hook `useCarregamentos`, após editar ou editar em lote, vou disparar refetch real das queries de `carregamentos`, em vez de apenas marcar como stale.
-   - Isso evita depender só do Realtime/polling e corrige o caso em que o usuário salva em uma tela e a aba de ruptura fica com cache antigo.
+Voltar a usar `peso_original` como fonte de verdade para o que foi cortado em ruptura total — exatamente como o resto do sistema faz (`pesoNaoCarregado` em `src/lib/peso-utils.ts` já implementa essa regra).
 
-4. Reduzir a janela de inconsistência no Realtime
-   - No evento `UPDATE` recebido em tempo real, além de mesclar a linha no cache, vou invalidar/refetchar as queries relevantes de `carregamentos` de forma controlada.
-   - Assim, se algum trigger do banco alterar `peso_original`, `ruptura_sinalizada`, `updated_at` ou campos derivados depois do update, a tela busca a versão final do banco.
+## Mudança
 
-5. Verificar o item do exemplo
-   - Vou validar especificamente o caso do produto 400 / “LINGUICA DE CARNE SUINA...” para garantir que `Faltando agora` passe a refletir 2.000 kg.
+**Arquivo:** `src/pages/Rupturas.tsx` (componente `FaltandoAgora`, ~linha 209 e 224)
 
-Arquivos previstos:
+Substituir:
+```ts
+const perdido = c.ruptura ? (c.peso ?? 0) : pesoNaoCarregado(c);
+const qPerdida = c.ruptura
+  ? (c.quantidade ?? 0)
+  : Math.max(0, (c.quantidade_original ?? c.quantidade ?? 0) - (c.quantidade ?? 0));
+```
 
-- `src/pages/Rupturas.tsx`
-- `src/hooks/useCarregamentos.ts`
+Por:
+```ts
+const perdido = pesoNaoCarregado(c); // usa peso_original ?? peso quando ruptura
+const qOriginal = c.quantidade_original ?? c.quantidade ?? 0;
+const qPerdida = c.ruptura
+  ? qOriginal
+  : Math.max(0, qOriginal - (c.quantidade ?? 0));
+```
 
-Observação importante: pelo dado atual no banco, o registro do exemplo está com `peso = 2000` e `peso_original = 40000`. Então a tela estava “atualizada”, mas usando a base errada para o cálculo de ruptura total. A correção principal é fazer `Faltando agora` usar o peso atual, como você pediu.
+Comportamento:
+- **Ruptura total:** usa `peso_original` (com fallback para `peso` se `peso_original` for nulo). Volta a bater com o painel (11.050kg em Carne Moída).
+- **Item raro com peso editado depois da ruptura:** se o usuário editou o peso pra 2.000kg e o `peso_original` continua 40.000kg, vamos exibir 40.000kg (o pedido original). Isso é o comportamento consistente com Painel/Histórico/relatórios. Se no futuro quiser que edição manual sobrescreva, tratamos como feature separada (provavelmente atualizando `peso_original` no save quando for edição intencional).
+- **Ruptura parcial:** continua usando a diferença `original - atual`.
+
+## Atualização do comentário
+
+Trocar o comentário acima do bloco para:
+```
+// "Faltando agora" usa peso_original como referência do que foi cortado.
+// Mesma fonte de verdade do Painel e do Histórico (pesoNaoCarregado).
+```
+
+## Não alterar
+
+- `useCarregamentos.ts` — o refetch forçado e a lógica de realtime continuam úteis e não têm relação com esse bug.
+- KPIs do Painel, Histórico, exports — já usam `pesoNaoCarregado`, estão corretos.
