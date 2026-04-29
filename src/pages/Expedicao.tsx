@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import { useCargasFechadasAguardando } from "@/hooks/useCarregamentos";
+import { usePesoPorCarga } from "@/hooks/usePesoPorCarga";
 import { ExpedicaoKpiCards } from "@/components/expedicao/ExpedicaoKpiCards";
 import { PainelNoPatio } from "@/components/expedicao/PainelNoPatio";
 import { PainelChegou } from "@/components/expedicao/PainelChegou";
@@ -32,6 +33,33 @@ export default function Expedicao() {
     () => movimentacoesAll.filter((m) => m.categoria === "terceirizado"),
     [movimentacoesAll]
   );
+
+  // Buscar peso real (somatório de carregamentos_dia) para cada carga das movimentações
+  const cargaIdsMov = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          movimentacoes.map((m) => m.carga_id).filter((x): x is string => !!x)
+        )
+      ),
+    [movimentacoes]
+  );
+  const { data: pesoPorCarga } = usePesoPorCarga(cargaIdsMov);
+
+  // Movimentações enriquecidas com peso vindo da carga (já que m.peso é nulo)
+  const movimentacoesComPeso = useMemo(
+    () =>
+      movimentacoes.map((m) => ({
+        ...m,
+        peso:
+          m.peso != null
+            ? m.peso
+            : m.carga_id
+              ? (pesoPorCarga?.get(m.carga_id) ?? null)
+              : null,
+      })),
+    [movimentacoes, pesoPorCarga]
+  );
   const veiculosEsperados = useMemo(
     () => veiculosEsperadosAll.filter((v) => v.grupo === "TERCEIRIZADO"),
     [veiculosEsperadosAll]
@@ -39,7 +67,7 @@ export default function Expedicao() {
   // Movimentações que indicam que o motorista JÁ chegou (no pátio ou aguardando liberação)
   const chegouOuNoPatio = useMemo(
     () =>
-      movimentacoes.filter(
+      movimentacoesComPeso.filter(
         (m) =>
           m.tipo_movimento === "entrada" &&
           m.etapa_terceirizado !== "finalizado" &&
@@ -47,7 +75,7 @@ export default function Expedicao() {
             m.etapa_terceirizado === "chegada" ||
             !!m.horario_chegada)
       ),
-    [movimentacoes]
+    [movimentacoesComPeso]
   );
 
   // Sets para deduplicar A chegar / Cargas fechadas
@@ -99,13 +127,13 @@ export default function Expedicao() {
   }, []);
 
   const counts = useMemo(() => {
-    const noPatio = movimentacoes.filter(
+    const noPatio = movimentacoesComPeso.filter(
       (m) =>
         m.tipo_movimento === "entrada" &&
         m.horario_entrada &&
         m.etapa_terceirizado !== "finalizado"
     );
-    const chegou = movimentacoes.filter(
+    const chegou = movimentacoesComPeso.filter(
       (m) =>
         m.tipo_movimento === "entrada" &&
         !m.horario_entrada &&
@@ -128,7 +156,7 @@ export default function Expedicao() {
       kgACarregar,
       kgTotal,
     };
-  }, [movimentacoes, veiculosAChegar, cargasTerc]);
+  }, [movimentacoesComPeso, veiculosAChegar, cargasTerc]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
@@ -198,8 +226,8 @@ export default function Expedicao() {
         <ExpedicaoKpiCards {...counts} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-          <PainelNoPatio movimentacoes={movimentacoes} now={now} />
-          <PainelChegou movimentacoes={movimentacoes} now={now} />
+          <PainelNoPatio movimentacoes={movimentacoesComPeso} now={now} />
+          <PainelChegou movimentacoes={movimentacoesComPeso} now={now} />
           <PainelAChegar veiculos={veiculosAChegar} hoje={hojeStr} />
           <PainelCargasFechadas cargas={cargasTerc} />
         </div>
