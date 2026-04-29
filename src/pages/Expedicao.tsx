@@ -11,6 +11,8 @@ import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import { useCargasFechadasAguardando } from "@/hooks/useCarregamentos";
 import { usePesoPorCarga } from "@/hooks/usePesoPorCarga";
+import { useCargasDiaExpedicao } from "@/hooks/useCargasDiaExpedicao";
+import { useStatusPortariaPorCarga } from "@/hooks/useStatusPortariaPorCarga";
 import { ExpedicaoKpiCards } from "@/components/expedicao/ExpedicaoKpiCards";
 import { PainelNoPatio } from "@/components/expedicao/PainelNoPatio";
 import { PainelChegou } from "@/components/expedicao/PainelChegou";
@@ -118,6 +120,33 @@ export default function Expedicao() {
     [cargasFechadas, cargasComMotoristaChegado]
   );
 
+  // === KPIs de peso alinhados ao Consolidado ===
+  // Universo: todas as cargas terceirizadas do dia (com carry-over de 30d)
+  // Peso: pesoEfetivo (rupturas totais = 0)
+  // Carregado = cargas com etapa portaria "carregando" OU "expedido"
+  // A carregar = restante (aguardando / chegou / patio)
+  // Total = soma de tudo
+  const { data: cargasDoDia = [] } = useCargasDiaExpedicao(dateStr);
+  const cargaIdsDia = useMemo(
+    () => cargasDoDia.map((c) => c.carga_id),
+    [cargasDoDia]
+  );
+  const { data: statusPortariaMap } = useStatusPortariaPorCarga(cargaIdsDia);
+
+  const pesosKpi = useMemo(() => {
+    let kgCarregado = 0;
+    let kgACarregar = 0;
+    for (const c of cargasDoDia) {
+      const etapa = statusPortariaMap?.get(c.carga_id)?.etapa ?? "aguardando";
+      if (etapa === "carregando" || etapa === "expedido") {
+        kgCarregado += c.pesoTotal;
+      } else {
+        kgACarregar += c.pesoTotal;
+      }
+    }
+    return { kgCarregado, kgACarregar, kgTotal: kgCarregado + kgACarregar };
+  }, [cargasDoDia, statusPortariaMap]);
+
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => {
@@ -139,29 +168,23 @@ export default function Expedicao() {
         !m.horario_entrada &&
         (m.etapa_terceirizado === "chegada" || !!m.horario_chegada)
     );
-    const kgCarregado =
-      noPatio.reduce((s, m) => s + (Number(m.peso) || 0), 0) +
-      chegou.reduce((s, m) => s + (Number(m.peso) || 0), 0);
-    const kgCargasFechadas = cargasTerc.reduce((s, c) => s + (Number(c.peso_total) || 0), 0);
-    const kgEsperados = veiculosAChegar.reduce((s, v) => s + (Number(v.peso) || 0), 0);
-    const kgACarregar = kgCargasFechadas + kgEsperados;
-    const kgTotal = kgCarregado + kgACarregar;
-
     return {
       noPatio: noPatio.length,
       chegou: chegou.length,
       aChegar: veiculosAChegar.length,
       cargasFechadas: cargasTerc.length,
-      kgCarregado,
-      kgACarregar,
-      kgTotal,
+      kgCarregado: pesosKpi.kgCarregado,
+      kgACarregar: pesosKpi.kgACarregar,
+      kgTotal: pesosKpi.kgTotal,
     };
-  }, [movimentacoesComPeso, veiculosAChegar, cargasTerc]);
+  }, [movimentacoesComPeso, veiculosAChegar, cargasTerc, pesosKpi]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
     qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
     qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
+    qc.invalidateQueries({ queryKey: ["cargas_dia_expedicao"] });
+    qc.invalidateQueries({ queryKey: ["status_portaria_por_carga"] });
     setNow(new Date());
   };
 
