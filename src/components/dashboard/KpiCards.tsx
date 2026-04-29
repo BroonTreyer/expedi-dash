@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
+import { temRuptura } from "@/lib/ruptura-utils";
 
 interface Props {
   data: Carregamento[];
@@ -25,16 +26,17 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
   const totalVeiculos = new Set(source.filter(c => c.placa).map(c => c.placa)).size;
   // Rupturas por pedido único
   const totalPedidosUnicos = new Set(source.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
-  const pedidosComRuptura = new Set(source.filter(c => c.ruptura && c.numero_pedido).map(c => c.numero_pedido)).size;
+  const pedidosComRuptura = new Set(source.filter(c => temRuptura(c) && c.numero_pedido).map(c => c.numero_pedido)).size;
   const pedidosComParcial = new Set(
-    source.filter(c => isRupturaParcial(c) && c.numero_pedido && !c.ruptura).map(c => c.numero_pedido),
+    source.filter(c => isRupturaParcial(c) && c.numero_pedido && !temRuptura(c)).map(c => c.numero_pedido),
   ).size;
   const rupturas = pedidosComRuptura + pedidosComParcial;
   const pesoNaoCarregadoTotal = source.reduce((s, c) => s + pesoNaoCarregado(c), 0);
+  const itensComRuptura = source.filter(c => temRuptura(c) || isRupturaParcial(c)).length;
   const rupturaLabel = pedidosComParcial > 0
     ? `${pedidosComRuptura} totais + ${pedidosComParcial} parciais`
     : `${pedidosComRuptura}`;
-  const rupturaTooltip = `${pedidosComRuptura} ruptura(s) total(is) + ${pedidosComParcial} parcial(is) em ${totalPedidosUnicos} pedido(s) único(s). ${pesoNaoCarregadoTotal.toLocaleString("pt-BR")} kg não carregados.`;
+  const rupturaTooltip = `${rupturas} pedido(s) afetado(s) (${pedidosComRuptura} total(is) + ${pedidosComParcial} parcial(is)) em ${totalPedidosUnicos} pedido(s) único(s) — ${itensComRuptura} item(ns) de produto em ruptura. ${pesoNaoCarregadoTotal.toLocaleString("pt-BR")} kg não carregados.`;
 
   const cards: Array<{ label: string; value: string | number; sub?: string; icon: any; color: string; tooltip: string }> = [
     { label: selectedData ? "Clientes (sel.)" : "Clientes", value: totalClientes, icon: Package, color: "text-primary", tooltip: "Quantidade de clientes distintos nos pedidos" },
