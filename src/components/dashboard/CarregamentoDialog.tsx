@@ -127,6 +127,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         pesoManual: true,
         // Track original DB id only when editing a full group
         originalId: editingGroup ? row.id : undefined,
+        pesoOriginal: (row as any).peso_original != null ? Number((row as any).peso_original) : undefined,
+        resetBaseline: false,
       };
     }));
   }, [editing, open, produtos, vendedores, cloneItems, editingGroup]);
