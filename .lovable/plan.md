@@ -1,42 +1,73 @@
-Você tem razão: a mudança anterior separou pedidos pelo `numero_pedido` e isso fragmenta quando os produtos do mesmo pedido foram criados com números diferentes por falha anterior. Vou corrigir sem tirar produtos de dentro do pedido.
+## Aba de Acompanhamento Detalhado de Motoristas
 
-Plano de correção imediata:
+Criar uma nova página `/motoristas-painel` (separada do CRUD atual em `/motoristas`) que consolida tudo o que já é capturado na portaria — KM rodado, horários de saída/retorno, tempo de rota, peso transportado, entregas — em uma visão rica por motorista.
 
-1. Restaurar a visualização correta do pedido
-   - Alterar `CarregamentoTable.tsx` para agrupar por `data + codigo_cliente` como unidade visual do pedido.
-   - Todos os produtos do mesmo cliente/data voltam a ficar dentro do mesmo bloco expansível.
-   - O cabeçalho mostrará, quando existir, os números de pedido contidos ali como informação, mas sem quebrar o bloco.
+### Estrutura da página
 
-2. Manter ações no pedido inteiro
-   - Editar pedido completo continuará enviando todos os produtos do grupo para o modal.
-   - Clonar pedido continuará clonando todos os produtos do grupo.
-   - Excluir pedido completo continuará excluindo todos os produtos do grupo, com confirmação.
-   - O botão de lixeira em produto individual dentro do grupo não será usado para apagar o pedido inteiro por acidente.
+**1. Filtros no topo**
+- Período (hoje / 7 dias / 30 dias / personalizado)
+- Motorista (busca + multi-select)
+- Tipo (Frota Própria / Terceirizado / Todos)
 
-3. Corrigir o bug real sem fragmentar a UI
-   - Remover a cascata perigosa que hoje propaga edição por `numero_pedido + data` apenas.
-   - Substituir por escopo seguro usando `data + codigo_cliente + numero_pedido` quando a edição for individual.
-   - Para edição de pedido completo, manter a lista explícita de IDs do grupo, sem buscar registros “parecidos” no banco.
+**2. KPIs gerais (cards)**
+- Motoristas ativos no período
+- KM total rodado
+- Tempo médio de rota
+- Peso total transportado (ton)
+- Entregas realizadas
+- Rotas concluídas vs em andamento
 
-4. Proteção contra novas fragmentações na criação
-   - Ajustar a criação em lote para garantir que todos os produtos do mesmo pedido recebam o mesmo `operation_id` e, consequentemente, o mesmo `numero_pedido` gerado pela trigger.
-   - Isso evita que um pedido com vários produtos nasça quebrado em números diferentes.
+**3. Ranking de Motoristas (tabela principal)**
+Cada linha = 1 motorista no período, com colunas:
+- Nome + foto (de `motoristas`)
+- Nº de rotas
+- KM total / KM médio por rota
+- Tempo médio de rota (saída → retorno)
+- Peso médio transportado
+- Entregas/rota
+- Última atividade
+- Status atual (Em rota / Disponível)
+- Sparkline de KM nos últimos dias
 
-5. Plano de saneamento de dados já fragmentados
-   - Preparar uma migração/data-fix segura para consolidar, nos registros recentes, produtos criados no mesmo instante para o mesmo cliente/data sob um único `numero_pedido`.
-   - Critério conservador: mesmo `data`, mesmo `codigo_cliente`, mesmo `created_at` ou mesma janela de criação/lote.
-   - Não vou aplicar uma atualização ampla e cega por `codigo_cliente/data` sem critério temporal, para não juntar pedidos que realmente eram separados.
+Ordenação por qualquer coluna. Click expande detalhes.
 
-Detalhe técnico principal:
+**4. Detalhe do Motorista (drawer ao clicar)**
+- Cabeçalho com foto, CPF, telefone, caminhão habitual
+- Timeline cronológica de movimentos: cada rota com Saída → Retorno, KM inicial/final, tempo total, peso, qtd entregas, carga vinculada, ocorrências
+- Mini-gráfico: KM rodado por dia (últimos 30d)
+- Mini-gráfico: Tempo de rota por dia
+- Lista de cargas vinculadas com link para o pedido
 
-```ts
-// Unidade visual do pedido volta a ser cliente + data
-const key = `${c.data}__${c.codigo_cliente}`;
+**5. Aba "Em Rota Agora"** (sub-tab)
+Lista em tempo real dos motoristas atualmente fora (etapa_carga_propria = 'em_rota' ou terceirizado equivalente), mostrando placa, carga, hora de saída, tempo decorrido, destino estimado.
 
-// Cascata segura, quando necessária, nunca só por numero_pedido + data
-c.numero_pedido === editedItem.numero_pedido &&
-c.data === editedItem.data &&
-c.codigo_cliente === editedItem.codigo_cliente
-```
+### Detalhes técnicos
 
-Depois da aprovação, implemento primeiro a correção visual e da cascata, e em seguida preparo o saneamento seguro dos dados fragmentados.
+**Fonte de dados:** tabela `movimentacoes_portaria` (já tem `horario_real_saida`, `horario_real_retorno`, `km_inicial`, `km_final`, `km_rodado`, `peso`, `qtd_entregas`, `motorista`, `placa`, `carga_id`, `etapa_carga_propria`) + join lógico com `motoristas` (foto, CPF) por nome (fallback) ou via `caminhoes.motorista_id` quando placa bater.
+
+**Cálculos derivados (no client, memoizados):**
+- `tempo_rota = horario_real_retorno - horario_real_saida` (formato HH:mm)
+- `km_rodado` quando NULL: `km_final - km_inicial`
+- Agregações por motorista: `groupBy(motorista)` sobre o período filtrado
+
+**Novos arquivos:**
+- `src/pages/MotoristasPainel.tsx` — página principal com tabs (Ranking / Em Rota Agora)
+- `src/components/motoristas/MotoristaKpis.tsx` — cards de KPI
+- `src/components/motoristas/MotoristaRankingTable.tsx` — tabela com sparklines
+- `src/components/motoristas/MotoristaDetalheDrawer.tsx` — timeline + gráficos
+- `src/components/motoristas/EmRotaAgoraPanel.tsx` — lista live
+- `src/hooks/useMotoristasPainel.ts` — query agregadora com filtros
+- Rota adicionada em `src/App.tsx` e item no `src/components/AppSidebar.tsx` (visível para admin/logística)
+
+**Sem mudanças no banco** — todos os dados já existem. Apenas leitura.
+
+**Realtime:** subscrição em `movimentacoes_portaria` (debounce 1.5s, padrão do projeto) para a tab "Em Rota Agora".
+
+**Permissões:** acessível para `admin` e `logistica` (RLS já existente cobre).
+
+**Formato pt-BR:** distâncias em `1.234,5 km`, datas `dd/MM HH:mm`, durações `Xh Ymin` (lib `portaria-tempos.ts` já existe).
+
+### Limites do escopo
+- Não vou criar tabela de "viagens" consolidadas — agregação é feita on-the-fly. Se volume crescer (>10k movs/período), cria-se uma view materializada depois.
+- Não vou alterar a captura de dados na Portaria; só consumir o que já é gravado.
+- Não vou mexer em `Motoristas.tsx` (CRUD) — esta é uma página nova de leitura.
