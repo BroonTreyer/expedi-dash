@@ -619,6 +619,60 @@ export type Database = {
         }
         Relationships: []
       }
+      ocorrencias_carga: {
+        Row: {
+          carga_id: string | null
+          created_at: string
+          data_carga: string | null
+          id: string
+          motivo: string
+          motorista: string | null
+          nome_carga: string | null
+          observacao: string | null
+          peso_total: number | null
+          placa: string | null
+          qtd_pedidos: number | null
+          registrado_por: string | null
+          registrado_por_email: string | null
+          tipo: string
+          transportadora: string | null
+        }
+        Insert: {
+          carga_id?: string | null
+          created_at?: string
+          data_carga?: string | null
+          id?: string
+          motivo: string
+          motorista?: string | null
+          nome_carga?: string | null
+          observacao?: string | null
+          peso_total?: number | null
+          placa?: string | null
+          qtd_pedidos?: number | null
+          registrado_por?: string | null
+          registrado_por_email?: string | null
+          tipo?: string
+          transportadora?: string | null
+        }
+        Update: {
+          carga_id?: string | null
+          created_at?: string
+          data_carga?: string | null
+          id?: string
+          motivo?: string
+          motorista?: string | null
+          nome_carga?: string | null
+          observacao?: string | null
+          peso_total?: number | null
+          placa?: string | null
+          qtd_pedidos?: number | null
+          registrado_por?: string | null
+          registrado_por_email?: string | null
+          tipo?: string
+          transportadora?: string | null
+        }
+        Relationships: []
+      }
       portal_tokens: {
         Row: {
           carga_id: string

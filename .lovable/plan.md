@@ -1,97 +1,40 @@
-## Problema atual
-
-Na tela **Portaria → Terceirizado**, o painel **"Cargas fechadas aguardando veículo"** mostra um único botão (`Confirmar entrada do motorista` / `Registrar chegada do veículo`) que, ao ser clicado, **já cria a movimentação de entrada no pátio** (`tipo_movimento: "entrada"`, `etapa_terceirizado: "no_patio"`). Resultado: o motorista aparece como "no pátio" no segundo em que chega na portaria — quando na prática ele ainda fica aguardando do lado de fora antes de receber liberação para entrar.
+## Problema
+Quando um motorista aparece e a carga não pode ser executada (espera demais, ele vai embora, ocorre algum problema), hoje não existe forma de cancelar/abortar a carga registrando o motivo. A carga fica "pendurada" como fechada aguardando veículo, e o problema operacional desaparece sem rastro.
 
 ## Objetivo
+1. Permitir **cancelar uma carga fechada** (abortar a expedição) direto do painel "Cargas fechadas aguardando veículo", informando **motivo obrigatório**.
+2. Devolver os pedidos da carga para a etapa de logística (sem `carga_id`/`nome_carga`), liberando-os para serem refeitos em outra carga.
+3. Registrar o cancelamento no **audit_log** + criar um histórico próprio de "Ocorrências de carga" para visualização rápida.
+4. Criar uma **tela "Ocorrências"** para Admin/Logística verem todos esses problemas (motorista foi embora, carga cancelada por X, etc.) com filtros por data e motivo.
 
-Separar o fluxo em **duas etapas explícitas** para cargas fechadas aguardando veículo:
+## Fluxo de uso
+1. Na portaria (e no painel da logística), no card de cada carga fechada aguardando veículo, aparece um botão `Cancelar carga` (vermelho, ghost).
+2. Abre dialog: motivo (obrigatório, com sugestões: "Motorista foi embora", "Atraso operacional", "Veículo recusado", "Cliente cancelou", "Outro") + observação livre.
+3. Confirma → cria registro em `ocorrencias_carga` + reverte os pedidos (remove `carga_id`, `nome_carga`, volta `etapa = 'vendas'`, limpa placa/motorista/transportadora/tipo_caminhao) + remove `veiculos_esperados` daquela carga + apaga movimentação de chegada se existir e ainda não entrou no pátio.
+4. Toast de sucesso + invalidate.
+5. Aparece nova entrada `/ocorrencias` no menu (Admin/Logística), com tabela: data, carga, motorista, placa, motivo, observação, quem registrou, peso/qtd da carga cancelada.
 
-1. **Registrar chegada** — motorista chegou na portaria mas continua **aguardando** fora do pátio (não conta como "no pátio" ainda).
-2. **Liberar entrada no pátio** — depois de aguardar, o porteiro libera e aí sim o veículo aparece como "no pátio".
+## Mudanças técnicas
 
-## Fluxo proposto
+**Banco (migração):**
+- Nova tabela `public.ocorrencias_carga`:
+  - `id uuid pk`, `created_at timestamptz`, `tipo text` (default `'carga_cancelada'`), `motivo text not null`, `observacao text`, `carga_id text`, `nome_carga text`, `placa text`, `motorista text`, `transportadora text`, `peso_total numeric`, `qtd_pedidos int`, `data_carga date`, `registrado_por uuid`, `registrado_por_email text`.
+- RLS:
+  - SELECT: admin/logística/portaria/faturamento.
+  - INSERT: admin/logística/portaria.
+  - UPDATE/DELETE: somente admin.
+- Índice em `created_at desc` e `carga_id`.
 
-```text
-[Carga fechada aguardando]
-        |
-        | botão "Registrar chegada"
-        v
-[Aguardando liberação] <-- novo estado intermediário, fica no painel
-        |
-        | botão "Liberar entrada no pátio"
-        v
-[No pátio] (entra no PatioAtualTab, KPIs etc.)
-```
+**Frontend:**
+- `src/components/portaria/CancelarCargaDialog.tsx` — novo. Recebe a `CargaFechadaAguardando`, faz: insert em `ocorrencias_carga`, batch update dos pedidos (`useBatchUpdateCarregamento` aplicando `etapa: 'vendas'`, `carga_id: null`, `nome_carga: null`, `placa: null`, `motorista: null`, `transportadora: null`, `tipo_caminhao: null`, `horario_inicio: null`, `horario_fim: null`), delete em `veiculos_esperados` por `carga_id`, delete da movimentação `tipo_movimento='entrada'` com `horario_entrada is null` para essa `carga_id`. Tudo seguido de `log_audit('carga','<carga_id>','cancelada', {...})`.
+- `CargasFechadasAguardandoPanel.tsx` — adicionar botão `Cancelar carga` (variant ghost, texto vermelho) ao lado dos botões de ação atuais, abre o dialog acima. Visível para `admin/logistica/portaria`.
+- `src/hooks/useOcorrencias.ts` — `useOcorrencias()` (lista com filtros opcionais data/motivo) + `useCreateOcorrencia()`.
+- `src/pages/Ocorrencias.tsx` — tabela responsiva (cards em mobile) com filtros: período (default últimos 30 dias) e busca livre (motivo/placa/motorista/carga). Mostra contador no topo. Sem ações de edição (apenas leitura para auditoria).
+- `App.tsx` — rota `/ocorrencias` (admin, logistica).
+- `AppSidebar.tsx` — entrada `Ocorrências` (ícone `AlertOctagon`) sob "Painel"/após "Rupturas", roles admin/logística.
 
-### Estado intermediário "Aguardando liberação"
+**Tabela `carregamentos_dia`:** apenas updates (sem schema change). O cascade lógico já é coberto pelo `useBatchUpdateCarregamento` existente.
 
-- A linha continua visível no painel `CargasFechadasAguardandoPanel`, agora com um badge `Aguardando liberação` e mostrando `Chegou às HH:mm` + tempo decorrido (cronômetro vivo).
-- Botão muda para **"Liberar entrada no pátio"** (verde/primário).
-- Permanece a opção de cancelar a chegada (caso tenha sido erro) — botão secundário "Desfazer chegada".
-
-### Como representar o estado intermediário no banco
-
-Sem migração de schema. Usar campos já existentes em `movimentacoes_portaria`:
-
-- **Registrar chegada** cria a linha já como `tipo_movimento = "entrada"` (mantém compatibilidade com hooks/relatórios existentes), mas com:
-  - `horario_chegada = now()`
-  - `horario_entrada = NULL` (chave do estado: enquanto NULL, está aguardando liberação)
-  - `etapa_terceirizado = "chegada"` (já é um valor reconhecido em `useStatusPortariaPorCarga`, mapeado para `patio` lá — ajustaremos)
-  - Para carga própria: `etapa_carga_propria = "aguardando_liberacao"` (novo valor textual, sem alterar enum/check).
-
-- **Liberar entrada no pátio** faz `UPDATE` da mesma linha:
-  - `horario_entrada = now()`
-  - `etapa_terceirizado = "no_patio"` (terceirizado) ou `etapa_carga_propria = "chegou"` (própria).
-
-### Ajustes em consultas/derivações para respeitar o novo estado
-
-Para que o veículo **não** apareça em "Pátio Atual" / KPIs enquanto aguarda liberação:
-
-- `PatioAtualTab.tsx` (filtro `veiculosNoPatio`): excluir entradas com `horario_entrada IS NULL` (ainda aguardando).
-- `PortariaKpiCards.tsx`: mesma exclusão para "no pátio".
-- `useStatusPortariaPorCarga.ts`: tratar `etapa_terceirizado === "chegada"` **ou** `horario_entrada == null` como etapa **`aguardando`** (hoje vai pra `patio`). Acrescentar nova etapa visual `"chegou"` opcional, ou manter como `aguardando` com sub-label "Chegou — aguardando liberação".
-- `CargasFechadasAguardandoPanel`: além de listar cargas fechadas sem entrada, listar também cargas que têm entrada criada mas com `horario_entrada IS NULL` (estado intermediário).
-
-## Mudanças por arquivo
-
-### `src/hooks/useCarregamentos.ts` (hook `useCargasFechadasAguardando`)
-- Atualmente filtra cargas fechadas que **não têm** movimentação de entrada. Atualizar para **também incluir** as que têm entrada com `horario_entrada IS NULL` e expor uma flag `chegouAguardandoLiberacao` + `movimentoChegadaId` + `horarioChegada` no resultado.
-
-### `src/components/portaria/RegistroEntradaDialog.tsx`
-- Renomear ação no caminho "vinculado a carga" para **registrar chegada** (não mais entrada): salvar com `horario_chegada = now()`, `horario_entrada = NULL`, `etapa_terceirizado = "chegada"` (ou `etapa_carga_propria = "aguardando_liberacao"`).
-- Não atualizar `veiculos_esperados.conferido = true` ainda (deixar para o passo de liberação).
-- Toast: "Chegada registrada — aguardando liberação para entrar no pátio".
-
-### `src/components/portaria/CargasFechadasAguardandoPanel.tsx`
-- Renderizar 2 estados visuais por linha:
-  - **Sem chegada**: botão `Registrar chegada` (estilo atual).
-  - **Com chegada aguardando liberação**: badge âmbar `Aguardando liberação · HH:mm (Xmin)`, botão primário `Liberar entrada no pátio`, botão fantasma `Desfazer chegada`.
-- Novos handlers chamam:
-  - `liberarEntrada(movId)` → `UPDATE movimentacoes_portaria SET horario_entrada = now(), etapa_terceirizado = 'no_patio'/etapa_carga_propria = 'chegou' WHERE id = movId`; depois `UPDATE veiculos_esperados SET conferido = true, conferido_em = now() WHERE carga_id = X`. Invalida queries (`movimentacoes_portaria`, `cargas_fechadas_aguardando`, `veiculos_esperados`, `carregamentos`).
-  - `desfazerChegada(movId)` → `DELETE FROM movimentacoes_portaria WHERE id = movId AND horario_entrada IS NULL` (segurança extra: só deixa apagar enquanto ainda não foi liberada). Invalida as mesmas queries.
-
-### `src/components/portaria/PatioAtualTab.tsx`
-- Adicionar `m.horario_entrada != null` ao filtro `veiculosNoPatio` (entradas sem `horario_entrada` ainda estão "fora do portão").
-
-### `src/components/portaria/PortariaKpiCards.tsx`
-- Mesma exclusão para o card "no pátio".
-
-### `src/hooks/useStatusPortariaPorCarga.ts`
-- Em `deriveEtapa`, considerar entrada com `horario_entrada == null` (ou `etapa_terceirizado === "chegada"`) como **`aguardando`**, não `patio`. Manter `patio` apenas para entrada com `horario_entrada` preenchido.
-
-### Memória
-- Atualizar `mem://features/portaria-third-party-workflow` para refletir o fluxo em **duas etapas** (Chegada → Liberação para o pátio → Saída) e a regra "no pátio" só após liberação.
-
-## O que **não** muda
-
-- Nenhuma alteração de schema/migration: usamos campos já existentes (`horario_chegada`, `horario_entrada`, `etapa_terceirizado`, `etapa_carga_propria`).
-- Fluxo do walk-in (motorista chega sem carga vinculada) permanece igual.
-- Fluxo de saída do pátio permanece igual.
-- Nenhuma alteração nos pedidos / tabela de carregamentos.
-
-## Resumo de UX
-
-- Chegada da carga → **status muda para "Aguardando liberação"** (não "no pátio").
-- Cronômetro mostra há quanto tempo o motorista está esperando.
-- Quando o porteiro libera, aí sim entra para "Pátio Atual" e KPIs.
-- Possível desfazer a chegada se foi registrada por engano (somente antes da liberação).
+## Fora do escopo
+- Não vamos cancelar carga depois que o veículo já entrou no pátio (o card só aparece no painel "aguardando" — após `horario_entrada` o registro some dele). Para casos pós-entrada usaremos o fluxo de portaria normal.
+- Não estamos criando notificação push automática — pode ser próxima iteração.
