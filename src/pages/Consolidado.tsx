@@ -935,7 +935,7 @@ export default function Consolidado() {
         open={!!editGroup}
         onOpenChange={(o) => !o && setEditGroup(null)}
         group={editGroup}
-        onSave={(cargaId, fields, _ids, itemUpdates) => editCargaMut.mutate({ cargaId, fields, itemUpdates })}
+        onSave={(cargaId, fields, _ids, itemUpdates, ordemUpdates) => editCargaMut.mutate({ cargaId, fields, itemUpdates, ordemUpdates })}
         onRemoveItem={(id) => removeFromCargaMut.mutate(id)}
         onDeleteCarga={(cargaId) => deleteCargaMut.mutate(cargaId)}
         onInverterOrdem={() => editGroup && inverterOrdemMut.mutate(editGroup.items)}
