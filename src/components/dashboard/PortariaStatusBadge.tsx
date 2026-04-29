@@ -1,4 +1,4 @@
-import { Clock, ParkingCircle, Package, CheckCircle2 } from "lucide-react";
+import { Clock, ParkingCircle, Package, CheckCircle2, BellRing } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,10 @@ const STYLE: Record<EtapaPortaria, { className: string; Icon: any }> = {
   aguardando: {
     className: "bg-muted text-muted-foreground border-border hover:bg-muted",
     Icon: Clock,
+  },
+  chegou: {
+    className: "bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+    Icon: BellRing,
   },
   patio: {
     className: "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900",

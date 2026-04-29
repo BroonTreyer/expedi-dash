@@ -1,40 +1,43 @@
-## Problema
+## Problema confirmado
 
-Em **Consolidado**, o badge da Portaria para cargas **terceirizadas** não acompanha corretamente os passos "chegou" e "entrou no pátio". Mesmo quando o porteiro libera o veículo (`etapa_terceirizado = 'no_patio'`), o badge continua exibindo "Aguardando chegada".
+O badge mostra "Aguardando chegada" mesmo quando o motorista terceirizado **já chegou na portaria**, porque o fluxo tem 2 momentos distintos antes do "No pátio":
 
-## Causa
+1. **Chegou** — porteiro registra a chegada (grava `etapa_terceirizado='chegada'` + `horario_chegada`, mas **não** `horario_entrada`)
+2. **Liberado pra pátio** — porteiro libera entrada (grava `etapa_terceirizado='no_patio'` + `horario_entrada`)
 
-No hook `src/hooks/useStatusPortariaPorCarga.ts`, a função `deriveEtapa` só conhece dois valores de `etapa_terceirizado`:
+Hoje o passo 1 cai em `"aguardando"` (= "Aguardando chegada"), o que confunde o usuário porque o motorista já chegou. Confirmado em produção: existe registro com `etapa_terceirizado='chegada'`, `horario_chegada` preenchido e `horario_entrada` nulo.
 
-- `'chegada'` (sem `horario_entrada`) → `aguardando`
-- `'liberado'` → `carregando`
+## Solução
 
-Os valores `'no_patio'` e `'finalizado'` não são mapeados. Como resultado:
+Adicionar uma etapa intermediária **`chegou`** entre `aguardando` e `patio` no badge da Portaria do Consolidado (apenas terceirizado).
 
-- Após "Liberar entrada no pátio" (que grava `etapa_terceirizado = 'no_patio'` + `horario_entrada`), a etapa cai no fallback genérico — funciona às vezes, mas só se `horario_entrada` estiver presente. E o label correto "No pátio" não aparece de forma confiável quando o caminhão depois passa para `liberado` e voltaria, etc.
-- `'finalizado'` só é interpretado como "Expedido" via fallback de `tipo_movimento='saida'`/`horario_saida_final`, podendo ficar atrás na ordem se o registro de saída ainda não existir.
+### Mudanças em `src/hooks/useStatusPortariaPorCarga.ts`
 
-Fluxo terceirizado oficial (já documentado em memória): **chegada → no_patio → liberado → finalizado**.
+- Estender o tipo:
+  `EtapaPortaria = "aguardando" | "chegou" | "patio" | "carregando" | "expedido"`
+- Atualizar `ORDEM` (chegou=1, patio=2, carregando=3, expedido=4)
+- Adicionar label: `chegou: "Chegou — aguardando liberação"`
+- Incluir `horario_chegada` no SELECT e na interface `MovRow`
+- Reescrever `deriveEtapa`:
 
-## Solução (apenas terceirizado, carga própria fica como está)
+| Condição                                                                   | Etapa       |
+|----------------------------------------------------------------------------|-------------|
+| `tipo_movimento='saida'` OU `etapa_terceirizado='finalizado'` OU `horario_saida_final` | `expedido`  |
+| `etapa_terceirizado='liberado'`                                            | `carregando`|
+| `etapa_terceirizado='no_patio'` OU `horario_entrada` preenchido            | `patio`     |
+| `etapa_terceirizado='chegada'` OU `horario_chegada` preenchido             | `chegou`    |
+| (caso contrário)                                                           | `aguardando`|
 
-Atualizar `deriveEtapa` em `src/hooks/useStatusPortariaPorCarga.ts` para mapear explicitamente os 4 estágios:
+Mantém a lógica de "etapa máxima" entre todos os movimentos da carga.
 
-| `etapa_terceirizado` / sinal      | Etapa exibida   | Label              |
-|-----------------------------------|-----------------|--------------------|
-| `'chegada'` (sem `horario_entrada`) | `aguardando`  | Aguardando chegada |
-| `'no_patio'` ou `horario_entrada` preenchido | `patio` | No pátio          |
-| `'liberado'`                      | `carregando`    | Carregando         |
-| `'finalizado'` ou `horario_saida_final` ou `tipo_movimento='saida'` | `expedido` | Expedido |
+### Mudanças em `src/components/dashboard/PortariaStatusBadge.tsx`
 
-A lógica de "etapa máxima" entre todos os movimentos da mesma `carga_id` continua igual (via `ORDEM`), assim como o filtro `categoria = 'terceirizado'` na query e no canal Realtime — nada muda para carga própria.
+- Adicionar entrada `chegou` no objeto `STYLE` com cor distinta (sugestão: âmbar suave / amarelo claro com ícone `BellRing` ou `LogIn`) para diferenciar visualmente de `aguardando` (cinza) e `patio` (azul).
 
-## Arquivo afetado
+### Carga própria
 
-- `src/hooks/useStatusPortariaPorCarga.ts` — único ajuste, dentro de `deriveEtapa`.
+Sem alterações — fora de escopo, conforme combinado.
 
-## Resultado esperado
+## Resultado
 
-No Consolidado, o badge da Portaria para cargas terceirizadas passa a refletir corretamente cada etapa em tempo real:
-
-- Aguardando chegada → No pátio → Carregando → Expedido
+Fluxo terceirizado agora exibe corretamente: **Aguardando chegada → Chegou — aguardando liberação → No pátio → Carregando → Expedido**.

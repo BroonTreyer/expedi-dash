@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 
-export type EtapaPortaria = "aguardando" | "patio" | "carregando" | "expedido";
+export type EtapaPortaria = "aguardando" | "chegou" | "patio" | "carregando" | "expedido";
 
 export interface StatusPortariaInfo {
   etapa: EtapaPortaria;
@@ -14,13 +14,15 @@ export interface StatusPortariaInfo {
 
 const ORDEM: Record<EtapaPortaria, number> = {
   aguardando: 0,
-  patio: 1,
-  carregando: 2,
-  expedido: 3,
+  chegou: 1,
+  patio: 2,
+  carregando: 3,
+  expedido: 4,
 };
 
 const LABELS: Record<EtapaPortaria, string> = {
   aguardando: "Aguardando chegada",
+  chegou: "Chegou — aguardando liberação",
   patio: "No pátio",
   carregando: "Carregando",
   expedido: "Expedido",
@@ -31,6 +33,7 @@ interface MovRow {
   tipo_movimento: string | null;
   etapa_terceirizado: string | null;
   horario_entrada: string | null;
+  horario_chegada: string | null;
   horario_saida_final: string | null;
   data_hora: string | null;
 }
@@ -47,13 +50,11 @@ function deriveEtapa(movs: MovRow[]): EtapaPortaria {
       cur = "expedido";
     } else if (m.etapa_terceirizado === "liberado") {
       cur = "carregando";
-    } else if (m.etapa_terceirizado === "no_patio" || (m.etapa_terceirizado === "chegada" && m.horario_entrada)) {
+    } else if (m.etapa_terceirizado === "no_patio" || m.horario_entrada) {
       cur = "patio";
-    } else if (m.etapa_terceirizado === "chegada" && !m.horario_entrada) {
-      // Motorista chegou mas ainda aguarda liberação para entrar no pátio
-      cur = "aguardando";
-    } else if ((m.tipo_movimento === "entrada" && m.horario_entrada) || m.horario_entrada) {
-      cur = "patio";
+    } else if (m.etapa_terceirizado === "chegada" || m.horario_chegada) {
+      // Motorista já chegou, mas ainda aguarda liberação para entrar no pátio
+      cur = "chegou";
     }
     if (ORDEM[cur] > ORDEM[etapa]) etapa = cur;
   }
@@ -75,7 +76,7 @@ export function useStatusPortariaPorCarga(cargaIds: string[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id, tipo_movimento, etapa_terceirizado, horario_entrada, horario_saida_final, data_hora")
+        .select("carga_id, tipo_movimento, etapa_terceirizado, horario_entrada, horario_chegada, horario_saida_final, data_hora")
         .in("carga_id", cargaIds)
         .eq("categoria", "terceirizado");
       if (error) throw error;
