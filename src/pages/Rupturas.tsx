@@ -116,20 +116,25 @@ interface AtualProps {
 
 function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
   const [searchParams] = useSearchParams();
-  // Janela ampla pra cobrir pedidos antigos ainda em ruptura (até 90 dias atrás)
+  // Espelha exatamente o Painel principal: hoje + carry-over de pedidos não finalizados.
+  // Passar a mesma data em from/to ativa a regra especial do hook (carry-over 30d, status != 'Carregado').
   const today = new Date();
-  const dateFromStr = format(subMonths(today, 3), "yyyy-MM-dd");
-  const dateToStr = format(today, "yyyy-MM-dd");
-
-  const { data: carregamentos = [], isLoading } = useCarregamentos(dateFromStr, dateToStr);
+  const todayStr = format(today, "yyyy-MM-dd");
+  const { data: carregamentos = [], isLoading } = useCarregamentos(todayStr, todayStr);
   const [cargaFilter, setCargaFilter] = useState(() => searchParams.get("carga") || "todos");
   const [busca, setBusca] = useState("");
   const [printOpen, setPrintOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  // ESTRITAMENTE ruptura total ainda em aberto
+  // Mesmos filtros de visibilidade do Painel: ruptura aberta, fora de logística e não finalizada.
   const todasRupturas = useMemo(
-    () => carregamentos.filter((c) => c.ruptura === true),
+    () =>
+      carregamentos.filter((c) => {
+        if (c.ruptura !== true) return false;
+        if (c.etapa === "logistica") return false;
+        if (c.carga_id != null && c.status === "Carregado") return false;
+        return true;
+      }),
     [carregamentos]
   );
 

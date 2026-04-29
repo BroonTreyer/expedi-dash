@@ -1,58 +1,74 @@
-## Objetivo
-Separar a página **Rupturas** em duas abas com propósitos distintos:
+## Plano — corrigir “Faltando agora” para bater com o Painel
 
-1. **Faltando agora** — visão operacional ao vivo, somente itens com `ruptura = true` em aberto.
-2. **Histórico do mês** — visão analítica acumulada por produto, contabilizando todo evento de ruptura que ocorreu no mês selecionado (mesmo os já resolvidos).
+Vou corrigir a aba **Rupturas > Faltando agora** para ela deixar de fazer uma varredura própria de 3 meses e passar a usar a mesma regra/fonte do Painel principal.
 
-## Comportamento de cada aba
+### O que está errado agora
 
-### Aba 1 — "Faltando agora"
-- **Filtro:** apenas registros onde `ruptura = true` (ruptura total marcada).
-- **Sem filtro de data** — mostra o estado atual, independente de quando o pedido foi criado.
-- **Dinâmico:** se o operador desmarcar a ruptura ou repor o item, ele desaparece da lista. Se uma nova ruptura for marcada, aparece. O número sobe e desce em tempo real (realtime já existe).
-- **Layout:** mantém a tabela atual (cliente, produto, peso faltante, pedido, carga, vendedor) + KPIs no topo:
-  - Itens em ruptura agora
-  - Peso total faltando agora (kg / ton)
-  - Pedidos únicos afetados
-- **Ações:** mantém edição, exclusão, impressão, deep-link `?carga=...`.
-- **Itens com peso parcial editado** (peso < peso_original mas `ruptura = false`) **não aparecem aqui** — vão só para o histórico.
-
-### Aba 2 — "Histórico do mês"
-- **Seletor de mês** no topo (default: mês corrente, navegação ← / → para meses anteriores).
-- **Filtro:** todo registro com evento de ruptura no mês — `ruptura_sinalizada = true` OU (`peso_original > peso`) OU `ruptura = true`, com `data` dentro do mês selecionado.
-- **Acumula tudo:** mesmo se o item foi reposto depois, conta a perda original. Não some da lista.
-- **Visão principal — agrupada por produto:**
-  - Tabela: Código | Produto | Nº ocorrências | Peso/Qtd faltado total | Clientes afetados (únicos) | Última ocorrência
-  - Ordenação default: maior peso faltado primeiro.
-  - Click no produto expande/abre detalhe com todas as ocorrências (cliente, pedido, data, peso faltado, motivo, status atual).
-- **KPIs do mês:**
-  - Total de eventos de ruptura
-  - Peso total faltado no mês (kg / ton)
-  - Produto mais crítico
-  - Cliente mais impactado
-- **Export:** botão para baixar Excel do agrupado + detalhado (reaproveita lógica existente de export).
-
-## Estrutura técnica
+A tela de Rupturas ainda está buscando **3 meses** de dados:
 
 ```text
-src/pages/Rupturas.tsx
-  └─ <Tabs>
-       ├─ <TabsContent value="atual">    → <RupturasAtual />
-       └─ <TabsContent value="historico"> → <RupturasHistorico />
+useCarregamentos(data de 3 meses atrás, hoje)
 ```
 
-- Criar dois componentes em `src/components/rupturas/`:
-  - `RupturasAtual.tsx` — extrai a lógica/UI atual, mas filtra estritamente `ruptura === true`. Remove dependência de `peso_original < peso` na contagem.
-  - `RupturasHistorico.tsx` — novo. Hook próprio `useRupturasHistoricoMes(ano, mes)` que consulta `carregamentos_dia` por intervalo de data e filtra eventos de ruptura.
-- Atualizar `src/lib/peso-utils.ts` se necessário para expor um helper `temEventoRuptura(item)` (true quando `ruptura === true` ou `peso_original > peso`).
-- O KPI card global do dashboard (`KpiCards.tsx`) continua usando `ruptura === true` (já está correto após o último ajuste).
-- Manter realtime na aba "Faltando agora" (subscription em `carregamentos_dia` com debounce 1.5s já existente).
+Quando o hook recebe intervalo, ele **não aplica** a regra especial do painel de hoje. Por isso entram rupturas antigas já finalizadas, como:
 
-## Fora do escopo
-- Não mexer em triggers/DB. A coluna `ruptura_sinalizada` já é setada pelo trigger `set_ruptura_sinalizada` e serve como fonte para o histórico.
-- Não migrar dados antigos.
-- O alerta de inconsistência do "Pedido #48" (peso_original replicado) sai da tela — vira responsabilidade do histórico só (onde o impacto fica isolado, não inflando o "agora").
+- 736 Calabresinha — DMA — carga já em logística/carregada
+- 3060 Filé de Tilápia — DMA — carga já em logística/carregada
+- 751 Mortadela Defumada Fatiada — DMA — carga já em logística/carregada
+- 7725 Mortadela Tradicional 1kg — uma linha antiga de ELIAS ROTA com carga já carregada
 
-## Resultado esperado
-- "Faltando agora" reflete fielmente a operação: sobe quando alguém marca ruptura, desce quando resolve.
-- "Histórico do mês" preserva a memória do que faltou, agrupado por produto, navegável mês a mês.
+Essas não devem estar no “Faltando agora”.
+
+Também confirmei no banco que, pelo Painel de hoje, a carne moída em ruptura é:
+
+```text
+1080 CARNE MOIDA CONG. 500G
+5.000 kg + 6.000 kg + 50 kg = 11.050 kg
+```
+
+Então a tela tem que mostrar **11.050 kg**, não 5.000 kg.
+
+### Correção que vou fazer
+
+1. **Trocar a busca da aba “Faltando agora”**
+   - Remover a janela de 3 meses.
+   - Usar `useCarregamentos(hoje, hoje)`.
+   - Isso ativa a regra já existente do Painel:
+     - pedidos de hoje;
+     - mais carry-over dos últimos 30 dias com `status <> 'Carregado'`;
+     - exclui rascunho e aguardando faturamento.
+
+2. **Aplicar exatamente os mesmos filtros de visibilidade do Painel**
+   Na aba “Faltando agora”, antes de agrupar, manter apenas:
+
+```text
+ruptura = true
+etapa != 'logistica'
+NÃO (carga_id preenchido E status = 'Carregado')
+```
+
+Isso faz sair automaticamente qualquer item que não apareceria no Painel operacional atual.
+
+3. **Manter a soma por peso original para ruptura total**
+   - Não vou mudar `pesoNaoCarregado`.
+   - Para `ruptura = true`, continua contando `peso_original`.
+   - Resultado esperado para carne moída: **11.050 kg**.
+
+4. **Atualizar textos da tela**
+   - Trocar o texto que fala “ruptura total ainda em aberto” para deixar claro que é a mesma visão do Painel atual: hoje + pendências carregadas para frente.
+
+### Resultado esperado depois da correção
+
+Na aba **Faltando agora**:
+
+- **Carne moída 1080:** aparece com **11.050 kg**.
+- **Filé de Tilápia 3060:** não aparece.
+- **Calabresinha 736:** não aparece.
+- **Mortadela Defumada Fatiada 751:** não aparece.
+- **Mortadela Tradicional 7725:** fica apenas a ruptura atual do Painel, não a linha antiga de carga carregada.
+
+### Arquivo a editar
+
+- `src/pages/Rupturas.tsx`
+
+Sem mudança de banco.
