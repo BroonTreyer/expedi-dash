@@ -165,23 +165,31 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
 
   if (isLogistica) {
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        {DateNav}
-        <MultiSelectFilter
+      <div className="space-y-2">
+        <SmartSearchBar
+          tags={filters.searchTags}
+          onChange={(t) => set("searchTags", t)}
+          carregamentos={carregamentos}
+          vendedores={vendedores}
+          clientes={clientes}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          {DateNav}
+          <MultiSelectFilter
           options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
           selected={filters.vendedor}
           onChange={(v) => set("vendedor", v)}
           placeholder="Todos Vendedores"
           className="w-[180px]"
         />
-        <MultiSelectFilter
+          <MultiSelectFilter
           options={clienteOptions.map((c) => ({ value: c.codigo_cliente, label: `${c.codigo_cliente} – ${c.nome_cliente}` }))}
           selected={filters.cliente}
           onChange={(v) => set("cliente", v)}
           placeholder="Todos Clientes"
           className="w-[200px]"
         />
-        <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
+          <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
           <SelectTrigger className="h-9 text-sm w-[120px]">
             <SelectValue placeholder="UF" />
           </SelectTrigger>
@@ -189,15 +197,24 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
             <SelectItem value="todos">Todas UFs</SelectItem>
             {ufOptions.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
           </SelectContent>
-        </Select>
-        {ClearButton}
+          </Select>
+          {ClearButton}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap lg:flex-nowrap items-center gap-2 [&>*]:min-w-0">
-      {DateNav}
+    <div className="space-y-2">
+      <SmartSearchBar
+        tags={filters.searchTags}
+        onChange={(t) => set("searchTags", t)}
+        carregamentos={carregamentos}
+        vendedores={vendedores}
+        clientes={clientes}
+      />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap lg:flex-nowrap items-center gap-2 [&>*]:min-w-0">
+        {DateNav}
       <MultiSelectFilter
         options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
         selected={filters.vendedor}
@@ -240,16 +257,8 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           <SelectItem value="nao">Sem Ruptura</SelectItem>
         </SelectContent>
       </Select>
-      <div className="relative col-span-2 sm:col-span-1 md:flex-1 md:min-w-[130px] md:max-w-[180px]">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar..."
-          value={filters.busca}
-          onChange={(e) => set("busca", e.target.value)}
-          className="h-9 pl-8 text-sm w-full"
-        />
+        {ClearButton}
       </div>
-      {ClearButton}
     </div>
   );
 }
