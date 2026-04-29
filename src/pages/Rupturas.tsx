@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback, Fragment } from "react";
+import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
@@ -116,15 +117,53 @@ interface AtualProps {
 
 function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   // Espelha exatamente o Painel principal: hoje + carry-over de pedidos não finalizados.
   // Passar a mesma data em from/to ativa a regra especial do hook (carry-over 30d, status != 'Carregado').
   const today = new Date();
   const todayStr = format(today, "yyyy-MM-dd");
-  const { data: carregamentos = [], isLoading } = useCarregamentos(todayStr, todayStr);
+  const { data: carregamentos = [], isLoading, dataUpdatedAt, refetch } = useCarregamentos(todayStr, todayStr);
   const [cargaFilter, setCargaFilter] = useState(() => searchParams.get("carga") || "todos");
   const [busca, setBusca] = useState("");
   const [printOpen, setPrintOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  // Rede de segurança: realtime é o canal primário, mas se cair (aba em background,
+  // sleep, wifi instável) os dados ficam parados. Aqui forçamos refetch:
+  // (1) a cada 20s enquanto a aba estiver visível,
+  // (2) ao voltar foco da aba,
+  // (3) quando a internet voltar.
+  useEffect(() => {
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+    };
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") invalidate();
+    }, 20_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") invalidate();
+    };
+    const onOnline = () => invalidate();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [queryClient]);
+
+  // Tick para re-renderizar o "Atualizado há Xs" sem refetch.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 5_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const segundosAtras = Math.max(0, Math.floor((Date.now() - (dataUpdatedAt || Date.now())) / 1000));
+  const atualizadoLabel =
+    segundosAtras < 5 ? "agora" :
+    segundosAtras < 60 ? `há ${segundosAtras}s` :
+    `há ${Math.floor(segundosAtras / 60)}min`;
 
   // Mesmos filtros de visibilidade do Painel: ruptura aberta, fora de logística e não finalizada.
   const todasRupturas = useMemo(
