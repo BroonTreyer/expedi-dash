@@ -206,7 +206,7 @@ export default function Portaria({ categoria }: PortariaProps) {
       toast.error("Nenhum dado para exportar");
       return;
     }
-    const headers = ["Data/Hora", "Tipo", "Categoria", "Placa", "Motorista", "Empresa", "Setor", "Rota", "KM Inicial", "KM Final", "KM Rodado", "Observações"];
+    const headers = ["Data/Hora", "Tipo", "Categoria", "Placa", "Motorista", "Empresa", "Carga", "Setor", "Rota", "KM Inicial", "KM Final", "KM Rodado", "Data/Retorno", "Saída Final", "Observações"];
     const filtered = movimentacoes.filter((m) => {
       if (tipoFilter && tipoFilter !== "all" && m.tipo_movimento !== tipoFilter) return false;
       if (search) {
@@ -233,11 +233,14 @@ export default function Portaria({ categoria }: PortariaProps) {
       m.placa || "",
       m.motorista || m.nome_completo || "",
       m.empresa || "",
+      m.carga_id || "",
       m.destino_setor || "",
       m.rota || "",
       m.km_inicial ?? "",
       m.km_final ?? "",
       m.km_rodado ?? "",
+      m.horario_real_retorno ? format(new Date(m.horario_real_retorno), "dd/MM/yyyy HH:mm") : (m.tipo_movimento === "saida" && categoria === "terceirizado" && m.horario_real_saida ? format(new Date(m.horario_real_saida), "dd/MM/yyyy HH:mm") : ""),
+      m.horario_saida_final ? format(new Date(m.horario_saida_final), "dd/MM/yyyy HH:mm") : "",
       m.observacoes || "",
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
