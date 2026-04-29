@@ -1,54 +1,79 @@
-## O que vou fazer
+# Por que a tag "RUPTURA" continua aparecendo
 
-### 1) Barra de busca inteligente no Dashboard (/)
-Hoje o Dashboard tem um campo "Buscar..." simples que filtra por texto livre, mas você precisa **acumular** vários termos (ex.: filtrar por código de cliente E vendedor E placa, sem perder o anterior).
+## Diagnóstico (causa real, confirmada no banco)
 
-Vou substituir esse campo por uma **busca com tags acumulativas**:
+Olhei o pedido **33 / cliente 10219 (JR DISTRIBUIDORA)** direto no banco. Os 5 produtos estão assim:
 
-- Campo único de busca que sugere resultados conforme você digita, varrendo simultaneamente: **código do cliente, nome do cliente, vendedor, número do pedido, placa, motorista, transportadora, cidade, UF, nome da carga e produto**.
-- Cada sugestão mostra o tipo (ex.: "Cliente · 12345 — Padaria X", "Vendedor · João", "Pedido #4567", "Placa ABC1D23").
-- Ao clicar/Enter na sugestão, ela vira uma **tag** abaixo da barra e o campo limpa, pronto pra próxima busca.
-- Tags se acumulam (lógica AND entre tipos diferentes, OR dentro do mesmo tipo — ex.: 2 vendedores selecionados = "qualquer um dos dois", mas combinados com cliente = "esses vendedores E esse cliente").
-- Cada tag tem um "X" pra remover individualmente; botão "Limpar tudo" remove todas.
-- As tags ficam integradas ao estado de filtros (`filters.busca` vira `filters.searchTags: SearchTag[]`), então convivem com os outros filtros (período, UF etc.) e contam no badge "Limpar filtros".
+| Produto | peso | peso_original | ruptura | ruptura_sinalizada |
+|---|---|---|---|---|
+| 501 LINGUIÇA TOSCANA | 10000 | 10000 | false | **false** |
+| 1100 CARNE MOÍDA | 4000 | **10000** | false | **true** ⚠️ |
+| 600 LING SUÍNA | 5000 | **10000** | false | **true** ⚠️ |
+| 1100 CARNE MOÍDA | 1000 | **10000** | false | **true** ⚠️ |
+| 730 CALABRESA | 10000 | 10000 | false | false |
 
-Texto livre que não casar com nenhuma sugestão continua funcionando: vira uma tag "Texto: ..." que faz busca textual ampla (igual ao comportamento atual).
+Ou seja: **na tela de edição** o checkbox "Ruptura" está desmarcado em tudo (e é isso que você vê — `ruptura = false`). Mas no card o sistema considera **ruptura parcial** porque `peso (4000) < peso_original (10000)`. A trigger do banco escreve `ruptura_sinalizada = true` toda vez que o peso fica menor que o original, mesmo que o checkbox de ruptura esteja desligado.
 
-### 2) Correção da tag de Ruptura que não some
+E o `peso_original` ficou "preso" em 10.000 kg porque foi o valor da primeira vez em que o produto entrou. Quando você editou o peso para 4.000, 5.000 e 1.000, o sistema entendeu como "abateu peso → ruptura parcial" e acendeu a tag.
 
-**Causa raiz (confirmada no banco):** existem dois gatilhos no Postgres que **acendem** a flag `ruptura_sinalizada` quando o item entra em ruptura (total ou parcial), mas **nenhum** apaga essa flag quando você desmarca a ruptura ou restaura o peso original. A tabela tem duas colunas:
-- `ruptura` (boolean) — ruptura total marcada no momento.
-- `ruptura_sinalizada` (boolean) — "já teve ruptura em algum momento", grudada pelo trigger.
+## Resumo do problema
 
-A função `temRuptura()` mostra a tag se **qualquer uma** das duas for `true`. Por isso, mesmo após desmarcar `ruptura`, a tag persiste.
+A tag RUPTURA tem **dois gatilhos** hoje:
+1. Checkbox "Ruptura" marcado (`ruptura = true`) — visível na UI ✅
+2. **Ruptura parcial silenciosa**: `peso < peso_original` — invisível na UI ❌
 
-Além disso, os fluxos de edição (`useEditarPedidoAprovacao.ts`, `MeusPedidos.tsx`, edição de carga) atualizam `ruptura` mas **nunca tocam** em `ruptura_sinalizada`.
+O caso (2) é o que está te confundindo: por dentro o pedido está "limpo", mas o card acusa ruptura porque o peso atual é menor que o registrado na primeira gravação.
 
-**Correção em duas camadas:**
+# Plano de correção
 
-a) **Trigger no banco** — alterar `set_ruptura_sinalizada` e `preserve_peso_original` para também **desligar** `ruptura_sinalizada` quando:
-   - `ruptura = false` E
-   - `peso >= peso_original` (ou seja, não há ruptura parcial)
-   
-   Assim a flag passa a refletir o estado real, não fica grudada.
+## 1. Mostrar o motivo da tag dentro do pedido (transparência)
 
-b) **Frontend** — nos updates de edição de pedido (`useEditarPedidoAprovacao`, `MeusPedidos`, `EditarCargaDialog`) passar explicitamente `ruptura_sinalizada: false` quando `ruptura` for desmarcada e o peso voltou ao original. Isso é defensivo: se o trigger falhar, o estado correto é gravado direto.
+No `CarregamentoDialog` (tela de edição do pedido), em cada linha de produto onde `peso < peso_original`, exibir um aviso discreto ao lado do campo Peso:
 
-c) **Backfill** — uma migration única que normaliza os registros existentes: `UPDATE carregamentos_dia SET ruptura_sinalizada = false WHERE ruptura = false AND (peso_original IS NULL OR peso >= peso_original)`. Limpa as tags fantasmas que já estão no banco.
+```
+⚠ Ruptura parcial: original 10.000 kg → atual 4.000 kg
+   [Restaurar original]  [Confirmar redução]
+```
 
-## Detalhes técnicos
+Assim o usuário vê **por que** a tag está acesa e tem dois caminhos:
+- **Restaurar original**: volta `peso = peso_original` e a tag some.
+- **Confirmar redução**: aceita que o peso novo é o correto e **redefine `peso_original = peso`**, limpando `ruptura_sinalizada`.
 
-**Arquivos a editar:**
-- `src/components/dashboard/Filters.tsx` — substituir o `<Input>` de busca por um novo `SmartSearchBar` com Popover + Command (já existe `cmdk` no projeto). Trocar `filters.busca: string` por `filters.searchTags: SearchTag[]`.
-- `src/components/dashboard/SmartSearchBar.tsx` (**novo**) — componente reutilizável com tipos: `cliente | vendedor | placa | motorista | transportadora | cidade | uf | pedido | carga | produto | texto`.
-- `src/pages/Index.tsx` — atualizar a lógica de filtragem para consumir `searchTags` (substitui o filtro `busca` atual). Cada tag aplica um predicado específico; texto livre faz `includes` em vários campos como hoje.
-- `src/lib/ruptura-utils.ts` — sem mudança lógica (continua refletindo o que o banco diz; a correção real é no banco).
-- `src/hooks/useEditarPedidoAprovacao.ts`, `src/components/vendedor/MeusPedidos.tsx`, `src/components/dashboard/EditarCargaDialog.tsx` — passar `ruptura_sinalizada: false` quando aplicável nos UPDATEs.
+## 2. Corrigir os 3 registros do pedido 33 agora
 
-**Migrations (banco):**
-- Atualizar a função do trigger `set_ruptura_sinalizada` (e/ou `preserve_peso_original`) para apagar a flag quando o estado voltou a "sem ruptura".
-- Backfill: `UPDATE` único limpando registros já bagunçados.
+Rodar um update pontual para limpar a flag fantasma desse pedido específico (e de qualquer outro na mesma situação onde o usuário claramente já reduziu de propósito, sem marcar ruptura):
 
-**Persistência da busca:** `searchTags` fica em estado local do Dashboard (mesmo padrão dos outros filtros — não persiste entre sessões), mas é considerada no contador "Limpar filtros".
+Estratégia conservadora: **não** mexer em `peso_original` automaticamente. Apenas garantir que ao salvar pelo diálogo, se o usuário clicar "Confirmar redução", o `peso_original` é atualizado para o `peso` atual e `ruptura_sinalizada` vai para `false`.
 
-**Performance:** as sugestões são calculadas a partir dos arrays já carregados (`carregamentos`, `vendedores`, `clientes`) com `useMemo` + filtro por substring; sem query nova ao banco.
+Para o pedido 33 visto na imagem, vou deixar a decisão na sua mão via o novo botão "Confirmar redução" — não vou alterar o banco em massa sem você ver.
+
+## 3. Ajustar a trigger `preserve_peso_original`
+
+Hoje a trigger acende `ruptura_sinalizada = true` automaticamente sempre que `peso < peso_original`, mesmo em updates onde o usuário **explicitamente** mandou `ruptura_sinalizada: false` no payload.
+
+Mudança: se o `UPDATE` veio com `ruptura_sinalizada` explicitamente definido no payload (diferente do valor antigo) **e** `ruptura = false`, **respeitar** o que o frontend mandou em vez de sobrescrever. Isso permite que o botão "Confirmar redução" funcione.
+
+## 4. Atualizar o hook `useEditarPedidoAprovacao`
+
+Adicionar suporte ao novo fluxo: quando o usuário confirma a redução, o update enviado vira:
+
+```ts
+{
+  peso: novoPeso,
+  peso_original: novoPeso,   // redefine baseline
+  peso_manual: true,
+  ruptura: false,
+  ruptura_sinalizada: false,
+}
+```
+
+## Arquivos afetados
+
+- `src/components/dashboard/CarregamentoDialog.tsx` — aviso visual de ruptura parcial + 2 botões por linha
+- `src/hooks/useEditarPedidoAprovacao.ts` — suportar `peso_original` no payload
+- `supabase/migrations/<novo>.sql` — ajuste da trigger `preserve_peso_original` para respeitar `ruptura_sinalizada` explícito do frontend
+
+## Fora do escopo
+
+- **Não** vou alterar dados existentes em massa. A correção é por pedido, via UI.
+- **Não** vou remover a lógica de ruptura parcial automática — ela é útil quando a redução é de fato uma ruptura. Só estou dando ao usuário a forma de dizer "essa redução é intencional, não é ruptura".
