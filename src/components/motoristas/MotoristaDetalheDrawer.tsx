@@ -3,13 +3,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Truck, Phone, IdCard, MapPin, Package, Weight, Clock, Route as RouteIcon, MessageSquareWarning, Printer, MessageSquare, Camera } from "lucide-react";
+import { Truck, Phone, IdCard, MapPin, Package, Weight, Clock, Route as RouteIcon, MessageSquareWarning, Printer, MessageSquare, Camera, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDuracao } from "@/lib/portaria-tempos";
 import { MotoristaSparkline } from "./MotoristaSparkline";
 import { MotoristaPrintDialog } from "./MotoristaPrintDialog";
 import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
 import type { MotoristaAgg } from "@/hooks/useMotoristasPainel";
+import { exportarMotoristaXlsx } from "@/lib/motorista-export";
+import { toast } from "sonner";
 
 const fmtKm = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " km";
 const fmtDateTime = (s: string | null) =>
@@ -81,9 +83,25 @@ export function MotoristaDetalheDrawer({ motorista, onClose, periodo }: Props) {
               </div>
             </div>
             {periodo && (
-              <Button size="sm" variant="outline" className="ml-auto" onClick={() => setPrintOpen(true)}>
-                <Printer className="h-3.5 w-3.5 mr-1" /> Imprimir
-              </Button>
+              <div className="ml-auto flex gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    try {
+                      exportarMotoristaXlsx(m, periodo);
+                      toast.success("Excel gerado");
+                    } catch (e: any) {
+                      toast.error("Erro ao gerar Excel", { description: e?.message });
+                    }
+                  }}
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Excel
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setPrintOpen(true)}>
+                  <Printer className="h-3.5 w-3.5 mr-1" /> Imprimir
+                </Button>
+              </div>
             )}
           </SheetTitle>
         </SheetHeader>
