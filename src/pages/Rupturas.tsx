@@ -388,7 +388,7 @@ function HistoricoMes() {
   const eventos = useMemo(() => {
     return carregamentos.filter((c) => {
       if (c.ruptura) return true;
-      if (c.ruptura_sinalizada) return true;
+      if ((c as any).ruptura_sinalizada) return true;
       const orig = c.peso_original ?? 0;
       const atual = c.peso ?? 0;
       return orig > 0 && atual < orig;
