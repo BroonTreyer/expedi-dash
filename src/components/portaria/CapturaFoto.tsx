@@ -153,7 +153,7 @@ export function CapturaFoto({ label, onCapture, disabled, previewUrl, accept = "
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
             >
-              <Upload className="h-4 w-4 mr-2" /> Enviar arquivo (Admin/Logística)
+              <Upload className="h-4 w-4 mr-2" /> Enviar arquivo
             </Button>
           )}
         </div>
