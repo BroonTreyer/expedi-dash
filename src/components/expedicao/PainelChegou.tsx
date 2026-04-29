@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BellRing, Hourglass } from "lucide-react";
+import { BellRing, Hourglass, Weight } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
@@ -15,6 +15,9 @@ function formatTempo(min: number) {
   const m = min % 60;
   return `${h}h ${m.toString().padStart(2, "0")}min`;
 }
+
+const fmtKg = (n: number | null | undefined) =>
+  n != null ? `${Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg` : null;
 
 export function PainelChegou({ movimentacoes, now }: Props) {
   const lista = movimentacoes
@@ -32,40 +35,49 @@ export function PainelChegou({ movimentacoes, now }: Props) {
     );
 
   return (
-    <Card className="border-amber-500/30">
-      <CardHeader className="py-3 px-4 bg-amber-500/5 border-b">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <BellRing className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+    <Card className="overflow-hidden border-amber-500/40 shadow-md">
+      <CardHeader className="py-3 px-4 bg-amber-500 text-black">
+        <CardTitle className="text-base flex items-center gap-2 font-bold">
+          <BellRing className="h-5 w-5" />
           Chegou — aguardando liberação
-          <Badge variant="outline" className="text-[10px] h-5 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+          <Badge className="ml-auto bg-black text-amber-300 hover:bg-black text-sm font-bold px-2.5">
             {lista.length}
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 space-y-2">
         {lista.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-6">Ninguém aguardando entrada</p>
+          <p className="text-sm text-muted-foreground text-center py-6">Ninguém aguardando entrada</p>
         ) : (
-          lista.map((m) => {
+          lista.map((m, idx) => {
             const ref = new Date(m.horario_chegada || m.data_hora);
             const min = differenceInMinutes(now, ref);
+            const kg = fmtKg(m.peso);
             return (
-              <div key={m.id} className="rounded-md border bg-card p-3 flex flex-col sm:flex-row sm:items-center gap-2">
-                <div className="flex-1 min-w-0 space-y-1">
+              <div
+                key={m.id}
+                className={`rounded-md border border-l-4 border-l-amber-500 ${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} p-3 flex flex-col sm:flex-row sm:items-center gap-2`}
+              >
+                <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
+                    <span className="font-mono font-extrabold text-base sm:text-lg">{m.placa || "—"}</span>
                     {m.carga_id && (
-                      <Badge variant="secondary" className="text-[10px] h-5 font-mono">{m.carga_id}</Badge>
+                      <Badge variant="secondary" className="text-xs h-6 font-mono">{m.carga_id}</Badge>
+                    )}
+                    {kg && (
+                      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-100 text-xs h-6 gap-1">
+                        <Weight className="h-3 w-3" /> {kg}
+                      </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
-                    {m.motorista && <span>Motorista: <span className="text-foreground">{m.motorista}</span></span>}
-                    {m.empresa && <span>Transp.: <span className="text-foreground">{m.empresa}</span></span>}
+                  <div className="text-sm text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
+                    {m.motorista && <span>Motorista: <span className="text-foreground font-medium">{m.motorista}</span></span>}
+                    {m.empresa && <span>Transp.: <span className="text-foreground font-medium">{m.empresa}</span></span>}
                   </div>
                 </div>
-                <div className="text-xs whitespace-nowrap text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
-                  <Hourglass className="h-3.5 w-3.5" />
-                  Chegou {format(ref, "HH:mm")} · {formatTempo(min)}
+                <div className="text-sm font-bold whitespace-nowrap rounded-full px-3 py-1.5 inline-flex items-center gap-1 bg-amber-500 text-black">
+                  <Hourglass className="h-4 w-4" />
+                  {format(ref, "HH:mm")} · {formatTempo(min)}
                 </div>
               </div>
             );

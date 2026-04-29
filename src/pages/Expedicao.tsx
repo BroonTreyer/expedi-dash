@@ -55,15 +55,32 @@ export default function Expedicao() {
         m.tipo_movimento === "entrada" &&
         m.horario_entrada &&
         m.etapa_terceirizado !== "finalizado"
-    ).length;
+    );
     const chegou = movimentacoes.filter(
       (m) =>
         m.tipo_movimento === "entrada" &&
         !m.horario_entrada &&
         (m.etapa_terceirizado === "chegada" || !!m.horario_chegada)
-    ).length;
-    const aChegar = veiculosEsperados.filter((v) => !v.conferido).length;
-    return { noPatio, chegou, aChegar, cargasFechadas: cargasTerc.length };
+    );
+    const esperadosPend = veiculosEsperados.filter((v) => !v.conferido);
+
+    const kgCarregado =
+      noPatio.reduce((s, m) => s + (Number(m.peso) || 0), 0) +
+      chegou.reduce((s, m) => s + (Number(m.peso) || 0), 0);
+    const kgCargasFechadas = cargasTerc.reduce((s, c) => s + (Number(c.peso_total) || 0), 0);
+    const kgEsperados = esperadosPend.reduce((s, v) => s + (Number(v.peso) || 0), 0);
+    const kgACarregar = kgCargasFechadas + kgEsperados;
+    const kgTotal = kgCarregado + kgACarregar;
+
+    return {
+      noPatio: noPatio.length,
+      chegou: chegou.length,
+      aChegar: esperadosPend.length,
+      cargasFechadas: cargasTerc.length,
+      kgCarregado,
+      kgACarregar,
+      kgTotal,
+    };
   }, [movimentacoes, veiculosEsperados, cargasTerc]);
 
   const refresh = () => {
@@ -78,15 +95,22 @@ export default function Expedicao() {
   return (
     <Layout>
       <main className="space-y-4 p-4 md:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
-              <Monitor className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
-              <span className="truncate">Visão Expedição — Terceirizado</span>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+              <Monitor className="h-6 w-6 md:h-7 md:w-7 text-primary shrink-0" />
+              <span className="truncate">Expedição — Terceirizado</span>
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-              Acompanhamento em tempo real do pátio, chegadas, previsões e cargas prontas
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              Pátio, chegadas, previsões e cargas prontas — atualização ao vivo
             </p>
+          </div>
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/60 border">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-mono font-bold text-lg tabular-nums">{format(now, "HH:mm")}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Popover>
