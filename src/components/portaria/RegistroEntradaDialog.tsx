@@ -106,16 +106,17 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         motorista: motorista.trim(),
         tipo_caminhao: tipoVeiculo,
         carga_id: cargaId,
-        horario_entrada: nowIso,
+        // Apenas chegada — entrada no pátio será liberada em um segundo passo
+        horario_entrada: null,
         horario_chegada: nowIso,
         data_hora: nowIso,
         usuario_id: user?.id ?? null,
       };
       if (categoria === "terceirizado") {
         movPayload.empresa = transportadora;
-        movPayload.etapa_terceirizado = "no_patio";
+        movPayload.etapa_terceirizado = "chegada";
       } else {
-        movPayload.etapa_carga_propria = "chegou";
+        movPayload.etapa_carga_propria = "aguardando_liberacao";
       }
       const { error: movErr } = await supabase
         .from("movimentacoes_portaria")
@@ -127,13 +128,11 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       if (motorista.trim()) updateData.motorista = motorista.trim();
       await supabase.from("carregamentos_dia").update(updateData).eq("carga_id", cargaId);
 
-      // Marca eventual veiculo_esperado dessa carga como conferido
+      // NÃO marca veiculo_esperado como conferido ainda — só na liberação para o pátio.
+      // Apenas garante que está autorizado e vinculado à carga.
       await supabase
         .from("veiculos_esperados" as any)
         .update({
-          conferido: true,
-          conferido_por: user?.id ?? null,
-          conferido_em: nowIso,
           status_autorizacao: "autorizado",
           autorizado_por: user?.id ?? null,
           autorizado_em: nowIso,
@@ -141,7 +140,7 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         } as any)
         .eq("carga_id", cargaId);
 
-      toast.success("Entrada registrada e vinculada à carga");
+      toast.success("Chegada registrada — aguardando liberação para entrar no pátio");
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
@@ -183,11 +182,11 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LogIn className="h-5 w-5 text-primary" />
-            Registrar Entrada — {grupo === "PRÓPRIA" ? "Frota Própria" : "Terceirizado"}
+            {isVinculadoACarga ? "Registrar Chegada" : "Registrar Entrada"} — {grupo === "PRÓPRIA" ? "Frota Própria" : "Terceirizado"}
           </DialogTitle>
           <DialogDescription>
             {isVinculadoACarga
-              ? "Veículo será vinculado diretamente à carga selecionada e entra no pátio."
+              ? "Registra a chegada do motorista na portaria. O veículo só entrará no pátio após a liberação no painel."
               : "Vincule motorista e veículo já cadastrados. O veículo ficará disponível para a Logística vincular ao fechar uma carga."}
           </DialogDescription>
         </DialogHeader>
@@ -232,7 +231,7 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {isPending ? "Registrando..." : isVinculadoACarga ? "Confirmar entrada na carga" : "Registrar Entrada"}
+            {isPending ? "Registrando..." : isVinculadoACarga ? "Registrar chegada" : "Registrar Entrada"}
           </Button>
         </DialogFooter>
       </DialogContent>
