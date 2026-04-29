@@ -47,6 +47,8 @@ function deriveEtapa(movs: MovRow[]): EtapaPortaria {
       cur = "expedido";
     } else if (m.etapa_terceirizado === "liberado") {
       cur = "carregando";
+    } else if (m.etapa_terceirizado === "no_patio" || (m.etapa_terceirizado === "chegada" && m.horario_entrada)) {
+      cur = "patio";
     } else if (m.etapa_terceirizado === "chegada" && !m.horario_entrada) {
       // Motorista chegou mas ainda aguarda liberação para entrar no pátio
       cur = "aguardando";
