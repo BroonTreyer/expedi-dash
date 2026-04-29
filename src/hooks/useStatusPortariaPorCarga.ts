@@ -47,7 +47,10 @@ function deriveEtapa(movs: MovRow[]): EtapaPortaria {
       cur = "expedido";
     } else if (m.etapa_terceirizado === "liberado") {
       cur = "carregando";
-    } else if (m.tipo_movimento === "entrada" || m.etapa_terceirizado === "chegada" || m.horario_entrada) {
+    } else if (m.etapa_terceirizado === "chegada" && !m.horario_entrada) {
+      // Motorista chegou mas ainda aguarda liberação para entrar no pátio
+      cur = "aguardando";
+    } else if ((m.tipo_movimento === "entrada" && m.horario_entrada) || m.horario_entrada) {
       cur = "patio";
     }
     if (ORDEM[cur] > ORDEM[etapa]) etapa = cur;

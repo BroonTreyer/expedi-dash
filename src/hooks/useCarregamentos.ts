@@ -412,6 +412,10 @@ export interface CargaFechadaAguardando {
   peso_total: number;
   qtd_pedidos: number;
   data: string;
+  /** Se a chegada já foi registrada (movimento de entrada criado), mas ainda não liberou para o pátio */
+  chegouAguardandoLiberacao?: boolean;
+  movimentoChegadaId?: string | null;
+  horarioChegada?: string | null;
 }
 
 export function useCargasFechadasAguardando() {
@@ -439,13 +443,37 @@ export function useCargasFechadasAguardando() {
       const cargaIds = Array.from(new Set(cargasArr.map((c) => c.carga_id).filter(Boolean)));
       const { data: movs } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id")
+        .select("id, carga_id, tipo_movimento, horario_entrada, horario_chegada, data_hora")
         .in("carga_id", cargaIds);
-      const arrived = new Set((movs ?? []).map((m: any) => m.carga_id));
+      // Mapeia carga_id -> info da entrada mais recente (se houver)
+      const entradaPorCarga = new Map<string, { id: string; horario_entrada: string | null; horario_chegada: string | null; data_hora: string | null }>();
+      const finalizadaCarga = new Set<string>();
+      for (const m of ((movs ?? []) as any[])) {
+        if (!m.carga_id) continue;
+        if (m.tipo_movimento === "saida") {
+          finalizadaCarga.add(m.carga_id);
+          continue;
+        }
+        if (m.tipo_movimento === "entrada") {
+          const prev = entradaPorCarga.get(m.carga_id);
+          if (!prev || (m.data_hora && prev.data_hora && m.data_hora > prev.data_hora)) {
+            entradaPorCarga.set(m.carga_id, {
+              id: m.id,
+              horario_entrada: m.horario_entrada,
+              horario_chegada: m.horario_chegada,
+              data_hora: m.data_hora,
+            });
+          }
+        }
+      }
 
       const grouped = new Map<string, CargaFechadaAguardando>();
       for (const c of cargasArr) {
-        if (!c.carga_id || arrived.has(c.carga_id)) continue;
+        if (!c.carga_id) continue;
+        if (finalizadaCarga.has(c.carga_id)) continue;
+        const entrada = entradaPorCarga.get(c.carga_id);
+        // Se já tem entrada com horario_entrada preenchido, está no pátio — não listar
+        if (entrada && entrada.horario_entrada) continue;
         const g = grouped.get(c.carga_id);
         if (g) {
           g.peso_total += Number(c.peso) || 0;
@@ -461,6 +489,9 @@ export function useCargasFechadasAguardando() {
             peso_total: Number(c.peso) || 0,
             qtd_pedidos: 1,
             data: c.data,
+            chegouAguardandoLiberacao: !!entrada,
+            movimentoChegadaId: entrada?.id ?? null,
+            horarioChegada: entrada?.horario_chegada ?? entrada?.data_hora ?? null,
           });
         }
       }
