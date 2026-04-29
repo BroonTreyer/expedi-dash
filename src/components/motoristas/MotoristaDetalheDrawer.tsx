@@ -138,6 +138,14 @@ export function MotoristaDetalheDrawer({ motorista, onClose, periodo }: Props) {
                 const obs = (r.observacoes || "").trim();
                 const ocorr = (r.ocorrencia || "").trim();
                 const hasNote = !!obs || !!ocorr;
+                const fotos: { url: string; label: string }[] = [
+                  { url: r.foto_placa_url, label: "Placa" },
+                  { url: r.foto_painel_saida_url, label: "Painel KM (saída)" },
+                  { url: r.foto_painel_url, label: r.categoria === "carga_propria" ? "Painel KM (retorno)" : "Painel KM" },
+                  { url: r.foto_lacre_url, label: "Lacre" },
+                  { url: r.foto_nota_url, label: "Nota fiscal" },
+                  { url: r.foto_documento_url, label: "Documento" },
+                ].filter((f): f is { url: string; label: string } => !!f.url);
                 return (
                   <Card key={r.id}>
                     <CardContent className="p-3 space-y-1.5">
@@ -154,6 +162,11 @@ export function MotoristaDetalheDrawer({ motorista, onClose, periodo }: Props) {
                             {hasNote && (
                               <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10">
                                 <MessageSquareWarning className="h-3 w-3" /> com observação
+                              </Badge>
+                            )}
+                            {fotos.length > 0 && (
+                              <Badge variant="outline" className="text-[10px] gap-1">
+                                <Camera className="h-3 w-3" /> {fotos.length} {fotos.length === 1 ? "foto" : "fotos"}
                               </Badge>
                             )}
                           </div>
@@ -188,6 +201,37 @@ export function MotoristaDetalheDrawer({ motorista, onClose, periodo }: Props) {
                           <p className="text-xs whitespace-pre-wrap">{obs}</p>
                         </div>
                       )}
+                      {fotos.length > 0 && (
+                        <div className="mt-1.5">
+                          <p className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1 mb-1">
+                            <Camera className="h-3 w-3" /> Fotos
+                          </p>
+                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                            {fotos.map((f) => (
+                              <button
+                                key={f.url}
+                                type="button"
+                                onClick={() => setFoto({ url: f.url, alt: f.label })}
+                                className="group relative aspect-square overflow-hidden rounded-md border border-border bg-muted hover:ring-2 hover:ring-primary/50 transition"
+                                title={f.label}
+                              >
+                                <img
+                                  src={f.url}
+                                  alt={f.label}
+                                  loading="lazy"
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                                  }}
+                                />
+                                <span className="absolute inset-x-0 bottom-0 bg-background/85 text-[9px] py-0.5 px-1 truncate text-center font-medium">
+                                  {f.label}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
@@ -197,6 +241,12 @@ export function MotoristaDetalheDrawer({ motorista, onClose, periodo }: Props) {
         </div>
       </SheetContent>
     </Sheet>
+    <PhotoViewerDialog
+      open={!!foto}
+      onOpenChange={(o) => !o && setFoto(null)}
+      url={foto?.url ?? null}
+      alt={foto?.alt}
+    />
     {periodo && (
       <MotoristaPrintDialog
         open={printOpen}
