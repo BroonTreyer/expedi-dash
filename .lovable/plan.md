@@ -1,57 +1,53 @@
-## Objetivo
+## Diagnóstico: o sistema está contando diferente em cada lugar
 
-Simplificar a página **Rupturas** para que o foco principal seja "qual produto está faltando", removendo o excesso de abas, KPIs e colunas que dificultam a leitura.
+Sim, há uma **inconsistência real** entre o KPI "Rupturas" do painel principal e a aba "Rupturas". Os dois contam coisas diferentes — por isso parece que tem "mais ruptura" em um lugar do que no outro.
 
-## O que muda
+### O que cada tela conta hoje
 
-### Remover (excesso de informação)
-
-- **Abas:** Lista detalhada, Visão geral, Por cliente, Por carga, Linha do tempo, Itens — todas removidas. Não haverá mais sistema de abas.
-- **KPIs do topo:** dos 6 cards atuais (Itens, Peso, Cargas, Clientes, Pedidos editados, Maior corte) ficam apenas **2**: Itens em ruptura e Peso/unidades não carregados.
-- **Filtros pouco usados:** Vendedor, Cliente, e o seletor "Totais/Parciais/Ambas" — removidos. Continua só **período (data)**, **carga** e **busca**.
-- **CSV/Imprimir:** mantidos, mas exportam apenas a visão de produto.
-
-### Nova estrutura (uma tela só)
-
-```text
-┌──────────────────────────────────────────────────────────┐
-│ Rupturas                            [Exportar] [Imprimir]│
-│ Período: [01/04 – 29/04]  Carga: [Todas ▾]  [Buscar...]  │
-├──────────────────────────────────────────────────────────┤
-│ ⚠ 12 itens em ruptura      📦 850 kg / 320 UNID em falta │
-├──────────────────────────────────────────────────────────┤
-│  PRODUTO                       FALTANDO   PEDIDOS  ▾     │
-│ ─────────────────────────────────────────────────────── │
-│  ▸ COXÃO MOLE PEÇA              420 kg     5 pedidos    │
-│       3 clientes · Cargas: CARGA 12, CARGA 15           │
-│  ▸ PÃO DE ALHO                  120 UNID   4 pedidos    │
-│       4 clientes · Cargas: CARGA 12                     │
-│  ▸ PICANHA FATIADA              310 kg     3 pedidos    │
-│       2 clientes · Cargas: CARGA 09, CARGA 12, CARGA 14 │
-└──────────────────────────────────────────────────────────┘
+**Painel principal (`KpiCards.tsx`)** — conta **pedidos únicos** afetados:
+```
+pedidosComRuptura  = pedidos distintos com ruptura total
+pedidosComParcial  = pedidos distintos com ruptura parcial
+Rupturas           = soma dos dois (deduplicado por numero_pedido)
 ```
 
-Cada linha:
-- **Nome do produto** (grande, em destaque). Código pequeno embaixo.
-- **Quantidade faltando** com unidade correta (`kg` ou `UNID` para pão de alho e similares — usa o helper `isPorUnidade` já existente).
-- **Pedidos afetados** (contagem).
-- **Linha secundária** menor com: nº de clientes afetados + lista resumida das cargas onde aparece (até 3 nomes; "+N" se mais).
-- **Mobile**: cada produto vira um card empilhado com as mesmas três informações (faltando / pedidos / clientes+cargas).
+**Aba Rupturas (`Rupturas.tsx`)** — conta **linhas de produto** em ruptura:
+```
+itens = rupturas.length   // cada item de cada pedido entra separado
+```
 
-Ordenação padrão: maior quantidade faltando primeiro.
+Exemplo: um pedido com 5 produtos e 3 deles em ruptura aparece como **1** no painel e **3** na aba. Por isso a aba "infla" os números.
 
-### O que continua funcionando por baixo
+### Há ainda um detalhe sutil
 
-- O hook `useCarregamentos`, a detecção de ruptura (`isRupturaParcial` + `pesoNaoCarregado`) e o agregado `productSummary` já existem — vou reaproveitar.
-- O deep-link `?carga=NomeCarga` continua filtrando pela carga.
-- Permissões e botão "Novo Pedido (Ruptura)" mantidos para quem pode editar.
-- Diálogo de impressão (`RupturasPrintDialog`) recebe os mesmos dados de produto que já recebia.
+O painel usa `c.ruptura` direto + `isRupturaParcial`, mas em outras partes do app já existe `temRuptura()` que considera `ruptura_sinalizada` (flag do trigger do banco). A aba também não usa `temRuptura`. Em casos antigos onde o trigger marcou a sinalização mas o item não tem peso reduzido visível, pode haver pequena diferença adicional.
 
-## Arquivos a editar
+## Proposta de correção
 
-- `src/pages/Rupturas.tsx` — reescrita da UI: remoção das abas, dos KPIs extras, dos filtros vendedor/cliente/tipo, da timeline e da lista detalhada. Nova tabela/cards focados em produto.
-- (sem mudanças em hooks ou no banco)
+Padronizar para que os dois lugares falem a mesma língua, mostrando ambas as visões sem ambiguidade.
 
-## Resultado
+### 1. Aba Rupturas — adicionar contador de pedidos únicos
+No KPI "Itens em ruptura", além das linhas de produto, mostrar também a quantidade de **pedidos únicos** afetados. Assim:
+- "Itens em ruptura: **23**" (linhas de produto)
+- "em **8 pedidos** · **5 produtos distintos**" (subtítulo)
 
-Tela limpa, uma única lista, leitura imediata: "este produto, esta quantidade faltando, em tantos pedidos, afetando tantos clientes em tais cargas".
+Isso bate diretamente com o número do painel principal.
+
+### 2. Painel principal — clarificar o tooltip
+Ajustar o tooltip do card "Rupturas" para deixar explícito que conta **pedidos**, não itens, e indicar quantos itens de produto isso representa. Exemplo:
+> "8 pedido(s) afetado(s) — 23 item(ns) de produto em ruptura. 1.240 kg perdidos."
+
+### 3. Unificar a regra de detecção
+Trocar as checagens manuais `c.ruptura || isRupturaParcial(c)` pela função única `temRuptura(c)` (que já existe em `src/lib/ruptura-utils.ts`) em:
+- `src/pages/Rupturas.tsx` (filtro `todasRupturas`)
+- `src/components/dashboard/KpiCards.tsx` (cálculo de `pedidosComRuptura` / `pedidosComParcial`)
+
+Resultado: ambas as telas usam o mesmo critério (`ruptura` OR `ruptura_sinalizada` OR peso reduzido), eliminando qualquer divergência por causa do trigger do banco.
+
+## Arquivos afetados
+- `src/pages/Rupturas.tsx` — KPI "Itens em ruptura" passa a mostrar pedidos únicos + produtos distintos.
+- `src/components/dashboard/KpiCards.tsx` — tooltip clarificado e uso de `temRuptura`.
+- (Opcional) `src/lib/ruptura-utils.ts` — sem mudanças; apenas passa a ser a fonte única.
+
+## Resultado esperado
+Painel mostra **8 rupturas** (pedidos), aba mostra **23 itens / 8 pedidos**. Os números batem e ninguém mais fica em dúvida sobre qual é o "correto" — os dois são, em granularidades diferentes.
