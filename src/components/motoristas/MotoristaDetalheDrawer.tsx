@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Truck, Phone, IdCard, MapPin, Package, Weight, Clock, Route as RouteIcon } from "lucide-react";
+import { Truck, Phone, IdCard, MapPin, Package, Weight, Clock, Route as RouteIcon, MessageSquareWarning, Printer, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { formatDuracao } from "@/lib/portaria-tempos";
 import { MotoristaSparkline } from "./MotoristaSparkline";
+import { MotoristaPrintDialog } from "./MotoristaPrintDialog";
 import type { MotoristaAgg } from "@/hooks/useMotoristasPainel";
 
 const fmtKm = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " km";
@@ -30,9 +33,11 @@ function tempoMin(m: any): number | null {
 interface Props {
   motorista: MotoristaAgg | null;
   onClose: () => void;
+  periodo?: { inicio: string; fim: string };
 }
 
-export function MotoristaDetalheDrawer({ motorista, onClose }: Props) {
+export function MotoristaDetalheDrawer({ motorista, onClose, periodo }: Props) {
+  const [printOpen, setPrintOpen] = useState(false);
   if (!motorista) return null;
   const m = motorista;
   const cad = m.cadastro;
@@ -46,6 +51,7 @@ export function MotoristaDetalheDrawer({ motorista, onClose }: Props) {
     );
 
   return (
+    <>
     <Sheet open={!!motorista} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
@@ -56,14 +62,27 @@ export function MotoristaDetalheDrawer({ motorista, onClose }: Props) {
                 {m.nome.split(" ").slice(0, 2).map((s) => s[0]).join("").toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="text-left">
+            <div className="text-left flex-1">
               <p className="text-base font-semibold">{m.nome}</p>
-              {m.em_rota && (
-                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 mt-1">
-                  Em rota desde {fmtDateTime(m.em_rota_desde)}
-                </Badge>
-              )}
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {m.em_rota && (
+                  <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                    Em rota desde {fmtDateTime(m.em_rota_desde)}
+                  </Badge>
+                )}
+                {m.obs_count > 0 && (
+                  <Badge variant="outline" className="gap-1 border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10">
+                    <MessageSquareWarning className="h-3 w-3" />
+                    {m.obs_count} {m.obs_count === 1 ? "rota com observação" : "rotas com observação"}
+                  </Badge>
+                )}
+              </div>
             </div>
+            {periodo && (
+              <Button size="sm" variant="outline" className="ml-auto" onClick={() => setPrintOpen(true)}>
+                <Printer className="h-3.5 w-3.5 mr-1" /> Imprimir
+              </Button>
+            )}
           </SheetTitle>
         </SheetHeader>
 
@@ -114,6 +133,9 @@ export function MotoristaDetalheDrawer({ motorista, onClose }: Props) {
                 const km = calcKm(r);
                 const t = tempoMin(r);
                 const fim = r.horario_real_retorno || r.horario_saida_final;
+                const obs = (r.observacoes || "").trim();
+                const ocorr = (r.ocorrencia || "").trim();
+                const hasNote = !!obs || !!ocorr;
                 return (
                   <Card key={r.id}>
                     <CardContent className="p-3 space-y-1.5">
@@ -126,6 +148,11 @@ export function MotoristaDetalheDrawer({ motorista, onClose }: Props) {
                             {r.categoria && <Badge variant="secondary" className="text-[10px]">{r.categoria.replace("_", " ")}</Badge>}
                             {!fim && r.horario_real_saida && (
                               <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px]">Em andamento</Badge>
+                            )}
+                            {hasNote && (
+                              <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10">
+                                <MessageSquareWarning className="h-3 w-3" /> com observação
+                              </Badge>
                             )}
                           </div>
                           {r.rota && <p className="text-xs text-muted-foreground mt-0.5">{r.rota}</p>}
@@ -140,9 +167,24 @@ export function MotoristaDetalheDrawer({ motorista, onClose }: Props) {
                         {r.qtd_entregas != null && <Mini label="Entregas" value={String(r.qtd_entregas)} />}
                         {r.km_inicial != null && <Mini label="KM ini" value={Number(r.km_inicial).toLocaleString("pt-BR")} />}
                         {r.km_final != null && <Mini label="KM fim" value={Number(r.km_final).toLocaleString("pt-BR")} />}
+                        {r.conferente && <Mini label="Conferente" value={r.conferente} />}
+                        {r.numero_lacre && <Mini label="Lacre" value={r.numero_lacre} />}
                       </div>
-                      {r.ocorrencia && (
-                        <p className="text-xs text-amber-700 dark:text-amber-300 pt-1">⚠ {r.ocorrencia}</p>
+                      {ocorr && (
+                        <div className="mt-1.5 rounded-md border-l-2 border-amber-500 bg-amber-500/5 px-2 py-1.5">
+                          <p className="text-[10px] font-semibold uppercase text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                            <MessageSquareWarning className="h-3 w-3" /> Ocorrência
+                          </p>
+                          <p className="text-xs whitespace-pre-wrap text-amber-800 dark:text-amber-200">{ocorr}</p>
+                        </div>
+                      )}
+                      {obs && (
+                        <div className="mt-1.5 rounded-md border-l-2 border-foreground/30 bg-muted/50 px-2 py-1.5">
+                          <p className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" /> Observações da portaria
+                          </p>
+                          <p className="text-xs whitespace-pre-wrap">{obs}</p>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -153,6 +195,15 @@ export function MotoristaDetalheDrawer({ motorista, onClose }: Props) {
         </div>
       </SheetContent>
     </Sheet>
+    {periodo && (
+      <MotoristaPrintDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        motorista={motorista}
+        periodo={periodo}
+      />
+    )}
+    </>
   );
 }
 
