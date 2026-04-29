@@ -46,7 +46,7 @@ export default function Index() {
     status: "todos",
     vendedor: [] as string[],
     tipoCaminhao: "todos",
-    busca: "",
+    searchTags: [] as import("@/components/dashboard/SmartSearchBar").SearchTag[],
     dateRange: { from: today, to: today } as DateRange,
     etapa: "todos",
     ruptura: "todos",
