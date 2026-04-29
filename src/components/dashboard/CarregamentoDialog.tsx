@@ -294,13 +294,30 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     try {
 
     // Clean payload: remove system/read-only fields
-    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada'];
+    // NOTA: peso_original e ruptura_sinalizada são reescritos por item logo abaixo conforme resetBaseline.
+    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada', 'peso_original'];
     const basePayload: Record<string, any> = {};
     for (const [key, value] of Object.entries(form)) {
       if (!SYSTEM_FIELDS.includes(key)) {
         basePayload[key] = value;
       }
     }
+
+    // Helper: deriva campos por linha, incluindo:
+    //  - peso_original = peso (se usuário confirmou redução intencional)
+    //  - ruptura_sinalizada = false (se sem ruptura E peso >= peso_original alvo)
+    const rupturaFieldsForItem = (item: ProductItem) => {
+      const out: Record<string, any> = {};
+      const baseline = item.resetBaseline ? item.peso : item.pesoOriginal;
+      if (item.resetBaseline) {
+        out.peso_original = item.peso;
+      }
+      // Limpa flag fantasma quando: sem ruptura total E peso atual >= baseline desejado
+      if (!item.ruptura && (baseline == null || item.peso >= baseline)) {
+        out.ruptura_sinalizada = false;
+      }
+      return out;
+    };
 
     // Use item values directly — weight is always manual
     const finalItems = items.map(item => ({
