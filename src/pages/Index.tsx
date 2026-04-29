@@ -149,11 +149,7 @@ export default function Index() {
       if (filters.ruptura === "nao" && c.ruptura) return false;
       if (filters.cliente.length > 0 && !filters.cliente.includes(c.codigo_cliente ?? "")) return false;
       if (filters.uf !== "todos" && c.uf !== filters.uf) return false;
-      if (filters.busca) {
-        const b = filters.busca.toLowerCase();
-        const fields = [c.nome_produto, c.codigo_produto, c.cliente, c.motorista, c.cidade, c.nome_carga, c.placa, c.codigo_cliente];
-        if (!fields.some(f => f?.toLowerCase().includes(b))) return false;
-      }
+      if (!matchSearchTags(c, filters.searchTags)) return false;
       return true;
     });
   }, [carregamentos, filters, showLogistica]);
@@ -170,11 +166,7 @@ export default function Index() {
       if (filters.ruptura === "nao" && c.ruptura) return false;
       if (filters.cliente.length > 0 && !filters.cliente.includes(c.codigo_cliente ?? "")) return false;
       if (filters.uf !== "todos" && c.uf !== filters.uf) return false;
-      if (filters.busca) {
-        const b = filters.busca.toLowerCase();
-        const fields = [c.nome_produto, c.codigo_produto, c.cliente, c.motorista, c.cidade, c.nome_carga, c.placa, c.codigo_cliente];
-        if (!fields.some(f => f?.toLowerCase().includes(b))) return false;
-      }
+      if (!matchSearchTags(c, filters.searchTags)) return false;
       return true;
     });
   }, [carregamentos, filters]);
