@@ -1,40 +1,57 @@
-## Problema
+## Objetivo
 
-O usuário vê várias notificações **"Perfil de acesso não encontrado"** em sequência. Causa raiz combinada:
+Simplificar a página **Rupturas** para que o foco principal seja "qual produto está faltando", removendo o excesso de abas, KPIs e colunas que dificultam a leitura.
 
-1. **Falha intermitente no fetch da role** (`useAuth.ts` → `fetchRoleWithRetry`). A query a `user_roles` está corrida contra um `Promise.race` com timeout de 5s. Quando a rede fica lenta, realtime está saturado ou há cold start, o timeout vence, a função retorna `null` mesmo o usuário tendo role válida no banco (verificado: `matheuscarneiro004@gmail.com → admin`, `matheuss-s@hotmail.com → vendedor`). Logs confirmam: `[Auth] Role fetch failed after retry` repetido.
-2. **Toast disparado por componente, sem deduplicação global**. `ProtectedRoute` e `SuperAdminRoute` usam `useRef` local — quando o usuário troca de rota, navega entre páginas lazy, ou múltiplos guards montam, **cada um dispara seu próprio `toast.error`**, gerando a cascata.
-3. **Redirect prematuro**: `missingRole` é considerado verdadeiro assim que `loading=false` e `role===null`, mesmo se o motivo foi um timeout transitório — disparando navegação + toast em cada montagem subsequente.
+## O que muda
 
-## Solução
+### Remover (excesso de informação)
 
-### 1) Tornar o fetch da role mais resiliente (`src/hooks/useAuth.ts`)
+- **Abas:** Lista detalhada, Visão geral, Por cliente, Por carga, Linha do tempo, Itens — todas removidas. Não haverá mais sistema de abas.
+- **KPIs do topo:** dos 6 cards atuais (Itens, Peso, Cargas, Clientes, Pedidos editados, Maior corte) ficam apenas **2**: Itens em ruptura e Peso/unidades não carregados.
+- **Filtros pouco usados:** Vendedor, Cliente, e o seletor "Totais/Parciais/Ambas" — removidos. Continua só **período (data)**, **carga** e **busca**.
+- **CSV/Imprimir:** mantidos, mas exportam apenas a visão de produto.
 
-- Aumentar `ROLE_TIMEOUT_MS` de 5s para 12s (rede lenta + RLS).
-- Aumentar retries de 2 para 4 com backoff exponencial (1s, 2s, 4s).
-- Distinguir **erro/timeout** de **role realmente ausente**:
-  - Retornar um sentinel `{ role: AppRole | null, failed: boolean }`.
-  - Se `failed=true`, **não setar `role=null` definitivamente** — manter `role` indefinido e tentar refetch ao focar a janela / reconectar.
-- Adicionar listener `window` `online` e `visibilitychange` para refazer o fetch da role caso esteja faltando.
+### Nova estrutura (uma tela só)
 
-### 2) Deduplicar e silenciar o toast (`ProtectedRoute.tsx`, `SuperAdminRoute.tsx`)
+```text
+┌──────────────────────────────────────────────────────────┐
+│ Rupturas                            [Exportar] [Imprimir]│
+│ Período: [01/04 – 29/04]  Carga: [Todas ▾]  [Buscar...]  │
+├──────────────────────────────────────────────────────────┤
+│ ⚠ 12 itens em ruptura      📦 850 kg / 320 UNID em falta │
+├──────────────────────────────────────────────────────────┤
+│  PRODUTO                       FALTANDO   PEDIDOS  ▾     │
+│ ─────────────────────────────────────────────────────── │
+│  ▸ COXÃO MOLE PEÇA              420 kg     5 pedidos    │
+│       3 clientes · Cargas: CARGA 12, CARGA 15           │
+│  ▸ PÃO DE ALHO                  120 UNID   4 pedidos    │
+│       4 clientes · Cargas: CARGA 12                     │
+│  ▸ PICANHA FATIADA              310 kg     3 pedidos    │
+│       2 clientes · Cargas: CARGA 09, CARGA 12, CARGA 14 │
+└──────────────────────────────────────────────────────────┘
+```
 
-- Usar **toast.error com `id` fixo** (`sonner` deduplica por id): `toast.error("...", { id: "auth-missing-role" })`. Garante uma única notificação visível em qualquer momento, independente de quantos guards montem.
-- Adicionar um pequeno **grace period** (≈1.5s) antes de mostrar o toast/redirect quando `role===null`: renderiza o spinner de loading nesse intervalo e tenta um refetch. Evita flash de erro durante navegação.
-- Quando o refetch durante o grace period retorna a role corretamente, nem toast nem redirect ocorrem.
+Cada linha:
+- **Nome do produto** (grande, em destaque). Código pequeno embaixo.
+- **Quantidade faltando** com unidade correta (`kg` ou `UNID` para pão de alho e similares — usa o helper `isPorUnidade` já existente).
+- **Pedidos afetados** (contagem).
+- **Linha secundária** menor com: nº de clientes afetados + lista resumida das cargas onde aparece (até 3 nomes; "+N" se mais).
+- **Mobile**: cada produto vira um card empilhado com as mesmas três informações (faltando / pedidos / clientes+cargas).
 
-### 3) Evitar redirect em loop
+Ordenação padrão: maior quantidade faltando primeiro.
 
-- Só executar o `Navigate` para `/auth` (no caso de `missingRole`) depois do grace period e de uma tentativa explícita de refetch falhar. Caso contrário, manter o usuário na rota atual com fallback de loading.
+### O que continua funcionando por baixo
+
+- O hook `useCarregamentos`, a detecção de ruptura (`isRupturaParcial` + `pesoNaoCarregado`) e o agregado `productSummary` já existem — vou reaproveitar.
+- O deep-link `?carga=NomeCarga` continua filtrando pela carga.
+- Permissões e botão "Novo Pedido (Ruptura)" mantidos para quem pode editar.
+- Diálogo de impressão (`RupturasPrintDialog`) recebe os mesmos dados de produto que já recebia.
 
 ## Arquivos a editar
 
-- `src/hooks/useAuth.ts` — fetch resiliente, refetch em `online`/`visibilitychange`, expor função `refreshRole`.
-- `src/components/ProtectedRoute.tsx` — toast com id fixo, grace period com refetch, evitar redirect prematuro.
-- `src/components/SuperAdminRoute.tsx` — mesmo tratamento.
+- `src/pages/Rupturas.tsx` — reescrita da UI: remoção das abas, dos KPIs extras, dos filtros vendedor/cliente/tipo, da timeline e da lista detalhada. Nova tabela/cards focados em produto.
+- (sem mudanças em hooks ou no banco)
 
-## Resultado esperado
+## Resultado
 
-- Sem cascata de notificações mesmo se a role demorar para chegar.
-- Usuário com role válida no banco nunca verá "Perfil de acesso não encontrado" por causa de timeout transitório.
-- Caso a role realmente esteja ausente, **uma única** notificação aparece.
+Tela limpa, uma única lista, leitura imediata: "este produto, esta quantidade faltando, em tantos pedidos, afetando tantos clientes em tais cargas".
