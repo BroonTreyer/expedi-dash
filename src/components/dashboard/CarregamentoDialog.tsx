@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { STATUSES, UF_LIST, isPorUnidade } from "@/lib/constants";
-import { Plus, X } from "lucide-react";
+import { Plus, X, AlertTriangle, RotateCcw, Check } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 export type DialogMode = "vendas" | "logistica" | "editar";
@@ -24,6 +24,10 @@ interface ProductItem {
   ruptura: boolean;
   pesoManual: boolean;
   originalId?: string;
+  /** Peso original gravado no banco (peso_original). Usado para detectar ruptura parcial silenciosa. */
+  pesoOriginal?: number;
+  /** Quando true, indica que o usuário confirmou a redução intencional → reset peso_original no save. */
+  resetBaseline?: boolean;
 }
 
 const emptyItem = (): ProductItem => ({
@@ -123,6 +127,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         pesoManual: true,
         // Track original DB id only when editing a full group
         originalId: editingGroup ? row.id : undefined,
+        pesoOriginal: (row as any).peso_original != null ? Number((row as any).peso_original) : undefined,
+        resetBaseline: false,
       };
     }));
   }, [editing, open, produtos, vendedores, cloneItems, editingGroup]);
@@ -250,6 +256,26 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       const qty = Math.round(peso / item.pesoPadrao);
       updateItem(index, { peso, quantidade: qty, pesoManual: true });
     }
+    // Edição manual de peso invalida qualquer "confirmação de redução" anterior — usuário precisa reconfirmar.
+    if (items[index]?.resetBaseline) {
+      updateItem(index, { resetBaseline: false });
+    }
+  };
+
+  const restaurarPesoOriginal = (index: number) => {
+    const item = items[index];
+    if (!item.pesoOriginal || item.pesoOriginal <= 0) return;
+    const novoPeso = item.pesoOriginal;
+    if (isPorUnidade(item.nome_produto) || item.pesoPadrao <= 0) {
+      updateItem(index, { peso: novoPeso, pesoManual: true, resetBaseline: false });
+    } else {
+      const qty = Math.round(novoPeso / item.pesoPadrao);
+      updateItem(index, { peso: novoPeso, quantidade: qty, pesoManual: true, resetBaseline: false });
+    }
+  };
+
+  const confirmarReducao = (index: number) => {
+    updateItem(index, { resetBaseline: true });
   };
 
   const addItem = () => setItems(prev => [...prev, emptyItem()]);
@@ -268,13 +294,30 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
     try {
 
     // Clean payload: remove system/read-only fields
-    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada'];
+    // NOTA: peso_original e ruptura_sinalizada são reescritos por item logo abaixo conforme resetBaseline.
+    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada', 'peso_original'];
     const basePayload: Record<string, any> = {};
     for (const [key, value] of Object.entries(form)) {
       if (!SYSTEM_FIELDS.includes(key)) {
         basePayload[key] = value;
       }
     }
+
+    // Helper: deriva campos por linha, incluindo:
+    //  - peso_original = peso (se usuário confirmou redução intencional)
+    //  - ruptura_sinalizada = false (se sem ruptura E peso >= peso_original alvo)
+    const rupturaFieldsForItem = (item: ProductItem) => {
+      const out: Record<string, any> = {};
+      const baseline = item.resetBaseline ? item.peso : item.pesoOriginal;
+      if (item.resetBaseline) {
+        out.peso_original = item.peso;
+      }
+      // Limpa flag fantasma quando: sem ruptura total E peso atual >= baseline desejado
+      if (!item.ruptura && (baseline == null || item.peso >= baseline)) {
+        out.ruptura_sinalizada = false;
+      }
+      return out;
+    };
 
     // Use item values directly — weight is always manual
     const finalItems = items.map(item => ({
@@ -317,6 +360,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: firstItem.peso,
         peso_manual: firstItem.pesoManual,
         ruptura: firstItem.ruptura,
+        ...rupturaFieldsForItem(firstItem),
       };
 
       if (editingGroup && cloneItems && cloneItems.length > 0) {
@@ -333,6 +377,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
             peso: item.peso,
             peso_manual: item.pesoManual,
             ruptura: item.ruptura,
+            ...rupturaFieldsForItem(item),
           };
           if ((item as any).originalId) {
             batchUpdates.push({ id: (item as any).originalId, ...row });
@@ -371,6 +416,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           peso: item.peso,
           peso_manual: item.pesoManual,
           ruptura: item.ruptura,
+          ...rupturaFieldsForItem(item),
           operation_id: opId,
           row_op_key: makeRowKey(item),
         }));
@@ -387,6 +433,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: item.peso,
         peso_manual: item.pesoManual,
         ruptura: item.ruptura,
+        ...rupturaFieldsForItem(item),
         operation_id: opId,
         row_op_key: makeRowKey(item),
       }));
@@ -517,7 +564,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   </Button>
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_100px_80px_auto_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
+                  <div key={idx} className="space-y-2 border-b border-border pb-3 sm:border-0 sm:pb-0">
+                  <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_100px_80px_auto_32px] sm:gap-2 sm:items-end">
                     <div className="space-y-1">
                       <Label className="text-xs sm:hidden">Código</Label>
                       {idx === 0 && <Label className="text-xs hidden sm:block">Código</Label>}
@@ -575,6 +623,39 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                         </Button>
                       ) : <div className="h-9 w-8 hidden sm:block" />}
                     </div>
+                  </div>
+                  {/* Aviso de ruptura parcial silenciosa: peso atual < peso_original e sem ruptura marcada */}
+                  {item.pesoOriginal != null && item.pesoOriginal > 0 && item.peso < item.pesoOriginal && !item.ruptura && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-2.5 py-2 text-xs">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span className="text-amber-900 dark:text-amber-200">
+                        Marcado como <strong>ruptura parcial</strong>: original {item.pesoOriginal.toLocaleString("pt-BR")} kg → atual {Number(item.peso).toLocaleString("pt-BR")} kg.
+                        {item.resetBaseline && <span className="ml-1 font-medium">Redução será confirmada ao salvar.</span>}
+                      </span>
+                      <div className="flex gap-1 ml-auto">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => restaurarPesoOriginal(idx)}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" /> Restaurar original
+                        </Button>
+                        {!item.resetBaseline && (
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => confirmarReducao(idx)}
+                          >
+                            <Check className="h-3 w-3 mr-1" /> Confirmar redução
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   </div>
                 ))}
               </div>
