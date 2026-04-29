@@ -202,11 +202,9 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
     const map = new Map<string, ProdAgg>();
     for (const c of rupturas) {
       const key = c.codigo_produto || c.nome_produto || "SEM_COD";
-      // "Faltando agora" reflete o estado atual do pedido na tela:
-      // se está marcado como ruptura total, conta o peso ATUAL da linha
-      // (que é o que sobrou para repor / o que o usuário acabou de editar),
-      // não o peso_original histórico.
-      const perdido = c.ruptura ? (c.peso ?? 0) : pesoNaoCarregado(c);
+      // "Faltando agora" usa peso_original como referência do que foi cortado.
+      // Mesma fonte de verdade do Painel e do Histórico (pesoNaoCarregado).
+      const perdido = pesoNaoCarregado(c);
       const porUnid = isPorUnidade(c.nome_produto);
       let g = map.get(key);
       if (!g) {
@@ -220,10 +218,11 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
       }
       g.qtdPedidos += 1;
       g.pesoCortado += perdido;
-      // Mesma lógica para quantidade: ruptura total = quantidade atual da linha.
+      // Quantidade segue a mesma regra: ruptura total = quantidade_original (pedido inteiro perdido).
+      const qOriginal = c.quantidade_original ?? c.quantidade ?? 0;
       const qPerdida = c.ruptura
-        ? (c.quantidade ?? 0)
-        : Math.max(0, (c.quantidade_original ?? c.quantidade ?? 0) - (c.quantidade ?? 0));
+        ? qOriginal
+        : Math.max(0, qOriginal - (c.quantidade ?? 0));
       g.qtdCortada += qPerdida;
       if (c.nome_carga) g.cargas.add(c.nome_carga);
       if (c.codigo_cliente) g.clientes.add(c.codigo_cliente);
