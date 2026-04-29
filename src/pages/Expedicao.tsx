@@ -36,9 +36,58 @@ export default function Expedicao() {
     () => veiculosEsperadosAll.filter((v) => v.grupo === "TERCEIRIZADO"),
     [veiculosEsperadosAll]
   );
+  // Movimentações que indicam que o motorista JÁ chegou (no pátio ou aguardando liberação)
+  const chegouOuNoPatio = useMemo(
+    () =>
+      movimentacoes.filter(
+        (m) =>
+          m.tipo_movimento === "entrada" &&
+          m.etapa_terceirizado !== "finalizado" &&
+          (!!m.horario_entrada ||
+            m.etapa_terceirizado === "chegada" ||
+            !!m.horario_chegada)
+      ),
+    [movimentacoes]
+  );
+
+  // Sets para deduplicar A chegar / Cargas fechadas
+  const placasChegadas = useMemo(
+    () =>
+      new Set(
+        chegouOuNoPatio
+          .map((m) => (m.placa || "").trim().toUpperCase())
+          .filter(Boolean)
+      ),
+    [chegouOuNoPatio]
+  );
+  const cargasComMotoristaChegado = useMemo(
+    () =>
+      new Set(
+        chegouOuNoPatio.map((m) => m.carga_id).filter((x): x is string => !!x)
+      ),
+    [chegouOuNoPatio]
+  );
+
+  // A chegar — exclui placas/cargas que já chegaram
+  const veiculosAChegar = useMemo(
+    () =>
+      veiculosEsperados.filter((v) => {
+        if (v.conferido) return false;
+        const placa = (v.placa || "").trim().toUpperCase();
+        if (placa && placasChegadas.has(placa)) return false;
+        if (v.carga_id && cargasComMotoristaChegado.has(v.carga_id)) return false;
+        return true;
+      }),
+    [veiculosEsperados, placasChegadas, cargasComMotoristaChegado]
+  );
+
+  // Cargas fechadas aguardando veículo — exclui as cargas cujo motorista já chegou
   const cargasTerc = useMemo(
-    () => cargasFechadas.filter((c) => !!c.transportadora),
-    [cargasFechadas]
+    () =>
+      cargasFechadas.filter(
+        (c) => !!c.transportadora && !cargasComMotoristaChegado.has(c.carga_id)
+      ),
+    [cargasFechadas, cargasComMotoristaChegado]
   );
 
   const [now, setNow] = useState(() => new Date());
@@ -62,26 +111,24 @@ export default function Expedicao() {
         !m.horario_entrada &&
         (m.etapa_terceirizado === "chegada" || !!m.horario_chegada)
     );
-    const esperadosPend = veiculosEsperados.filter((v) => !v.conferido);
-
     const kgCarregado =
       noPatio.reduce((s, m) => s + (Number(m.peso) || 0), 0) +
       chegou.reduce((s, m) => s + (Number(m.peso) || 0), 0);
     const kgCargasFechadas = cargasTerc.reduce((s, c) => s + (Number(c.peso_total) || 0), 0);
-    const kgEsperados = esperadosPend.reduce((s, v) => s + (Number(v.peso) || 0), 0);
+    const kgEsperados = veiculosAChegar.reduce((s, v) => s + (Number(v.peso) || 0), 0);
     const kgACarregar = kgCargasFechadas + kgEsperados;
     const kgTotal = kgCarregado + kgACarregar;
 
     return {
       noPatio: noPatio.length,
       chegou: chegou.length,
-      aChegar: esperadosPend.length,
+      aChegar: veiculosAChegar.length,
       cargasFechadas: cargasTerc.length,
       kgCarregado,
       kgACarregar,
       kgTotal,
     };
-  }, [movimentacoes, veiculosEsperados, cargasTerc]);
+  }, [movimentacoes, veiculosAChegar, cargasTerc]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
@@ -153,7 +200,7 @@ export default function Expedicao() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           <PainelNoPatio movimentacoes={movimentacoes} now={now} />
           <PainelChegou movimentacoes={movimentacoes} now={now} />
-          <PainelAChegar veiculos={veiculosEsperados} hoje={hojeStr} />
+          <PainelAChegar veiculos={veiculosAChegar} hoje={hojeStr} />
           <PainelCargasFechadas cargas={cargasTerc} />
         </div>
       </main>
