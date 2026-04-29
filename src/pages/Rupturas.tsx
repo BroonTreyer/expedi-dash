@@ -237,6 +237,40 @@ export default function Rupturas() {
     return { pesoTotal, unidTotal, itens: rupturas.length, pedidos: pedidosUnicos };
   }, [productSummary, rupturas]);
 
+  // ----- Detecção de inconsistências -----
+  // 1) Ruptura total com peso > 0 (usuário marcou ruptura mas não zerou o peso)
+  // 2) peso_original idêntico em ≥3 itens do mesmo pedido (provável replicação do total)
+  const inconsistencias = useMemo(() => {
+    const rupturaComPeso = rupturas.filter(
+      (c) => c.ruptura && (c.peso ?? 0) > 0 && (c.peso_original ?? 0) > 0
+    );
+
+    // Agrupa por numero_pedido e detecta peso_original duplicado em ≥3 linhas
+    const porPedido = new Map<number, typeof rupturas>();
+    for (const c of carregamentos) {
+      if (c.numero_pedido == null || c.peso_original == null) continue;
+      const arr = porPedido.get(c.numero_pedido) ?? [];
+      arr.push(c);
+      porPedido.set(c.numero_pedido, arr);
+    }
+    const pedidosSuspeitos: { numero: number; valor: number; itens: number; cliente?: string | null }[] = [];
+    for (const [numero, itens] of porPedido) {
+      if (itens.length < 3) continue;
+      const valores = new Set(itens.map((i) => Number(i.peso_original)));
+      if (valores.size === 1) {
+        const valor = Number(itens[0].peso_original);
+        if (valor >= 500) {
+          pedidosSuspeitos.push({ numero, valor, itens: itens.length, cliente: itens[0].cliente });
+        }
+      }
+    }
+
+    return { rupturaComPeso, pedidosSuspeitos };
+  }, [rupturas, carregamentos]);
+
+  const temInconsistencia =
+    inconsistencias.rupturaComPeso.length > 0 || inconsistencias.pedidosSuspeitos.length > 0;
+
   // ----- print data -----
   const printData = useMemo<RupturasPrintData | null>(() => {
     if (rupturas.length === 0) return null;
