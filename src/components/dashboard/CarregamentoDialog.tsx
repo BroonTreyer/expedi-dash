@@ -360,6 +360,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: firstItem.peso,
         peso_manual: firstItem.pesoManual,
         ruptura: firstItem.ruptura,
+        ...rupturaFieldsForItem(firstItem),
       };
 
       if (editingGroup && cloneItems && cloneItems.length > 0) {
@@ -376,6 +377,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
             peso: item.peso,
             peso_manual: item.pesoManual,
             ruptura: item.ruptura,
+            ...rupturaFieldsForItem(item),
           };
           if ((item as any).originalId) {
             batchUpdates.push({ id: (item as any).originalId, ...row });
@@ -414,6 +416,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
           peso: item.peso,
           peso_manual: item.pesoManual,
           ruptura: item.ruptura,
+          ...rupturaFieldsForItem(item),
           operation_id: opId,
           row_op_key: makeRowKey(item),
         }));
@@ -430,6 +433,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
         peso: item.peso,
         peso_manual: item.pesoManual,
         ruptura: item.ruptura,
+        ...rupturaFieldsForItem(item),
         operation_id: opId,
         row_op_key: makeRowKey(item),
       }));
