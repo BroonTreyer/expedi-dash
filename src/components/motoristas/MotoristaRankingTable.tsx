@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { MotoristaSparkline } from "./MotoristaSparkline";
 import { formatDuracao } from "@/lib/portaria-tempos";
 import type { MotoristaAgg } from "@/hooks/useMotoristasPainel";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, MessageSquareWarning } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const fmtKm = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 const fmtKg = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
@@ -112,6 +113,26 @@ export function MotoristaRankingTable({ data, onSelect }: Props) {
                       </AvatarFallback>
                     </Avatar>
                     <span className="font-medium text-sm">{m.nome}</span>
+                    {m.obs_count > 0 && (
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge
+                              variant="outline"
+                              className="gap-1 h-5 px-1.5 text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10"
+                            >
+                              <MessageSquareWarning className="h-3 w-3" />
+                              {m.obs_count}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {m.obs_count === 1
+                              ? "1 rota com observação/ocorrência"
+                              : `${m.obs_count} rotas com observação/ocorrência`}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{m.rotas}</TableCell>
