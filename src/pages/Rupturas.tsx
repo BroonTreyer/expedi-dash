@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { isPorUnidade } from "@/lib/constants";
 import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
+import { temRuptura } from "@/lib/ruptura-utils";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
@@ -146,7 +147,7 @@ export default function Rupturas() {
 
   // ----- universo de rupturas (totais + parciais) -----
   const todasRupturas = useMemo(
-    () => carregamentos.filter((c) => c.ruptura || isRupturaParcial(c)),
+    () => carregamentos.filter((c) => temRuptura(c) || isRupturaParcial(c)),
     [carregamentos]
   );
 
@@ -229,8 +230,11 @@ export default function Rupturas() {
       if (p.porUnidade) unidTotal += p.qtdCortada;
       else pesoTotal += p.pesoCortado;
     }
-    return { pesoTotal, unidTotal, itens: rupturas.length };
-  }, [productSummary, rupturas.length]);
+    const pedidosUnicos = new Set(
+      rupturas.filter(c => c.numero_pedido).map(c => c.numero_pedido)
+    ).size;
+    return { pesoTotal, unidTotal, itens: rupturas.length, pedidos: pedidosUnicos };
+  }, [productSummary, rupturas]);
 
   // ----- print data -----
   const printData = useMemo<RupturasPrintData | null>(() => {
@@ -411,7 +415,7 @@ export default function Rupturas() {
             icon={<PackageX className="h-6 w-6" />}
             label="Itens em ruptura"
             value={kpis.itens}
-            sub={`${productSummary.length} produto(s) afetado(s)`}
+            sub={`em ${kpis.pedidos} pedido(s) · ${productSummary.length} produto(s) distinto(s)`}
             tone="rose"
           />
           <Kpi
