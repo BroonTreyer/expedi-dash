@@ -1,48 +1,44 @@
-## Problema
+## Objetivo
 
-Na correção anterior eu mudei o cálculo de "Faltando agora" para usar `c.peso` quando `ruptura === true`. Isso quebrou os totais corretos de produtos como Carne Moída (caiu de 11.050kg para 7.050kg), porque o `peso` da linha em ruptura nem sempre representa o peso pedido — em muitos casos ele já está zerado/reduzido, e o valor verdadeiro do que foi cortado está em `peso_original`.
+Permitir que usuários com perfil **Portaria** subam fotos a partir de arquivos do dispositivo (galeria/PDF) ao cadastrar motoristas — não apenas tirar foto na hora pela câmera. Hoje só Admin/Logística têm essa opção; Portaria fica travada na captura ao vivo.
 
-O caso anterior (cód. 400, peso editado para 2.000kg) era uma **exceção isolada**, não a regra.
+## Diagnóstico
 
-## Decisão
+- O componente `CapturaFoto` (`src/components/portaria/CapturaFoto.tsx`) força `capture="environment"` por padrão, abrindo só a câmera. O botão "Enviar arquivo" só aparece quando recebe `allowFileUpload={true}`.
+- Em `RegistroMovimentoDialog.tsx` esse flag é controlado por `canRegularizar = role === "admin" || role === "logistica"` — exclui Portaria de propósito (regularização de cargas próprias).
+- Nos pontos de **cadastro de motorista** o flag nem é passado:
+  - `src/pages/Motoristas.tsx` (formulário completo)
+  - `src/components/portaria/MotoristaAutocomplete.tsx` (cadastro rápido usado dentro dos diálogos da Portaria)
+- A RLS já permite `INSERT/UPDATE` em `motoristas` e upload no bucket `portaria` para o perfil Portaria — então só falta liberar a UI.
 
-Voltar a usar `peso_original` como fonte de verdade para o que foi cortado em ruptura total — exatamente como o resto do sistema faz (`pesoNaoCarregado` em `src/lib/peso-utils.ts` já implementa essa regra).
+## Mudanças
 
-## Mudança
+1. **`src/pages/Motoristas.tsx`**
+   - Passar `allowFileUpload` para o `CapturaFoto` da "Foto do Documento" para qualquer usuário com permissão de cadastro (admin, logística, portaria). Como essa página já é restrita por rota a esses perfis, basta `allowFileUpload`.
 
-**Arquivo:** `src/pages/Rupturas.tsx` (componente `FaltandoAgora`, ~linha 209 e 224)
+2. **`src/components/portaria/MotoristaAutocomplete.tsx`** (cadastro rápido)
+   - Passar `allowFileUpload` no `CapturaFoto` para que portaria também consiga anexar foto/PDF do documento ao criar motorista no fluxo da guarita.
 
-Substituir:
-```ts
-const perdido = c.ruptura ? (c.peso ?? 0) : pesoNaoCarregado(c);
-const qPerdida = c.ruptura
-  ? (c.quantidade ?? 0)
-  : Math.max(0, (c.quantidade_original ?? c.quantidade ?? 0) - (c.quantidade ?? 0));
+3. **`src/components/portaria/RegistroMovimentoDialog.tsx`** — manter a regra atual (`canRegularizar`) intocada para fotos de movimentação, já que o pedido é específico para "cadastro de motorista e etc.". Se desejar estender para fotos de placa/KM/lacre da própria movimentação, eu separo num passo seguinte.
+
+## Detalhes técnicos
+
+```tsx
+// Motoristas.tsx
+<CapturaFoto
+  label="Foto do Documento"
+  onCapture={(f) => setFotoFile(f)}
+  previewUrl={motorista?.foto_documento_url}
+  accept="image/*,.pdf,application/pdf"
+  allowFileUpload
+/>
+
+// MotoristaAutocomplete.tsx
+<CapturaFoto label="Foto do Documento" onCapture={(f) => setFotoFile(f)} allowFileUpload />
 ```
 
-Por:
-```ts
-const perdido = pesoNaoCarregado(c); // usa peso_original ?? peso quando ruptura
-const qOriginal = c.quantidade_original ?? c.quantidade ?? 0;
-const qPerdida = c.ruptura
-  ? qOriginal
-  : Math.max(0, qOriginal - (c.quantidade ?? 0));
-```
+Sem migrações, sem mudança de RLS, sem novo schema.
 
-Comportamento:
-- **Ruptura total:** usa `peso_original` (com fallback para `peso` se `peso_original` for nulo). Volta a bater com o painel (11.050kg em Carne Moída).
-- **Item raro com peso editado depois da ruptura:** se o usuário editou o peso pra 2.000kg e o `peso_original` continua 40.000kg, vamos exibir 40.000kg (o pedido original). Isso é o comportamento consistente com Painel/Histórico/relatórios. Se no futuro quiser que edição manual sobrescreva, tratamos como feature separada (provavelmente atualizando `peso_original` no save quando for edição intencional).
-- **Ruptura parcial:** continua usando a diferença `original - atual`.
+## Pergunta de escopo
 
-## Atualização do comentário
-
-Trocar o comentário acima do bloco para:
-```
-// "Faltando agora" usa peso_original como referência do que foi cortado.
-// Mesma fonte de verdade do Painel e do Histórico (pesoNaoCarregado).
-```
-
-## Não alterar
-
-- `useCarregamentos.ts` — o refetch forçado e a lógica de realtime continuam úteis e não têm relação com esse bug.
-- KPIs do Painel, Histórico, exports — já usam `pesoNaoCarregado`, estão corretos.
+Quer que eu também libere upload de arquivo para Portaria nas fotos de **movimentação** (placa, KM, lacre, nota) dentro do `RegistroMovimentoDialog`? Hoje só admin/logística podem subir arquivo lá — Portaria continua tendo que usar a câmera ao vivo. Se sim, eu removo a restrição `canRegularizar` apenas dessa flag (mantendo as demais regras de regularização).
