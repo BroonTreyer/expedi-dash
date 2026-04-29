@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, Truck, LogIn, Clock, UserCheck, DoorOpen, Undo2, Hourglass } from "lucide-react";
+import { Package, Truck, LogIn, Clock, UserCheck, DoorOpen, Undo2, Hourglass, AlertOctagon } from "lucide-react";
 import { useCargasFechadasAguardando, type CargaFechadaAguardando } from "@/hooks/useCarregamentos";
 import { RegistroEntradaDialog } from "./RegistroEntradaDialog";
+import { CancelarCargaDialog } from "./CancelarCargaDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   const { data: cargasRaw = [], isLoading } = useCargasFechadasAguardando();
   const [prefill, setPrefill] = useState<CargaFechadaAguardando | null>(null);
   const [grupoDialog, setGrupoDialog] = useState<"PRÓPRIA" | "TERCEIRIZADO" | null>(null);
+  const [cancelCarga, setCancelCarga] = useState<CargaFechadaAguardando | null>(null);
   const [walkInIds, setWalkInIds] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -256,6 +258,16 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                         </span>
                       </>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-[11px] gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setCancelCarga(c)}
+                      disabled={isBusy}
+                    >
+                      <AlertOctagon className="h-3.5 w-3.5" />
+                      Cancelar carga
+                    </Button>
                   </div>
                 )}
               </div>
@@ -276,6 +288,13 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
             tipo_veiculo: prefill.tipo_caminhao || undefined,
             carga_id: prefill.carga_id,
           }}
+        />
+      )}
+      {cancelCarga && (
+        <CancelarCargaDialog
+          open={!!cancelCarga}
+          onOpenChange={(o) => { if (!o) setCancelCarga(null); }}
+          carga={cancelCarga}
         />
       )}
     </>
