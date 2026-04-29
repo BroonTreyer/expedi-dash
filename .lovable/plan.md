@@ -1,79 +1,50 @@
-# Por que a tag "RUPTURA" continua aparecendo
+## Editar ordem de entrega dentro de carga fechada (Consolidado)
 
-## Diagnóstico (causa real, confirmada no banco)
+Hoje, no Consolidado, ao abrir "Editar Carga" você só pode:
+- Inverter a ordem completa (botão "Inverter ordem")
+- Editar peso/remover pedidos
 
-Olhei o pedido **33 / cliente 10219 (JR DISTRIBUIDORA)** direto no banco. Os 5 produtos estão assim:
+**Não existe** controle para reordenar manualmente cada parada (ex.: mover o cliente da parada #3 para #1). É isso que vamos adicionar.
 
-| Produto | peso | peso_original | ruptura | ruptura_sinalizada |
-|---|---|---|---|---|
-| 501 LINGUIÇA TOSCANA | 10000 | 10000 | false | **false** |
-| 1100 CARNE MOÍDA | 4000 | **10000** | false | **true** ⚠️ |
-| 600 LING SUÍNA | 5000 | **10000** | false | **true** ⚠️ |
-| 1100 CARNE MOÍDA | 1000 | **10000** | false | **true** ⚠️ |
-| 730 CALABRESA | 10000 | 10000 | false | false |
+### O que será feito
 
-Ou seja: **na tela de edição** o checkbox "Ruptura" está desmarcado em tudo (e é isso que você vê — `ruptura = false`). Mas no card o sistema considera **ruptura parcial** porque `peso (4000) < peso_original (10000)`. A trigger do banco escreve `ruptura_sinalizada = true` toda vez que o peso fica menor que o original, mesmo que o checkbox de ruptura esteja desligado.
+**1. Reordenação manual no `EditarCargaDialog`**
+- Cada pedido na lista ganha controles de ordem ao lado do badge `#N`:
+  - Botões ▲ / ▼ para subir/descer **a parada inteira do cliente** (todos os itens do mesmo cliente sobem juntos, mantendo a lógica de "1 parada = 1 cliente")
+  - Campo numérico editável para digitar diretamente a posição desejada
+- Renumeração automática (1..N sem buracos) ao salvar
+- Suporte a drag-and-drop opcional (mais intuitivo que setas) usando `@dnd-kit` se já estiver no projeto, senão apenas setas + input
 
-E o `peso_original` ficou "preso" em 10.000 kg porque foi o valor da primeira vez em que o produto entrou. Quando você editou o peso para 4.000, 5.000 e 1.000, o sistema entendeu como "abateu peso → ruptura parcial" e acendeu a tag.
+**2. Agrupamento por cliente na edição**
+- A lista do diálogo passa a mostrar os pedidos **agrupados por cliente** (com cabeçalho da parada) — assim fica claro que reordenar move o cliente todo, não cada item de produto isoladamente. Isto bate com o que sai no romaneio.
 
-## Resumo do problema
+**3. Persistência**
+- Ao clicar "Salvar", além dos campos atuais (placa, motorista, etc.) e edições de peso, enviamos um `Map<itemId, novaOrdem>` para a mutation `editCargaMut`.
+- A mutation já faz updates por item via `Promise.all`; estendemos para também atualizar `ordem_entrega` por id.
+- Todos os itens do mesmo cliente recebem o mesmo `ordem_entrega`.
 
-A tag RUPTURA tem **dois gatilhos** hoje:
-1. Checkbox "Ruptura" marcado (`ruptura = true`) — visível na UI ✅
-2. **Ruptura parcial silenciosa**: `peso < peso_original` — invisível na UI ❌
+**4. Validação e UX**
+- Se a carga não tiver ordens definidas (cargas antigas sem roteirização), os botões aparecem desabilitados com tooltip "Roteirize a carga primeiro" — ou alternativamente permitimos atribuir ordem sequencial inicial automaticamente ao abrir.
+- Mantém os botões existentes "Inverter ordem" e "Desfazer carga".
+- Salvar invalida `consolidado` e `carregamentos` (já feito), e o romaneio reflete a nova ordem imediatamente.
 
-O caso (2) é o que está te confundindo: por dentro o pedido está "limpo", mas o card acusa ruptura porque o peso atual é menor que o registrado na primeira gravação.
+### Detalhes técnicos
 
-# Plano de correção
+**Arquivos a editar:**
+- `src/components/dashboard/EditarCargaDialog.tsx`
+  - Agrupar `visibleItems` por `codigo_cliente` antes de renderizar
+  - Estado local `ordemEdits: Record<clienteKey, number>`
+  - Handlers `moveUp`, `moveDown`, `setOrdem(clienteKey, n)`
+  - Ao salvar: gerar `Record<itemId, ordem_entrega>` expandindo a ordem do cliente para todos seus itens, normalizando para 1..N
+  - Estender prop `onSave` para aceitar `ordemUpdates?: Record<string, number>`
+- `src/pages/Consolidado.tsx`
+  - Estender `editCargaMut` para receber e aplicar `ordemUpdates` (mais um `Promise.all` paralelo aos updates de peso)
+- `src/components/dashboard/AdicionarCargaDialog.tsx` — verificar se reusa o mesmo dialog; se sim, a melhoria também valerá lá (provavelmente neutro)
 
-## 1. Mostrar o motivo da tag dentro do pedido (transparência)
+**Sem mudanças de schema** — coluna `ordem_entrega integer` já existe em `carregamentos_dia`.
 
-No `CarregamentoDialog` (tela de edição do pedido), em cada linha de produto onde `peso < peso_original`, exibir um aviso discreto ao lado do campo Peso:
+**Sem mudanças em RLS** — política `Ops update carregamentos_dia` já cobre admin/logística/faturamento.
 
-```
-⚠ Ruptura parcial: original 10.000 kg → atual 4.000 kg
-   [Restaurar original]  [Confirmar redução]
-```
-
-Assim o usuário vê **por que** a tag está acesa e tem dois caminhos:
-- **Restaurar original**: volta `peso = peso_original` e a tag some.
-- **Confirmar redução**: aceita que o peso novo é o correto e **redefine `peso_original = peso`**, limpando `ruptura_sinalizada`.
-
-## 2. Corrigir os 3 registros do pedido 33 agora
-
-Rodar um update pontual para limpar a flag fantasma desse pedido específico (e de qualquer outro na mesma situação onde o usuário claramente já reduziu de propósito, sem marcar ruptura):
-
-Estratégia conservadora: **não** mexer em `peso_original` automaticamente. Apenas garantir que ao salvar pelo diálogo, se o usuário clicar "Confirmar redução", o `peso_original` é atualizado para o `peso` atual e `ruptura_sinalizada` vai para `false`.
-
-Para o pedido 33 visto na imagem, vou deixar a decisão na sua mão via o novo botão "Confirmar redução" — não vou alterar o banco em massa sem você ver.
-
-## 3. Ajustar a trigger `preserve_peso_original`
-
-Hoje a trigger acende `ruptura_sinalizada = true` automaticamente sempre que `peso < peso_original`, mesmo em updates onde o usuário **explicitamente** mandou `ruptura_sinalizada: false` no payload.
-
-Mudança: se o `UPDATE` veio com `ruptura_sinalizada` explicitamente definido no payload (diferente do valor antigo) **e** `ruptura = false`, **respeitar** o que o frontend mandou em vez de sobrescrever. Isso permite que o botão "Confirmar redução" funcione.
-
-## 4. Atualizar o hook `useEditarPedidoAprovacao`
-
-Adicionar suporte ao novo fluxo: quando o usuário confirma a redução, o update enviado vira:
-
-```ts
-{
-  peso: novoPeso,
-  peso_original: novoPeso,   // redefine baseline
-  peso_manual: true,
-  ruptura: false,
-  ruptura_sinalizada: false,
-}
-```
-
-## Arquivos afetados
-
-- `src/components/dashboard/CarregamentoDialog.tsx` — aviso visual de ruptura parcial + 2 botões por linha
-- `src/hooks/useEditarPedidoAprovacao.ts` — suportar `peso_original` no payload
-- `supabase/migrations/<novo>.sql` — ajuste da trigger `preserve_peso_original` para respeitar `ruptura_sinalizada` explícito do frontend
-
-## Fora do escopo
-
-- **Não** vou alterar dados existentes em massa. A correção é por pedido, via UI.
-- **Não** vou remover a lógica de ruptura parcial automática — ela é útil quando a redução é de fato uma ruptura. Só estou dando ao usuário a forma de dizer "essa redução é intencional, não é ruptura".
+### Fora do escopo
+- Drag-and-drop avançado em mobile (faremos se já tiver `@dnd-kit`; caso contrário fica só com setas + input, que funciona bem em mobile também).
+- Re-cálculo automático de rota ótima ao reordenar manualmente (o usuário está sobrepondo a otimização de propósito).

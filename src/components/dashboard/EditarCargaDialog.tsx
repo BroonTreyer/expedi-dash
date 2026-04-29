@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle, CheckCircle2, ChevronUp, ChevronDown } from "lucide-react";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { isRupturaParcial } from "@/lib/peso-utils";
@@ -23,7 +23,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   group: CargaGroup | null;
-  onSave: (cargaId: string, fields: { nome_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[], itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }>) => void;
+  onSave: (cargaId: string, fields: { nome_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[], itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }>, ordemUpdates?: Record<string, number>) => void;
   onRemoveItem: (itemId: string) => void;
   onDeleteCarga?: (cargaId: string) => void;
   onInverterOrdem?: () => void;
@@ -45,6 +45,8 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [lookupInfo, setLookupInfo] = useState<string>("");
   // Edições pontuais por item (apenas peso)
   const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; motivo_ruptura?: string | null }>>({});
+  // Ordem manual por chave de cliente (codigo_cliente || nome). Inicializa do banco.
+  const [ordemPorCliente, setOrdemPorCliente] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (group && open) {
@@ -55,6 +57,16 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       setTransportadora(group.items[0]?.transportadora ?? "");
       setRemovedIds(new Set());
       setItemEdits({});
+      // Inicializa ordem por cliente a partir dos pedidos existentes
+      const map: Record<string, number> = {};
+      for (const it of group.items) {
+        const key = it.codigo_cliente ?? `__${it.cliente ?? "—"}`;
+        const ord = it.ordem_entrega;
+        if (ord != null && (map[key] == null || ord < map[key])) {
+          map[key] = ord;
+        }
+      }
+      setOrdemPorCliente(map);
       setLookupStatus("idle");
       setLookupInfo("");
     }
@@ -117,9 +129,67 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       return ao - bo;
     });
 
+  // Agrupa por cliente preservando a ordem atual do dialog
+  const clienteKey = (it: Carregamento) => it.codigo_cliente ?? `__${it.cliente ?? "—"}`;
+  const clienteGroups: { key: string; nome: string; cidade: string; itens: Carregamento[]; ordemAtual: number }[] = (() => {
+    const map = new Map<string, { key: string; nome: string; cidade: string; itens: Carregamento[]; ordemAtual: number }>();
+    for (const it of visibleItems) {
+      const k = clienteKey(it);
+      let g = map.get(k);
+      if (!g) {
+        g = {
+          key: k,
+          nome: it.cliente ?? it.codigo_cliente ?? "—",
+          cidade: [it.cidade, it.uf].filter(Boolean).join("/") || "—",
+          itens: [],
+          ordemAtual: ordemPorCliente[k] ?? 9999,
+        };
+        map.set(k, g);
+      }
+      g.itens.push(it);
+    }
+    return Array.from(map.values()).sort((a, b) => a.ordemAtual - b.ordemAtual);
+  })();
+
+  const totalParadas = clienteGroups.length;
+  const podeReordenar = clienteGroups.some((g) => g.ordemAtual !== 9999) && totalParadas >= 2;
+
+  const reorderTo = (key: string, novaPos: number) => {
+    if (novaPos < 1) novaPos = 1;
+    if (novaPos > totalParadas) novaPos = totalParadas;
+    // Lista atual ordenada
+    const lista = clienteGroups.map((g) => g.key);
+    const atualIdx = lista.indexOf(key);
+    if (atualIdx < 0) return;
+    lista.splice(atualIdx, 1);
+    lista.splice(novaPos - 1, 0, key);
+    const next: Record<string, number> = {};
+    lista.forEach((k, i) => { next[k] = i + 1; });
+    setOrdemPorCliente(next);
+  };
+
+  const moveBy = (key: string, delta: number) => {
+    const atual = ordemPorCliente[key];
+    if (atual == null || atual === 9999) return;
+    reorderTo(key, atual + delta);
+  };
+
   const handleSave = () => {
     const ids = visibleItems.map((i) => i.id);
-    onSave(group.cargaId, { nome_carga: nomeCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, itemEdits);
+    // Monta ordemUpdates: cada item recebe a ordem do seu cliente
+    let ordemUpdates: Record<string, number> | undefined;
+    if (podeReordenar) {
+      ordemUpdates = {};
+      for (const it of visibleItems) {
+        const k = clienteKey(it);
+        const ord = ordemPorCliente[k];
+        if (ord != null && ord !== 9999) {
+          ordemUpdates[it.id] = ord;
+        }
+      }
+      if (Object.keys(ordemUpdates).length === 0) ordemUpdates = undefined;
+    }
+    onSave(group.cargaId, { nome_carga: nomeCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, itemEdits, ordemUpdates);
   };
 
   const confirmRemove = () => {
@@ -174,12 +244,77 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
 
             {/* Pedidos list */}
             <div className="space-y-1.5">
-              <Label>Pedidos na carga ({visibleItems.length})</Label>
+              <Label>
+                Pedidos na carga ({visibleItems.length}) — {totalParadas} parada{totalParadas !== 1 ? "s" : ""}
+                {!podeReordenar && totalParadas >= 2 && (
+                  <span className="ml-2 text-[10px] font-normal text-muted-foreground">(roteirize a carga para habilitar reordenação manual)</span>
+                )}
+              </Label>
               <div className="border rounded-md divide-y max-h-[55vh] overflow-y-auto">
                 {visibleItems.length === 0 ? (
                   <p className="text-xs text-muted-foreground p-3 text-center">Nenhum pedido restante</p>
                 ) : (
-                  visibleItems.map((item) => (
+                  clienteGroups.map((cg) => {
+                    const ordAtual = ordemPorCliente[cg.key];
+                    const temOrdem = ordAtual != null && ordAtual !== 9999;
+                    return (
+                      <div key={cg.key} className="bg-background">
+                        {/* Cabeçalho da parada (cliente) */}
+                        <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-muted/40 border-b">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {temOrdem ? (
+                              <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md bg-primary/15 text-primary text-[11px] font-bold">
+                                #{ordAtual}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md bg-muted text-muted-foreground text-[11px] font-bold">—</span>
+                            )}
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold truncate">{cg.nome}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{cg.cidade} • {cg.itens.length} item{cg.itens.length !== 1 ? "ns" : ""}</div>
+                            </div>
+                          </div>
+                          {podeReordenar && temOrdem && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => moveBy(cg.key, -1)}
+                                disabled={ordAtual <= 1}
+                                title="Subir parada"
+                              >
+                                <ChevronUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={totalParadas}
+                                value={ordAtual}
+                                onChange={(e) => {
+                                  const v = parseInt(e.target.value, 10);
+                                  if (!isNaN(v)) reorderTo(cg.key, v);
+                                }}
+                                className="h-6 w-12 text-xs text-center px-1"
+                                title="Posição da parada"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => moveBy(cg.key, +1)}
+                                disabled={ordAtual >= totalParadas}
+                                title="Descer parada"
+                              >
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        {/* Itens do cliente */}
+                        {cg.itens.map((item) => (
                     (() => {
                       const edit = itemEdits[item.id] ?? {};
                       const pesoAtual = edit.peso ?? item.peso ?? 0;
@@ -191,17 +326,9 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="font-medium flex items-center gap-1.5 flex-wrap">
-                                {item.ordem_entrega != null && (
-                                  <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-md bg-primary/10 text-primary text-[11px] font-semibold">
-                                    #{item.ordem_entrega}
-                                  </span>
-                                )}
                                 <span>Pedido {item.numero_pedido ?? "—"} — {item.nome_produto ?? item.codigo_produto ?? "—"}</span>
                                 {item.ruptura && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
                                 {parcial && <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-400"><MinusCircle className="h-2.5 w-2.5" /> Parcial</span>}
-                              </div>
-                              <div className="text-muted-foreground whitespace-normal break-words">
-                                {item.cliente ?? item.codigo_cliente ?? "—"} • {[item.cidade, item.uf].filter(Boolean).join("/") || "—"}
                               </div>
                             </div>
                             <Button
@@ -256,7 +383,10 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                         </div>
                       );
                     })()
-                  ))
+                        ))}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>

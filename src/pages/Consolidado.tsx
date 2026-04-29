@@ -219,7 +219,7 @@ export default function Consolidado() {
   });
 
   const editCargaMut = useMutation({
-    mutationFn: async ({ cargaId, fields, itemUpdates }: { cargaId: string; fields: Record<string, string>; itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }> }) => {
+    mutationFn: async ({ cargaId, fields, itemUpdates, ordemUpdates }: { cargaId: string; fields: Record<string, string>; itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }>; ordemUpdates?: Record<string, number> }) => {
       if (!cargaId) return;
       // Cascade: propaga para TODOS os itens da carga (mesmo carga_id),
       // garantindo que cargas fechadas sejam atualizadas em todos os lugares.
@@ -239,6 +239,17 @@ export default function Consolidado() {
               if (v.motivo_ruptura !== undefined) payload.motivo_ruptura = v.motivo_ruptura;
               return supabase.from("carregamentos_dia").update(payload).eq("id", id);
             })
+          );
+        }
+      }
+      // Updates de ordem_entrega por item (reordenação manual de paradas)
+      if (ordemUpdates) {
+        const entries = Object.entries(ordemUpdates);
+        if (entries.length > 0) {
+          await Promise.all(
+            entries.map(([id, ordem]) =>
+              supabase.from("carregamentos_dia").update({ ordem_entrega: ordem }).eq("id", id)
+            )
           );
         }
       }
@@ -924,7 +935,7 @@ export default function Consolidado() {
         open={!!editGroup}
         onOpenChange={(o) => !o && setEditGroup(null)}
         group={editGroup}
-        onSave={(cargaId, fields, _ids, itemUpdates) => editCargaMut.mutate({ cargaId, fields, itemUpdates })}
+        onSave={(cargaId, fields, _ids, itemUpdates, ordemUpdates) => editCargaMut.mutate({ cargaId, fields, itemUpdates, ordemUpdates })}
         onRemoveItem={(id) => removeFromCargaMut.mutate(id)}
         onDeleteCarga={(cargaId) => deleteCargaMut.mutate(cargaId)}
         onInverterOrdem={() => editGroup && inverterOrdemMut.mutate(editGroup.items)}
