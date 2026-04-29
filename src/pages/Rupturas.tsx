@@ -606,8 +606,8 @@ function HistoricoMes() {
                   const aberto = expandido === key;
                   const detalhes = aberto ? eventosFiltrados.filter(c => (c.codigo_produto || c.nome_produto || "SEM_COD") === (p.codigo === "—" ? p.nome : p.codigo)) : [];
                   return (
-                    <>
-                      <TableRow key={key}>
+                    <Fragment key={key}>
+                      <TableRow>
                         <TableCell>
                           <p className="text-[11px] font-mono text-muted-foreground">{p.codigo}</p>
                           <p className="text-sm font-semibold leading-tight">{p.nome}</p>
@@ -630,7 +630,7 @@ function HistoricoMes() {
                         </TableCell>
                       </TableRow>
                       {aberto && detalhes.length > 0 && (
-                        <TableRow key={key + "-det"}>
+                        <TableRow>
                           <TableCell colSpan={6} className="bg-muted/30 p-0">
                             <div className="p-3 space-y-1">
                               {detalhes.map(d => (
@@ -647,7 +647,7 @@ function HistoricoMes() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </TableBody>
