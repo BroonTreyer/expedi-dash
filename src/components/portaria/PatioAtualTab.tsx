@@ -115,6 +115,10 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         // Normal: show entradas without linked saída
         if (m.tipo_movimento !== "entrada") return false;
         if (saidasVinculadas.has(m.id)) return false;
+        // Excluir chegadas ainda aguardando liberação (não estão no pátio de fato)
+        if (m.carga_id && !m.horario_entrada && (m.etapa_terceirizado === "chegada" || m.etapa_carga_propria === "aguardando_liberacao")) {
+          return false;
+        }
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
         return true;
