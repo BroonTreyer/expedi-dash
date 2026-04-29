@@ -1,45 +1,99 @@
-## Mostrar fotos no painel do motorista
 
-Hoje o drawer de detalhe do motorista mostra horários, KM, observações e ocorrências de cada rota — mas **não mostra as fotos** capturadas pela portaria (placa, painel KM saída/retorno, lacre, nota, documento). Vou adicionar essas evidências visuais no drawer e no relatório impresso.
+## Objetivo
 
-### O que será exibido por rota
+Permitir exportar para `.xlsx` o histórico completo do motorista exibido no Painel de Motoristas — bem dividido por abas, células e colunas, incluindo todas as observações e ocorrências, **sem fotos**.
 
-Para cada rota no histórico do motorista, uma faixa de miniaturas com as fotos disponíveis:
+## Onde aparece o botão
 
-- 📷 Placa
-- 🛞 Painel KM — saída (carga própria)
-- 🛞 Painel KM — retorno (ou único registro de KM em terceirizado)
-- 🔒 Lacre
-- 📋 Nota fiscal
-- 📄 Documento do motorista
+No `MotoristaDetalheDrawer.tsx`, ao lado do botão **Imprimir** (header do drawer), adicionar um novo botão **Exportar Excel** (ícone `FileSpreadsheet`). A exportação usa o motorista atualmente selecionado e o mesmo intervalo de datas (`periodo.inicio` / `periodo.fim`) já passado para o `MotoristaPrintDialog`.
 
-Se um campo não tiver foto, simplesmente não aparece (sem placeholders vazios).
+## Conteúdo do arquivo Excel
 
-### Comportamento
+Nome do arquivo: `motorista_<nome-slug>_<inicio>_<fim>.xlsx`.
 
-**No drawer (`MotoristaDetalheDrawer`)**
-- Nova seção "Fotos" dentro de cada card de rota, após observações.
-- Miniaturas quadradas (~64px) em grid responsivo, com legenda curta abaixo.
-- Clique abre a foto em tela cheia usando o `PhotoViewerDialog` já existente (suporta imagem e PDF, com fallback automático e botão "abrir em nova aba").
-- Badge no topo do card "📷 N fotos" para indicar disponibilidade rápida.
+O workbook terá **3 abas**:
 
-**No relatório impresso (`MotoristaPrintDialog`)**
-- Adicionar até 4 thumbnails por rota (placa, painel saída, painel retorno, lacre) em layout de grade compacta (CSS print-friendly).
-- Cada foto com legenda em texto pequeno.
-- Mantém quebras de página existentes; CSS `@media print` garante que fotos não cortem entre páginas (`break-inside: avoid`).
+### Aba 1 — Resumo
+Cabeçalho institucional + dados do motorista + KPIs do período (mesmos números já mostrados na tela).
 
-### Detalhes técnicos
+```text
+Histórico do Motorista
+Período: dd/mm/aaaa a dd/mm/aaaa
 
-- **Sem mudança de schema**: os campos `foto_placa_url`, `foto_painel_url`, `foto_painel_saida_url`, `foto_lacre_url`, `foto_nota_url`, `foto_documento_url` já existem em `movimentacoes_portaria` e já chegam no hook `useMotoristasPainel` (faz `select("*")`).
-- **Tipo**: estender o tipo de movimento usado no drawer para incluir esses campos (já estão em `MovimentacaoPortaria`).
-- **Storage**: as URLs vêm já assinadas do bucket privado `portaria` (mesmo padrão do `MovimentoDetailsDialog`). Sem novo signing necessário no painel — reutilizar URLs como já estão no objeto.
-- **Componente novo**: `MotoristaFotosRota` (pequeno, dentro de `MotoristaDetalheDrawer.tsx`) que recebe um movimento e renderiza a grade de thumbnails + abre `PhotoViewerDialog` no clique.
-- **Reuso**: `PhotoViewerDialog` já trata PDF, erro de imagem e link externo — não precisa duplicar lógica.
+Motorista: <nome>
+CPF: <cpf>
+Telefone: <telefone>
+Status: Em rota / Disponível
+Última atividade: dd/mm/aaaa hh:mm
 
-### Arquivos a editar
+KPIs
+Rotas | KM total | KM médio | Tempo médio | Peso total (kg) | Peso médio (kg) | Entregas | Rotas c/ obs
+```
 
-- `src/components/motoristas/MotoristaDetalheDrawer.tsx` — nova seção de fotos por rota + badge de contagem.
-- `src/components/motoristas/MotoristaPrintDialog.tsx` — grade de thumbnails por rota no relatório.
-- `mem/features/drivers-panel.md` — atualizar nota do feature mencionando exibição de fotos.
+### Aba 2 — Rotas (uma linha por rota)
+Colunas (cada uma em sua célula, formatos pt-BR):
 
-Sem migrações, sem novas queries, sem mudanças de RLS.
+1. Data/Hora saída
+2. Data/Hora retorno
+3. Categoria (Frota Própria / Terceirizado / outros)
+4. Etapa
+5. Carga ID
+6. Rota
+7. Placa
+8. Tipo caminhão
+9. Empresa / Transportadora
+10. Conferente
+11. KM inicial
+12. KM final
+13. KM rodado
+14. Tempo (min)
+15. Tempo (hh:mm)
+16. Peso (kg)
+17. Qtd entregas
+18. Nº lacre
+19. Nota fiscal
+20. Doca/Setor
+21. Ocorrência
+22. Observações da portaria
+
+Linha final de **Totais** (KM rodado, Peso, Entregas) e contagens.
+
+### Aba 3 — Observações & Ocorrências
+Apenas as rotas em que `observacoes` ou `ocorrencia` estão preenchidos, em formato leitura-fácil:
+
+Colunas: Data/Hora saída · Placa · Carga ID · Tipo (Ocorrência / Observação) · Texto completo · Conferente.
+
+Cada observação/ocorrência vira **uma linha** (uma rota com ambos gera duas linhas).
+
+## Detalhes técnicos
+
+- Lib: `xlsx` (já usada em `useRelatorios.ts`) — sem nova dependência.
+- Criar `src/lib/motorista-export.ts` exportando `exportarMotoristaXlsx(motorista: MotoristaAgg, periodo: { inicio: string; fim: string })`.
+  - Reusa as funções `calcKm` / `tempoMin` (copiadas do `MotoristaPrintDialog`) para coerência total entre impressão e Excel.
+  - Usa `XLSX.utils.aoa_to_sheet` para cada aba, define `!cols` (largura por coluna) e `!merges` para títulos do Resumo.
+  - Datas/horas: gravadas como string formatada pt-BR (`dd/MM/yyyy HH:mm`) — mesmo padrão do `useRelatorios.ts` —, garantindo legibilidade direta no Excel sem depender de locale.
+  - Números (KM, peso): gravados como `Number` real com `t: "n"` e `z: '#,##0.0'` / `'#,##0'` para formatação pt-BR no Excel.
+  - Fotos: **omitidas** — nenhuma URL de imagem é exportada.
+- `XLSX.writeFile(wb, filename)` dispara o download.
+
+## Mudança no UI
+
+Em `src/components/motoristas/MotoristaDetalheDrawer.tsx`:
+- Importar `FileSpreadsheet` de `lucide-react` e `exportarMotoristaXlsx`.
+- Adicionar `<Button variant="outline" size="sm" onClick={() => exportarMotoristaXlsx(motorista, periodo)}>` ao lado do botão Imprimir, com label `Excel`.
+- Mostrar `toast.success("Excel gerado")` (sonner já é usado no projeto).
+
+## Memória
+
+Atualizar `mem/features/drivers-panel.md` adicionando a frase: "Drawer também exporta `.xlsx` (3 abas: Resumo, Rotas, Observações) via `xlsx`, sem fotos, formato pt-BR."
+
+## Arquivos
+
+Criar:
+- `src/lib/motorista-export.ts`
+
+Editar:
+- `src/components/motoristas/MotoristaDetalheDrawer.tsx`
+- `mem/features/drivers-panel.md`
+
+Sem mudanças em schema, RLS, edge functions ou rotas.
