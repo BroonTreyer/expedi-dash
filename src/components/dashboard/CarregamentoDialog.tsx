@@ -564,7 +564,8 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                   </Button>
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_100px_80px_auto_32px] sm:gap-2 sm:items-end border-b border-border pb-3 sm:border-0 sm:pb-0">
+                  <div key={idx} className="space-y-2 border-b border-border pb-3 sm:border-0 sm:pb-0">
+                  <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_1.5fr_100px_80px_auto_32px] sm:gap-2 sm:items-end">
                     <div className="space-y-1">
                       <Label className="text-xs sm:hidden">Código</Label>
                       {idx === 0 && <Label className="text-xs hidden sm:block">Código</Label>}
@@ -622,6 +623,39 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
                         </Button>
                       ) : <div className="h-9 w-8 hidden sm:block" />}
                     </div>
+                  </div>
+                  {/* Aviso de ruptura parcial silenciosa: peso atual < peso_original e sem ruptura marcada */}
+                  {item.pesoOriginal != null && item.pesoOriginal > 0 && item.peso < item.pesoOriginal && !item.ruptura && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-2.5 py-2 text-xs">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span className="text-amber-900 dark:text-amber-200">
+                        Marcado como <strong>ruptura parcial</strong>: original {item.pesoOriginal.toLocaleString("pt-BR")} kg → atual {Number(item.peso).toLocaleString("pt-BR")} kg.
+                        {item.resetBaseline && <span className="ml-1 font-medium">Redução será confirmada ao salvar.</span>}
+                      </span>
+                      <div className="flex gap-1 ml-auto">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => restaurarPesoOriginal(idx)}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" /> Restaurar original
+                        </Button>
+                        {!item.resetBaseline && (
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => confirmarReducao(idx)}
+                          >
+                            <Check className="h-3 w-3 mr-1" /> Confirmar redução
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   </div>
                 ))}
               </div>
