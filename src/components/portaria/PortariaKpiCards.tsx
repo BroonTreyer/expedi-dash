@@ -24,6 +24,8 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
     const noPatio = entradas.filter((e) => {
       if (saidasVinculadas.has(e.id)) return false;
       if (e.categoria === "terceirizado" && e.etapa_terceirizado === "finalizado") return false;
+      // Excluir chegadas ainda aguardando liberação para o pátio
+      if (e.carga_id && !e.horario_entrada && (e.etapa_terceirizado === "chegada" || e.etapa_carga_propria === "aguardando_liberacao")) return false;
       return true;
     }).length;
 
