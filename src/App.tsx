@@ -59,6 +59,7 @@ const Logs = lazyWithRetry(() => import("./pages/Logs"));
 const Lixeira = lazyWithRetry(() => import("./pages/Lixeira"));
 const PortalMotorista = lazyWithRetry(() => import("./pages/PortalMotorista"));
 const TemplatesRota = lazyWithRetry(() => import("./pages/TemplatesRota"));
+const Ocorrencias = lazyWithRetry(() => import("./pages/Ocorrencias"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const MeuPainel = lazyWithRetry(() => import("./pages/MeuPainel"));
 const VendedoresPainel = lazy(() => import("./pages/VendedoresPainel"));
@@ -123,6 +124,7 @@ function AppRoutes() {
           <Route path="/lixeira" element={<SuperAdminRoute><Lixeira /></SuperAdminRoute>} />
           <Route path="/relatorios" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Relatorios /></ProtectedRoute>} />
           <Route path="/templates-rota" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><TemplatesRota /></ProtectedRoute>} />
+          <Route path="/ocorrencias" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><Ocorrencias /></ProtectedRoute>} />
           <Route path="/meu-painel" element={<ProtectedRoute allowedRoles={["vendedor"]}><MeuPainel /></ProtectedRoute>} />
           <Route path="/meu-painel/:vendedorId" element={<ProtectedRoute allowedRoles={["admin"]}><MeuPainel /></ProtectedRoute>} />
           <Route path="/vendedores-painel" element={<ProtectedRoute allowedRoles={["admin"]}><VendedoresPainel /></ProtectedRoute>} />
