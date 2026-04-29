@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { STATUSES, UF_LIST, isPorUnidade } from "@/lib/constants";
-import { Plus, X } from "lucide-react";
+import { Plus, X, AlertTriangle, RotateCcw, Check } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 export type DialogMode = "vendas" | "logistica" | "editar";
@@ -24,6 +24,10 @@ interface ProductItem {
   ruptura: boolean;
   pesoManual: boolean;
   originalId?: string;
+  /** Peso original gravado no banco (peso_original). Usado para detectar ruptura parcial silenciosa. */
+  pesoOriginal?: number;
+  /** Quando true, indica que o usuário confirmou a redução intencional → reset peso_original no save. */
+  resetBaseline?: boolean;
 }
 
 const emptyItem = (): ProductItem => ({
