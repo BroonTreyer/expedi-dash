@@ -1,53 +1,53 @@
-## Diagnóstico: o sistema está contando diferente em cada lugar
+## Diagnóstico
 
-Sim, há uma **inconsistência real** entre o KPI "Rupturas" do painel principal e a aba "Rupturas". Os dois contam coisas diferentes — por isso parece que tem "mais ruptura" em um lugar do que no outro.
+O cálculo da tela está honesto, mas os **dados estão inflando** o total. Identifiquei dois problemas distintos:
 
-### O que cada tela conta hoje
+### Problema 1 — `peso_original` replicado entre itens do mesmo pedido (CRÍTICO)
 
-**Painel principal (`KpiCards.tsx`)** — conta **pedidos únicos** afetados:
-```
-pedidosComRuptura  = pedidos distintos com ruptura total
-pedidosComParcial  = pedidos distintos com ruptura parcial
-Rupturas           = soma dos dois (deduplicado por numero_pedido)
-```
+O **Pedido 48 (J SANTOS SILVA GANDU)** tem 8 itens, e **todos** estão com `peso_original = 7.000 kg`. Isso é claramente o peso total do pedido sendo replicado em cada linha, em vez do peso individual de cada produto.
 
-**Aba Rupturas (`Rupturas.tsx`)** — conta **linhas de produto** em ruptura:
-```
-itens = rupturas.length   // cada item de cada pedido entra separado
-```
+Resultado: o sistema soma 8 × 7.000 = **56 toneladas falsas** só desse pedido. Os pedidos 13 e 83 têm o mesmo sintoma (em escala menor).
 
-Exemplo: um pedido com 5 produtos e 3 deles em ruptura aparece como **1** no painel e **3** na aba. Por isso a aba "infla" os números.
+Hoje, dos ~49 toneladas mostrados em "Faltando" no dia 29/04, **cerca de 47 toneladas vêm desse bug**. O número real está mais perto de **~2 toneladas**.
 
-### Há ainda um detalhe sutil
+A causa provável é alguma rotina (cadastro de pedido, importação de PDF, ou clonagem) que copia o peso total da nota para o campo `peso_original` de cada item, em vez do peso da linha.
 
-O painel usa `c.ruptura` direto + `isRupturaParcial`, mas em outras partes do app já existe `temRuptura()` que considera `ruptura_sinalizada` (flag do trigger do banco). A aba também não usa `temRuptura`. Em casos antigos onde o trigger marcou a sinalização mas o item não tem peso reduzido visível, pode haver pequena diferença adicional.
+### Problema 2 — Ruptura total marcada sem zerar o peso
 
-## Proposta de correção
+O **Pedido 96 (JR DISTRIBUIDORA)** tem 5 itens marcados como `ruptura = true`, mas com `peso = peso_original` (não foi zerado). O `pesoNaoCarregado` assume que ruptura total = perda do peso original inteiro, somando ~4,5 toneladas que talvez nem sejam ruptura real.
 
-Padronizar para que os dois lugares falem a mesma língua, mostrando ambas as visões sem ambiguidade.
+## Plano
 
-### 1. Aba Rupturas — adicionar contador de pedidos únicos
-No KPI "Itens em ruptura", além das linhas de produto, mostrar também a quantidade de **pedidos únicos** afetados. Assim:
-- "Itens em ruptura: **23**" (linhas de produto)
-- "em **8 pedidos** · **5 produtos distintos**" (subtítulo)
+### 1. Corrigir os dados existentes (migração one-shot)
+- Identificar pedidos onde todos os itens têm o mesmo `peso_original` E esse valor é muito maior que o `peso` somado dos itens (indicando replicação do total).
+- Para esses pedidos, **redefinir `peso_original = peso`** quando não houver evidência de redução real (item nunca foi alterado ou `peso_manual = false` desde a criação).
+- Pedidos suspeitos no período: 48, 13, 83 (29/04). Ampliar a busca para os últimos 30 dias.
 
-Isso bate diretamente com o número do painel principal.
+### 2. Prevenir a replicação no futuro
+- Auditar onde `peso_original` é gravado:
+  - Trigger `preserve_peso_original` (já existe e parece correta — usa `NEW.peso` na criação).
+  - Edge function `parse-pedido-pdf` — provável culpada de replicar o peso total.
+  - Lógica de clonagem de pedidos.
+- Garantir que `peso_original` recebe sempre o peso da **linha individual**, nunca o total do pedido.
 
-### 2. Painel principal — clarificar o tooltip
-Ajustar o tooltip do card "Rupturas" para deixar explícito que conta **pedidos**, não itens, e indicar quantos itens de produto isso representa. Exemplo:
-> "8 pedido(s) afetado(s) — 23 item(ns) de produto em ruptura. 1.240 kg perdidos."
+### 3. Tratar ruptura total sem peso zerado (Rupturas.tsx)
+- Mudar a regra de `pesoNaoCarregado` para ruptura total: usar `peso_original - peso` (a perda real), em vez de assumir o original inteiro.
+- Justificativa: se o usuário marcou ruptura mas deixou o peso, ele já considerou que parte/tudo foi entregue. Não devemos contar duas vezes.
+- Alternativa: exibir aviso na tela quando ruptura total estiver com `peso > 0` (inconsistência de dados).
 
-### 3. Unificar a regra de detecção
-Trocar as checagens manuais `c.ruptura || isRupturaParcial(c)` pela função única `temRuptura(c)` (que já existe em `src/lib/ruptura-utils.ts`) em:
-- `src/pages/Rupturas.tsx` (filtro `todasRupturas`)
-- `src/components/dashboard/KpiCards.tsx` (cálculo de `pedidosComRuptura` / `pedidosComParcial`)
+### 4. Adicionar painel de "inconsistências" (opcional)
+- Pequeno alerta no topo da página Rupturas listando pedidos com dados suspeitos (peso_original idêntico em todos os itens, ou ruptura total com peso preenchido), com link para edição.
 
-Resultado: ambas as telas usam o mesmo critério (`ruptura` OR `ruptura_sinalizada` OR peso reduzido), eliminando qualquer divergência por causa do trigger do banco.
+## Detalhes técnicos
 
-## Arquivos afetados
-- `src/pages/Rupturas.tsx` — KPI "Itens em ruptura" passa a mostrar pedidos únicos + produtos distintos.
-- `src/components/dashboard/KpiCards.tsx` — tooltip clarificado e uso de `temRuptura`.
-- (Opcional) `src/lib/ruptura-utils.ts` — sem mudanças; apenas passa a ser a fonte única.
+- Tabela: `carregamentos_dia`
+- Função afetada: `pesoNaoCarregado` em `src/lib/peso-utils.ts`
+- Migração SQL para limpeza de dados (com dry-run primeiro para revisão).
+- Possível ajuste em `supabase/functions/parse-pedido-pdf/index.ts` se confirmado como fonte da replicação.
 
-## Resultado esperado
-Painel mostra **8 rupturas** (pedidos), aba mostra **23 itens / 8 pedidos**. Os números batem e ninguém mais fica em dúvida sobre qual é o "correto" — os dois são, em granularidades diferentes.
+## Pergunta antes de executar
+
+Quer que eu:
+- **(A)** Aplique só a correção de dados (migração) e o ajuste em `pesoNaoCarregado` para ruptura total? Resolve o número exibido imediatamente.
+- **(B)** Faça A + investigue a fonte da replicação (provavelmente `parse-pedido-pdf`) para evitar que aconteça de novo?
+- **(C)** Faça A + B + adicione painel de inconsistências na tela?

@@ -31,6 +31,7 @@ import {
   Download,
   PackageX,
   Package,
+  AlertCircle,
 } from "lucide-react";
 import { isPorUnidade } from "@/lib/constants";
 import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
@@ -236,6 +237,40 @@ export default function Rupturas() {
     return { pesoTotal, unidTotal, itens: rupturas.length, pedidos: pedidosUnicos };
   }, [productSummary, rupturas]);
 
+  // ----- Detecção de inconsistências -----
+  // 1) Ruptura total com peso > 0 (usuário marcou ruptura mas não zerou o peso)
+  // 2) peso_original idêntico em ≥3 itens do mesmo pedido (provável replicação do total)
+  const inconsistencias = useMemo(() => {
+    const rupturaComPeso = rupturas.filter(
+      (c) => c.ruptura && (c.peso ?? 0) > 0 && (c.peso_original ?? 0) > 0
+    );
+
+    // Agrupa por numero_pedido e detecta peso_original duplicado em ≥3 linhas
+    const porPedido = new Map<number, typeof rupturas>();
+    for (const c of carregamentos) {
+      if (c.numero_pedido == null || c.peso_original == null) continue;
+      const arr = porPedido.get(c.numero_pedido) ?? [];
+      arr.push(c);
+      porPedido.set(c.numero_pedido, arr);
+    }
+    const pedidosSuspeitos: { numero: number; valor: number; itens: number; cliente?: string | null }[] = [];
+    for (const [numero, itens] of porPedido) {
+      if (itens.length < 3) continue;
+      const valores = new Set(itens.map((i) => Number(i.peso_original)));
+      if (valores.size === 1) {
+        const valor = Number(itens[0].peso_original);
+        if (valor >= 500) {
+          pedidosSuspeitos.push({ numero, valor, itens: itens.length, cliente: itens[0].cliente });
+        }
+      }
+    }
+
+    return { rupturaComPeso, pedidosSuspeitos };
+  }, [rupturas, carregamentos]);
+
+  const temInconsistencia =
+    inconsistencias.rupturaComPeso.length > 0 || inconsistencias.pedidosSuspeitos.length > 0;
+
   // ----- print data -----
   const printData = useMemo<RupturasPrintData | null>(() => {
     if (rupturas.length === 0) return null;
@@ -434,6 +469,48 @@ export default function Rupturas() {
         </div>
 
         {/* Lista única de produtos faltando */}
+        {temInconsistencia && (
+          <Card className="border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                    Possíveis inconsistências nos dados
+                  </p>
+                  {inconsistencias.pedidosSuspeitos.length > 0 && (
+                    <div className="text-xs text-amber-800 dark:text-amber-300">
+                      <p className="font-medium">
+                        {inconsistencias.pedidosSuspeitos.length} pedido(s) com peso original idêntico em todos os itens (provável digitação do peso total em cada linha):
+                      </p>
+                      <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                        {inconsistencias.pedidosSuspeitos.slice(0, 5).map((p) => (
+                          <li key={p.numero}>
+                            Pedido <strong>#{p.numero}</strong>
+                            {p.cliente ? ` — ${p.cliente}` : ""}
+                            : {p.itens} itens × {fmtKg(p.valor)} kg cada
+                          </li>
+                        ))}
+                        {inconsistencias.pedidosSuspeitos.length > 5 && (
+                          <li>+{inconsistencias.pedidosSuspeitos.length - 5} outros</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  {inconsistencias.rupturaComPeso.length > 0 && (
+                    <p className="text-xs text-amber-800 dark:text-amber-300">
+                      <strong>{inconsistencias.rupturaComPeso.length}</strong> item(ns) marcados como ruptura total mas com peso preenchido. O sistema considera só a diferença (original − atual) como perda real.
+                    </p>
+                  )}
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    Esses casos podem inflar o total de "Faltando". Edite os pedidos para corrigir o peso original de cada linha.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {isLoading ? (
           <div className="text-center py-12 text-muted-foreground text-sm">Carregando dados...</div>
         ) : productSummary.length === 0 ? (
