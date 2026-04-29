@@ -280,7 +280,10 @@ export function useBatchUpdateCarregamento() {
       toast.error(e.message);
     },
     onSettled: () => {
-      // Let realtime handle ongoing sync
+      // Refetch ativo: garante que telas dependentes (ex.: Rupturas → Faltando agora)
+      // vejam a versão final do banco — incluindo campos reescritos por triggers
+      // (peso_original, ruptura_sinalizada) — sem depender só do Realtime.
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
     },
   });
 }
@@ -321,11 +324,10 @@ export function useUpdateCarregamento() {
       toast.error(e.message);
     },
     onSettled: () => {
-      // Passive invalidation: marks cache stale so the next focus/refetch
-      // resyncs from the DB. We don't trigger an immediate refetch — realtime
-      // is still the primary sync — but if realtime is disconnected this
-      // ensures the UI eventually catches up.
-      qc.invalidateQueries({ queryKey: ["carregamentos"], refetchType: "none" });
+      // Refetch ativo: força resync imediato após edição. Antes era passivo,
+      // o que deixava telas dependentes (Rupturas) com cache antigo quando
+      // o Realtime atrasava ou estava em background.
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
     },
   });
 }

@@ -1,41 +1,30 @@
-# Plano — Atualização ao vivo da aba "Faltando agora"
+Vou corrigir isso em duas frentes, porque o problema não é só “não atualizar”: a linha já foi salva no banco com `peso = 2000`, mas a aba `Faltando agora` continua calculando o faltante por `peso_original` quando `ruptura = true`. Por isso ela mostra 40.000 kg em vez dos 2.000 kg que estão agora na tela/pedido.
 
-## Diagnóstico
-A aba depende **só** do canal realtime do Supabase. Quando o canal desconecta (aba em background, sleep, wifi oscilando), a tela trava porque:
-- `staleTime` global é 30s, mas **nada dispara refetch** sem realtime.
-- `refetchOnWindowFocus: false` global — voltar pra aba não atualiza.
-- Não há `refetchInterval` na query de carregamentos.
+Plano de correção:
 
-Resultado: usuário vê dados antigos até navegar pra outra rota e voltar (ou dar F5).
+1. Ajustar o cálculo da aba `Faltando agora`
+   - Para ruptura total (`ruptura = true`), a aba passará a somar exatamente o `peso` atual da linha.
+   - Exemplo do print: produto 400 com `peso = 2000` passará a aparecer como `2.000 kg`, não `40.000 kg`.
+   - Manterei o histórico do mês separado: ele pode continuar usando a lógica de perda histórica quando fizer sentido, sem contaminar o “agora”.
 
-## Solução
-Adicionar **polling leve + refetch ao focar** **somente quando a aba "Faltando agora" estiver montada** — sem alterar comportamento global nem do Painel principal.
+2. Corrigir a quantidade exibida em produtos por unidade
+   - Hoje o código de `Faltando agora` também usa `quantidade_original` para ruptura total, o que pode deixar quantidade velha depois de edição.
+   - Vou trocar para usar a `quantidade` atual quando `ruptura = true`, igual ao peso atual.
 
-### Mudanças
+3. Fazer a atualização aparecer imediatamente após edição
+   - No hook `useCarregamentos`, após editar ou editar em lote, vou disparar refetch real das queries de `carregamentos`, em vez de apenas marcar como stale.
+   - Isso evita depender só do Realtime/polling e corrige o caso em que o usuário salva em uma tela e a aba de ruptura fica com cache antigo.
 
-**1. `src/pages/Rupturas.tsx` — `FaltandoAgora`**
-- Importar `useQueryClient` e usar `queryClient.invalidateQueries({ queryKey: ["carregamentos"] })` em dois gatilhos locais:
-  - `setInterval` a cada **20s** enquanto a aba estiver visível (`document.visibilityState === "visible"`).
-  - Listener de `visibilitychange` → invalida ao voltar foco da aba.
-  - Listener de `online` (window) → invalida quando rede volta.
-- Limpar interval/listeners no cleanup do `useEffect`.
-- Mostrar um pequeno indicador "Atualizado há Xs" no cabeçalho do bloco (usa `dataUpdatedAt` do `useQuery`, exposto via `useCarregamentos`).
+4. Reduzir a janela de inconsistência no Realtime
+   - No evento `UPDATE` recebido em tempo real, além de mesclar a linha no cache, vou invalidar/refetchar as queries relevantes de `carregamentos` de forma controlada.
+   - Assim, se algum trigger do banco alterar `peso_original`, `ruptura_sinalizada`, `updated_at` ou campos derivados depois do update, a tela busca a versão final do banco.
 
-**2. `src/hooks/useCarregamentos.ts`**
-- Retornar também `dataUpdatedAt` da query (já vem no `query` spread, só garantir que o tipo permite uso).
-- **Sem** mexer em `staleTime`, `refetchInterval` ou `refetchOnWindowFocus` globais — mantém o comportamento atual do painel principal e demais telas intacto.
+5. Verificar o item do exemplo
+   - Vou validar especificamente o caso do produto 400 / “LINGUICA DE CARNE SUINA...” para garantir que `Faltando agora` passe a refletir 2.000 kg.
 
-### Por que essa abordagem
-- Cirúrgica: só a aba "Faltando agora" recebe o polling — não aumenta carga do banco para o resto do app.
-- Resiliente: cobre os 3 cenários de falha (realtime caído, aba em background voltando, internet voltando).
-- 20s é suficiente porque o realtime continua sendo o canal primário (atualização instantânea quando funciona); o polling é rede de segurança.
-- Pausa quando aba está oculta → zero requests desnecessários.
+Arquivos previstos:
 
-### Arquivos editados
-- `src/pages/Rupturas.tsx` (apenas dentro de `FaltandoAgora`)
-- `src/hooks/useCarregamentos.ts` (mudança mínima, se necessária para expor `dataUpdatedAt`)
+- `src/pages/Rupturas.tsx`
+- `src/hooks/useCarregamentos.ts`
 
-### Validação
-- Abrir "Faltando agora", deixar em background 1 min, voltar → deve refetch imediato.
-- Criar uma ruptura em outra sessão → aparece em ≤20s mesmo se realtime estiver desconectado.
-- Painel principal e outras telas continuam idênticos (sem polling extra).
+Observação importante: pelo dado atual no banco, o registro do exemplo está com `peso = 2000` e `peso_original = 40000`. Então a tela estava “atualizada”, mas usando a base errada para o cálculo de ruptura total. A correção principal é fazer `Faltando agora` usar o peso atual, como você pediu.
