@@ -1,73 +1,97 @@
-## Aba de Acompanhamento Detalhado de Motoristas
+## Problema atual
 
-Criar uma nova página `/motoristas-painel` (separada do CRUD atual em `/motoristas`) que consolida tudo o que já é capturado na portaria — KM rodado, horários de saída/retorno, tempo de rota, peso transportado, entregas — em uma visão rica por motorista.
+Na tela **Portaria → Terceirizado**, o painel **"Cargas fechadas aguardando veículo"** mostra um único botão (`Confirmar entrada do motorista` / `Registrar chegada do veículo`) que, ao ser clicado, **já cria a movimentação de entrada no pátio** (`tipo_movimento: "entrada"`, `etapa_terceirizado: "no_patio"`). Resultado: o motorista aparece como "no pátio" no segundo em que chega na portaria — quando na prática ele ainda fica aguardando do lado de fora antes de receber liberação para entrar.
 
-### Estrutura da página
+## Objetivo
 
-**1. Filtros no topo**
-- Período (hoje / 7 dias / 30 dias / personalizado)
-- Motorista (busca + multi-select)
-- Tipo (Frota Própria / Terceirizado / Todos)
+Separar o fluxo em **duas etapas explícitas** para cargas fechadas aguardando veículo:
 
-**2. KPIs gerais (cards)**
-- Motoristas ativos no período
-- KM total rodado
-- Tempo médio de rota
-- Peso total transportado (ton)
-- Entregas realizadas
-- Rotas concluídas vs em andamento
+1. **Registrar chegada** — motorista chegou na portaria mas continua **aguardando** fora do pátio (não conta como "no pátio" ainda).
+2. **Liberar entrada no pátio** — depois de aguardar, o porteiro libera e aí sim o veículo aparece como "no pátio".
 
-**3. Ranking de Motoristas (tabela principal)**
-Cada linha = 1 motorista no período, com colunas:
-- Nome + foto (de `motoristas`)
-- Nº de rotas
-- KM total / KM médio por rota
-- Tempo médio de rota (saída → retorno)
-- Peso médio transportado
-- Entregas/rota
-- Última atividade
-- Status atual (Em rota / Disponível)
-- Sparkline de KM nos últimos dias
+## Fluxo proposto
 
-Ordenação por qualquer coluna. Click expande detalhes.
+```text
+[Carga fechada aguardando]
+        |
+        | botão "Registrar chegada"
+        v
+[Aguardando liberação] <-- novo estado intermediário, fica no painel
+        |
+        | botão "Liberar entrada no pátio"
+        v
+[No pátio] (entra no PatioAtualTab, KPIs etc.)
+```
 
-**4. Detalhe do Motorista (drawer ao clicar)**
-- Cabeçalho com foto, CPF, telefone, caminhão habitual
-- Timeline cronológica de movimentos: cada rota com Saída → Retorno, KM inicial/final, tempo total, peso, qtd entregas, carga vinculada, ocorrências
-- Mini-gráfico: KM rodado por dia (últimos 30d)
-- Mini-gráfico: Tempo de rota por dia
-- Lista de cargas vinculadas com link para o pedido
+### Estado intermediário "Aguardando liberação"
 
-**5. Aba "Em Rota Agora"** (sub-tab)
-Lista em tempo real dos motoristas atualmente fora (etapa_carga_propria = 'em_rota' ou terceirizado equivalente), mostrando placa, carga, hora de saída, tempo decorrido, destino estimado.
+- A linha continua visível no painel `CargasFechadasAguardandoPanel`, agora com um badge `Aguardando liberação` e mostrando `Chegou às HH:mm` + tempo decorrido (cronômetro vivo).
+- Botão muda para **"Liberar entrada no pátio"** (verde/primário).
+- Permanece a opção de cancelar a chegada (caso tenha sido erro) — botão secundário "Desfazer chegada".
 
-### Detalhes técnicos
+### Como representar o estado intermediário no banco
 
-**Fonte de dados:** tabela `movimentacoes_portaria` (já tem `horario_real_saida`, `horario_real_retorno`, `km_inicial`, `km_final`, `km_rodado`, `peso`, `qtd_entregas`, `motorista`, `placa`, `carga_id`, `etapa_carga_propria`) + join lógico com `motoristas` (foto, CPF) por nome (fallback) ou via `caminhoes.motorista_id` quando placa bater.
+Sem migração de schema. Usar campos já existentes em `movimentacoes_portaria`:
 
-**Cálculos derivados (no client, memoizados):**
-- `tempo_rota = horario_real_retorno - horario_real_saida` (formato HH:mm)
-- `km_rodado` quando NULL: `km_final - km_inicial`
-- Agregações por motorista: `groupBy(motorista)` sobre o período filtrado
+- **Registrar chegada** cria a linha já como `tipo_movimento = "entrada"` (mantém compatibilidade com hooks/relatórios existentes), mas com:
+  - `horario_chegada = now()`
+  - `horario_entrada = NULL` (chave do estado: enquanto NULL, está aguardando liberação)
+  - `etapa_terceirizado = "chegada"` (já é um valor reconhecido em `useStatusPortariaPorCarga`, mapeado para `patio` lá — ajustaremos)
+  - Para carga própria: `etapa_carga_propria = "aguardando_liberacao"` (novo valor textual, sem alterar enum/check).
 
-**Novos arquivos:**
-- `src/pages/MotoristasPainel.tsx` — página principal com tabs (Ranking / Em Rota Agora)
-- `src/components/motoristas/MotoristaKpis.tsx` — cards de KPI
-- `src/components/motoristas/MotoristaRankingTable.tsx` — tabela com sparklines
-- `src/components/motoristas/MotoristaDetalheDrawer.tsx` — timeline + gráficos
-- `src/components/motoristas/EmRotaAgoraPanel.tsx` — lista live
-- `src/hooks/useMotoristasPainel.ts` — query agregadora com filtros
-- Rota adicionada em `src/App.tsx` e item no `src/components/AppSidebar.tsx` (visível para admin/logística)
+- **Liberar entrada no pátio** faz `UPDATE` da mesma linha:
+  - `horario_entrada = now()`
+  - `etapa_terceirizado = "no_patio"` (terceirizado) ou `etapa_carga_propria = "chegou"` (própria).
 
-**Sem mudanças no banco** — todos os dados já existem. Apenas leitura.
+### Ajustes em consultas/derivações para respeitar o novo estado
 
-**Realtime:** subscrição em `movimentacoes_portaria` (debounce 1.5s, padrão do projeto) para a tab "Em Rota Agora".
+Para que o veículo **não** apareça em "Pátio Atual" / KPIs enquanto aguarda liberação:
 
-**Permissões:** acessível para `admin` e `logistica` (RLS já existente cobre).
+- `PatioAtualTab.tsx` (filtro `veiculosNoPatio`): excluir entradas com `horario_entrada IS NULL` (ainda aguardando).
+- `PortariaKpiCards.tsx`: mesma exclusão para "no pátio".
+- `useStatusPortariaPorCarga.ts`: tratar `etapa_terceirizado === "chegada"` **ou** `horario_entrada == null` como etapa **`aguardando`** (hoje vai pra `patio`). Acrescentar nova etapa visual `"chegou"` opcional, ou manter como `aguardando` com sub-label "Chegou — aguardando liberação".
+- `CargasFechadasAguardandoPanel`: além de listar cargas fechadas sem entrada, listar também cargas que têm entrada criada mas com `horario_entrada IS NULL` (estado intermediário).
 
-**Formato pt-BR:** distâncias em `1.234,5 km`, datas `dd/MM HH:mm`, durações `Xh Ymin` (lib `portaria-tempos.ts` já existe).
+## Mudanças por arquivo
 
-### Limites do escopo
-- Não vou criar tabela de "viagens" consolidadas — agregação é feita on-the-fly. Se volume crescer (>10k movs/período), cria-se uma view materializada depois.
-- Não vou alterar a captura de dados na Portaria; só consumir o que já é gravado.
-- Não vou mexer em `Motoristas.tsx` (CRUD) — esta é uma página nova de leitura.
+### `src/hooks/useCarregamentos.ts` (hook `useCargasFechadasAguardando`)
+- Atualmente filtra cargas fechadas que **não têm** movimentação de entrada. Atualizar para **também incluir** as que têm entrada com `horario_entrada IS NULL` e expor uma flag `chegouAguardandoLiberacao` + `movimentoChegadaId` + `horarioChegada` no resultado.
+
+### `src/components/portaria/RegistroEntradaDialog.tsx`
+- Renomear ação no caminho "vinculado a carga" para **registrar chegada** (não mais entrada): salvar com `horario_chegada = now()`, `horario_entrada = NULL`, `etapa_terceirizado = "chegada"` (ou `etapa_carga_propria = "aguardando_liberacao"`).
+- Não atualizar `veiculos_esperados.conferido = true` ainda (deixar para o passo de liberação).
+- Toast: "Chegada registrada — aguardando liberação para entrar no pátio".
+
+### `src/components/portaria/CargasFechadasAguardandoPanel.tsx`
+- Renderizar 2 estados visuais por linha:
+  - **Sem chegada**: botão `Registrar chegada` (estilo atual).
+  - **Com chegada aguardando liberação**: badge âmbar `Aguardando liberação · HH:mm (Xmin)`, botão primário `Liberar entrada no pátio`, botão fantasma `Desfazer chegada`.
+- Novos handlers chamam:
+  - `liberarEntrada(movId)` → `UPDATE movimentacoes_portaria SET horario_entrada = now(), etapa_terceirizado = 'no_patio'/etapa_carga_propria = 'chegou' WHERE id = movId`; depois `UPDATE veiculos_esperados SET conferido = true, conferido_em = now() WHERE carga_id = X`. Invalida queries (`movimentacoes_portaria`, `cargas_fechadas_aguardando`, `veiculos_esperados`, `carregamentos`).
+  - `desfazerChegada(movId)` → `DELETE FROM movimentacoes_portaria WHERE id = movId AND horario_entrada IS NULL` (segurança extra: só deixa apagar enquanto ainda não foi liberada). Invalida as mesmas queries.
+
+### `src/components/portaria/PatioAtualTab.tsx`
+- Adicionar `m.horario_entrada != null` ao filtro `veiculosNoPatio` (entradas sem `horario_entrada` ainda estão "fora do portão").
+
+### `src/components/portaria/PortariaKpiCards.tsx`
+- Mesma exclusão para o card "no pátio".
+
+### `src/hooks/useStatusPortariaPorCarga.ts`
+- Em `deriveEtapa`, considerar entrada com `horario_entrada == null` (ou `etapa_terceirizado === "chegada"`) como **`aguardando`**, não `patio`. Manter `patio` apenas para entrada com `horario_entrada` preenchido.
+
+### Memória
+- Atualizar `mem://features/portaria-third-party-workflow` para refletir o fluxo em **duas etapas** (Chegada → Liberação para o pátio → Saída) e a regra "no pátio" só após liberação.
+
+## O que **não** muda
+
+- Nenhuma alteração de schema/migration: usamos campos já existentes (`horario_chegada`, `horario_entrada`, `etapa_terceirizado`, `etapa_carga_propria`).
+- Fluxo do walk-in (motorista chega sem carga vinculada) permanece igual.
+- Fluxo de saída do pátio permanece igual.
+- Nenhuma alteração nos pedidos / tabela de carregamentos.
+
+## Resumo de UX
+
+- Chegada da carga → **status muda para "Aguardando liberação"** (não "no pátio").
+- Cronômetro mostra há quanto tempo o motorista está esperando.
+- Quando o porteiro libera, aí sim entra para "Pátio Atual" e KPIs.
+- Possível desfazer a chegada se foi registrada por engano (somente antes da liberação).
