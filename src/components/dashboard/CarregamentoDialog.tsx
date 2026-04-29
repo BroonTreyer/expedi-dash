@@ -256,6 +256,26 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       const qty = Math.round(peso / item.pesoPadrao);
       updateItem(index, { peso, quantidade: qty, pesoManual: true });
     }
+    // Edição manual de peso invalida qualquer "confirmação de redução" anterior — usuário precisa reconfirmar.
+    if (items[index]?.resetBaseline) {
+      updateItem(index, { resetBaseline: false });
+    }
+  };
+
+  const restaurarPesoOriginal = (index: number) => {
+    const item = items[index];
+    if (!item.pesoOriginal || item.pesoOriginal <= 0) return;
+    const novoPeso = item.pesoOriginal;
+    if (isPorUnidade(item.nome_produto) || item.pesoPadrao <= 0) {
+      updateItem(index, { peso: novoPeso, pesoManual: true, resetBaseline: false });
+    } else {
+      const qty = Math.round(novoPeso / item.pesoPadrao);
+      updateItem(index, { peso: novoPeso, quantidade: qty, pesoManual: true, resetBaseline: false });
+    }
+  };
+
+  const confirmarReducao = (index: number) => {
+    updateItem(index, { resetBaseline: true });
   };
 
   const addItem = () => setItems(prev => [...prev, emptyItem()]);
