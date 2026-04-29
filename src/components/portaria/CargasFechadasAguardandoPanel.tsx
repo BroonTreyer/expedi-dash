@@ -28,6 +28,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   const [now, setNow] = useState(() => Date.now());
 
   const canAct = role === "admin" || role === "logistica" || role === "portaria";
+  const canCancel = role === "admin" || role === "logistica";
 
   const cargas = cargasRaw.filter((c) => {
     if (!categoria) return true;
@@ -258,16 +259,18 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                         </span>
                       </>
                     )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-[11px] gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => setCancelCarga(c)}
-                      disabled={isBusy}
-                    >
-                      <AlertOctagon className="h-3.5 w-3.5" />
-                      Cancelar carga
-                    </Button>
+                    {canCancel && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-[11px] gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setCancelCarga(c)}
+                        disabled={isBusy}
+                      >
+                        <AlertOctagon className="h-3.5 w-3.5" />
+                        Cancelar carga
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
