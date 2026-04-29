@@ -31,6 +31,7 @@ import {
   Download,
   PackageX,
   Package,
+  AlertCircle,
 } from "lucide-react";
 import { isPorUnidade } from "@/lib/constants";
 import { isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
