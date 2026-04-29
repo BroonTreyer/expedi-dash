@@ -67,7 +67,7 @@ function CadastroRapidoDialog({
              <Label>Telefone</Label>
              <Input value={telefone} onChange={(e) => setTelefone(maskPhone(e.target.value))} placeholder="(00) 00000-0000" />
           </div>
-          <CapturaFoto label="Foto do Documento" onCapture={(f) => setFotoFile(f)} />
+          <CapturaFoto label="Foto do Documento" onCapture={(f) => setFotoFile(f)} allowFileUpload />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
