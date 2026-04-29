@@ -106,7 +106,11 @@ export default function MotoristasPainel() {
           </>
         )}
 
-        <MotoristaDetalheDrawer motorista={selecionado} onClose={() => setSelecionado(null)} />
+        <MotoristaDetalheDrawer
+          motorista={selecionado}
+          onClose={() => setSelecionado(null)}
+          periodo={{ inicio: startDate, fim: endDate }}
+        />
       </div>
     </Layout>
   );

@@ -20,6 +20,7 @@ export interface MotoristaAgg {
   em_rota: boolean;
   em_rota_desde: string | null;
   km_por_dia: { dia: string; km: number }[];
+  obs_count: number;
 }
 
 function normNome(s: string | null | undefined) {
@@ -135,6 +136,10 @@ export function useMotoristasPainel(opts: {
           .sort((a, b) => a[0].localeCompare(b[0]))
           .map(([dia, km]) => ({ dia, km }));
 
+        const obs_count = items.filter(
+          (i) => (i.observacoes && i.observacoes.trim()) || (i.ocorrencia && i.ocorrencia.trim()),
+        ).length;
+
         aggs.push({
           nome: items[0]?.motorista || key,
           cadastro: motByNome.get(key) ?? null,
@@ -150,6 +155,7 @@ export function useMotoristasPainel(opts: {
           em_rota: !!emRotaItem,
           em_rota_desde: emRotaItem?.horario_real_saida ?? null,
           km_por_dia,
+          obs_count,
         });
       }
 
