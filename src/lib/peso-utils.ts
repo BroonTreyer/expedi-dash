@@ -35,11 +35,9 @@ export const somaPesoPlanejado = (arr: PesoItem[]): number =>
 export const pesoNaoCarregado = (c: PesoItem): number => {
   const original = c.peso_original ?? c.peso ?? 0;
   const atual = c.peso ?? 0;
-  if (c.ruptura) {
-    // Quando o usuário marca ruptura total mas mantém peso > 0, a perda real
-    // é só a diferença. Evita superestimar o "Faltando".
-    return Math.max(0, original - atual);
-  }
+  // Tanto para ruptura total quanto parcial: perda = original - atual.
+  // Quando o usuário marca ruptura total mas mantém peso > 0, a perda real
+  // é só a diferença (parte foi entregue). Evita superestimar o "Faltando".
   return Math.max(0, original - atual);
 };
 
