@@ -152,6 +152,12 @@ export function MotoristaPrintDialog({ open, onOpenChange, motorista, periodo }:
                 const fim = r.horario_real_retorno || r.horario_saida_final;
                 const obs = (r.observacoes || "").trim();
                 const ocorr = (r.ocorrencia || "").trim();
+                const fotos: { url: string; label: string }[] = [
+                  { url: r.foto_placa_url, label: "Placa" },
+                  { url: r.foto_painel_saida_url, label: "Painel KM (saída)" },
+                  { url: r.foto_painel_url, label: r.categoria === "carga_propria" ? "Painel KM (retorno)" : "Painel KM" },
+                  { url: r.foto_lacre_url, label: "Lacre" },
+                ].filter((f): f is { url: string; label: string } => !!f.url);
                 return (
                   <div
                     key={r.id}
@@ -187,6 +193,24 @@ export function MotoristaPrintDialog({ open, onOpenChange, motorista, periodo }:
                       <div className="mt-1.5 border-l-2 border-foreground/30 pl-2 bg-muted/40 py-1">
                         <p className="font-semibold uppercase text-[10px]">Observações da portaria</p>
                         <p className="whitespace-pre-wrap">{obs}</p>
+                      </div>
+                    )}
+                    {fotos.length > 0 && (
+                      <div className="mt-1.5 break-inside-avoid">
+                        <p className="font-semibold uppercase text-[10px] text-muted-foreground mb-1">Fotos</p>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {fotos.map((f) => (
+                            <div key={f.url} className="border border-foreground/10 rounded overflow-hidden">
+                              <img
+                                src={f.url}
+                                alt={f.label}
+                                className="w-full h-24 object-cover"
+                                crossOrigin="anonymous"
+                              />
+                              <p className="text-[9px] text-center py-0.5 px-1 truncate">{f.label}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
