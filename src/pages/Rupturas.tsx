@@ -510,6 +510,7 @@ export default function Rupturas() {
           onOpenChange={setDialogOpen}
           mode={dialogMode}
           editing={editing}
+          selectedDate={dateFromStr}
           onSubmit={handleSubmit}
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
