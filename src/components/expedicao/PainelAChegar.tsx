@@ -18,12 +18,12 @@ export function PainelAChegar({ veiculos, hoje }: Props) {
     .sort((a, b) => (a.data_referencia || "").localeCompare(b.data_referencia || ""));
 
   return (
-    <Card className="overflow-hidden border-sky-600/40 shadow-md">
-      <CardHeader className="py-3 px-4 bg-sky-600 text-white">
+    <Card className="overflow-hidden border-sidebar/30 shadow-sm">
+      <CardHeader className="py-3 px-4 bg-sidebar text-sidebar-foreground">
         <CardTitle className="text-base flex items-center gap-2 font-bold">
           <Clock3 className="h-5 w-5" />
           A chegar
-          <Badge className="ml-auto bg-white text-sky-700 hover:bg-white text-sm font-bold px-2.5">
+          <Badge className="ml-auto bg-white text-sidebar hover:bg-white text-sm font-bold px-2.5">
             {lista.length}
           </Badge>
         </CardTitle>
@@ -36,7 +36,7 @@ export function PainelAChegar({ veiculos, hoje }: Props) {
             const atrasado = v.data_referencia < hoje;
             const futuro = v.data_referencia > hoje;
             const kg = fmtKg(v.peso);
-            const borderL = atrasado ? "border-l-red-600" : futuro ? "border-l-amber-500" : "border-l-sky-600";
+            const borderL = atrasado ? "border-l-sidebar" : futuro ? "border-l-amber-500" : "border-l-emerald-600";
             return (
               <div
                 key={v.id}
@@ -49,12 +49,12 @@ export function PainelAChegar({ veiculos, hoje }: Props) {
                       <Badge variant="secondary" className="text-xs h-6 font-mono">{v.carga_id}</Badge>
                     )}
                     {kg && (
-                      <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-900 dark:text-sky-200 text-xs h-6 gap-1">
+                      <Badge variant="outline" className="text-xs h-6 gap-1 border-sidebar/40 text-foreground">
                         <Weight className="h-3 w-3" /> {kg}
                       </Badge>
                     )}
                     {atrasado && (
-                      <Badge className="bg-red-600 text-white hover:bg-red-600 text-xs h-6 gap-0.5">
+                      <Badge className="bg-sidebar text-sidebar-foreground hover:bg-sidebar text-xs h-6 gap-0.5">
                         <CalendarClock className="h-3 w-3" /> Atrasado {format(parseISO(v.data_referencia), "dd/MM")}
                       </Badge>
                     )}

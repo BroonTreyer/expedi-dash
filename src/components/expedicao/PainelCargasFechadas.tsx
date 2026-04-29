@@ -9,12 +9,12 @@ interface Props {
 
 export function PainelCargasFechadas({ cargas }: Props) {
   return (
-    <Card className="overflow-hidden border-indigo-600/40 shadow-md">
-      <CardHeader className="py-3 px-4 bg-indigo-600 text-white">
+    <Card className="overflow-hidden border-sidebar/30 shadow-sm">
+      <CardHeader className="py-3 px-4 bg-sidebar text-sidebar-foreground">
         <CardTitle className="text-base flex items-center gap-2 font-bold">
           <Package className="h-5 w-5" />
           Cargas fechadas — aguardando veículo
-          <Badge className="ml-auto bg-white text-indigo-700 hover:bg-white text-sm font-bold px-2.5">
+          <Badge className="ml-auto bg-white text-sidebar hover:bg-white text-sm font-bold px-2.5">
             {cargas.length}
           </Badge>
         </CardTitle>
@@ -26,7 +26,7 @@ export function PainelCargasFechadas({ cargas }: Props) {
           cargas.map((c, idx) => (
             <div
               key={c.carga_id}
-              className={`rounded-md border border-l-4 ${c.chegouAguardandoLiberacao ? "border-l-amber-500" : "border-l-indigo-600"} ${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} p-3 space-y-1.5`}
+              className={`rounded-md border border-l-4 ${c.chegouAguardandoLiberacao ? "border-l-amber-500" : "border-l-sidebar"} ${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} p-3 space-y-1.5`}
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-bold text-base truncate">{c.nome_carga || c.carga_id}</span>
@@ -35,11 +35,11 @@ export function PainelCargasFechadas({ cargas }: Props) {
                     <Hourglass className="h-3 w-3" /> Motorista chegou
                   </Badge>
                 ) : null}
-                <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100 dark:bg-indigo-900 dark:text-indigo-200 text-xs h-6 font-mono">
+                <Badge variant="secondary" className="text-xs h-6 font-mono">
                   <Package className="h-3 w-3 mr-1" />
                   {c.qtd_pedidos} {c.qtd_pedidos === 1 ? "pedido" : "pedidos"}
                 </Badge>
-                <Badge className="bg-indigo-600 text-white hover:bg-indigo-600 text-sm h-6 gap-1 font-bold">
+                <Badge className="bg-sidebar text-sidebar-foreground hover:bg-sidebar text-sm h-6 gap-1 font-bold">
                   <Weight className="h-3 w-3" />
                   {c.peso_total.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg
                 </Badge>

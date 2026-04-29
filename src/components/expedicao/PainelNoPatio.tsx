@@ -17,15 +17,13 @@ function formatTempo(min: number) {
 }
 
 function tempoPill(min: number) {
-  if (min >= 480)
-    return "bg-red-600 text-white animate-pulse";
-  if (min >= 240)
-    return "bg-amber-500 text-black";
+  if (min >= 480) return "bg-sidebar text-sidebar-foreground animate-pulse";
+  if (min >= 240) return "bg-amber-500 text-black";
   return "bg-emerald-600 text-white";
 }
 
 function borderClass(min: number) {
-  if (min >= 480) return "border-l-red-600";
+  if (min >= 480) return "border-l-sidebar";
   if (min >= 240) return "border-l-amber-500";
   return "border-l-emerald-600";
 }
@@ -49,12 +47,12 @@ export function PainelNoPatio({ movimentacoes, now }: Props) {
     );
 
   return (
-    <Card className="overflow-hidden border-emerald-600/40 shadow-md">
-      <CardHeader className="py-3 px-4 bg-emerald-600 text-white">
+    <Card className="overflow-hidden border-sidebar/30 shadow-sm">
+      <CardHeader className="py-3 px-4 bg-sidebar text-sidebar-foreground">
         <CardTitle className="text-base flex items-center gap-2 font-bold">
           <ParkingCircle className="h-5 w-5" />
           No Pátio
-          <Badge className="ml-auto bg-white text-emerald-700 hover:bg-white text-sm font-bold px-2.5">
+          <Badge className="ml-auto bg-white text-sidebar hover:bg-white text-sm font-bold px-2.5">
             {lista.length}
           </Badge>
         </CardTitle>
@@ -79,7 +77,7 @@ export function PainelNoPatio({ movimentacoes, now }: Props) {
                       <Badge variant="secondary" className="text-xs h-6 font-mono">{m.carga_id}</Badge>
                     )}
                     {kg && (
-                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-200 text-xs h-6 gap-1">
+                      <Badge variant="outline" className="text-xs h-6 gap-1 border-sidebar/40 text-foreground">
                         <Weight className="h-3 w-3" /> {kg}
                       </Badge>
                     )}

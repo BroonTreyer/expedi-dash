@@ -15,16 +15,16 @@ const fmtKg = (n: number) =>
   `${n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg`;
 
 const opItems = [
-  { key: "noPatio" as const, label: "No pátio", icon: ParkingCircle, bg: "bg-emerald-600", ring: "ring-emerald-500/30" },
-  { key: "chegou" as const, label: "Chegou — aguardando", icon: BellRing, bg: "bg-amber-500", ring: "ring-amber-400/30", textOnBg: "text-black" },
-  { key: "aChegar" as const, label: "A chegar", icon: Clock3, bg: "bg-sky-600", ring: "ring-sky-500/30" },
-  { key: "cargasFechadas" as const, label: "Cargas prontas", icon: Package, bg: "bg-indigo-600", ring: "ring-indigo-500/30" },
+  { key: "noPatio" as const, label: "No pátio", icon: ParkingCircle },
+  { key: "chegou" as const, label: "Chegou — aguardando", icon: BellRing },
+  { key: "aChegar" as const, label: "A chegar", icon: Clock3 },
+  { key: "cargasFechadas" as const, label: "Cargas prontas", icon: Package },
 ];
 
 const kgItems = [
-  { key: "kgCarregado" as const, label: "Carregado / em carregamento", icon: TruckIcon, bg: "bg-emerald-700", ring: "ring-emerald-600/30" },
-  { key: "kgACarregar" as const, label: "A carregar", icon: PackageCheck, bg: "bg-orange-600", ring: "ring-orange-500/30" },
-  { key: "kgTotal" as const, label: "Total previsto do dia", icon: Scale, bg: "bg-violet-600", ring: "ring-violet-500/30" },
+  { key: "kgCarregado" as const, label: "Carregado / em carregamento", icon: TruckIcon },
+  { key: "kgACarregar" as const, label: "A carregar", icon: PackageCheck },
+  { key: "kgTotal" as const, label: "Total previsto do dia", icon: Scale, highlight: true },
 ];
 
 export function ExpedicaoKpiCards(props: Props) {
@@ -34,12 +34,11 @@ export function ExpedicaoKpiCards(props: Props) {
         {opItems.map((it) => {
           const Icon = it.icon;
           const value = props[it.key];
-          const txt = it.textOnBg ?? "text-white";
           return (
-            <Card key={it.key} className={`overflow-hidden border-0 ring-1 ${it.ring} shadow-md`}>
-              <CardContent className={`p-0 ${it.bg} ${txt}`}>
+            <Card key={it.key} className="overflow-hidden border-sidebar/30 shadow-sm">
+              <CardContent className="p-0 bg-sidebar text-sidebar-foreground">
                 <div className="p-4 flex items-center gap-3">
-                  <div className={`shrink-0 rounded-lg bg-black/15 p-2`}>
+                  <div className="shrink-0 rounded-lg bg-white/15 p-2">
                     <Icon className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
@@ -57,16 +56,40 @@ export function ExpedicaoKpiCards(props: Props) {
         {kgItems.map((it) => {
           const Icon = it.icon;
           const value = props[it.key];
+          const isHighlight = it.highlight;
           return (
-            <Card key={it.key} className={`overflow-hidden border-0 ring-1 ${it.ring} shadow-md`}>
-              <CardContent className={`p-0 ${it.bg} text-white`}>
+            <Card
+              key={it.key}
+              className={`overflow-hidden shadow-sm ${
+                isHighlight ? "border-sidebar" : "border-sidebar/30"
+              }`}
+            >
+              <CardContent
+                className={`p-0 ${
+                  isHighlight
+                    ? "bg-sidebar text-sidebar-foreground"
+                    : "bg-card text-card-foreground border-l-4 border-l-sidebar"
+                }`}
+              >
                 <div className="p-4 flex items-center gap-3">
-                  <div className="shrink-0 rounded-lg bg-black/20 p-2">
+                  <div
+                    className={`shrink-0 rounded-lg p-2 ${
+                      isHighlight ? "bg-white/15" : "bg-sidebar/10 text-sidebar"
+                    }`}
+                  >
                     <Icon className="h-7 w-7" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-wide opacity-90 truncate">{it.label}</p>
-                    <p className="text-3xl xl:text-4xl font-extrabold leading-none mt-1 tabular-nums">{fmtKg(value)}</p>
+                    <p
+                      className={`text-xs font-semibold uppercase tracking-wide truncate ${
+                        isHighlight ? "opacity-90" : "text-muted-foreground"
+                      }`}
+                    >
+                      {it.label}
+                    </p>
+                    <p className="text-3xl xl:text-4xl font-extrabold leading-none mt-1 tabular-nums">
+                      {fmtKg(value)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
