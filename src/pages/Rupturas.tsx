@@ -36,6 +36,7 @@ import {
   ChevronRight,
   History,
   Activity,
+  RefreshCw,
 } from "lucide-react";
 import { isPorUnidade } from "@/lib/constants";
 import { pesoNaoCarregado } from "@/lib/peso-utils";
@@ -281,10 +282,25 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Itens marcados como ruptura total ainda em aberto. A lista atualiza automaticamente quando alguém marca ou resolve uma ruptura.
-        </p>
+        <div className="flex flex-col gap-1 min-w-0">
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Itens marcados como ruptura total ainda em aberto. A lista atualiza automaticamente quando alguém marca ou resolve uma ruptura.
+          </p>
+          <p className="text-[11px] text-muted-foreground/80 inline-flex items-center gap-1">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Atualizado {atualizadoLabel}
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetch()}
+            title="Atualizar agora"
+            className="h-9 w-9 p-0"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           {productSummary.length > 0 && (
             <>
               <Button variant="outline" size="sm" onClick={handleExportCsv}>
