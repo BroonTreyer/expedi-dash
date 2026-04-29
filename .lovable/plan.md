@@ -1,59 +1,45 @@
-## Objetivo
+## Mostrar fotos no painel do motorista
 
-Tornar visíveis no Painel de Motoristas as observações registradas pela portaria/logística/admin (ex.: "celular da portaria bugou", explicando atrasos, falta de KM, baixas tardias) — e permitir imprimir o histórico completo do motorista para auditoria.
+Hoje o drawer de detalhe do motorista mostra horários, KM, observações e ocorrências de cada rota — mas **não mostra as fotos** capturadas pela portaria (placa, painel KM saída/retorno, lacre, nota, documento). Vou adicionar essas evidências visuais no drawer e no relatório impresso.
 
-## Onde estão os dados (já existem no banco)
+### O que será exibido por rota
 
-A tabela `movimentacoes_portaria` já possui dois campos textuais que cobrem o cenário, mas hoje só `ocorrencia` aparece (parcialmente) no drawer:
+Para cada rota no histórico do motorista, uma faixa de miniaturas com as fotos disponíveis:
 
-- `observacoes` — texto livre digitado em qualquer dialog (entrada, edição, walk-in).
-- `ocorrencia` — texto de ocorrência operacional registrada pela portaria.
+- 📷 Placa
+- 🛞 Painel KM — saída (carga própria)
+- 🛞 Painel KM — retorno (ou único registro de KM em terceirizado)
+- 🔒 Lacre
+- 📋 Nota fiscal
+- 📄 Documento do motorista
 
-Nenhuma mudança de schema é necessária.
+Se um campo não tiver foto, simplesmente não aparece (sem placeholders vazios).
 
-## Mudanças
+### Comportamento
 
-### 1. Drawer de detalhe (`MotoristaDetalheDrawer.tsx`)
+**No drawer (`MotoristaDetalheDrawer`)**
+- Nova seção "Fotos" dentro de cada card de rota, após observações.
+- Miniaturas quadradas (~64px) em grid responsivo, com legenda curta abaixo.
+- Clique abre a foto em tela cheia usando o `PhotoViewerDialog` já existente (suporta imagem e PDF, com fallback automático e botão "abrir em nova aba").
+- Badge no topo do card "📷 N fotos" para indicar disponibilidade rápida.
 
-Em cada card de rota do histórico:
+**No relatório impresso (`MotoristaPrintDialog`)**
+- Adicionar até 4 thumbnails por rota (placa, painel saída, painel retorno, lacre) em layout de grade compacta (CSS print-friendly).
+- Cada foto com legenda em texto pequeno.
+- Mantém quebras de página existentes; CSS `@media print` garante que fotos não cortem entre páginas (`break-inside: avoid`).
 
-- Mostrar **ambos** os campos quando preenchidos, com rótulos claros:
-  - "Ocorrência" (ícone amarelo de alerta) — já existe, mantém.
-  - "Observações da portaria" (novo bloco, ícone de mensagem, fundo `bg-muted/40`).
-- Adicionar um indicador visual no cabeçalho da rota ("Tem observação") quando qualquer um dos dois estiver preenchido, para facilitar varredura.
-- Mostrar também o campo `conferente` (quem deu baixa) e o `usuario_id` resolvido como e-mail quando disponível, ajudando a entender o horário/responsável da baixa.
+### Detalhes técnicos
 
-### 2. Sinal na tabela de ranking (`MotoristaRankingTable.tsx`)
+- **Sem mudança de schema**: os campos `foto_placa_url`, `foto_painel_url`, `foto_painel_saida_url`, `foto_lacre_url`, `foto_nota_url`, `foto_documento_url` já existem em `movimentacoes_portaria` e já chegam no hook `useMotoristasPainel` (faz `select("*")`).
+- **Tipo**: estender o tipo de movimento usado no drawer para incluir esses campos (já estão em `MovimentacaoPortaria`).
+- **Storage**: as URLs vêm já assinadas do bucket privado `portaria` (mesmo padrão do `MovimentoDetailsDialog`). Sem novo signing necessário no painel — reutilizar URLs como já estão no objeto.
+- **Componente novo**: `MotoristaFotosRota` (pequeno, dentro de `MotoristaDetalheDrawer.tsx`) que recebe um movimento e renderiza a grade de thumbnails + abre `PhotoViewerDialog` no clique.
+- **Reuso**: `PhotoViewerDialog` já trata PDF, erro de imagem e link externo — não precisa duplicar lógica.
 
-- Adicionar um pequeno badge "⚠ obs" ao lado do nome quando o motorista tiver pelo menos uma rota no período com `observacoes` ou `ocorrencia` preenchidos. Tooltip com a contagem (ex.: "3 rotas com observação").
-- Adicionar essa contagem ao agregado em `useMotoristasPainel.ts` (`obs_count: number`), calculada percorrendo `items` — sem nova query.
+### Arquivos a editar
 
-### 3. Impressão completa do motorista (novo)
+- `src/components/motoristas/MotoristaDetalheDrawer.tsx` — nova seção de fotos por rota + badge de contagem.
+- `src/components/motoristas/MotoristaPrintDialog.tsx` — grade de thumbnails por rota no relatório.
+- `mem/features/drivers-panel.md` — atualizar nota do feature mencionando exibição de fotos.
 
-Criar um botão "Imprimir histórico" no header do drawer que abre um diálogo de impressão A4 padrão (mesmo estilo dos `CargaPrintDialog` / `ConsolidadoPrintDialog`), contendo:
-
-- **Cabeçalho:** nome, CPF, telefone, foto (se houver), período do filtro aplicado, KPIs agregados (rotas, KM total, KM médio, tempo médio, peso, entregas).
-- **Tabela cronológica de rotas** (ordem decrescente), com colunas: data, placa, carga, rota, KM (ini→fim ou rodado), saída real, retorno real, peso, entregas, conferente.
-- **Coluna/seção de observações:** abaixo de cada linha, em fonte menor, imprimir `ocorrencia` e `observacoes` por extenso (não truncar). Linhas sem texto ficam compactas.
-- Rodapé com data/hora da impressão e usuário logado.
-
-Arquivo novo: `src/components/motoristas/MotoristaPrintDialog.tsx` (segue padrão dos demais print dialogs do projeto, `window.print()` com CSS `@media print`).
-
-### 4. Memória
-
-Atualizar `mem://features/drivers-panel.md` para registrar que o painel exibe `observacoes` + `ocorrencia` por rota e oferece impressão A4 do histórico completo do motorista.
-
-## Detalhes técnicos
-
-- Ajustar `MotoristaAgg` em `useMotoristasPainel.ts` adicionando `obs_count: number` (computado no `for` que já agrega rotas — custo zero adicional).
-- Reaproveitar `formatDuracao`, `calcKm`, `tempoMin` do drawer para o print dialog (extrair para `src/lib/motorista-utils.ts` se houver duplicação).
-- Print dialog usa `react-to-print`-style via `window.print()` com `@media print { ... }` no próprio componente, igual aos existentes (sem nova dependência).
-- Sem alterações em RLS — os campos já são lidos pela política `Ops select movimentacoes_portaria` (admin/logística/portaria).
-
-## Arquivos
-
-- Editar: `src/components/motoristas/MotoristaDetalheDrawer.tsx`
-- Editar: `src/components/motoristas/MotoristaRankingTable.tsx`
-- Editar: `src/hooks/useMotoristasPainel.ts`
-- Criar: `src/components/motoristas/MotoristaPrintDialog.tsx`
-- Editar: `mem/features/drivers-panel.md`
+Sem migrações, sem novas queries, sem mudanças de RLS.
