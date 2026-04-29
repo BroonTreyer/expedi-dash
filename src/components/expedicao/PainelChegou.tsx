@@ -35,12 +35,12 @@ export function PainelChegou({ movimentacoes, now }: Props) {
     );
 
   return (
-    <Card className="overflow-hidden border-amber-500/40 shadow-md">
-      <CardHeader className="py-3 px-4 bg-amber-500 text-black">
+    <Card className="overflow-hidden border-sidebar/30 shadow-sm">
+      <CardHeader className="py-3 px-4 bg-sidebar text-sidebar-foreground">
         <CardTitle className="text-base flex items-center gap-2 font-bold">
           <BellRing className="h-5 w-5" />
           Chegou — aguardando liberação
-          <Badge className="ml-auto bg-black text-amber-300 hover:bg-black text-sm font-bold px-2.5">
+          <Badge className="ml-auto bg-white text-sidebar hover:bg-white text-sm font-bold px-2.5">
             {lista.length}
           </Badge>
         </CardTitle>
@@ -65,7 +65,7 @@ export function PainelChegou({ movimentacoes, now }: Props) {
                       <Badge variant="secondary" className="text-xs h-6 font-mono">{m.carga_id}</Badge>
                     )}
                     {kg && (
-                      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-100 text-xs h-6 gap-1">
+                      <Badge variant="outline" className="text-xs h-6 gap-1 border-sidebar/40 text-foreground">
                         <Weight className="h-3 w-3" /> {kg}
                       </Badge>
                     )}
