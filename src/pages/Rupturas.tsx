@@ -509,7 +509,7 @@ export default function Rupturas() {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           mode={dialogMode}
-          carregamento={editing}
+          editing={editing}
           onSubmit={handleSubmit}
           vendedores={vendedores}
           tiposCaminhao={tiposCaminhao}
