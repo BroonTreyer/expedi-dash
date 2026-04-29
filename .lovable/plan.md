@@ -1,37 +1,40 @@
-# Adicionar campos no CSV da Portaria
+## Problema
 
-## O que muda
+Em **Consolidado**, o badge da Portaria para cargas **terceirizadas** não acompanha corretamente os passos "chegou" e "entrou no pátio". Mesmo quando o porteiro libera o veículo (`etapa_terceirizado = 'no_patio'`), o badge continua exibindo "Aguardando chegada".
 
-No botão **"CSV"** das telas de Portaria (Carga Própria e Terceirizado), o arquivo exportado passará a conter duas novas colunas:
+## Causa
 
-1. **Data/Retorno** — data e hora em que o veículo retornou ao pátio (formato `dd/MM/yyyy HH:mm`).
-2. **Carga** — identificador/nome da carga vinculada ao veículo.
+No hook `src/hooks/useStatusPortariaPorCarga.ts`, a função `deriveEtapa` só conhece dois valores de `etapa_terceirizado`:
 
-## Detalhes por tipo
+- `'chegada'` (sem `horario_entrada`) → `aguardando`
+- `'liberado'` → `carregando`
 
-- **Frota Própria**: usa `horario_real_retorno` (chegada de volta da rota). Se já houver `horario_saida_final` (saída definitiva após conferência), também é exibido em uma coluna adicional **"Saída Final"**.
-- **Terceirizado**: usa `horario_real_saida` como o horário de "liberação/retorno" (saída do pátio após carregamento), já que terceirizado não retorna.
-- **Carga**: prioriza `nome_carga` quando existir (buscando no registro vinculado); caso contrário, mostra `carga_id`.
+Os valores `'no_patio'` e `'finalizado'` não são mapeados. Como resultado:
 
-## Layout final do CSV
+- Após "Liberar entrada no pátio" (que grava `etapa_terceirizado = 'no_patio'` + `horario_entrada`), a etapa cai no fallback genérico — funciona às vezes, mas só se `horario_entrada` estiver presente. E o label correto "No pátio" não aparece de forma confiável quando o caminhão depois passa para `liberado` e voltaria, etc.
+- `'finalizado'` só é interpretado como "Expedido" via fallback de `tipo_movimento='saida'`/`horario_saida_final`, podendo ficar atrás na ordem se o registro de saída ainda não existir.
 
-```text
-Data/Hora | Tipo | Categoria | Placa | Motorista | Empresa |
-Carga | Setor | Rota | KM Inicial | KM Final | KM Rodado |
-Data/Retorno | Saída Final | Observações
-```
+Fluxo terceirizado oficial (já documentado em memória): **chegada → no_patio → liberado → finalizado**.
 
-## Detalhes técnicos
+## Solução (apenas terceirizado, carga própria fica como está)
 
-- **Arquivo**: `src/pages/Portaria.tsx`, função `exportCSV` (linhas 204-252).
-- **Headers**: adicionar `"Carga"`, `"Data/Retorno"` e `"Saída Final"` ao array `headers`.
-- **Rows**: para cada movimento `m`:
-  - `carga`: `m.nome_carga || m.carga_id || ""` (campo `nome_carga` precisa ser lido — atualmente o tipo `MovimentacaoPortaria` não inclui; verificar se já vem do `select("*")` em `useMovimentacoes`. Se não, fazemos lookup pelo `carga_id` em `carregamentos_dia` ou apenas exibimos `carga_id`).
-  - `data_retorno`: `m.horario_real_retorno ? format(..., "dd/MM/yyyy HH:mm") : ""`.
-  - `saida_final`: `m.horario_saida_final ? format(..., "dd/MM/yyyy HH:mm") : ""`.
-- Atualizar dependências do `useCallback`.
+Atualizar `deriveEtapa` em `src/hooks/useStatusPortariaPorCarga.ts` para mapear explicitamente os 4 estágios:
 
-## Fora do escopo
+| `etapa_terceirizado` / sinal      | Etapa exibida   | Label              |
+|-----------------------------------|-----------------|--------------------|
+| `'chegada'` (sem `horario_entrada`) | `aguardando`  | Aguardando chegada |
+| `'no_patio'` ou `horario_entrada` preenchido | `patio` | No pátio          |
+| `'liberado'`                      | `carregando`    | Carregando         |
+| `'finalizado'` ou `horario_saida_final` ou `tipo_movimento='saida'` | `expedido` | Expedido |
 
-- Não altera o CSV dos relatórios em `src/hooks/useRelatorios.ts` (arquivos XLSX separados).
-- Não altera a UI da tabela em tela — apenas o arquivo exportado.
+A lógica de "etapa máxima" entre todos os movimentos da mesma `carga_id` continua igual (via `ORDEM`), assim como o filtro `categoria = 'terceirizado'` na query e no canal Realtime — nada muda para carga própria.
+
+## Arquivo afetado
+
+- `src/hooks/useStatusPortariaPorCarga.ts` — único ajuste, dentro de `deriveEtapa`.
+
+## Resultado esperado
+
+No Consolidado, o badge da Portaria para cargas terceirizadas passa a refletir corretamente cada etapa em tempo real:
+
+- Aguardando chegada → No pátio → Carregando → Expedido
