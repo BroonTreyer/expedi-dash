@@ -27,17 +27,16 @@ export const somaPesoPlanejado = (arr: PesoItem[]): number =>
 
 /**
  * Peso que deixou de ser carregado em relação ao pedido original.
- *  - Ruptura total (ruptura = true): perda = peso_original - peso (se peso > 0,
- *    significa que parte foi entregue e só o restante é a perda real).
+ *  - Ruptura total (ruptura = true): perda = peso_original (item inteiro perdido).
+ *    No fluxo do sistema, peso/quantidade ficam com o valor original como referência
+ *    do que foi pedido; o flag `ruptura` indica que nada foi carregado.
  *  - Ruptura parcial (peso < peso_original): retorna a diferença.
  *  - Sem perda: 0.
  */
 export const pesoNaoCarregado = (c: PesoItem): number => {
   const original = c.peso_original ?? c.peso ?? 0;
+  if (c.ruptura) return original;
   const atual = c.peso ?? 0;
-  // Tanto para ruptura total quanto parcial: perda = original - atual.
-  // Quando o usuário marca ruptura total mas mantém peso > 0, a perda real
-  // é só a diferença (parte foi entregue). Evita superestimar o "Faltando".
   return Math.max(0, original - atual);
 };
 
