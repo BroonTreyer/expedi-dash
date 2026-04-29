@@ -6,6 +6,7 @@ import type { DateRange } from "react-day-picker";
 import { Layout } from "@/components/Layout";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { Filters } from "@/components/dashboard/Filters";
+import { matchSearchTags } from "@/components/dashboard/SmartSearchBar";
 import { CarregamentoTable } from "@/components/dashboard/CarregamentoTable";
 import { KanbanView } from "@/components/dashboard/KanbanView";
 import { CarregamentoDialog, type DialogMode } from "@/components/dashboard/CarregamentoDialog";
