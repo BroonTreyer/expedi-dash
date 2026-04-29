@@ -49,6 +49,9 @@ export function useEditarPedidoAprovacao() {
       // 2) UPDATE existentes
       const updates = items.filter((i) => i.id);
       for (const it of updates) {
+        // Se a ruptura foi desmarcada e o peso voltou ao original, limpa também
+        // o flag persistente "ruptura_sinalizada" (defensivo — o trigger DB também faz).
+        const limparSinalizada = !it.ruptura;
         const { error } = await supabase
           .from("carregamentos_dia")
           .update({
@@ -61,6 +64,7 @@ export function useEditarPedidoAprovacao() {
             preco_total: it.preco_total || null,
             motivo_ruptura: it.motivo_ruptura || null,
             ruptura: !!it.ruptura,
+            ...(limparSinalizada ? { ruptura_sinalizada: false } : {}),
             observacoes: meta.observacoes || null,
             forma_pagamento: meta.forma_pagamento || null,
             ...(aprovarAposSalvar ? { etapa: "vendas", status: "Aguardando" } : {}),
