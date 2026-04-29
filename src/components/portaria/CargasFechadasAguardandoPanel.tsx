@@ -42,13 +42,14 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
     }
     let cancelled = false;
     (async () => {
+      // "Motorista já no pátio" = existe movimentação de entrada com horario_entrada preenchido
+      // (não basta veiculo_esperado autorizado; ele pode estar apenas aguardando liberação)
       const { data } = await supabase
-        .from("veiculos_esperados" as any)
-        .select("carga_id")
-        .eq("walk_in", true)
-        .eq("conferido", false)
-        .eq("status_autorizacao", "autorizado")
-        .in("carga_id", ids);
+        .from("movimentacoes_portaria")
+        .select("carga_id, horario_entrada")
+        .in("carga_id", ids)
+        .eq("tipo_movimento", "entrada")
+        .not("horario_entrada", "is", null);
       if (cancelled) return;
       const set = new Set<string>(
         ((data ?? []) as unknown as { carga_id: string | null }[])
