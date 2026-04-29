@@ -13,6 +13,7 @@ export interface CargaDiaExpedicao {
   data: string;
   pesoTotal: number; // soma de pesoEfetivo (descarta rupturas totais)
   qtdPedidos: number;
+  status: string | null; // status agregado (Carregado se TODOS os itens estão Carregado)
 }
 
 /**
@@ -29,27 +30,16 @@ export function useCargasDiaExpedicao(dateStr: string) {
     staleTime: 15_000,
     refetchInterval: 30_000,
     queryFn: async () => {
-      const todayStr = new Date().toISOString().split("T")[0];
-      let q = supabase
+      const q = supabase
         .from("carregamentos_dia")
         .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, ruptura, data, numero_pedido, status")
-        .not("carga_id", "is", null);
-
-      if (dateStr === todayStr) {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
-        q = q.or(
-          `data.eq.${dateStr},and(data.lt.${dateStr},data.gte.${limitDate},status.neq.Carregado)`
-        );
-      } else {
-        q = q.eq("data", dateStr);
-      }
+        .not("carga_id", "is", null)
+        .eq("data", dateStr);
 
       const { data, error } = await q;
       if (error) throw error;
 
-      const grouped = new Map<string, CargaDiaExpedicao & { pedidos: Set<number> }>();
+      const grouped = new Map<string, CargaDiaExpedicao & { pedidos: Set<number>; statuses: Set<string> }>();
       for (const r of (data ?? []) as any[]) {
         if (!r.carga_id) continue;
         // Apenas terceirizado: tem transportadora preenchida
@@ -67,16 +57,28 @@ export function useCargasDiaExpedicao(dateStr: string) {
             pesoTotal: 0,
             qtdPedidos: 0,
             pedidos: new Set<number>(),
+            status: null,
+            statuses: new Set<string>(),
           };
           grouped.set(r.carga_id, g);
         }
         g.pesoTotal += pesoEfetivo({ peso: r.peso, ruptura: !!r.ruptura });
         if (r.numero_pedido != null) g.pedidos.add(Number(r.numero_pedido));
+        if (r.status) g.statuses.add(String(r.status));
       }
 
-      return Array.from(grouped.values()).map(({ pedidos, ...rest }) => ({
+      return Array.from(grouped.values()).map(({ pedidos, statuses, ...rest }) => ({
         ...rest,
         qtdPedidos: pedidos.size,
+        // status agregado: "Carregado" só se todos os itens da carga estão Carregado
+        status:
+          statuses.size === 1
+            ? Array.from(statuses)[0]
+            : statuses.has("Carregando")
+              ? "Carregando"
+              : statuses.size > 0
+                ? Array.from(statuses)[0]
+                : null,
       })) as CargaDiaExpedicao[];
     },
   });
