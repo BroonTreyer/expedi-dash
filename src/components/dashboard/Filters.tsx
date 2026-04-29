@@ -2,13 +2,13 @@ import { useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, CalendarIcon, X } from "lucide-react";
+import { CalendarIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelectFilter } from "./MultiSelectFilter";
+import { SmartSearchBar, type SearchTag } from "./SmartSearchBar";
 import { cn } from "@/lib/utils";
 import type { AppRole } from "@/hooks/useAuth";
 import type { DateRange } from "react-day-picker";
@@ -20,6 +20,15 @@ interface CarregamentoData {
   uf?: string | null;
   tipo_caminhao?: string | null;
   ruptura?: boolean;
+  placa?: string | null;
+  motorista?: string | null;
+  transportadora?: string | null;
+  cidade?: string | null;
+  numero_pedido?: number | null;
+  nome_carga?: string | null;
+  carga_id?: string | null;
+  nome_produto?: string | null;
+  codigo_produto?: string | null;
 }
 
 interface Props {
@@ -27,7 +36,7 @@ interface Props {
     status: string;
     vendedor: string[];
     tipoCaminhao: string;
-    busca: string;
+    searchTags: SearchTag[];
     dateRange: DateRange;
     etapa: string;
     ruptura: string;
@@ -47,7 +56,7 @@ const DEFAULT_FILTERS = {
   status: "todos",
   vendedor: [] as string[],
   tipoCaminhao: "todos",
-  busca: "",
+  searchTags: [] as SearchTag[],
   etapa: "todos",
   ruptura: "todos",
   cliente: [] as string[],
@@ -65,7 +74,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
     if (filters.status !== "todos") count++;
     if (filters.vendedor.length > 0) count++;
     if (filters.tipoCaminhao !== "todos") count++;
-    if (filters.busca !== "") count++;
+    if (filters.searchTags.length > 0) count += filters.searchTags.length;
     if (filters.etapa !== "todos") count++;
     if (filters.ruptura !== "todos") count++;
     if (filters.cliente.length > 0) count++;
