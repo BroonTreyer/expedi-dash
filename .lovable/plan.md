@@ -1,76 +1,73 @@
-Encontrei a causa real dos sintomas novos: não é só “saída órfã”. Existem registros antigos ainda abertos e várias consultas continuam olhando apenas `carga_id` ou placa, sem separar o ciclo atual do ciclo antigo do motorista/caminhão.
+## Problemas a corrigir
 
-Achados confirmados no banco:
-- Fagno / QWE1B20 / `JR MIX`: a carga atual é de 30/04, mas existe ciclo antigo de `JR MIX` em 22/04 já finalizado. Algumas rotinas ainda tratam qualquer movimento com mesmo `carga_id` como se fosse da carga atual.
-- Toni / JBM8E58: existe uma entrada antiga aberta de 23/04, por isso aparece com cerca de 161h. Mas depois disso ele teve ciclos mais novos em 24/04 e 29/04-30/04 já finalizados. A entrada de 23/04 está obsoleta e não deveria aparecer como pátio atual.
-- Hiago / RZU1A65: mesmo padrão do Toni. Entrada antiga aberta em 23/04, ciclo posterior em 24/04 finalizado. Como ele nem era do dia 29/30, não deve aparecer no pátio atual.
-- Jesumar / SMQ3D94: entrada legítima de 29/04 ainda sem saída, deve continuar no pátio.
+### 1) Carga muda de dia ao marcar como "Carregado"
 
-## Plano de correção
+**Causa:** o status "Carregado" não move a carga — o que move é a `data` do pedido. Hoje a carga `JR MIX` está com `data = 29/04` no banco, mas você está vendo no dia 30 graças ao **carry-over** (`data < hoje AND status != 'Carregado'`). No instante em que você clica "Carregado", a regra do carry-over falha (status passou a ser `Carregado`) e a linha some de "hoje", aparecendo só no dia 29 (a data real de cadastro).
 
-### 1. Corrigir a lógica do “Pátio atual”
-Atualizar `useMovimentacoesAtivasPatio` para não considerar simplesmente “entrada sem saída vinculada”.
+**Correção:**
+- Em `useConsolidado` (`src/pages/Consolidado.tsx`), expandir o carry-over para também trazer cargas dos últimos 30 dias **finalizadas hoje** (carregadas com data antiga, mas cuja conclusão é de hoje).
+- Critério prático: incluir cargas com `data < hoje` se houve **movimento de portaria** (`horario_entrada`, `horario_saida_final` ou status `expedido/carregando/no_patio`) **no dia atual** OU se `updated_at >= início_do_dia_hoje` E status mudou para `Carregado`.
+- Implementar via duas consultas combinadas: a query atual + uma busca por `carga_id`s presentes em `movimentacoes_portaria` com `data_hora >= today` e `categoria = 'terceirizado'`. Unir e deduplicar.
+- Mesma lógica em `useCargasDiaExpedicao` (`src/hooks/useCargasDiaExpedicao.ts`) para o painel de Expedição.
+- Acrescentar badge sutil "Carga de 29/04 — operada hoje" para o usuário entender que a data oficial não muda, só a visibilidade.
 
-Nova regra:
-- Agrupar movimentos por placa normalizada.
-- Considerar o ciclo mais recente da placa.
-- Se existe uma movimentação mais nova finalizada/saída para a mesma placa, qualquer entrada antiga aberta fica obsoleta e não aparece.
-- Só mostrar no pátio quando o ciclo mais recente estiver realmente ativo (`entrada` em `no_patio`/com `horario_entrada`, sem finalização posterior).
+**Alternativa oferecida (precisa decisão):**
+- (A) Manter a `data` original do pedido e usar carry-over como acima (recomendado, preserva histórico fiscal/contábil).
+- (B) Quando a carga chega no pátio em outro dia, atualizar automaticamente `data = CURRENT_DATE` em todos os itens da carga (mais simples, mas reescreve histórico). 
 
-Resultado:
-- Toni 161h sai do pátio.
-- Hiago sai do pátio.
-- Jesumar permanece no pátio.
-- Sinomar permanece se ainda não teve saída.
+Vou implementar (A) por padrão; se preferir (B), aviso antes de aplicar.
 
-### 2. Corrigir consultas que cruzam carga atual com movimentos antigos
-Atualizar `useCargasFechadasAguardando` para relacionar movimentos com carga usando contexto do ciclo, não apenas `carga_id`.
+### 2) Fluxo de chegada/entrada/saída do terceirizado precisa registrar 3 horários distintos
 
-Nova regra:
-- Para cada carga fechada, comparar movimentos por `carga_id` e janela operacional ao redor da data da carga, por exemplo de `data - 12h` até `data + 48h`.
-- Quando houver placa prevista, priorizar também placa normalizada.
-- Ignorar movimentos muito antigos com mesmo nome de carga.
+Hoje só existem 2 timestamps reais (`horario_entrada` e `horario_saida_final`). O `horario_chegada` é copiado do `veiculos_esperados.created_at` no momento que a portaria libera, perdendo separação semântica entre "chegou na portaria" e "entrou no pátio".
 
-Resultado:
-- Fagno / `JR MIX` de 30/04 não herda mais a finalização antiga de 22/04.
-- Cargas overnight, como Toni saindo após meia-noite, continuam funcionando.
+**Estado atual:**
+- Portaria registra chegada → cria `veiculos_esperados` walk-in (`aguardando_vinculo`).
+- Logística vincula carga → `status_autorizacao = autorizado` (carga aparece em "Cargas vinculadas — clique para liberar entrada").
+- Portaria libera → cria `movimentacoes_portaria` com chegada e entrada juntas e marca `conferido=true`.
+- Saída → registrada normalmente.
 
-### 3. Fortalecer `useStatusPortariaPorCarga`
-A correção anterior ainda é frágil porque o resultado final é um `Map` por `carga_id`; se o mesmo nome de carga reaparece, pode haver colisão.
+**Correção:**
+- Quando a portaria registrar a chegada do walk-in, **já criar** uma linha em `movimentacoes_portaria` com:
+  - `tipo_movimento = 'entrada'`
+  - `etapa_terceirizado = 'chegada'`
+  - `horario_chegada = now()`
+  - `horario_entrada = NULL`
+  - sem `carga_id` (será preenchido quando logística vincular)
+- Quando a logística vincular a carga, **fazer UPDATE** nessa movimentação setando `carga_id` (sem mexer em horários nem etapa).
+- Quando a portaria clicar "Liberar Entrada no Pátio", **fazer UPDATE** setando `horario_entrada = now()` e `etapa_terceirizado = 'no_patio'`.
+- Saída continua igual: cria movimentação `tipo_movimento = 'saida'` vinculada, com `horario_saida_final`. Ao finalizar, copiar `horario_saida_final` para a entrada e setar `etapa_terceirizado = 'finalizado'`.
+- O painel "Aguardando vínculo da Logística" passa a olhar `movimentacoes_portaria` com `etapa_terceirizado = 'chegada'` e `carga_id IS NULL` (em vez de `veiculos_esperados`), garantindo que o cronômetro mostra **tempo desde a chegada física**, não desde o cadastro do walk-in.
+- O painel "Cargas vinculadas — clique para liberar entrada" olha `etapa_terceirizado = 'chegada'` com `carga_id NOT NULL`.
 
-Ajuste:
-- Expandir `CargaRef` para aceitar também `placa` e/ou `motorista` quando disponível.
-- Calcular status por chave de ciclo: `carga_id + data + placa normalizada`.
-- Manter compatibilidade com chamadas antigas, mas atualizar `Expedicao` e `Consolidado` para passar placa/motorista.
-- Usar janela operacional, não só o dia exato, para não quebrar cargas que entram em um dia e saem no seguinte.
+**Resultado visível ao usuário:**
+- Tempo "Chegou" = `horario_chegada → now()` (enquanto não entrar)
+- Tempo "Aguardando liberação" = `horario_chegada → horario_entrada` (após entrar)
+- Tempo "No pátio" = `horario_entrada → horario_saida_final`
+- Tempo total = `horario_chegada → horario_saida_final`
 
-Resultado:
-- Status “Expedido” só aparece quando o movimento pertence ao ciclo atual da carga.
+### 3) Compatibilidade com walk-ins já existentes
 
-### 4. Limpeza pontual dos registros obsoletos
-Executar uma limpeza de dados, não migration estrutural, nos registros antigos abertos que já foram superados por ciclos posteriores:
-- Toni: entrada aberta antiga de 23/04 (`2f0bed02-5e12-4fbd-815d-7baa8ca9e659`).
-- Hiago: entrada aberta antiga de 23/04 (`8e68e4f4-40cc-40b9-a2fd-485835fe99f5`).
+Manter `veiculos_esperados` como fonte para previsões importadas via planilha e como referência histórica. O fluxo walk-in passa a usar `movimentacoes_portaria` como fonte primária; `veiculos_esperados` continua existindo apenas para o caso de chegada **prevista** (planilha) — sem mudar nada nelas.
 
-Opção segura: marcar como `finalizado` com observação de regularização, em vez de apagar, preservando histórico.
-
-### 5. Prevenir reincidência no registro de saída/entrada
-Fortalecer `useCreateMovimentacao`:
-- Ao criar nova entrada para uma placa que já tem entrada aberta antiga, fechar/regularizar ou bloquear com aviso claro.
-- Ao criar saída, exigir vínculo com a entrada ativa mais recente da mesma placa/carga.
-- Invalidar também a query `movimentacoes_portaria_ativas_patio` após criação/edição/exclusão, para a tela atualizar imediatamente.
+Para os walk-ins ativos no banco hoje (status `aguardando_vinculo` sem movimentação), na primeira liberação o sistema migra criando a movimentação de chegada retroativa com `horario_chegada = veiculos_esperados.created_at`.
 
 ## Arquivos a alterar
-- `src/hooks/useMovimentacoesPortaria.ts`
-- `src/hooks/useCarregamentos.ts`
-- `src/hooks/useStatusPortariaPorCarga.ts`
-- `src/pages/Expedicao.tsx`
-- `src/pages/Consolidado.tsx`
-- possivelmente `src/components/portaria/PatioAtualTab.tsx`, apenas se precisar ajustar exibição/ordenação após a nova regra
+
+- `src/hooks/useCarregamentos.ts` — `useConsolidado`/`useCargasFechadasAguardando`: incluir carry-over por movimentação de portaria do dia.
+- `src/hooks/useCargasDiaExpedicao.ts` — mesma expansão para Expedição.
+- `src/hooks/useVeiculosEsperados.ts` — `useRegistrarChegadaWalkIn` passa a criar movimentação de chegada; `useRegistrarChegadaPortaria` passa a fazer UPDATE; `useAutorizarChegada` passa a fazer UPDATE da movimentação ao vincular carga.
+- `src/components/portaria/SolicitacoesPendentesPanel.tsx` — listas vêm de `movimentacoes_portaria` e mostram tempo desde chegada física correto.
+- `src/components/portaria/CargasFechadasAguardandoPanel.tsx` — `liberarEntrada` segue funcionando, mas com semântica clara (UPDATE da movimentação existente).
+- `src/components/portaria/PatioAtualTab.tsx` — exibir 3 timestamps + 3 durações.
+- `src/components/portaria/MovimentoDetailsDialog.tsx` — mostrar timeline Chegou → Entrou → Saiu.
+- `src/pages/Consolidado.tsx` e `src/pages/Expedicao.tsx` — badge "operada hoje" para carga com data anterior.
 
 ## Resultado esperado
-- Fagno volta para estado correto: aguardando/chegada, não “Expedido” sem ter entrado.
-- Toni não aparece mais com 161h no pátio.
-- Hiago não aparece no pátio/lista de 29/30.
-- Jesumar aparece corretamente no pátio enquanto não tiver saída.
-- O sistema deixa de puxar informações antigas quando o motorista ou caminhão retorna em outro dia.
+
+- Marcar carga do dia 29 como "Carregado" no dia 30 não esconde a carga da tela do dia 30.
+- Registro de chegada cria de imediato a movimentação com horário real de chegada na portaria.
+- Vínculo de carga apenas anexa o `carga_id` à movimentação existente.
+- Liberação no pátio grava o horário de entrada efetiva.
+- Saída grava horário de saída final.
+- Cronômetros mostram tempos corretos por etapa.
