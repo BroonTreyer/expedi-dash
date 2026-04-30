@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
-export type AppRole = "admin" | "logistica" | "faturamento" | "portaria" | "vendedor";
+export type AppRole = "admin" | "logistica" | "faturamento" | "portaria" | "vendedor" | "expedicao";
 
 interface AuthState {
   user: User | null;

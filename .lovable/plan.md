@@ -1,48 +1,65 @@
-## Diagnóstico
+## Objetivo
 
-O motorista **JOSE RIDEKS / UIW2H75** tem **3 movimentos** na portaria, e o problema é uma **chegada órfã** que ficou esquecida:
+Criar um novo nível de usuário **Expedição** que tem acesso somente à aba **Expedição** (`/expedicao`). Não verá Painel, Portaria, Consolidado, Cadastros, etc.
 
-| # | id | tipo | carga_id | etapa | chegada | entrada | saída |
-|---|----|------|----------|-------|---------|---------|-------|
-| 1 | `09c88a02…` | entrada | **NULL** | `chegada` | 16:51 | **NULL** | NULL |
-| 2 | `b6793b44…` | entrada | HEBERT | `finalizado` | 17:18 | 17:20 | 17:30 |
-| 3 | `e291d0cc…` | saída (vinculada ao #2) | HEBERT | — | — | — | 17:30 |
+## O que será feito
 
-O ciclo da carga HEBERT (#2 → #3) está **completo e correto**. O que aparece na Expedição como "Chegou — aguardando liberação" é o registro **#1**: uma chegada feita às 16:51 sem carga vinculada, que ficou pendurada quando o porteiro registrou o motorista novamente (dessa vez direito, vinculado à HEBERT).
+### 1. Banco de dados (migration)
+- Adicionar valor `'expedicao'` ao enum `public.app_role`.
+- Atualizar políticas RLS necessárias para que esse role consiga **ler** os dados que a tela de Expedição já consome:
+  - `carregamentos_dia` (SELECT já é `true` para autenticados — ok, sem mudança).
+  - `movimentacoes_portaria`: hoje SELECT exige admin/logistica/portaria. Adicionar `expedicao` no SELECT (não no INSERT/UPDATE — read-only).
+  - `veiculos_esperados`: SELECT já é `true` — ok.
+  - Demais tabelas usadas na tela de Expedição (KPIs / PainelChegou) ficam read-only via SELECT existente.
+- O role **não** ganha permissão de INSERT/UPDATE/DELETE em nenhuma tabela operacional. A ação "Descartar chegada" do `PainelChegou` continuará restrita a admin/logistica/portaria (já é hoje).
 
-O painel `PainelChegou` filtra qualquer entrada terceirizada com `horario_entrada IS NULL` e `etapa=chegada` — não tem como ele saber que essa chegada é "duplicada" de outra que já foi finalizada.
+### 2. Edge function `create-user`
+- Incluir `'expedicao'` em `VALID_ROLES` para permitir criação pelo painel de Usuários.
 
-## Plano de correção
+### 3. Frontend
 
-### 1. Limpar o registro órfão atual (one-shot)
+**`src/hooks/useAuth.ts`**
+- Estender o tipo: `AppRole = "admin" | "logistica" | "faturamento" | "portaria" | "vendedor" | "expedicao"`.
 
-Apagar o movimento `09c88a02-dc55-4669-bd19-f8465e60b6e6` (chegada sem carga, sem entrada, do JOSE RIDEKS às 16:51). Já existe a chegada vinculada correta às 17:18.
+**`src/pages/Usuarios.tsx`**
+- Adicionar `expedicao: "Expedição"` em `ROLE_LABELS`.
+- Adicionar `<SelectItem value="expedicao">Expedição</SelectItem>` no `RoleSelect` e no formulário de criação.
 
-### 2. Prevenir o problema na origem (RegistroEntradaDialog)
+**`src/components/AppSidebar.tsx`**
+- Adicionar `"expedicao"` ao tipo `Role`.
+- Adicionar `"expedicao"` apenas no item `{ to: "/expedicao", label: "Expedição" }`. Nenhum outro item.
+- Resultado: usuário com esse role vê apenas o link "Expedição" na sidebar.
 
-Quando o porteiro registra uma chegada **sem vincular carga**, e segundos depois registra **outra chegada para a mesma placa** vinculando uma carga, hoje ficam as duas. Vou ajustar o fluxo:
+**`src/App.tsx`**
+- Em `<Route path="/expedicao">`, incluir `"expedicao"` em `allowedRoles`.
+- Demais rotas permanecem inacessíveis (o `ProtectedRoute` redireciona).
 
-- Antes de inserir uma nova chegada, checar se já existe outra chegada **da mesma placa** nas últimas 4 horas com `horario_entrada IS NULL` e (`carga_id IS NULL` ou `carga_id = nova carga`).
-- Se existir, em vez de criar um novo movimento, **atualizar o existente** com os dados novos (incluindo `carga_id`, motorista, transportadora etc.).
-- Mostrar um toast: "Chegada anterior atualizada — não foi criado registro duplicado."
+**`src/components/ProtectedRoute.tsx`** (verificar)
+- Se a rota raiz `/` redireciona conforme o role, garantir que role `expedicao` seja redirecionado para `/expedicao` ao logar (ajustar lógica de fallback se existir, similar ao `vendedor` → `/meu-painel`).
 
-### 3. Botão "Limpar chegada" no painel da Expedição
-
-No `PainelChegou`, adicionar um botão "↻ Descartar chegada" (visível para admin/logística/portaria) que:
-- Pede confirmação
-- Deleta o movimento se ainda estiver com `horario_entrada IS NULL` (mesma regra do "Desfazer chegada" que já existe na portaria)
-
-Assim, qualquer chegada órfã futura pode ser limpa pela própria expedição sem precisar abrir chamado.
-
-### 4. Filtro defensivo no painel "Chegou"
-
-Esconder do painel chegadas mais antigas que **6 horas** sem entrada — é praticamente certo que são lixo (ninguém espera 6h no portão). Mostrar apenas em modo admin com badge "antiga".
+### 4. Memória
+- Atualizar `mem://auth/role-management` indicando que `expedicao` é um role read-only com escopo único na tela de Expedição.
 
 ## Detalhes técnicos
 
-Arquivos a editar:
-- `src/components/portaria/RegistroEntradaDialog.tsx` — dedup ao criar chegada
-- `src/components/expedicao/PainelChegou.tsx` — botão descartar + filtro 6h
-- Migração SQL — DELETE do registro `09c88a02-dc55-4669-bd19-f8465e60b6e6`
+```sql
+-- migration
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'expedicao';
 
-Sem mudanças de schema. Sem alterações em triggers. Operação reversível (a deleção só atinge esse 1 registro identificado).
+-- atualizar SELECT em movimentacoes_portaria
+DROP POLICY "Ops select movimentacoes_portaria" ON public.movimentacoes_portaria;
+CREATE POLICY "Ops select movimentacoes_portaria"
+  ON public.movimentacoes_portaria FOR SELECT TO authenticated
+  USING (
+    has_role(auth.uid(), 'admin'::app_role)
+    OR has_role(auth.uid(), 'logistica'::app_role)
+    OR has_role(auth.uid(), 'portaria'::app_role)
+    OR has_role(auth.uid(), 'expedicao'::app_role)
+  );
+```
+
+Após o role ser criado pelo Admin no painel de Usuários, o usuário "Expedição" fará login e cairá direto na tela `/expedicao`, sem acesso a nenhuma outra rota do sistema.
+
+## Confirmação
+
+A tela `/expedicao` já é read-only (apenas exibe cards/painéis). Nenhuma ação destrutiva ficará disponível para esse role. Confirma que deve ser **somente leitura** (sem botões de descartar chegada, etc.)?
