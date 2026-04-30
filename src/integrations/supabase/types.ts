@@ -1139,7 +1139,13 @@ export type Database = {
       sync_clients_to_orders: { Args: never; Returns: Json }
     }
     Enums: {
-      app_role: "admin" | "logistica" | "faturamento" | "portaria" | "vendedor"
+      app_role:
+        | "admin"
+        | "logistica"
+        | "faturamento"
+        | "portaria"
+        | "vendedor"
+        | "expedicao"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1267,7 +1273,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "logistica", "faturamento", "portaria", "vendedor"],
+      app_role: [
+        "admin",
+        "logistica",
+        "faturamento",
+        "portaria",
+        "vendedor",
+        "expedicao",
+      ],
     },
   },
 } as const
