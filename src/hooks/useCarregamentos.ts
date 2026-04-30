@@ -258,11 +258,10 @@ export function useBatchUpdateCarregamento() {
           return { id, error: res.error, rows: res.data ?? [] };
         })
       );
-      // 23505 (unique violation em índice secundário) é tratado como sucesso
-      // silencioso — protege contra raras colisões em cascade de irmãos.
-      const realErrors = results.filter(
-        (r) => r.error && (r.error as any).code !== "23505"
-      );
+      // Em UPDATE, 23505 NÃO é idempotência: indica que estamos tentando gravar
+      // uma chave única já existente (ex.: row_op_key duplicada por payload herdado).
+      // Tratar como sucesso aqui escondia falhas reais — agora reportamos.
+      const realErrors = results.filter((r) => !!r.error);
       // Linhas que voltaram 0 rows = update bloqueado por RLS ou id sumiu.
       const noRowIds = results
         .filter((r) => !r.error && r.rows.length === 0)
