@@ -105,7 +105,7 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
     if (first.includes("DT") && first.includes("ENTREG")) {
       const extracted = extractDateFromText(String(row.find((c) => {
         const v = c instanceof Date ? "date" : String(c ?? "");
-        return c instanceof Date || /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(v);
+        return c instanceof Date || /\d{1,2}[/-]\d{1,2}[/-]\d{4}/.test(v);
       }) ?? ""));
       if (!extracted && row.some((c) => c instanceof Date)) {
         const dateCell = row.find((c) => c instanceof Date) as Date;
