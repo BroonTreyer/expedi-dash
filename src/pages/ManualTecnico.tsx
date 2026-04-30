@@ -1,5 +1,4 @@
-import { useMemo, useState } from "react";
-import { Helmet } from "react-helmet-async";
+import { useEffect, useMemo, useState } from "react";
 import { CAPITULOS } from "@/content/manual/capitulos";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,14 @@ export default function ManualTecnico() {
   const [busca, setBusca] = useState("");
   const [ativoId, setAtivoId] = useState(CAPITULOS[0]?.id ?? "");
   const [modo, setModo] = useState<"leigo" | "dev">("leigo");
+
+  useEffect(() => {
+    const prev = document.title;
+    document.title = "Manual Técnico — FricoTrack";
+    return () => {
+      document.title = prev;
+    };
+  }, []);
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -29,15 +36,6 @@ export default function ManualTecnico() {
 
   return (
     <>
-      <Helmet>
-        <title>Manual Técnico — FricoTrack</title>
-        <meta
-          name="description"
-          content="Manual completo do FricoTrack: arquitetura, fluxos operacionais, banco de dados e onde mexer no código."
-        />
-        <link rel="canonical" href="/manual-tecnico" />
-      </Helmet>
-
       <main className="min-h-screen bg-background">
         <div className="border-b bg-card print:hidden">
           <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center gap-3">
