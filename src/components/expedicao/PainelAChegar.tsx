@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock3, CalendarClock, Weight } from "lucide-react";
@@ -12,13 +13,16 @@ interface Props {
 const fmtKg = (n: number | null | undefined) =>
   n != null ? `${Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg` : null;
 
-export function PainelAChegar({ veiculos, hoje }: Props) {
+export const PainelAChegar = forwardRef<HTMLDivElement, Props>(function PainelAChegar(
+  { veiculos, hoje },
+  ref,
+) {
   const lista = veiculos
     .filter((v) => !v.conferido)
     .sort((a, b) => (a.data_referencia || "").localeCompare(b.data_referencia || ""));
 
   return (
-    <Card className="overflow-hidden border-sidebar/30 shadow-sm">
+    <Card ref={ref} className="overflow-hidden border-sidebar/30 shadow-sm">
       <CardHeader className="py-3 px-4 bg-sidebar text-sidebar-foreground">
         <CardTitle className="text-base flex items-center gap-2 font-bold">
           <Clock3 className="h-5 w-5" />
@@ -82,4 +86,4 @@ export function PainelAChegar({ veiculos, hoje }: Props) {
       </CardContent>
     </Card>
   );
-}
+});
