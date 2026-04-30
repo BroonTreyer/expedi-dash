@@ -28,6 +28,7 @@ export default function Auth() {
     const dest =
       role === "portaria" ? "/portaria" :
       role === "vendedor" ? "/meu-painel" :
+      role === "expedicao" ? "/expedicao" :
       "/";
     return <Navigate to={dest} replace />;
   }

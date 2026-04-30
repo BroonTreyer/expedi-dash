@@ -27,6 +27,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   faturamento: "Faturamento",
   portaria: "Portaria",
   vendedor: "Vendedor",
+  expedicao: "Expedição",
 };
 
 function RoleSelect({ value, onChange }: { value: AppRole | null; onChange: (v: AppRole) => void }) {
@@ -41,6 +42,7 @@ function RoleSelect({ value, onChange }: { value: AppRole | null; onChange: (v: 
         <SelectItem value="faturamento">Faturamento</SelectItem>
         <SelectItem value="portaria">Portaria</SelectItem>
         <SelectItem value="vendedor">Vendedor</SelectItem>
+        <SelectItem value="expedicao">Expedição</SelectItem>
       </SelectContent>
     </Select>
   );
