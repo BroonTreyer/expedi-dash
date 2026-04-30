@@ -140,14 +140,22 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
         .eq("id", c.movimentoChegadaId);
       if (error) throw error;
       // Marca veiculo_esperado como conferido só agora (entrou de fato)
-      await supabase
+      // Filtramos por placa (quando houver) e por conferido=false para nunca
+      // marcar como conferido um registro de outro veículo com o mesmo carga_id
+      // reutilizado em outro ciclo.
+      let updEsperado = supabase
         .from("veiculos_esperados" as any)
         .update({
           conferido: true,
           conferido_por: user?.id ?? null,
           conferido_em: nowIso,
         } as any)
-        .eq("carga_id", c.carga_id);
+        .eq("carga_id", c.carga_id)
+        .eq("conferido", false);
+      if (c.placa && c.placa.trim()) {
+        updEsperado = updEsperado.ilike("placa", c.placa.trim());
+      }
+      await updEsperado;
       toast.success("Entrada liberada — veículo no pátio");
       invalidateAll();
     } catch (e: any) {
