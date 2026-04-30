@@ -140,7 +140,10 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         } as any)
         .eq("carga_id", cargaId);
 
-      toast.success("Chegada registrada — aguardando liberação para entrar no pátio");
+      toast.success(
+        "Chegada registrada. Quando o caminhão entrar fisicamente no pátio, clique em 'Liberar entrada no pátio' no painel.",
+        { duration: 7000 }
+      );
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });

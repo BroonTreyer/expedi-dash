@@ -1,55 +1,50 @@
 ## Diagnóstico
 
-Salvar **redução** de peso (ex.: marcar/desmarcar ruptura) funciona — foi o caso do ALCIR.
-Salvar **aumento** de peso ou quantidade não persiste. Recarrega e volta ao valor antigo.
+Verifiquei o registro do JOSE RIDEKS no banco e o session replay do porteiro:
 
-A causa está em uma camada que ainda não tínhamos olhado: **gatilhos no banco**.
+| Hora | Evento |
+|------|--------|
+| 14:18:47 | Chegada registrada (`horario_chegada` setado, `horario_entrada=null`, `etapa_terceirizado=chegada`) — **card âmbar "Motorista chegou — aguardando autorização" apareceu corretamente** |
+| 14:20:25 | Porteiro clicou em "Liberar entrada no pátio" (~1m38s depois) → virou `no_patio` |
 
-A tabela `carregamentos_dia` tem hoje o gatilho `cap_peso_pelo_original` rodando antes de cada `UPDATE`. Ele faz literalmente:
+**O sistema funcionou tecnicamente certo.** O motorista NÃO pulou a etapa no banco. O que aconteceu na prática é que o porteiro:
 
-```text
-se peso > peso_original * 1.001 então peso := peso_original
-```
+1. Registrou a chegada no diálogo (1º passo)
+2. O card âmbar apareceu listando o JOSE como "aguardando autorização"
+3. Clicou no botão verde "Liberar entrada no pátio" quase imediatamente, sem perceber que era uma 2ª etapa que poderia ficar parada esperando a hora real de o caminhão entrar no pátio
 
-Ou seja: se o usuário tenta gravar 150 kg num item que tinha `peso_original = 100`, o banco aceita o update mas silenciosamente devolve o peso para 100. A UI atualiza otimisticamente para 150, depois o realtime traz 100 do banco e parece que "não salvou".
+Causa de UX: os dois passos (registrar chegada → liberar entrada) ficam visualmente próximos demais, o botão verde "Liberar entrada no pátio" fica em destaque já no momento em que o card aparece, e nada sinaliza que o caminhão ainda está fisicamente fora.
 
-Para piorar, esse gatilho está **duplicado** (`trg_cap_peso` e `trg_cap_peso_pelo_original`), assim como `trg_audit_carregamentos`/`audit_carregamentos_trigger`, `trg_carga_fechada`/`trg_on_carga_fechada`, `trg_set_ruptura_sinalizada`/`trg_ruptura_sinalizada`, `trg_vincular_veiculo_esperado_tardio`/`trg_vincular_veiculo_tardio`, `trg_pedido_enviado_aprovacao`/`trg_on_pedido_enviado_aprovacao` e `trg_pedido_aprovado_rejeitado`/`trg_on_pedido_aprovado_rejeitado`. Isso significa cada operação dispara cada efeito **duas vezes** — log de auditoria duplicado, notificações duplicadas, criação dupla de veículo esperado, etc.
+## O que vamos mudar
 
-A quantidade também "volta" porque, ao recarregar, a UI recalcula a quantidade a partir do peso (que voltou ao original) usando o peso padrão do produto.
+Reforçar visualmente e por confirmação que "Liberar entrada no pátio" é o momento em que o caminhão FÍSICO está cruzando o portão — não algo automático para clicar logo após registrar a chegada.
 
-## O que vou corrigir
+### 1. Toast pós-registro mais explícito
+Após registrar a chegada (em `RegistroEntradaDialog`), trocar o toast atual por uma mensagem clara:
+> "Chegada registrada. Quando o caminhão entrar fisicamente no pátio, clique em 'Liberar entrada no pátio' no painel abaixo."
 
-### 1. Permitir aumento de peso pela edição manual
+### 2. Card âmbar com destaque temporal
+Em `CargasFechadasAguardandoPanel`, quando `etapa = chegada` (aguardando liberação):
+- Adicionar borda âmbar mais forte e ícone pulsante
+- Mostrar um cronômetro grande "Aguardando há Xmin" no card (já existe na lógica, falta destacar)
+- Mover o botão "Liberar entrada no pátio" para uma faixa separada com texto acima: **"Confirme apenas quando o caminhão estiver fisicamente no portão entrando no pátio"**
 
-O gatilho `cap_peso_pelo_original` foi criado para impedir que sistemas externos jogassem peso acima do original. Mas ele não pode bloquear uma edição manual feita por logística/faturamento — precisa atualizar o `peso_original` quando o usuário aumenta o peso explicitamente.
+### 3. Confirmação no clique de "Liberar entrada no pátio"
+Adicionar `AlertDialog` antes de executar a liberação, perguntando:
+> "Confirmar que o caminhão [PLACA] do motorista [NOME] está agora entrando fisicamente no pátio?"
 
-Mudanças:
+Com botões "Sim, está entrando agora" / "Cancelar". Isso bloqueia o clique reflexivo logo após o registro da chegada.
 
-- No diálogo de edição (`CarregamentoDialog`): quando o peso novo de um item ficar **acima** do `peso_original` atual, enviar também `peso_original = peso novo` no payload (igualando baseline para cima). Quando ficar abaixo, manter o comportamento atual (só mexe em `peso_original` se o usuário confirmou a redução com o botão "Confirmar redução").
-- Garantir que isso valha tanto para o item principal quanto para os itens irmãos do grupo.
+### 4. Bloquear liberação por 30 segundos após o registro
+Como salvaguarda, desabilitar o botão "Liberar entrada no pátio" durante os primeiros 30s após `horario_chegada`, mostrando contagem regressiva. Evita o "clique duplo mental" que aconteceu hoje (1m38s entre os dois cliques é curto demais para o caminhão realmente atravessar o portão).
 
-Resultado: ao gravar 150 kg num item de 100, o banco passa a ter `peso_original = peso = 150`, e o cap nunca dispara.
+## Arquivos afetados
 
-### 2. Limpar gatilhos duplicados
+- `src/components/portaria/CargasFechadasAguardandoPanel.tsx` — destaque visual do card aguardando, contagem de espera, AlertDialog de confirmação, lockout de 30s
+- `src/components/portaria/RegistroEntradaDialog.tsx` — texto do toast pós-registro
 
-Migration para fazer `DROP TRIGGER IF EXISTS` nos duplicados, mantendo apenas uma versão de cada:
+Sem alterações de banco e sem mexer no fluxo de dados — apenas UX/guard-rails.
 
-- manter `trg_cap_peso_pelo_original`, dropar `trg_cap_peso`
-- manter `trg_audit_carregamentos`, dropar `audit_carregamentos_trigger`
-- manter `trg_on_carga_fechada`, dropar `trg_carga_fechada`
-- manter `trg_set_ruptura_sinalizada`, dropar `trg_ruptura_sinalizada`
-- manter `trg_vincular_veiculo_tardio`, dropar `trg_vincular_veiculo_esperado_tardio`
-- manter `trg_on_pedido_enviado_aprovacao`, dropar `trg_pedido_enviado_aprovacao`
-- manter `trg_on_pedido_aprovado_rejeitado`, dropar `trg_pedido_aprovado_rejeitado`
-- manter `trg_update_carregamentos_updated_at`, dropar `update_carregamentos_dia_updated_at`
+## Detalhe técnico
 
-Isso elimina auditorias duplicadas, notificações duplicadas e criação dupla de veículos esperados na portaria — efeito colateral pesado que vinha acontecendo desde antes.
-
-### 3. Validar
-
-Após o deploy, vou abrir um pedido de logística que tem `peso_original < peso desejado`, aumentar o peso, salvar, recarregar e confirmar que o valor permanece. Também vou conferir no `audit_log` se cada save grava apenas **uma** linha (e não duas).
-
-## Por que isso explica o sintoma
-
-- ALCIR: usuário estava **desmarcando ruptura** (peso voltando para o original ou ficando ≤ original). Cap do banco não dispara. Funcionou após nossa correção anterior.
-- Outros pedidos: usuário está **aumentando peso/quantidade** acima do `peso_original`. Cap do banco anula a alteração silenciosamente. Por isso "não salva por mais que tente".
+O lockout de 30s será calculado como `(now - new Date(c.horario_chegada).getTime()) < 30_000`. Se aprovado, posso ajustar esse tempo (ex.: 10s, 60s) conforme você preferir.

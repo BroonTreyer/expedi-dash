@@ -2,7 +2,17 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, Truck, LogIn, Clock, UserCheck, DoorOpen, Undo2, Hourglass, AlertOctagon } from "lucide-react";
+import { Package, Truck, LogIn, Clock, UserCheck, DoorOpen, Undo2, Hourglass, AlertOctagon, AlertTriangle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useCargasFechadasAguardando, type CargaFechadaAguardando } from "@/hooks/useCarregamentos";
 import { RegistroEntradaDialog } from "./RegistroEntradaDialog";
 import { CancelarCargaDialog } from "./CancelarCargaDialog";
@@ -26,6 +36,11 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   const [walkInIds, setWalkInIds] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [confirmLiberar, setConfirmLiberar] = useState<CargaFechadaAguardando | null>(null);
+
+  /** Tempo mínimo (em segundos) entre o registro da chegada e a liberação para o pátio.
+   *  Evita o "clique reflexivo" no botão verde logo após registrar a chegada. */
+  const LOCKOUT_SECONDS = 30;
 
   const canAct = role === "admin" || role === "logistica" || role === "portaria";
   const canCancel = role === "admin" || role === "logistica";
@@ -68,7 +83,8 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   useEffect(() => {
     const hasWaiting = cargas.some((c) => c.chegouAguardandoLiberacao);
     if (!hasWaiting) return;
-    const t = setInterval(() => setNow(Date.now()), 30000);
+    // 5s para que o lockout de 30s e o cronômetro fiquem realmente vivos
+    const t = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(t);
   }, [cargas.some((c) => c.chegouAguardandoLiberacao)]);
 
@@ -149,6 +165,11 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
       return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
     } catch { return 0; }
   };
+  const segundosDesde = (iso: string) => {
+    try {
+      return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 1000));
+    } catch { return 0; }
+  };
 
   return (
     <>
@@ -168,9 +189,19 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
             const isWalkIn = !!c.carga_id && walkInIds.has(c.carga_id);
             const aguardandoLib = !!c.chegouAguardandoLiberacao;
             const minEspera = c.horarioChegada ? minutosDesde(c.horarioChegada) : 0;
+            const segDesdeChegada = c.horarioChegada ? segundosDesde(c.horarioChegada) : 9999;
+            const lockoutRestante = aguardandoLib ? Math.max(0, LOCKOUT_SECONDS - segDesdeChegada) : 0;
             const isBusy = busyId === c.carga_id;
             return (
-              <div key={c.carga_id} className="rounded-md border bg-card p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div
+                key={c.carga_id}
+                className={
+                  "rounded-md border bg-card p-3 flex flex-col sm:flex-row sm:items-center gap-3 " +
+                  (aguardandoLib
+                    ? "border-amber-500/60 bg-amber-500/5 ring-1 ring-amber-500/30"
+                    : "")
+                }
+              >
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-sm truncate">
@@ -223,6 +254,11 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                   <div className="flex flex-col gap-1.5 shrink-0 sm:items-end">
                     {aguardandoLib ? (
                       <>
+                        <div className="flex flex-col items-end gap-1 w-full sm:w-auto">
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Só clique quando o caminhão estiver entrando no pátio
+                          </span>
                         <div className="flex gap-1.5">
                           <Button
                             size="sm"
@@ -237,16 +273,19 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                           <Button
                             size="sm"
                             className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-600/90 text-white"
-                            disabled={isBusy}
-                            onClick={() => liberarEntrada(c)}
+                            disabled={isBusy || lockoutRestante > 0}
+                            onClick={() => setConfirmLiberar(c)}
                           >
                             <DoorOpen className="h-3.5 w-3.5" />
-                            Liberar entrada no pátio
+                            {lockoutRestante > 0
+                              ? `Aguarde ${lockoutRestante}s`
+                              : "Liberar entrada no pátio"}
                           </Button>
                         </div>
                         <span className="text-[10px] text-muted-foreground text-right">
-                          Motorista chegou — aguardando autorização para entrar
+                          Aguardando há {minEspera}min — caminhão ainda fora do pátio
                         </span>
+                        </div>
                       </>
                     ) : (
                       <>
@@ -300,6 +339,47 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
           carga={cancelCarga}
         />
       )}
+      <AlertDialog open={!!confirmLiberar} onOpenChange={(o) => { if (!o) setConfirmLiberar(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <DoorOpen className="h-5 w-5 text-emerald-600" />
+              Confirmar entrada no pátio
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Confirme que o caminhão{" "}
+                  <span className="font-mono font-semibold text-foreground">
+                    {confirmLiberar?.placa || "—"}
+                  </span>{" "}
+                  do motorista{" "}
+                  <span className="font-semibold text-foreground">
+                    {confirmLiberar?.motorista || "—"}
+                  </span>{" "}
+                  está <span className="font-semibold">agora</span> entrando fisicamente no pátio.
+                </p>
+                <p className="text-amber-700 dark:text-amber-400 text-xs">
+                  Se o caminhão ainda está no portão aguardando, cancele e libere apenas no momento exato da entrada — esse horário é usado para calcular o tempo no pátio.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-emerald-600 hover:bg-emerald-600/90 text-white"
+              onClick={async () => {
+                const c = confirmLiberar;
+                setConfirmLiberar(null);
+                if (c) await liberarEntrada(c);
+              }}
+            >
+              Sim, está entrando agora
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
