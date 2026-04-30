@@ -1,60 +1,65 @@
-## Problema
+## Mudança
 
-Cargas com placa/motorista/transportadora já preenchidos aparecem **simultaneamente** em dois cards na tela de Expedição:
+Substituir o painel **"Cargas fechadas — aguardando veículo"** (canto inferior direito de `/expedicao`) por **"Cargas expedidas do dia"** — uma lista das cargas terceirizadas que **já saíram** (foram expedidas/carregadas) na data selecionada.
 
-1. **"A Chegar"** — lista todos os `veiculos_esperados` ainda não conferidos.
-2. **"Cargas fechadas - aguardando veículo"** — lista cargas fechadas cujo veículo previsto ainda não foi marcado como conferido.
+## Definição de "expedida"
 
-Como existe um trigger automático que cria o `veiculo_esperado` no momento que a Logística fecha a carga (placa/motorista/transportadora preenchidos), a mesma carga acaba listada em ambos os painéis até a Portaria registrar a chegada.
+Uma carga conta como expedida se atender a qualquer uma destas condições:
+- Tem movimentação de portaria com `etapa_terceirizado === "finalizado"` (saída registrada), OU
+- Tem `horario_saida_final` preenchido na movimentação, OU
+- Todos os itens da carga estão com `status === "Carregado"` em `carregamentos_dia` (faturamento marcou como concluída).
 
-A intenção do produto (regra antiga) é: **se já tem veículo previsto cadastrado, a carga sai de "Aguardando veículo" e passa a viver apenas em "A Chegar"**.
+A fonte base continua sendo `useCargasDiaExpedicao` (todas as cargas terceirizadas do dia, com carry-over de 30d). O hook `useStatusPortariaPorCarga` já fornece a etapa atual e o horário de saída por `carga_id`.
 
-## Causa-raiz (técnico)
+## Comportamento
 
-Em `src/hooks/useCarregamentos.ts` (linhas 501-505), o filtro `cargasComPrevistoConferido` só remove a carga quando `walk_in === false E conferido === true`. Deveria remover já quando existe um previsto **não walk-in** (com placa preenchida) — porque o caso já está representado em "A Chegar".
+| Situação                                                  | Aparece no novo painel |
+|-----------------------------------------------------------|:----------------------:|
+| Carga fechada, sem veículo previsto                       |          ❌            |
+| Carga com motorista a caminho                             |          ❌            |
+| Veículo no pátio carregando                               |          ❌            |
+| Carga expedida (saída pela portaria) ou marcada Carregado |          ✅            |
 
-Walk-ins (motorista que chegou sem aviso) devem **continuar** aparecendo no card azul como "Motorista já no pátio" — isso é correto e deve ser mantido.
+Lista ordenada pelo horário de saída/expedição **mais recente primeiro**.
 
-## Mudança proposta
+## Layout do card
 
-### Arquivo: `src/hooks/useCarregamentos.ts`
+Cada linha mostra:
+- Nome da carga (ou `carga_id`)
+- Badge verde **"Expedida"** + horário de saída (ex.: `14:32`)
+- Placa, motorista, transportadora, tipo de caminhão
+- Qtd pedidos, peso total (kg), data
+- Borda esquerda verde para reforçar status finalizado
 
-Trocar o conjunto `cargasComPrevistoConferido` por `cargasComVeiculoPrevisto`, que captura cargas que **já têm um veículo esperado não walk-in** (independente de já estarem conferidas), porque essas já são geridas pelo card "A Chegar":
+Estado vazio: "Nenhuma carga expedida ainda hoje".
 
-```ts
-// Antes:
-const cargasComPrevistoConferido = new Set(
-  ((previstos ?? []) as ...[])
-    .filter((v) => v.carga_id && !v.walk_in && v.conferido)
-    .map((v) => v.carga_id as string)
-);
+## Arquivos
 
-// Depois:
-const cargasComVeiculoPrevisto = new Set(
-  ((previstos ?? []) as ...[])
-    .filter((v) => v.carga_id && !v.walk_in)
-    .map((v) => v.carga_id as string)
-);
-```
+### `src/components/expedicao/PainelCargasFechadas.tsx` (renomear conceitualmente, manter arquivo)
+- Trocar título para **"Cargas expedidas do dia"** com ícone `TruckIcon`/`PackageCheck`.
+- Mudar o tipo da prop para receber `CargaDiaExpedicao[]` enriquecida com `horarioSaida: string | null`.
+- Mostrar badge "Expedida" verde + horário formatado `HH:mm` (pt-BR).
+- Manter visual de peso/pedidos/placa/motorista/transp./tipo já existente.
+- Borda esquerda verde (`border-l-emerald-500`).
 
-E a checagem dentro do loop de agrupamento passa a ser:
+### `src/pages/Expedicao.tsx` (ajustar)
+- Remover uso de `cargasFechadas`/`cargasTerc` para alimentar o painel.
+- Construir `cargasExpedidasDoDia` combinando:
+  - `cargasDoDia` (de `useCargasDiaExpedicao`)
+  - `statusPortariaMap` (de `useStatusPortariaPorCarga`) → para detectar etapa `expedido` e capturar `horario_saida_final`
+  - Fallback: se `c.status === "Carregado"`, considerar expedida mesmo sem registro de portaria (horário = `null` ou `horario_fim` agregado).
+- Filtrar para `transportadora` preenchida (terceirizado) — já garantido pelo hook.
+- Ordenar por horário de saída desc; quem não tem horário vai por último.
+- Atualizar KPI **"Cargas prontas"** (4º card) para refletir o total de expedidas do dia, alinhando com a nova lista. Renomear o label do KPI para **"Cargas expedidas"**.
+- Manter inalterados os painéis "No pátio", "Chegou", "A chegar" e os KPIs de peso.
 
-```ts
-if (cargasComVeiculoPrevisto.has(c.carga_id)) continue;
-```
+### `src/components/expedicao/ExpedicaoKpiCards.tsx` (ajuste mínimo)
+- Renomear label `"Cargas prontas"` → `"Cargas expedidas"`.
+- Trocar ícone para `PackageCheck`.
 
-### Comportamento resultante
+## Notas técnicas
 
-| Situação                                                   | A Chegar | Cargas fechadas - aguardando veículo |
-|------------------------------------------------------------|:--------:|:------------------------------------:|
-| Carga fechada **sem** placa preenchida                     |    —     |          ✅ aparece                   |
-| Carga fechada **com** placa (gera previsto automaticamente)|✅ aparece|          ❌ não aparece               |
-| Walk-in (motorista chegou sem aviso, vinculado à carga)    |    —     | ✅ aparece como "Motorista no pátio"  |
-| Após registrar chegada do veículo                          |    —     |          —                            |
-| Após liberar entrada no pátio                              |    —     |  — (vai pra "No pátio")              |
-
-### Arquivos editados
-
-- `src/hooks/useCarregamentos.ts` — ajustar lógica de remoção em `useCargasFechadasAguardando`.
-
-Sem alterações de banco de dados, sem mudanças de RLS, sem mudanças de UI — apenas correção da regra de filtro. O tratamento defensivo já implementado em `Expedicao.tsx` (`cargasTerc` com chave composta `carga_id|placa`) permanece como segunda linha de defesa.
+- Verificar se `useStatusPortariaPorCarga` retorna `horario_saida_final` no objeto. Se não retornar, estender o hook para incluir esse campo (sem mudança de schema, só `select`).
+- Sem mudanças de banco de dados, RLS ou edge functions.
+- `useCargasFechadasAguardando` continua existindo e em uso pelo painel da Portaria (`CargasFechadasAguardandoPanel`), só removemos o consumo na Expedição.
+- Tratamento de `carga_id` reutilizado: como a base `cargasDoDia` agrupa por `carga_id+data`, e o status de portaria também é por `carga_id`, mantemos a chave composta `carga_id|data` quando houver risco de colisão entre dias diferentes.

@@ -18,7 +18,7 @@ const opItems = [
   { key: "noPatio" as const, label: "No pátio", icon: ParkingCircle },
   { key: "chegou" as const, label: "Chegou — aguardando", icon: BellRing },
   { key: "aChegar" as const, label: "A chegar", icon: Clock3 },
-  { key: "cargasFechadas" as const, label: "Cargas prontas", icon: Package },
+  { key: "cargasFechadas" as const, label: "Cargas expedidas", icon: PackageCheck },
 ];
 
 const kgItems = [
