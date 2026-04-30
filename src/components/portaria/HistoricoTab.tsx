@@ -365,9 +365,15 @@ export function HistoricoTab({ movimentacoes, search, categoriaFilter, tipoFilte
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteMov.mutateAsync(r.id)}>
-                                Excluir
+                              <AlertDialogCancel disabled={deleteMov.isPending}>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                disabled={deleteMov.isPending}
+                                onClick={(e) => {
+                                  if (deleteMov.isPending) { e.preventDefault(); return; }
+                                  deleteMov.mutateAsync(r.id);
+                                }}
+                              >
+                                {deleteMov.isPending ? "Excluindo..." : "Excluir"}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

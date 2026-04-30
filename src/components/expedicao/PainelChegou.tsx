@@ -157,12 +157,16 @@ export function PainelChegou({ movimentacoes, now }: Props) {
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogCancel disabled={busyId === m.id}>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => descartarChegada(m.id)}
+                            disabled={busyId === m.id}
+                            onClick={(e) => {
+                              if (busyId === m.id) { e.preventDefault(); return; }
+                              descartarChegada(m.id);
+                            }}
                             className="bg-destructive hover:bg-destructive/90"
                           >
-                            Descartar
+                            {busyId === m.id ? "Descartando..." : "Descartar"}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
