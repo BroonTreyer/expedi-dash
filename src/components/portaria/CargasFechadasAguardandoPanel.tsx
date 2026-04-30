@@ -383,7 +383,11 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
           carga={cancelCarga}
         />
       )}
-      <AlertDialog open={!!confirmLiberar} onOpenChange={(o) => { if (!o) setConfirmLiberar(null); }}>
+      <AlertDialog open={!!confirmLiberar} onOpenChange={(o) => {
+        // Não permite fechar enquanto a liberação está em curso
+        if (!o && busyId) return;
+        if (!o) setConfirmLiberar(null);
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -410,16 +414,19 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={!!busyId}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-emerald-600 hover:bg-emerald-600/90 text-white"
-              onClick={async () => {
+              disabled={!!busyId}
+              onClick={async (e) => {
+                // Previne propagação/duplo-clique: já está em busyId? aborta.
+                if (busyId) { e.preventDefault(); return; }
                 const c = confirmLiberar;
                 setConfirmLiberar(null);
                 if (c) await liberarEntrada(c);
               }}
             >
-              Sim, está entrando agora
+              {busyId ? "Liberando..." : "Sim, está entrando agora"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
