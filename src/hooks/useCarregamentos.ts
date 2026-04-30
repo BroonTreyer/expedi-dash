@@ -445,14 +445,42 @@ export function useCargasFechadasAguardando() {
       const cargaIds = Array.from(new Set(cargasArr.map((c) => c.carga_id).filter(Boolean)));
       const { data: movs } = await supabase
         .from("movimentacoes_portaria")
-        .select("id, carga_id, tipo_movimento, horario_entrada, horario_chegada, data_hora")
+        .select("id, carga_id, tipo_movimento, horario_entrada, horario_chegada, data_hora, etapa_terceirizado, etapa_carga_propria, horario_real_saida, horario_saida_final, placa")
         .in("carga_id", cargaIds);
-      // Mapeia carga_id -> info da entrada mais recente (se houver)
+      // Mapeia (carga_id + data_carga) -> info de movimento, considerando
+      // apenas movimentos dentro de uma janela operacional ao redor da
+      // data da carga (de -12h até +48h). Sem isso, ciclos antigos com o
+      // mesmo nome de carga (ex.: "JR MIX" reaproveitado) marcariam a
+      // carga atual como "finalizada" indevidamente.
+      const norm = (p: string | null | undefined) => (p || "").trim().toUpperCase();
+      const dentroJanela = (cargaData: string, ts: string | null) => {
+        if (!ts) return false;
+        const ini = new Date(`${cargaData}T00:00:00`).getTime() - 12 * 3600_000;
+        const fim = new Date(`${cargaData}T00:00:00`).getTime() + 48 * 3600_000;
+        const t = new Date(ts).getTime();
+        return Number.isFinite(t) && t >= ini && t <= fim;
+      };
+      // Cargas (carga_id) -> data alvo (mais recente). Várias linhas dia-a-dia
+      // podem aparecer; pegamos a maior data como referência.
+      const cargaData = new Map<string, string>();
+      const cargaPlaca = new Map<string, string>();
+      for (const c of cargasArr) {
+        if (!c.carga_id) continue;
+        const prev = cargaData.get(c.carga_id);
+        if (!prev || (c.data && c.data > prev)) cargaData.set(c.carga_id, c.data);
+        if (c.placa && !cargaPlaca.get(c.carga_id)) cargaPlaca.set(c.carga_id, norm(c.placa));
+      }
       const entradaPorCarga = new Map<string, { id: string; horario_entrada: string | null; horario_chegada: string | null; data_hora: string | null }>();
       const finalizadaCarga = new Set<string>();
       for (const m of ((movs ?? []) as any[])) {
         if (!m.carga_id) continue;
-        if (m.tipo_movimento === "saida") {
+        const dCarga = cargaData.get(m.carga_id);
+        if (!dCarga) continue;
+        if (!dentroJanela(dCarga, m.data_hora)) continue;
+        // Se a carga tem placa prevista e o movimento tem placa, devem coincidir.
+        const placaCarga = cargaPlaca.get(m.carga_id);
+        if (placaCarga && m.placa && norm(m.placa) !== placaCarga) continue;
+        if (m.tipo_movimento === "saida" || m.etapa_terceirizado === "finalizado" || m.etapa_carga_propria === "finalizado" || m.horario_saida_final) {
           finalizadaCarga.add(m.carga_id);
           continue;
         }
