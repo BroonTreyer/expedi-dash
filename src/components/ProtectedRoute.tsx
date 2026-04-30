@@ -21,7 +21,7 @@ export function ProtectedRoute({ children, allowedRoles }: Props) {
     setGraceElapsed(false);
     // Try a refetch and wait a bit before deciding it's truly missing
     refreshRole();
-    const t = setTimeout(() => setGraceElapsed(true), 2500);
+    const t = setTimeout(() => setGraceElapsed(true), 1500);
     return () => clearTimeout(t);
   }, [loading, user, role, allowedRoles, refreshRole]);
 

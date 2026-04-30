@@ -21,13 +21,13 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export const AuthProvider = AuthContext.Provider;
 
-const ROLE_TIMEOUT_MS = 12000;
-const SESSION_TIMEOUT_MS = 8000;
+const ROLE_TIMEOUT_MS = 5000;
+const SESSION_TIMEOUT_MS = 4000;
 
 type RoleFetchResult = { role: AppRole | null; failed: boolean };
 
 async function fetchRoleWithRetry(userId: string): Promise<RoleFetchResult> {
-  const backoffs = [0, 1000, 2000, 4000];
+  const backoffs = [0, 500, 1500];
   let lastFailed = false;
   for (let attempt = 0; attempt < backoffs.length; attempt++) {
     if (backoffs[attempt] > 0) {
