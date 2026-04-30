@@ -1,40 +1,59 @@
 ## Problema
 
-Na aba **Esperados** de `/portaria/terceirizado`, ao clicar em **"Registrar Chegada"** o sistema abre o diálogo completo "Cadastro de Terceirizado", que pede foto da placa, placa, motorista, empresa e tipo de caminhão — todos dados que **já são conhecidos** da planilha de veículos esperados (a tela mostra placa, motorista, transportadora etc.).
+Quando uma carga é fechada, ela deveria aparecer primeiro no **card azul "Cargas Fechadas Aguardando Veículo"** (em `Portaria > Manual` e em `Expedição > PainelCargasFechadas`). Em vez disso, ela está caindo direto na lista de **"Esperados / A chegar"**.
 
-Para frota própria (`carga_propria`) o fluxo já está correto: ao clicar em "Registrar Chegada" o sistema faz um INSERT direto registrando apenas o horário de chegada e marca o veículo como conferido — sem abrir nenhum diálogo. Para terceirizado, no entanto, o código atual (`src/pages/Portaria.tsx`, função `openRegistroFromVeiculoEsperado`) força a abertura do `RegistroMovimentoDialog`.
+## Causa raiz
 
-## Objetivo
+O trigger de banco `on_carga_fechada` cria automaticamente um registro em `veiculos_esperados` (com `walk_in = false`, `status_autorizacao = 'previsto'`) toda vez que uma carga muda de etapa `vendas → logistica`.
 
-Equiparar o comportamento de **terceirizado** ao de **carga_propria** quando o clique vem da lista de **Esperados**: registrar a chegada diretamente, sem diálogo, usando os dados já conhecidos. As fotos / lacre / nota fiscal continuam sendo coletadas nas etapas seguintes (Liberado / Saída com lacre), que já existem no fluxo.
+O hook `useCargasFechadasAguardando` (em `src/hooks/useCarregamentos.ts`, linhas 489-499 e 555-556) filtra fora do card azul qualquer carga que já tenha um veículo previsto não-walk-in:
 
-## Mudanças
+```ts
+const cargasComVeiculoPrevisto = new Set(
+  ((previstos ?? []) as ...[])
+    .filter((v) => v.carga_id && !v.walk_in)
+    .map((v) => v.carga_id as string)
+);
+...
+if (cargasComVeiculoPrevisto.has(c.carga_id)) continue;
+```
 
-### `src/pages/Portaria.tsx` — função `openRegistroFromVeiculoEsperado`
+Como o trigger cria a previsão imediatamente, a carga "pula" o card azul e vai direto para Esperados.
 
-Remover o ramo que abre o `RegistroMovimentoDialog` para terceirizado. Substituir por um INSERT direto análogo ao de `carga_propria`, gravando:
+Confirmado por consulta ao banco: cargas fechadas hoje (ex.: `DICKSON VANGUARDA`) já têm `veiculos_esperados` com `walk_in = false` criados no mesmo segundo.
 
-- `tipo_movimento: "entrada"`
-- `categoria: "terceirizado"`
-- `etapa_terceirizado: "chegada"`
-- `data_hora` e `horario_chegada` = agora
-- `placa`, `motorista`, `empresa` (= transportadora), `tipo_caminhao`, `carga_id`, `rota` (= destino), `peso`, `qtd_entregas` vindos do veículo esperado
-- `usuario_id` do usuário logado
+## Correção (frontend, sem mexer no trigger)
 
-Após o INSERT, chamar `marcarConferidoMutation` (mesmo padrão de carga_propria) e exibir `toast.success("Chegada de {placa} registrada!")`.
+Refinar a regra do hook `useCargasFechadasAguardando` para tratar a previsão automática como **complemento**, não como motivo de exclusão. A carga sai do card azul somente quando o veículo de fato chega ou entra — não apenas porque existe uma previsão.
 
-Manter o aviso `toast.warning(...)` quando `data_referencia > dateFromStr` (saída prevista para data futura).
+### `src/hooks/useCarregamentos.ts` — `useCargasFechadasAguardando`
 
-Em caso de erro, mostrar `toast.error("Erro ao registrar chegada")`.
+1. **Remover** o `Set cargasComVeiculoPrevisto` e o `continue` baseado nele (linhas ~489-500 e ~555-556).
+2. Em vez disso, considerar que a carga **sai** do card azul apenas quando:
+   - Já existe `movimentacao_portaria` finalizada (`finalizadaCarga`) — já tratado, mantém.
+   - OU já existe entrada com `horario_entrada` preenchido (já está no pátio) — já tratado, mantém.
+   - OU o `veiculo_esperado` correspondente já está marcado como `conferido = true` (chegou via fluxo de Esperados).
+3. Buscar adicionalmente `conferido` na query de `previstos` e excluir só as cargas cujo veículo previsto já foi conferido.
 
-### Resultado para o usuário
+Resultado: a carga aparece no card azul **assim que é fechada** (mesmo já tendo previsão automática), e desaparece dele somente quando o motorista efetivamente chega/entra. Idêntico ao comportamento anterior, agora compatível com o trigger automático.
 
-- Clique em **"Registrar Chegada"** em um terceirizado esperado → registro imediato, sem formulário; o veículo aparece em **Pátio** e em **PainelChegou** (Expedição) na mesma hora, marcado como conferido.
-- Foto da placa, lacre, nota fiscal etc. continuam sendo coletados nas etapas posteriores ("Liberado para sair" / "Saída com lacre"), preservando a trilha de evidências.
-- Caso o porteiro precise registrar um terceirizado que **não está** na lista de esperados (walk-in), o botão **"Registrar Movimento"** no topo continua abrindo o diálogo completo normalmente — esse fluxo não é alterado.
+### `src/components/expedicao/PainelCargasFechadas.tsx`
+
+Já lê `chegouAguardandoLiberacao` corretamente. Nenhuma mudança necessária — funcionará automaticamente após a correção no hook.
+
+### Painel "A chegar" (`PainelAChegar` / Esperados)
+
+Hoje ele lista todos os `veiculos_esperados` não-conferidos. Com a correção, a carga aparece nos **dois** lugares (card azul "aguardando" + Esperados "a chegar") até a chegada — o que é o comportamento desejado pelo usuário (o card azul é o status visual claro do fechamento; Esperados é a fila operacional do porteiro).
 
 ## Fora do escopo
 
-- Não alterar o diálogo `RegistroMovimentoDialog` em si.
-- Não alterar o fluxo de carga própria (já está correto).
-- Não mexer nas etapas posteriores de terceirizado (liberação, saída com lacre, evidências).
+- Não alterar o trigger `on_carga_fechada` no banco (a previsão automática é útil para o fluxo de Esperados).
+- Não alterar o hook `useVeiculosEsperados` nem os paineis de Pátio.
+- Não tocar no fluxo já corrigido de "Registrar Chegada" (Esperados → INSERT direto).
+
+## Validação após a mudança
+
+1. Fechar uma carga terceirizada nova.
+2. Conferir que ela aparece imediatamente no **card azul "Cargas Fechadas Aguardando Veículo"** (Expedição e Portaria).
+3. Conferir que também aparece em **Esperados** (já era o comportamento atual).
+4. Clicar em **Registrar Chegada** no Esperados → o card azul deve sumir e a carga deve aparecer no painel "Chegou" da Expedição.
