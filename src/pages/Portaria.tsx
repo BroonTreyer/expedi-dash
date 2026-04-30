@@ -138,14 +138,17 @@ export default function Portaria({ categoria }: PortariaProps) {
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
     }
 
-    if (categoria === "carga_propria") {
-      // Direct INSERT — only records arrival time + spreadsheet data (no dialog)
-      try {
+    // Registro direto da CHEGADA (sem diálogo) — terceirizado e carga própria.
+    // Cria o movimento na fase "chegada/aguardando_liberacao" (cartão azul/laranja).
+    // O fluxo de Liberar Entrada no Pátio acontece depois, no próprio painel.
+    const agora = new Date().toISOString();
+    try {
+      if (categoria === "carga_propria") {
         await createMov.mutateAsync({
           tipo_movimento: "saida",
           categoria: "carga_propria",
           etapa_carga_propria: "chegou",
-          data_hora: new Date().toISOString(),
+          data_hora: agora,
           placa: v.placa || null,
           motorista: v.motorista || null,
           rota: v.destino || null,
@@ -153,32 +156,32 @@ export default function Portaria({ categoria }: PortariaProps) {
           qtd_entregas: v.qtd_entregas ?? null,
           carga_id: v.carga_id || null,
           usuario_id: user?.id ?? null,
-          horario_chegada: new Date().toISOString(),
+          horario_chegada: agora,
         } as any);
-        // Auto-mark as conferido
-        marcarConferidoMutation.mutate({ placa: v.placa, dataReferencia: v.data_referencia });
-        toast.success(`Chegada de ${v.placa} registrada!`);
-      } catch {
-        toast.error("Erro ao registrar chegada");
+      } else {
+        await createMov.mutateAsync({
+          tipo_movimento: "entrada",
+          categoria: "terceirizado",
+          etapa_terceirizado: "chegada",
+          data_hora: agora,
+          placa: v.placa || null,
+          motorista: v.motorista || null,
+          empresa: v.transportadora || null,
+          tipo_caminhao: v.tipo_veiculo || null,
+          carga_id: v.carga_id || null,
+          rota: v.destino || null,
+          peso: v.peso ?? null,
+          qtd_entregas: v.qtd_entregas ?? null,
+          usuario_id: user?.id ?? null,
+          horario_chegada: agora,
+          horario_entrada: null,
+        } as any);
       }
-      return;
+      marcarConferidoMutation.mutate({ placa: v.placa, dataReferencia: v.data_referencia });
+      toast.success(`Chegada de ${v.placa} registrada!`);
+    } catch {
+      toast.error("Erro ao registrar chegada");
     }
-
-    // Terceirizado: open dialog as before
-    setPrefill(null);
-    setPrefillEtapa(null);
-    setPrefillFromPlanilha({
-      tipo: "entrada" as const,
-      categoria: "terceirizado",
-      placa: v.placa,
-      motorista: v.motorista || "",
-      empresa: v.transportadora || "",
-      carga_id: v.carga_id || "",
-      rota: v.destino || "",
-      peso: v.peso,
-      qtd_entregas: v.qtd_entregas,
-    });
-    setDialogOpen(true);
   };
 
   const handleImportConfirm = (rows: ParsedRow[]) => {
