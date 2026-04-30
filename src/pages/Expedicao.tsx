@@ -9,7 +9,6 @@ import { CalendarIcon, Monitor, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
-import { useCargasFechadasAguardando } from "@/hooks/useCarregamentos";
 import { usePesoPorCarga } from "@/hooks/usePesoPorCarga";
 import { useCargasDiaExpedicao } from "@/hooks/useCargasDiaExpedicao";
 import { useStatusPortariaPorCarga } from "@/hooks/useStatusPortariaPorCarga";
@@ -29,7 +28,6 @@ export default function Expedicao() {
 
   const { data: movimentacoesAll = [] } = useMovimentacoes(dateStr, dateStr);
   const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateStr);
-  const { data: cargasFechadas = [] } = useCargasFechadasAguardando();
 
   const movimentacoes = useMemo(
     () => movimentacoesAll.filter((m) => m.categoria === "terceirizado"),
@@ -124,21 +122,6 @@ export default function Expedicao() {
     [veiculosEsperados, placasChegadas, cargasComMotoristaChegado]
   );
 
-  // Cargas fechadas aguardando veículo — exclui as cargas cujo motorista já chegou
-  const cargasTerc = useMemo(
-    () =>
-      cargasFechadas.filter(
-        (c) => {
-          if (!c.transportadora) return false;
-          const placa = (c.placa || "").trim().toUpperCase();
-          // Sem placa prevista não há como descartar com segurança — mantém visível.
-          if (!placa) return true;
-          return !cargasComMotoristaChegado.has(`${c.carga_id}|${placa}`);
-        }
-      ),
-    [cargasFechadas, cargasComMotoristaChegado]
-  );
-
   // === KPIs de peso alinhados ao Consolidado ===
   // Universo: todas as cargas terceirizadas do dia (com carry-over de 30d)
   // Peso: pesoEfetivo (rupturas totais = 0)
@@ -172,6 +155,25 @@ export default function Expedicao() {
     return { kgCarregado, kgACarregar, kgTotal: kgCarregado + kgACarregar };
   }, [cargasDoDia, statusPortariaMap]);
 
+  // Cargas expedidas do dia — saíram pela portaria ou marcadas como Carregado
+  const cargasExpedidasDoDia = useMemo(() => {
+    const out = cargasDoDia
+      .map((c) => {
+        const info = statusPortariaMap?.get(c.carga_id);
+        const expedidaPortaria = info?.etapa === "expedido";
+        const expedidaFaturamento = c.status === "Carregado";
+        if (!expedidaPortaria && !expedidaFaturamento) return null;
+        return { ...c, horarioSaida: info?.saida ?? null };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    out.sort((a, b) => {
+      const ta = a.horarioSaida ? new Date(a.horarioSaida).getTime() : 0;
+      const tb = b.horarioSaida ? new Date(b.horarioSaida).getTime() : 0;
+      return tb - ta;
+    });
+    return out;
+  }, [cargasDoDia, statusPortariaMap]);
+
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => {
@@ -197,17 +199,16 @@ export default function Expedicao() {
       noPatio: noPatio.length,
       chegou: chegou.length,
       aChegar: veiculosAChegar.length,
-      cargasFechadas: cargasTerc.length,
+      cargasFechadas: cargasExpedidasDoDia.length,
       kgCarregado: pesosKpi.kgCarregado,
       kgACarregar: pesosKpi.kgACarregar,
       kgTotal: pesosKpi.kgTotal,
     };
-  }, [movimentacoesComPeso, veiculosAChegar, cargasTerc, pesosKpi]);
+  }, [movimentacoesComPeso, veiculosAChegar, cargasExpedidasDoDia, pesosKpi]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
     qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
-    qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
     qc.invalidateQueries({ queryKey: ["cargas_dia_expedicao"] });
     qc.invalidateQueries({ queryKey: ["status_portaria_por_carga"] });
     setNow(new Date());
@@ -277,7 +278,7 @@ export default function Expedicao() {
           <PainelNoPatio movimentacoes={movimentacoesComPeso} now={now} />
           <PainelChegou movimentacoes={movimentacoesComPeso} now={now} />
           <PainelAChegar veiculos={veiculosAChegar} hoje={hojeStr} />
-          <PainelCargasFechadas cargas={cargasTerc} />
+          <PainelCargasFechadas cargas={cargasExpedidasDoDia} />
         </div>
       </main>
     </Layout>
