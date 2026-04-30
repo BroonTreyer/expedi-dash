@@ -88,13 +88,51 @@ function deriveEtapa(movs: MovRow[]): EtapaPortaria {
   return etapa;
 }
 
-export function useStatusPortariaPorCarga(cargaIds: string[]) {
+export interface CargaRef {
+  carga_id: string;
+  data: string; // YYYY-MM-DD
+}
+
+/**
+ * Aceita lista de strings (legado — sem filtro de data, todos os movimentos
+ * da carga_id são considerados) ou lista de { carga_id, data } (novo —
+ * agrega apenas movimentos cuja data_hora esteja na janela [data, data+1d)).
+ * O modo novo evita que cargas distintas com o mesmo nome/carga_id em datas
+ * diferentes contaminem o status umas das outras.
+ */
+export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
+  // Normaliza para CargaRef[]; quando legado, data = "" (sem filtro)
+  const refs: CargaRef[] = useMemo(() => {
+    if (input.length === 0) return [];
+    if (typeof (input as any)[0] === "string") {
+      return (input as string[]).map((id) => ({ carga_id: id, data: "" }));
+    }
+    return input as CargaRef[];
+  }, [input]);
+
+  const cargaIds = useMemo(
+    () => Array.from(new Set(refs.map((r) => r.carga_id))),
+    [refs]
+  );
+  // Map carga_id -> data (se houver mais de uma data para o mesmo id, usamos a maior)
+  const dataByCarga = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of refs) {
+      const prev = m.get(r.carga_id);
+      if (!prev || (r.data && r.data > prev)) m.set(r.carga_id, r.data);
+    }
+    return m;
+  }, [refs]);
+
   const queryClient = useQueryClient();
   const session = useSession();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stable key for memoization
-  const idsKey = useMemo(() => [...cargaIds].sort().join("|"), [cargaIds]);
+  const idsKey = useMemo(
+    () => refs.map((r) => `${r.carga_id}@${r.data}`).sort().join("|"),
+    [refs]
+  );
 
   const query = useQuery({
     queryKey: ["status_portaria_por_carga", idsKey],
@@ -111,6 +149,16 @@ export function useStatusPortariaPorCarga(cargaIds: string[]) {
       const grouped = new Map<string, MovRow[]>();
       for (const row of (data ?? []) as MovRow[]) {
         if (!row.carga_id) continue;
+        const dataCarga = dataByCarga.get(row.carga_id);
+        // Se temos data de referência da carga, ignora movimentos fora da janela
+        // [data 00:00 local, data+1d 00:00 local). Isso evita que cargas distintas
+        // com o mesmo carga_id em dias diferentes se misturem no status.
+        if (dataCarga && row.data_hora) {
+          const inicio = new Date(`${dataCarga}T00:00:00`).getTime();
+          const fim = inicio + 24 * 60 * 60 * 1000;
+          const ts = new Date(row.data_hora).getTime();
+          if (Number.isFinite(ts) && (ts < inicio || ts >= fim)) continue;
+        }
         const arr = grouped.get(row.carga_id) ?? [];
         arr.push(row);
         grouped.set(row.carga_id, arr);

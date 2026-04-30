@@ -1,66 +1,65 @@
-# Diagnóstico — o que aconteceu
+## Diagnóstico real
 
-Olhei os dados do banco e identifiquei a causa dos 3 sintomas que você relatou.
+A correção anterior só endureceu uma parte da lógica — não atacou a causa raiz. Investigando o banco e o código, identifiquei **três bugs independentes** que produzem exatamente os sintomas relatados (Fagno "Expedido" sem entrar, Jesumar sumido do Pátio, Sinomar inconsistente).
 
-## O que está acontecendo
+### Bug 1 — Status colapsa cargas diferentes que reusam o mesmo nome
+`useStatusPortariaPorCarga` agrupa movimentos **só por `carga_id` (string)**, sem considerar a data da carga.
 
-### 1. Fagno aparece como "Expedido" sem ter entrado
-No banco existem 2 registros pra placa do Fagno (carga "JR"):
-- Uma `entrada` antiga de 27/04 marcada como `etapa_terceirizado='finalizado'`
-- Uma `saida` "fantasma" criada hoje **sem horário de chegada, sem entrada, sem etapa** — movimento solto
+No banco existem várias cargas chamadas `"JR"` em datas distintas. A entrada antiga do Fagno em 27/04 (carga "JR" finalizada) está marcando como "Expedido" qualquer carga futura cujo `carga_id` também seja "JR" — incluindo a carga "JR" mostrada no print que ainda nem teve movimento na portaria.
 
-A regra do `useStatusPortariaPorCarga.ts` diz: `if (tipo_movimento === "saida") → expedido`. Como existe uma linha "saida" para essa carga, o status fica "Expedido" mesmo sem o veículo ter entrado hoje.
+### Bug 2 — Aba "Pátio" filtra por data do dia
+`Portaria.tsx` aplica `dateFromStr/dateToStr` em todos os tabs. Jesumar entrou em 29/04 (`no_patio`, sem saída), mas a aba "Pátio" só lê movimentos do dia atual (30/04), então o veículo desaparece. Veículos sem saída devem aparecer no Pátio independentemente da data de chegada.
 
-### 2. Sinomar "sumiu"
-Mesmo padrão: `entrada` finalizada hoje (12:40) + uma `saida` órfã 1 minuto depois **sem `carga_id`**. O painel "No Pátio" filtra `etapa !== 'finalizado'`, então some. E a saída sem `carga_id` não aparece em painel nenhum.
-
-### 3. Jesumar não mostrando no pátio
-Jesumar (CEARA CIF) **tem** os dados corretos no banco: `entrada`, `etapa='no_patio'`, `horario_entrada` preenchido. Deveria aparecer. O sintoma é cache desatualizado OU o status no Consolidado sendo poluído por outras movimentações com a mesma carga_id.
-
-### 4. Bônus: cargas próprias nunca refletem status real
-Erik, Reyller, Jaderson e os outros motoristas de hoje têm `categoria='carga_propria'`. Mas o `useStatusPortariaPorCarga` filtra **apenas `categoria=terceirizado`** (linha 81). Resultado: no Consolidado, toda carga própria fica "Aguardando" eternamente.
-
-## Causa raiz comum
-Existem **registros de "saida" desvinculados** sendo criados no banco (provavelmente exclusão parcial de entrada, fluxo de saída registrado isoladamente, ou clique duplo). E a regra confia cegamente neles, sem checar se há uma entrada correspondente.
+### Bug 3 — Migration de limpeza não foi aplicada
+Os dois registros órfãos (Fagno `292abd8e…` e Sinomar `8768b164…`) ainda estão no banco. A migration anterior precisa de fato rodar.
 
 ---
 
-# Plano de correção
+## Plano de correção
 
-## 1. Endurecer `src/hooks/useStatusPortariaPorCarga.ts`
-- **Não marcar "Expedido" só por existir um `tipo_movimento=saida`**. Só considerar expedido se:
-  - tem `horario_saida_final` preenchido, OU
-  - tem `etapa_terceirizado='finalizado'`, OU
-  - existe uma `entrada` correspondente (mesma `carga_id`) anterior à saída
-- **Suportar `categoria=carga_propria`**: incluir no filtro do query e do realtime, mapeando `etapa_carga_propria`:
-  - `aguardando_liberacao` → `chegou`
-  - `chegou` → `patio`
-  - `em_rota` → `expedido`
-  - `retornou` → `expedido`
-- **Ignorar saídas órfãs**: linha `tipo=saida` sem `horario_chegada/entrada` E sem `entrada` correspondente é descartada do cálculo.
+### 1. `src/hooks/useStatusPortariaPorCarga.ts` — agregar por (carga_id + data)
+- Adicionar a `data` da carga como parâmetro: o hook passa a receber `Array<{ carga_id, data }>`.
+- Filtrar movimentos de cada carga por janela `[data 00:00, data+1d 00:00)` em `data_hora`. Movimentos antigos com mesmo nome de carga deixam de poluir o status.
+- Atualizar todos os callers (dashboards/listas) para passar a data junto com o `carga_id`. Backwards-compatible via overload aceitando `string[]` legado, mas marcaremos uso novo nos arquivos de dashboard principal.
 
-## 2. Limpar os 2 registros órfãos atuais
-Via migration de DELETE (com sua aprovação no momento da execução):
-- Movimento `saida` do Fagno na carga "JR" (id `292abd8e...`) — sem entrada hoje
-- Movimento `saida` do Sinomar (id `8768b164...`) sem `carga_id` — duplicata órfã
+### 2. `src/components/portaria/PatioAtualTab.tsx` — receber lista "ativos" sem corte de data
+- Em `Portaria.tsx`, passar para `PatioAtualTab` uma segunda lista (`movimentacoesAtivas`) carregada **sem filtro de data** — somente entradas dos últimos 7 dias que ainda não têm saída vinculada e não estão `finalizado`.
+- O filtro de data continua valendo para Histórico e KPIs do dia.
+- Pequena query nova no `useMovimentacoesPortaria` (`useMovimentacoesAtivasPatio`) com índice já existente em `data_hora`.
 
-## 3. Prevenir novos órfãos no fluxo de saída
-No `MovimentoDetailsDialog` e painéis que registram saída de terceirizado:
-- Validar que existe uma entrada ativa (não-finalizada) correspondente antes de inserir o movimento de saída
-- Se a entrada já foi finalizada, bloquear nova "saída" pra mesma placa/carga e mostrar aviso
+### 3. Aplicar limpeza dos dois órfãos
+A migration `20260430125118_remove_movimentacoes_orfas.sql` já existe e está correta (tabela `movimentacoes_portaria`). Confirmar que ela é executada nesta rodada — os IDs ainda estão no banco.
 
-## Arquivos afetados
+### 4. Trava de prevenção em `MovimentoDetailsDialog.tsx`
+Bloquear a criação de uma "saida" quando não há nenhuma "entrada" vinculável para a placa/carga nas últimas 72h, evitando reincidência de órfãos.
 
-| Arquivo | Mudança |
-|---|---|
-| `src/hooks/useStatusPortariaPorCarga.ts` | Lógica de derivação robusta + suporte carga_propria |
-| `src/components/portaria/MovimentoDetailsDialog.tsx` | Validar entrada ativa antes de criar saída |
-| Migration DELETE | Remover 2 movimentos órfãos (Fagno + Sinomar) |
+---
 
-## Riscos e validação
+## Snippet chave (agregação por carga_id + data)
 
-- A mudança em `deriveEtapa` afeta o badge no **Consolidado** e os KPIs de peso na **Expedição** — ambos vão ficar **mais corretos**.
-- Cargas próprias passarão a refletir status real (hoje ficam "Aguardando" — vai parecer mudança grande, mas é o correto).
-- Os 2 registros órfãos do Fagno e Sinomar serão excluídos definitivamente — confirme antes que não foram saídas reais.
+```typescript
+// useStatusPortariaPorCarga.ts
+const { data } = await supabase
+  .from("movimentacoes_portaria")
+  .select("carga_id, data_hora, tipo_movimento, categoria, etapa_terceirizado, etapa_carga_propria, horario_entrada, horario_chegada, horario_saida_final")
+  .in("carga_id", cargaIds)
+  .in("categoria", ["terceirizado", "carga_propria"]);
 
-Posso aplicar?
+// Agrupar por (carga_id + data da carga)
+for (const row of data ?? []) {
+  const key = `${row.carga_id}::${cargaDataMap.get(row.carga_id)}`;
+  const inicio = startOfDay(cargaData);
+  const fim = addDays(inicio, 1);
+  const ts = new Date(row.data_hora).getTime();
+  if (ts < inicio.getTime() || ts >= fim.getTime()) continue; // ignora movimento de outra carga homônima
+  grouped.get(key)!.push(row);
+}
+```
+
+---
+
+## Resultado esperado
+- Fagno deixa de aparecer "Expedido" na carga "JR" de 30/04 (movimentos antigos da "JR" de 27/04 são filtrados pela data).
+- Jesumar volta a aparecer na aba "Pátio" mesmo tendo entrado em 29/04.
+- Sinomar exibe corretamente os movimentos legítimos sem o órfão de hoje.
+- Órfãos antigos limpos; novos órfãos bloqueados na origem.

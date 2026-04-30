@@ -284,7 +284,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div>
                     <span className="text-muted-foreground">Horário: </span>
-                    <span className="font-medium">{format(new Date(m.data_hora), dateFromStr !== dateToStr ? "dd/MM HH:mm" : "HH:mm", { locale: ptBR })}</span>
+                    <span className="font-medium">{(() => {
+                      const d = new Date(m.data_hora);
+                      const hoje = new Date();
+                      const mesmoDia = d.toDateString() === hoje.toDateString();
+                      return format(d, mesmoDia ? "HH:mm" : "dd/MM HH:mm", { locale: ptBR });
+                    })()}</span>
                   </div>
                   <div className={emRota ? "text-muted-foreground" : getTempoClass(minutos)}>
                     {!emRota && minutos >= 480 && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}

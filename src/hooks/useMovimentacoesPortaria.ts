@@ -120,6 +120,77 @@ export function useMovimentacoes(dateFrom: string, dateTo?: string) {
   return query;
 }
 
+/**
+ * Veículos atualmente ATIVOS no pátio — não filtra pelo dia atual.
+ * Pega entradas dos últimos 7 dias que ainda não estão finalizadas e
+ * que ainda não têm uma saída vinculada. Usado pela aba "Pátio" da
+ * Portaria para que veículos que entraram em dias anteriores e ainda
+ * não saíram continuem visíveis. Inclui também movimentos de "carga
+ * própria" em rota / retornados.
+ */
+export function useMovimentacoesAtivasPatio() {
+  const queryClient = useQueryClient();
+  const session = useSession();
+
+  const query = useQuery({
+    queryKey: ["movimentacoes_portaria_ativas_patio"],
+    enabled: !!session,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - 7);
+      const desdeIso = desde.toISOString();
+
+      const { data, error } = await supabase
+        .from("movimentacoes_portaria")
+        .select("*")
+        .gte("data_hora", desdeIso)
+        .order("data_hora", { ascending: false });
+      if (error) throw error;
+
+      const all = (data ?? []) as MovimentacaoPortaria[];
+      // Constrói set de entradas que já têm saída vinculada (não estão mais no pátio)
+      const saidasVinculadas = new Set(
+        all
+          .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
+          .map((m) => m.movimento_vinculado_id!)
+      );
+
+      return all.filter((m) => {
+        // Carga própria: mantém enquanto não está finalizado
+        if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
+          return m.etapa_carga_propria !== "finalizado";
+        }
+        // Para o pátio só interessam entradas
+        if (m.tipo_movimento !== "entrada") return false;
+        // Já saiu
+        if (saidasVinculadas.has(m.id)) return false;
+        // Terceirizado finalizado: já saiu
+        if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+        return true;
+      });
+    },
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`movimentacoes-ativas-patio`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "movimentacoes_portaria" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return query;
+}
+
 export function useDeleteMovimentacao() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -174,6 +245,38 @@ export function useCreateMovimentacao() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (mov: Record<string, any>) => {
+      // Trava anti-órfão: ao registrar uma "saida" sem vínculo explícito,
+      // exige que exista uma entrada ativa correspondente (mesma placa,
+      // ainda no pátio) nas últimas 72h. Sem isso a saída fica órfã e
+      // contamina o status da carga nos painéis.
+      if (
+        mov.tipo_movimento === "saida" &&
+        !mov.movimento_vinculado_id &&
+        mov.placa
+      ) {
+        const placaNorm = String(mov.placa).trim().toUpperCase();
+        const desde = new Date();
+        desde.setHours(desde.getHours() - 72);
+        const { data: entradas } = await supabase
+          .from("movimentacoes_portaria")
+          .select("id, etapa_terceirizado, etapa_carga_propria, categoria")
+          .ilike("placa", placaNorm)
+          .eq("tipo_movimento", "entrada")
+          .gte("data_hora", desde.toISOString())
+          .order("data_hora", { ascending: false })
+          .limit(5);
+        const ativa = (entradas ?? []).some(
+          (e: any) =>
+            !(e.categoria === "terceirizado" && e.etapa_terceirizado === "finalizado") &&
+            !(e.categoria === "carga_propria" && e.etapa_carga_propria === "finalizado"),
+        );
+        if (!ativa) {
+          throw new Error(
+            "Não há entrada ativa para esta placa nas últimas 72h. Registre a entrada primeiro ou use 'Saída' a partir do pátio.",
+          );
+        }
+      }
+
       const { data, error } = await supabase
         .from("movimentacoes_portaria")
         .insert(mov as any)
