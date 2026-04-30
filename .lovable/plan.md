@@ -1,61 +1,44 @@
-## Bugs encontrados na auditoria
+## Problema
 
-### Bug #1 — Admin "Finalizar fantasmas" usa etapa errada (CRÍTICO)
-**Arquivo:** `src/components/portaria/PortariaAdminPanel.tsx` (linhas 73 e 96)
+A carga **JR** foi fechada com a placa **RSB1H70** (motorista CELIO ALVES OLIVEIRA), mas o registro em `veiculos_esperados` para `carga_id='JR'` é de outra placa antiga (**QWE1B20 / FAGNO**, walk-in de 27/04). Por isso CELIO não aparece em "Registro de Entrada" nem em "Terceirizado".
 
-A mutation marca registros como `etapa_terceirizado: "saida"`, mas esse é um estado **intermediário**. O resto do sistema (`PainelNoPatio`, `Portaria.tsx`, `useStatusPortariaPorCarga`, `PortariaKpiCards`, `PatioAtualTab`) só remove do pátio quando `etapa_terceirizado === "finalizado"`.
+### Causa raiz
+A função `on_carga_fechada()` faz:
+```
+SELECT EXISTS(SELECT 1 FROM veiculos_esperados WHERE carga_id = NEW.carga_id)
+```
+Se já existe **qualquer** linha com aquele `carga_id` (mesmo de outra placa), a trigger pula a criação. Isso quebra quando:
+- Uma carga teve placa trocada após fechamento.
+- Um walk-in antigo foi vinculado a um `carga_id` que depois é reutilizado.
+- A logística reabre/refecha a carga com placa diferente.
 
-**Sintoma confirmado em produção:** 8+ registros marcados "Finalizado em lote pelo admin" continuam aparecendo no pátio porque ficaram na etapa errada (`saida` em vez de `finalizado`). Exemplos: SZP8G56, BRA2E19, MXE9B40, TFK2C79, etc.
+A mesma falha existe em `vincular_veiculo_esperado_tardio()`.
 
-**Correção:**
-- Trocar `etapa_terceirizado: "saida"` por `etapa_terceirizado: "finalizado"` nas 2 mutations.
-- Migração de dados: UPDATE nos 8 registros existentes com observação `[Finalizado ... pelo admin - registro antigo]` para corrigir a etapa.
+## Correções
 
----
+### 1. Migração SQL — corrigir lógica das triggers
+Trocar `EXISTS(... WHERE carga_id = X)` por `EXISTS(... WHERE carga_id = X AND upper(trim(placa)) = upper(trim(NEW.placa)))` em ambas as funções:
+- `on_carga_fechada()`
+- `vincular_veiculo_esperado_tardio()`
 
-### Bug #2 — Triggers duplicados em `veiculos_esperados` (notificações em dobro)
-**Banco:** schema `public`
+Assim, se o `carga_id` já existe mas com **placa diferente**, um novo `veiculos_esperados` será criado para a placa atual (mantendo o histórico antigo).
 
-A tabela `veiculos_esperados` tem 2 pares de triggers idênticos:
-- `trg_on_veiculo_chegou` + `trg_veiculo_chegou` → ambos chamam `on_veiculo_chegou()`
-- `trg_on_walkin_status_change` + `trg_walkin_status_change` → ambos chamam `on_walkin_status_change()`
+### 2. Migração SQL — recuperar o registro do CELIO
+INSERT manual na `veiculos_esperados` para a carga JR/RSB1H70/CELIO, com:
+- `grupo = 'TERCEIRIZADO'`
+- `status_autorizacao = 'previsto'`
+- `walk_in = false`
+- `conferido = false`
+- `data_referencia = CURRENT_DATE`
 
-**Sintoma:** cada chegada de veículo gera 2 notificações idênticas; cada mudança de status walk-in gera 2 notificações.
+### 3. Limpar duplicatas em `carregamentos_dia` (opcional, somente investigar)
+A carga JR tem 5 linhas iguais (mesma placa, motorista, data) — provavelmente fechamentos repetidos. Isto não é o foco do bug, mas vale verificar se a UI de fechamento está disparando múltiplas vezes. Não vou alterar dados de pedidos sem confirmação.
 
-**Correção:** Migration que faz `DROP TRIGGER IF EXISTS trg_veiculo_chegou` e `DROP TRIGGER IF EXISTS trg_walkin_status_change` (mantém os com prefixo `trg_on_*`, padrão usado nas demais tabelas).
+## Resultado esperado
 
----
+- CELIO ALVES OLIVEIRA / RSB1H70 passa a aparecer no painel **Cargas Fechadas Aguardando** (em `/portaria/registro-entrada`) e na aba **Terceirizado**.
+- Futuras cargas reabertas com nova placa criam corretamente o registro em `veiculos_esperados`.
+- Registros antigos de outras placas para o mesmo `carga_id` permanecem intocados (histórico preservado).
 
-### Bug #3 — Carga histórica sem veículo esperado
-**Carga:** `EDIVAR + VANESSA` (85 itens, placa QWA2B01, transp. MOREIRA)
-
-Provavelmente criada antes do trigger `trg_vincular_veiculo_tardio` existir, ou a placa foi adicionada por update direto que não satisfez a condição do trigger. Não há outras cargas afetadas.
-
-**Correção:** Insert único em `veiculos_esperados` para essa carga, status `previsto`, grupo `TERCEIRIZADO`. Sem mudança de código.
-
----
-
-### Itens auditados e considerados OK / não-bugs
-- `0` walk-ins órfãos > 24h (estado limpo após fix do trigger)
-- `0` cargas com `veiculos_esperados` duplicados
-- `0` pedidos sem `numero_pedido` em etapa não-rascunho
-- `0` pesos/quantidades negativos
-- 7 movimentos de carga própria parados em `aguardando_liberacao` desde 10/04 — todos do mesmo dia, padrão de teste antigo, não bug ativo
-- 42 rupturas sem motivo nos últimos 30 dias — comportamento intencional (motivo é opcional ao sinalizar)
-- Triggers **estão** todos habilitados (o bloco `<db-triggers>` do contexto estava enganoso — verificado direto via `pg_trigger`)
-
----
-
-### Plano de execução
-
-1. **Migração SQL** (`supabase/migrations/...`):
-   - DROP dos 2 triggers duplicados em `veiculos_esperados`
-   - UPDATE nos registros admin-finalizados com etapa errada (`etapa_terceirizado='saida'` + observação contém `pelo admin`) → setar `etapa_terceirizado='finalizado'`
-   - INSERT do `veiculo_esperado` faltante para carga `EDIVAR + VANESSA`
-
-2. **Edição de código** (`src/components/portaria/PortariaAdminPanel.tsx`):
-   - Trocar `etapa_terceirizado: "saida"` → `"finalizado"` nas duas mutations (linhas 73 e 96)
-
-Risco: baixo. Nenhuma mudança em fluxo de negócio normal — só corrige um valor literal que estava errado, deduplica triggers que já são idempotentes, e regulariza dados históricos.
-
-Quer que eu aplique?
+## Aprovação
+Posso aplicar a migração?
