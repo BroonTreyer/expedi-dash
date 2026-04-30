@@ -316,6 +316,18 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       if (item.resetBaseline) {
         out.peso_original = item.peso;
       }
+      // AUMENTO de peso pelo usuário: se o novo peso é MAIOR que o peso_original
+      // armazenado, precisamos subir o baseline junto. Caso contrário, o trigger
+      // `cap_peso_pelo_original` no banco reverte silenciosamente o peso para o
+      // original e a edição "não persiste" (aparenta não ter salvo).
+      // Tolerância 0.1% espelha a do trigger.
+      if (
+        item.pesoOriginal != null &&
+        item.peso != null &&
+        item.peso > item.pesoOriginal * 1.001
+      ) {
+        out.peso_original = item.peso;
+      }
       // Limpa flag fantasma quando: sem ruptura total E peso atual >= baseline desejado
       if (!item.ruptura && (baseline == null || item.peso >= baseline)) {
         out.ruptura_sinalizada = false;
