@@ -70,7 +70,7 @@ export function PortariaAdminPanel() {
         .from("movimentacoes_portaria")
         .update({
           horario_saida_final: agora,
-          etapa_terceirizado: "saida",
+          etapa_terceirizado: "finalizado",
           observacoes: "[Finalizado manualmente pelo admin - registro antigo]",
         })
         .eq("id", id);
@@ -93,7 +93,7 @@ export function PortariaAdminPanel() {
         .from("movimentacoes_portaria")
         .update({
           horario_saida_final: agora,
-          etapa_terceirizado: "saida",
+          etapa_terceirizado: "finalizado",
           observacoes: "[Finalizado em lote pelo admin - registro antigo]",
         })
         .in("id", ids);
