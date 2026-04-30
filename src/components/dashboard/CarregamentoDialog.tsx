@@ -296,7 +296,10 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
 
     // Clean payload: remove system/read-only fields
     // NOTA: peso_original e ruptura_sinalizada são reescritos por item logo abaixo conforme resetBaseline.
-    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada', 'peso_original'];
+    // operation_id / row_op_key NUNCA podem ser herdados do registro em edição: cada linha do banco
+    // tem a sua própria chave única e copiar a do "principal" para os irmãos gera 23505 (unique
+    // violation) — fazendo o save falhar silenciosamente em vários itens (ex.: rupturas voltam).
+    const SYSTEM_FIELDS = ['id', 'vendedores', 'codigo_produto', 'nome_produto', 'quantidade', 'peso', 'peso_manual', 'created_at', 'updated_at', 'ruptura_sinalizada', 'peso_original', 'operation_id', 'row_op_key'];
     const basePayload: Record<string, any> = {};
     for (const [key, value] of Object.entries(form)) {
       if (!SYSTEM_FIELDS.includes(key)) {
