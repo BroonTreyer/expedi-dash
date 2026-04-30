@@ -855,11 +855,11 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.minha_tabela;`}</Pre>
           headers={["Integração", "Edge function", "Pra que"]}
           rows={[
             ["Plate Recognizer", <C>ocr-portaria</C>, "Lê placa de caminhão a partir da foto"],
-            ["Lovable AI / Gemini", <C>ocr-portaria</C> + <C>parse-pedido-pdf</C>, "Lê KM/lacre; converte PDF de pedido em itens"],
+            ["Lovable AI / Gemini", <><C>ocr-portaria</C> + <C>parse-pedido-pdf</C></>, "Lê KM/lacre; converte PDF de pedido em itens"],
             ["OpenRouteService / OSRM / Nominatim", <C>roteirizar</C>, "Otimização de rota e geocodificação"],
             ["ViaCEP", <C>enrich-clientes-viacep</C>, "Preenche cidade/UF a partir do CEP"],
             ["Lovable Cloud Storage", "—", "Bucket privado portaria/ pra fotos e PDFs"],
-            ["Backups / Restore", <C>backup-snapshot</C>, <C>restore-deleted</C>, "Snapshot JSONB; restauração da Lixeira"],
+            ["Backups / Restore", <><C>backup-snapshot</C> / <C>restore-deleted</C></>, "Snapshot JSONB; restauração da Lixeira"],
             ["Rota Livre (planejado)", "—", "Manifesto de roteamento (memória rota-livre-integration)"],
             ["Webhooks ERP/WMS (planejado)", "—", "Sync com sistemas externos (memória erp-integration)"],
           ]}
