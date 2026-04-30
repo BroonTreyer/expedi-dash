@@ -1,65 +1,80 @@
-## Mudança
 
-Substituir o painel **"Cargas fechadas — aguardando veículo"** (canto inferior direito de `/expedicao`) por **"Cargas expedidas do dia"** — uma lista das cargas terceirizadas que **já saíram** (foram expedidas/carregadas) na data selecionada.
+# Plano — Tornar a Expedição (e demais painéis) mais robusta
 
-## Definição de "expedida"
+## Problema observado
 
-Uma carga conta como expedida se atender a qualquer uma destas condições:
-- Tem movimentação de portaria com `etapa_terceirizado === "finalizado"` (saída registrada), OU
-- Tem `horario_saida_final` preenchido na movimentação, OU
-- Todos os itens da carga estão com `status === "Carregado"` em `carregamentos_dia` (faturamento marcou como concluída).
+Hoje, se **um** bloco/hook quebra (erro de rede, dado inesperado, RLS, undefined), a falha **propaga e derruba o painel inteiro**. Causas principais identificadas:
 
-A fonte base continua sendo `useCargasDiaExpedicao` (todas as cargas terceirizadas do dia, com carry-over de 30d). O hook `useStatusPortariaPorCarga` já fornece a etapa atual e o horário de saída por `carga_id`.
+1. **Não existe nenhum `ErrorBoundary` no projeto** (nem global nem por bloco). Qualquer `throw` no render de um filho mata a página toda.
+2. **Hooks compartilhados** (`useCargasDiaExpedicao`, `useStatusPortariaPorCarga`, `usePesoPorCarga`, `useMovimentacoes`, `useVeiculosEsperados`) lançam `throw error` em falha — sem fallback. O `Expedicao.tsx` deriva os blocos uns dos outros via `useMemo`, então uma query que quebra invalida cascata: KPIs, "A Chegar", "Cargas Expedidas" e "No Pátio" somem juntos.
+3. **Warnings de `forwardRef`** no console em `PainelAChegar` e `PainelCargasFechadas` — algo (provavelmente uma `Tooltip`/`asChild`) está passando `ref` a componentes que não usam `forwardRef`. Em React 18 vira warning, em produção pode evoluir para erro silencioso.
+4. **Realtime sem reconexão**: hoje os canais Supabase não tratam estado `CHANNEL_ERROR`/`CLOSED` — o painel "congela" sem o usuário perceber.
+5. **Renders concorrentes** sem `staleTime`/`gcTime` consistentes em algumas queries → spinners piscando e "blocos sumindo" momentaneamente.
 
-## Comportamento
+## Objetivo
 
-| Situação                                                  | Aparece no novo painel |
-|-----------------------------------------------------------|:----------------------:|
-| Carga fechada, sem veículo previsto                       |          ❌            |
-| Carga com motorista a caminho                             |          ❌            |
-| Veículo no pátio carregando                               |          ❌            |
-| Carga expedida (saída pela portaria) ou marcada Carregado |          ✅            |
+Cada bloco da Expedição (e dos demais dashboards principais) deve **falhar de forma isolada**: se uma query der erro, só aquele card mostra "Não foi possível carregar — tentar novamente" e os outros continuam funcionando.
 
-Lista ordenada pelo horário de saída/expedição **mais recente primeiro**.
+## O que será implementado
 
-## Layout do card
+### 1. ErrorBoundary genérico e reutilizável
+Criar `src/components/ErrorBoundary.tsx` com:
+- Classe React com `componentDidCatch` que loga o erro.
+- Fallback compacto (Card com ícone, mensagem e botão "Tentar novamente").
+- Prop `name` para identificar o bloco no log.
+- Reset automático ao remontar (chave de tentativa).
 
-Cada linha mostra:
-- Nome da carga (ou `carga_id`)
-- Badge verde **"Expedida"** + horário de saída (ex.: `14:32`)
-- Placa, motorista, transportadora, tipo de caminhão
-- Qtd pedidos, peso total (kg), data
-- Borda esquerda verde para reforçar status finalizado
+### 2. Wrapper `<SafeBlock>` por painel
+Em `src/pages/Expedicao.tsx`, envolver **cada** painel e o KPI em `<ErrorBoundary>`:
+```tsx
+<ErrorBoundary name="No Pátio"><PainelNoPatio .../></ErrorBoundary>
+<ErrorBoundary name="Chegou"><PainelChegou .../></ErrorBoundary>
+<ErrorBoundary name="A Chegar"><PainelAChegar .../></ErrorBoundary>
+<ErrorBoundary name="Expedidas"><PainelCargasFechadas .../></ErrorBoundary>
+<ErrorBoundary name="KPIs"><ExpedicaoKpiCards .../></ErrorBoundary>
+```
+Replicar nas páginas críticas: `Dashboard/Index`, `Portaria`, `RegistroEntrada`, `Consolidado`.
 
-Estado vazio: "Nenhuma carga expedida ainda hoje".
+### 3. Blindar hooks de dados (não derrubar a página em erro de rede)
+Padronizar nos hooks compartilhados:
+- `retry: 2` com backoff (já é default do react-query, garantir).
+- `placeholderData: keepPreviousData` para que dados antigos permaneçam visíveis durante refetch.
+- Em vez de `throw error`, retornar dado vazio + expor `error` para o componente decidir o fallback.
+- Validar `data ?? []` em todos os consumidores.
+- Hooks afetados: `useCargasDiaExpedicao`, `useStatusPortariaPorCarga`, `usePesoPorCarga`, `useMovimentacoes`, `useVeiculosEsperados`, `useCargasFechadasAguardando`.
 
-## Arquivos
+### 4. Corrigir warnings de `forwardRef`
+Investigar `PainelAChegar` e `PainelCargasFechadas` — provavelmente um `Tooltip`/`AlertDialogTrigger asChild` envolvendo o componente. Converter os componentes que recebem `ref` indiretamente para `forwardRef`, ou remover o `asChild` desnecessário.
 
-### `src/components/expedicao/PainelCargasFechadas.tsx` (renomear conceitualmente, manter arquivo)
-- Trocar título para **"Cargas expedidas do dia"** com ícone `TruckIcon`/`PackageCheck`.
-- Mudar o tipo da prop para receber `CargaDiaExpedicao[]` enriquecida com `horarioSaida: string | null`.
-- Mostrar badge "Expedida" verde + horário formatado `HH:mm` (pt-BR).
-- Manter visual de peso/pedidos/placa/motorista/transp./tipo já existente.
-- Borda esquerda verde (`border-l-emerald-500`).
+### 5. Realtime resiliente
+Em `useStatusPortariaPorCarga` e `useMovimentacoes`:
+- Detectar `CHANNEL_ERROR` / `CLOSED` no callback de `.subscribe()`.
+- Auto-reconectar com backoff (3s → 10s → 30s).
+- Atualizar `useRealtimeStatus` para refletir o estado real (já parcialmente feito).
 
-### `src/pages/Expedicao.tsx` (ajustar)
-- Remover uso de `cargasFechadas`/`cargasTerc` para alimentar o painel.
-- Construir `cargasExpedidasDoDia` combinando:
-  - `cargasDoDia` (de `useCargasDiaExpedicao`)
-  - `statusPortariaMap` (de `useStatusPortariaPorCarga`) → para detectar etapa `expedido` e capturar `horario_saida_final`
-  - Fallback: se `c.status === "Carregado"`, considerar expedida mesmo sem registro de portaria (horário = `null` ou `horario_fim` agregado).
-- Filtrar para `transportadora` preenchida (terceirizado) — já garantido pelo hook.
-- Ordenar por horário de saída desc; quem não tem horário vai por último.
-- Atualizar KPI **"Cargas prontas"** (4º card) para refletir o total de expedidas do dia, alinhando com a nova lista. Renomear o label do KPI para **"Cargas expedidas"**.
-- Manter inalterados os painéis "No pátio", "Chegou", "A chegar" e os KPIs de peso.
+### 6. Memos defensivos no `Expedicao.tsx`
+Os `useMemo` atuais assumem que `cargasDoDia`, `statusPortariaMap`, `movimentacoesComPeso` existem. Adicionar guards `?? []` / `?? new Map()` em todas as derivações para que o erro de uma query nunca quebre a derivação seguinte.
 
-### `src/components/expedicao/ExpedicaoKpiCards.tsx` (ajuste mínimo)
-- Renomear label `"Cargas prontas"` → `"Cargas expedidas"`.
-- Trocar ícone para `PackageCheck`.
+### 7. Logging estruturado
+Quando um `ErrorBoundary` capturar erro, gravar no `console.error` com o `name` do bloco — fica fácil identificar nos próximos relatórios qual painel falhou sem afetar os outros.
 
-## Notas técnicas
+## Arquivos que serão tocados
 
-- Verificar se `useStatusPortariaPorCarga` retorna `horario_saida_final` no objeto. Se não retornar, estender o hook para incluir esse campo (sem mudança de schema, só `select`).
-- Sem mudanças de banco de dados, RLS ou edge functions.
-- `useCargasFechadasAguardando` continua existindo e em uso pelo painel da Portaria (`CargasFechadasAguardandoPanel`), só removemos o consumo na Expedição.
-- Tratamento de `carga_id` reutilizado: como a base `cargasDoDia` agrupa por `carga_id+data`, e o status de portaria também é por `carga_id`, mantemos a chave composta `carga_id|data` quando houver risco de colisão entre dias diferentes.
+- **Novo:** `src/components/ErrorBoundary.tsx`
+- `src/pages/Expedicao.tsx` (envolver blocos, guards nos memos)
+- `src/pages/Index.tsx`, `src/pages/Portaria.tsx`, `src/pages/RegistroEntrada.tsx`, `src/pages/Consolidado.tsx` (envolver blocos principais)
+- `src/hooks/useCargasDiaExpedicao.ts`, `src/hooks/useStatusPortariaPorCarga.ts`, `src/hooks/usePesoPorCarga.ts`, `src/hooks/useMovimentacoesPortaria.ts`, `src/hooks/useVeiculosEsperados.ts` (retry + keepPreviousData + reconexão realtime)
+- `src/components/expedicao/PainelAChegar.tsx`, `src/components/expedicao/PainelCargasFechadas.tsx` (corrigir `forwardRef`)
+
+## Resultado esperado
+
+- Falha em uma query/painel **não derruba** os demais — o bloco mostra "Erro ao carregar — tentar novamente" e os outros seguem normais.
+- Reconexão automática do realtime quando a conexão cair.
+- Dados antigos permanecem visíveis durante refetch (sem "sumiço" momentâneo dos blocos).
+- Warnings de `forwardRef` zerados.
+- Mesma proteção aplicada também ao Dashboard, Portaria e Registro de Entrada.
+
+## Fora do escopo
+
+- Mudanças visuais ou de regras de negócio.
+- Alterações em edge functions ou banco.

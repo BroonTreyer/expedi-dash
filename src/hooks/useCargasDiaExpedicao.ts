@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { pesoEfetivo } from "@/lib/peso-utils";
@@ -29,6 +29,8 @@ export function useCargasDiaExpedicao(dateStr: string) {
     enabled: !!session,
     staleTime: 15_000,
     refetchInterval: 30_000,
+    retry: 2,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
       const isToday = dateStr === todayStr;
