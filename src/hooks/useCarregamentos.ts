@@ -454,7 +454,7 @@ export function useCargasFechadasAguardando() {
         .select("carga_id")
         .in("carga_id", cargaIds);
       const cargasComVeiculoPrevisto = new Set(
-        ((previstos ?? []) as { carga_id: string | null }[])
+        ((previstos ?? []) as unknown as { carga_id: string | null }[])
           .map((v) => v.carga_id)
           .filter((v): v is string => !!v)
       );
