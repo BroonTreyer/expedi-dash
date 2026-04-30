@@ -79,7 +79,7 @@ function buildColumnMap(row: unknown[]): Map<string, number> | null {
 }
 
 function extractDateFromText(text: string): string {
-  const match = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  const match = text.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
   if (match) return `${match[1].padStart(2, "0")}/${match[2].padStart(2, "0")}/${match[3]}`;
   return "";
 }

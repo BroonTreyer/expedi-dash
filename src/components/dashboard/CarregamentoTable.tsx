@@ -158,7 +158,7 @@ function MobileCardView({ data, onStatusChange, onEdit, onEditGroup, onDelete, o
   const toggle = (key: string) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
@@ -399,7 +399,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
   const toggleSelect = useCallback((id: string) => {
     if (!onSelectionChange) return;
     const next = new Set(selectedSet);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     onSelectionChange(Array.from(next));
   }, [selectedSet, onSelectionChange]);
 
@@ -448,7 +448,7 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
   const toggle = (key: string) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
