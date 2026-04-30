@@ -377,11 +377,11 @@ export default function Portaria({ categoria }: PortariaProps) {
               </CardHeader>
               <CardContent className="p-0">
                 <PatioAtualTab
-                  movimentacoes={movimentacoes}
+                  movimentacoes={movimentacoesAtivasPatio}
                   search={search}
                   categoriaFilter={categoria}
                   onRegistrarSaida={(entrada, etapa) => openRegistro(entrada, etapa)}
-                  isLoading={isLoading}
+                  isLoading={isLoadingAtivas}
                     readOnly={false}
                   dateFromStr={dateFromStr}
                   dateToStr={dateToStr}
