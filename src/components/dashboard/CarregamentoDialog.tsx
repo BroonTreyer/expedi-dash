@@ -453,6 +453,14 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       }
     }
       didSucceed = true;
+    } catch (err: any) {
+      // Mostra erro claro pro usuário em vez de fechar o modal silenciosamente.
+      const msg =
+        err?.message ||
+        err?.error_description ||
+        "Erro desconhecido ao salvar — verifique a conexão e tente de novo.";
+      toast.error(`Falha ao salvar: ${msg}`);
+      // Não relança: o finally cuida de manter o modal aberto.
     } finally {
       // Só fecha o modal após o submit terminar (com sucesso).
       // Em erro, mantém o modal aberto e libera a trava para o usuário tentar de novo.
