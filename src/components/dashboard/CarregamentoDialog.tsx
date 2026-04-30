@@ -200,7 +200,6 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       set("cidade", lookedUpCliente.cidade ?? "");
       set("uf", lookedUpCliente.uf ?? "");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookedUpCliente, codigoClienteInput]);
 
   const updateItem = (index: number, updates: Partial<ProductItem>) => {
