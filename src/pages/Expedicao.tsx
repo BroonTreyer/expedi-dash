@@ -36,30 +36,35 @@ export default function Expedicao() {
     [movimentacoesAll]
   );
 
-  // Buscar peso real (somatório de carregamentos_dia) para cada carga das movimentações
-  const cargaIdsMov = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          movimentacoes.map((m) => m.carga_id).filter((x): x is string => !!x)
-        )
-      ),
-    [movimentacoes]
-  );
-  const { data: pesoPorCarga } = usePesoPorCarga(cargaIdsMov);
+  // Buscar peso real (somatório de carregamentos_dia) para cada (carga, data)
+  // das movimentações. IMPORTANTE: filtrar por data evita inflar o peso quando
+  // o mesmo carga_id é reaproveitado em dias diferentes (ex.: "JR MIX").
+  const refsCargaMov = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { carga_id: string; data: string }[] = [];
+    for (const m of movimentacoes) {
+      if (!m.carga_id || !m.data_hora) continue;
+      const d = format(new Date(m.data_hora), "yyyy-MM-dd");
+      const k = `${m.carga_id}::${d}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({ carga_id: m.carga_id, data: d });
+    }
+    return out;
+  }, [movimentacoes]);
+  const { data: pesoPorCarga } = usePesoPorCarga(refsCargaMov);
 
   // Movimentações enriquecidas com peso vindo da carga (já que m.peso é nulo)
   const movimentacoesComPeso = useMemo(
     () =>
-      movimentacoes.map((m) => ({
-        ...m,
-        peso:
-          m.peso != null
-            ? m.peso
-            : m.carga_id
-              ? (pesoPorCarga?.get(m.carga_id) ?? null)
-              : null,
-      })),
+      movimentacoes.map((m) => {
+        const d = m.data_hora ? format(new Date(m.data_hora), "yyyy-MM-dd") : null;
+        const lookup = m.carga_id && d ? pesoPorCarga?.get(`${m.carga_id}::${d}`) : null;
+        return {
+          ...m,
+          peso: m.peso != null ? m.peso : (lookup ?? null),
+        };
+      }),
     [movimentacoes, pesoPorCarga]
   );
   const veiculosEsperados = useMemo(

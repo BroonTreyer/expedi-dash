@@ -1,50 +1,57 @@
-# Corrigir duplicidade entre "A chegar" e "Cargas fechadas"
+## Problema confirmado
 
-## Problema
+O Dashboard mostra os pesos **corretos** (Fagno 27.692 kg, Sendas 29.000 kg) porque soma `peso` apenas dos itens **da query do dia**. Já a Expedição mostra **92.795 kg** porque usa o hook `usePesoPorCarga`, que **soma todas as datas** com o mesmo `carga_id`.
 
-A carga **DICKSON J BATISTA** (placa OZR0D10) aparece simultaneamente em:
-- **A chegar** (veículo previsto, ainda não conferido)
-- **Cargas fechadas — aguardando veículo**
-
-Isso acontece porque, ao fechar a carga terceirizada, o sistema já cria automaticamente uma previsão em `veiculos_esperados` (memória *portaria-automated-forecasts*). Hoje o painel "Cargas fechadas" lista qualquer carga em `etapa='logistica'` sem entrada de portaria — sem checar se já existe veículo previsto.
-
-## Regra correta
-
-- **Cargas fechadas — aguardando veículo** → SOMENTE cargas fechadas que ainda **não têm veículo vinculado** (sem registro em `veiculos_esperados`).
-- **A chegar** → cargas fechadas que **já têm veículo previsto** e ainda não chegaram à portaria.
-
-## Mudança técnica
-
-### `src/hooks/useCarregamentos.ts` — `useCargasFechadasAguardando`
-
-Após buscar as cargas em `etapa='logistica'`, fazer uma query adicional em `veiculos_esperados`:
-
-```ts
-const { data: previstos } = await supabase
-  .from("veiculos_esperados")
-  .select("carga_id")
-  .in("carga_id", cargaIds)
-  .eq("grupo", "TERCEIRIZADO");
-
-const cargasComVeiculoPrevisto = new Set(
-  (previstos ?? []).map((v) => v.carga_id).filter(Boolean)
-);
+```
+Fagno (carga_id="JR MIX"):
+  30/04: 30.392 kg  ← deveria mostrar isto (ou 27.692 efetivo)
+  22/04: 32.493 kg
+  07/04: 29.910 kg
+  TOTAL: 92.795 kg  ← bug: soma os 3 dias
 ```
 
-No loop que monta `grouped` (linhas ~501-527), adicionar:
+## Causa raiz
+
+`src/hooks/usePesoPorCarga.ts` tem dois defeitos:
+1. **Não filtra por data** → soma o histórico inteiro do nome da carga.
+2. **Não desconta rupturas** → soma `peso` cru, mesmo de itens com `ruptura=true`.
+
+## Correção
+
+### `src/hooks/usePesoPorCarga.ts`
+Refatorar para receber pares `{carga_id, data}` e filtrar por ambos. Também usar `pesoEfetivo` (já existe em `@/lib/peso-utils`) para descontar rupturas — alinhando com o padrão do Consolidado.
 
 ```ts
-if (cargasComVeiculoPrevisto.has(c.carga_id)) continue;
+export function usePesoPorCarga(refs: { carga_id: string; data: string }[]) {
+  // queryKey baseada em refs únicos ordenados
+  // SELECT carga_id, data, peso, ruptura FROM carregamentos_dia
+  //   WHERE carga_id IN (...) AND data IN (...)
+  // Agrega: Map<`${carga_id}::${data}`, pesoEfetivoTotal>
+}
 ```
 
-Assim, qualquer carga já com previsão em `veiculos_esperados` (independente de `conferido`/`status_autorizacao`) sai do painel "Cargas fechadas". Ela continuará aparecendo em "A chegar" enquanto `conferido=false`, e migrará naturalmente para "Chegou" / "No pátio" quando a portaria registrar a chegada.
+### `src/pages/Expedicao.tsx`
+Trocar a montagem das chaves (linhas 40–48) e o consumo (linha 60) para usar a chave composta `carga_id + data`. A `data` vem da própria movimentação (`m.data_hora` → `yyyy-MM-dd`).
+
+### `src/hooks/useCargasDiaExpedicao.ts` (defensivo)
+Já filtra por `data` corretamente, então os KPIs do topo (87.919 / 46.659 / 134.578) **não devem** estar inflados pelo mesmo motivo. Vou validar com query após o fix; se ainda estiverem altos, o ajuste fino será no carry-over (que pode estar incluindo cargas de dias anteriores na soma de hoje).
 
 ## Resultado esperado
 
-- **DICKSON J BATISTA** → some de "Cargas fechadas", permanece em "A chegar".
-- **JR MIX**, **SENDAS FEIRA DE SANTANA** → continuam em "Cargas fechadas" (não têm `veiculos_esperados`).
-- KPIs de peso (Consolidado) não são afetados — usam `useCargasDiaExpedicao` com lógica própria.
+| Local | Antes | Depois |
+|---|---|---|
+| Card "No Pátio" — JR MIX (Fagno) | 92.795 kg | **27.692 kg** |
+| Card "Chegou" — Sendas (Marisangela) | 29.000 kg | 29.000 kg (já bate por coincidência) ou peso efetivo do dia |
+| KPIs do topo | a validar | a validar |
 
-## Arquivos a editar
+## Arquivos alterados
 
-- `src/hooks/useCarregamentos.ts` (apenas a função `useCargasFechadasAguardando`)
+- `src/hooks/usePesoPorCarga.ts` — assinatura nova, filtro por data, uso de `pesoEfetivo`
+- `src/pages/Expedicao.tsx` — adaptar chamada e leitura do Map
+- (Eventual) `src/hooks/useCargasDiaExpedicao.ts` — só se a validação dos KPIs do topo indicar inflação
+
+## Validação pós-fix
+
+1. Abrir Expedição → Terceirizado e conferir o card do Fagno (deve cair para 27.692 kg).
+2. Conferir KPIs do topo contra `SELECT data, SUM(pesoEfetivo)` agrupado.
+3. Conferir que cargas com nome reaproveitado (JR MIX, SENDAS) não voltam a inflar.
