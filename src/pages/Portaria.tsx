@@ -110,18 +110,12 @@ export default function Portaria({ categoria }: PortariaProps) {
         .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
         .map((m) => m.movimento_vinculado_id!)
     );
-    const patio = movimentacoes.filter((m) => {
-      // Carga própria: show in pátio if etapa is em_rota or retornou (these are tipo_movimento=saida)
-      if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria && m.etapa_carga_propria !== "finalizado") return true;
-      // Others: normal entrada-based pátio logic
-      if (m.tipo_movimento !== "entrada") return false;
-      if (saidasVinculadas.has(m.id)) return false;
-      if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
-      return true;
-    }).length;
+    // Pátio: usa a mesma fonte (sem filtro de data) que PatioAtualTab,
+    // assim o badge na aba não diverge do que aparece dentro dela.
+    const patio = movimentacoesAtivasPatio.length;
     const historico = movimentacoes.length - saidasVinculadas.size;
     return { patio, historico };
-  }, [movimentacoes]);
+  }, [movimentacoes, movimentacoesAtivasPatio]);
 
   const pendentesEsperados = veiculosEsperados.filter((v) => !v.conferido).length;
 
