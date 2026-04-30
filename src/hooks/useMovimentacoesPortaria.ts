@@ -120,6 +120,60 @@ export function useMovimentacoes(dateFrom: string, dateTo?: string) {
   return query;
 }
 
+/**
+ * Busca movimentações ainda "abertas" (no pátio) independente da janela de datas.
+ * Garante que veículos que entraram em dias anteriores e ainda não saíram apareçam
+ * na aba "Pátio" mesmo quando o filtro de data está em "Hoje".
+ * Limitado aos últimos 30 dias para evitar payloads grandes.
+ */
+export function useMovimentacoesAbertas() {
+  const queryClient = useQueryClient();
+  const session = useSession();
+
+  const query = useQuery({
+    queryKey: ["movimentacoes_portaria_abertas"],
+    enabled: !!session,
+    queryFn: async () => {
+      const limite = new Date();
+      limite.setDate(limite.getDate() - 30);
+      const { data, error } = await supabase
+        .from("movimentacoes_portaria")
+        .select("*")
+        .gte("data_hora", limite.toISOString())
+        .or(
+          [
+            // Terceirizado/outros: entrada ainda no pátio (não finalizada)
+            "and(tipo_movimento.eq.entrada,etapa_terceirizado.not.is.null,etapa_terceirizado.neq.finalizado)",
+            // Carga própria: saída de rota ainda em andamento
+            "and(categoria.eq.carga_propria,tipo_movimento.eq.saida,etapa_carga_propria.not.is.null,etapa_carga_propria.neq.finalizado)",
+          ].join(",")
+        )
+        .order("data_hora", { ascending: false });
+      if (error) throw error;
+      return data as MovimentacaoPortaria[];
+    },
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`movimentacoes-abertas`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "movimentacoes_portaria" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_abertas"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return query;
+}
+
 export function useDeleteMovimentacao() {
   const queryClient = useQueryClient();
   return useMutation({

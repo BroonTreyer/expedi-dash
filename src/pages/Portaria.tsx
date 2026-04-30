@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck } from "lucide-react";
-import { useMovimentacoes, useCreateMovimentacao, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { useMovimentacoes, useMovimentacoesAbertas, useCreateMovimentacao, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados, useDeleteVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
@@ -62,17 +62,28 @@ export default function Portaria({ categoria }: PortariaProps) {
   const [tipoFilter, setTipoFilter] = useState("");
 
   const { data: movimentacoesAll = [], isLoading } = useMovimentacoes(dateFromStr, dateToStr);
-  // Filter strictly by this sub-page's categoria
-  const movimentacoes = useMemo(
-    () => movimentacoesAll.filter((m) => m.categoria === categoria),
-    [movimentacoesAll, categoria]
-  );
+  // Movimentos ainda abertos (pátio) — independentes do filtro de data
+  const { data: movimentacoesAbertasAll = [] } = useMovimentacoesAbertas();
+  // Filter strictly by this sub-page's categoria + mescla com movimentos abertos (dedupe por id)
+  const movimentacoes = useMemo(() => {
+    const dentroJanela = movimentacoesAll.filter((m) => m.categoria === categoria);
+    const abertosCategoria = movimentacoesAbertasAll.filter((m) => m.categoria === categoria);
+    const map = new Map<string, MovimentacaoPortaria>();
+    for (const m of dentroJanela) map.set(m.id, m);
+    for (const m of abertosCategoria) if (!map.has(m.id)) map.set(m.id, m);
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime()
+    );
+  }, [movimentacoesAll, movimentacoesAbertasAll, categoria]);
   const createMov = useCreateMovimentacao();
   const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateFromStr);
-  const veiculosEsperados = useMemo(
-    () => veiculosEsperadosAll.filter((v) => v.grupo === meta.grupoEsperado),
-    [veiculosEsperadosAll, meta.grupoEsperado]
-  );
+  const veiculosEsperados = useMemo(() => {
+    const grupoBase = meta.grupoEsperado; // 'PRÓPRIA' | 'TERCEIRIZADO'
+    const grupoWalkIn = `WALK-IN-${grupoBase === "PRÓPRIA" ? "PROPRIA" : "TERCEIRIZADO"}`;
+    return veiculosEsperadosAll.filter(
+      (v) => v.grupo === grupoBase || v.grupo === grupoWalkIn
+    );
+  }, [veiculosEsperadosAll, meta.grupoEsperado]);
   const importarMutation = useImportarVeiculosEsperados();
   const marcarConferidoMutation = useMarcarConferido();
   const limparMutation = useLimparVeiculosEsperados();
