@@ -21,22 +21,6 @@ export function useAprovacoesPendentes() {
   });
 }
 
-export function useAprovacoesPendentesCount() {
-  const session = useSession();
-  return useQuery({
-    queryKey: ["aprovacoes-pendentes-count"],
-    enabled: !!session,
-    refetchInterval: 60_000,
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("carregamentos_dia")
-        .select("id", { count: "exact", head: true })
-        .eq("etapa", "aguardando_faturamento");
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-}
 
 export function useAprovarPedidos() {
   const qc = useQueryClient();
@@ -53,7 +37,6 @@ export function useAprovarPedidos() {
     onSuccess: (n) => {
       toast.success(`${n} item(ns) aprovado(s) e enviados para o painel de vendas`);
       qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes"] });
-      qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes-count"] });
       qc.invalidateQueries({ queryKey: ["carregamentos"] });
       qc.invalidateQueries({ queryKey: ["meu-painel"] });
     },
@@ -76,7 +59,6 @@ export function useRejeitarPedidos() {
     onSuccess: (n) => {
       toast.success(`${n} item(ns) devolvido(s) ao vendedor como rascunho`);
       qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes"] });
-      qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes-count"] });
       qc.invalidateQueries({ queryKey: ["meu-painel"] });
     },
     onError: (e: any) => toast.error(e.message),
