@@ -25,7 +25,7 @@ export const RUPTURA_STATUSES = [
   'Aguardando Produto',
 ] as const;
 
-export type RupturaStatus = typeof RUPTURA_STATUSES[number];
+type RupturaStatus = typeof RUPTURA_STATUSES[number];
 
 // Produtos contabilizados por unidade (não por kg)
 export const PRODUTOS_POR_UNIDADE: string[] = [
@@ -55,4 +55,4 @@ export const FORMAS_PAGAMENTO = [
   'Boleto 21/28/35 dias',
 ] as const;
 
-export type FormaPagamento = typeof FORMAS_PAGAMENTO[number];
+type FormaPagamento = typeof FORMAS_PAGAMENTO[number];

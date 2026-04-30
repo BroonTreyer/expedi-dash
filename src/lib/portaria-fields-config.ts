@@ -1,4 +1,4 @@
-export type FieldVisibility = "obrigatorio" | "opcional" | "oculto";
+type FieldVisibility = "obrigatorio" | "opcional" | "oculto";
 
 export type Categoria =
   | "carga_propria"
@@ -8,7 +8,7 @@ export type Categoria =
   | "prestador"
   | "outros";
 
-export interface FieldConfig {
+interface FieldConfig {
   key: string;
   label: string;
   placeholder?: string;

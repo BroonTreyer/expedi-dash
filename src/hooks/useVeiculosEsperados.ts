@@ -39,7 +39,7 @@ export interface VeiculoEsperado {
  * - autorizado: Logística vinculou e liberou — aguardando porteiro registrar chegada
  * Sempre filtrado por conferido=false (depois que porteiro registra chegada, sai da lista).
  */
-export interface VeiculoEsperadoEnriquecido extends VeiculoEsperado {
+interface VeiculoEsperadoEnriquecido extends VeiculoEsperado {
   autorizado_por_nome?: string | null;
   autorizado_por_email?: string | null;
 }

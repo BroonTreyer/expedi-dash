@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Package, Truck, Clock, Weight, PackageCheck, CheckCircle2 } from "lucide-react";
 import type { CargaDiaExpedicao } from "@/hooks/useCargasDiaExpedicao";
 
-export interface CargaExpedidaItem extends CargaDiaExpedicao {
+interface CargaExpedidaItem extends CargaDiaExpedicao {
   horarioSaida: string | null; // ISO string
 }
 
