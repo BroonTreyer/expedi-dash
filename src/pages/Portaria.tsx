@@ -177,8 +177,9 @@ export default function Portaria({ categoria }: PortariaProps) {
           horario_entrada: null,
         } as any);
       }
-      marcarConferidoMutation.mutate({ placa: v.placa, dataReferencia: v.data_referencia });
-      toast.success(`Chegada de ${v.placa} registrada!`);
+      // NÃO marcar conferido aqui — só quando porteiro liberar entrada no pátio.
+      // Isso preserva a sequência visual: vermelho (chegou) → azul (no pátio) → verde (finalizado).
+      toast.success(`Chegada de ${v.placa} registrada! Aguardando liberação no pátio.`);
     } catch {
       toast.error("Erro ao registrar chegada");
     }
