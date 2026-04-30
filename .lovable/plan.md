@@ -1,50 +1,48 @@
 ## Diagnóstico
 
-Verifiquei o registro do JOSE RIDEKS no banco e o session replay do porteiro:
+O motorista **JOSE RIDEKS / UIW2H75** tem **3 movimentos** na portaria, e o problema é uma **chegada órfã** que ficou esquecida:
 
-| Hora | Evento |
-|------|--------|
-| 14:18:47 | Chegada registrada (`horario_chegada` setado, `horario_entrada=null`, `etapa_terceirizado=chegada`) — **card âmbar "Motorista chegou — aguardando autorização" apareceu corretamente** |
-| 14:20:25 | Porteiro clicou em "Liberar entrada no pátio" (~1m38s depois) → virou `no_patio` |
+| # | id | tipo | carga_id | etapa | chegada | entrada | saída |
+|---|----|------|----------|-------|---------|---------|-------|
+| 1 | `09c88a02…` | entrada | **NULL** | `chegada` | 16:51 | **NULL** | NULL |
+| 2 | `b6793b44…` | entrada | HEBERT | `finalizado` | 17:18 | 17:20 | 17:30 |
+| 3 | `e291d0cc…` | saída (vinculada ao #2) | HEBERT | — | — | — | 17:30 |
 
-**O sistema funcionou tecnicamente certo.** O motorista NÃO pulou a etapa no banco. O que aconteceu na prática é que o porteiro:
+O ciclo da carga HEBERT (#2 → #3) está **completo e correto**. O que aparece na Expedição como "Chegou — aguardando liberação" é o registro **#1**: uma chegada feita às 16:51 sem carga vinculada, que ficou pendurada quando o porteiro registrou o motorista novamente (dessa vez direito, vinculado à HEBERT).
 
-1. Registrou a chegada no diálogo (1º passo)
-2. O card âmbar apareceu listando o JOSE como "aguardando autorização"
-3. Clicou no botão verde "Liberar entrada no pátio" quase imediatamente, sem perceber que era uma 2ª etapa que poderia ficar parada esperando a hora real de o caminhão entrar no pátio
+O painel `PainelChegou` filtra qualquer entrada terceirizada com `horario_entrada IS NULL` e `etapa=chegada` — não tem como ele saber que essa chegada é "duplicada" de outra que já foi finalizada.
 
-Causa de UX: os dois passos (registrar chegada → liberar entrada) ficam visualmente próximos demais, o botão verde "Liberar entrada no pátio" fica em destaque já no momento em que o card aparece, e nada sinaliza que o caminhão ainda está fisicamente fora.
+## Plano de correção
 
-## O que vamos mudar
+### 1. Limpar o registro órfão atual (one-shot)
 
-Reforçar visualmente e por confirmação que "Liberar entrada no pátio" é o momento em que o caminhão FÍSICO está cruzando o portão — não algo automático para clicar logo após registrar a chegada.
+Apagar o movimento `09c88a02-dc55-4669-bd19-f8465e60b6e6` (chegada sem carga, sem entrada, do JOSE RIDEKS às 16:51). Já existe a chegada vinculada correta às 17:18.
 
-### 1. Toast pós-registro mais explícito
-Após registrar a chegada (em `RegistroEntradaDialog`), trocar o toast atual por uma mensagem clara:
-> "Chegada registrada. Quando o caminhão entrar fisicamente no pátio, clique em 'Liberar entrada no pátio' no painel abaixo."
+### 2. Prevenir o problema na origem (RegistroEntradaDialog)
 
-### 2. Card âmbar com destaque temporal
-Em `CargasFechadasAguardandoPanel`, quando `etapa = chegada` (aguardando liberação):
-- Adicionar borda âmbar mais forte e ícone pulsante
-- Mostrar um cronômetro grande "Aguardando há Xmin" no card (já existe na lógica, falta destacar)
-- Mover o botão "Liberar entrada no pátio" para uma faixa separada com texto acima: **"Confirme apenas quando o caminhão estiver fisicamente no portão entrando no pátio"**
+Quando o porteiro registra uma chegada **sem vincular carga**, e segundos depois registra **outra chegada para a mesma placa** vinculando uma carga, hoje ficam as duas. Vou ajustar o fluxo:
 
-### 3. Confirmação no clique de "Liberar entrada no pátio"
-Adicionar `AlertDialog` antes de executar a liberação, perguntando:
-> "Confirmar que o caminhão [PLACA] do motorista [NOME] está agora entrando fisicamente no pátio?"
+- Antes de inserir uma nova chegada, checar se já existe outra chegada **da mesma placa** nas últimas 4 horas com `horario_entrada IS NULL` e (`carga_id IS NULL` ou `carga_id = nova carga`).
+- Se existir, em vez de criar um novo movimento, **atualizar o existente** com os dados novos (incluindo `carga_id`, motorista, transportadora etc.).
+- Mostrar um toast: "Chegada anterior atualizada — não foi criado registro duplicado."
 
-Com botões "Sim, está entrando agora" / "Cancelar". Isso bloqueia o clique reflexivo logo após o registro da chegada.
+### 3. Botão "Limpar chegada" no painel da Expedição
 
-### 4. Bloquear liberação por 30 segundos após o registro
-Como salvaguarda, desabilitar o botão "Liberar entrada no pátio" durante os primeiros 30s após `horario_chegada`, mostrando contagem regressiva. Evita o "clique duplo mental" que aconteceu hoje (1m38s entre os dois cliques é curto demais para o caminhão realmente atravessar o portão).
+No `PainelChegou`, adicionar um botão "↻ Descartar chegada" (visível para admin/logística/portaria) que:
+- Pede confirmação
+- Deleta o movimento se ainda estiver com `horario_entrada IS NULL` (mesma regra do "Desfazer chegada" que já existe na portaria)
 
-## Arquivos afetados
+Assim, qualquer chegada órfã futura pode ser limpa pela própria expedição sem precisar abrir chamado.
 
-- `src/components/portaria/CargasFechadasAguardandoPanel.tsx` — destaque visual do card aguardando, contagem de espera, AlertDialog de confirmação, lockout de 30s
-- `src/components/portaria/RegistroEntradaDialog.tsx` — texto do toast pós-registro
+### 4. Filtro defensivo no painel "Chegou"
 
-Sem alterações de banco e sem mexer no fluxo de dados — apenas UX/guard-rails.
+Esconder do painel chegadas mais antigas que **6 horas** sem entrada — é praticamente certo que são lixo (ninguém espera 6h no portão). Mostrar apenas em modo admin com badge "antiga".
 
-## Detalhe técnico
+## Detalhes técnicos
 
-O lockout de 30s será calculado como `(now - new Date(c.horario_chegada).getTime()) < 30_000`. Se aprovado, posso ajustar esse tempo (ex.: 10s, 60s) conforme você preferir.
+Arquivos a editar:
+- `src/components/portaria/RegistroEntradaDialog.tsx` — dedup ao criar chegada
+- `src/components/expedicao/PainelChegou.tsx` — botão descartar + filtro 6h
+- Migração SQL — DELETE do registro `09c88a02-dc55-4669-bd19-f8465e60b6e6`
+
+Sem mudanças de schema. Sem alterações em triggers. Operação reversível (a deleção só atinge esse 1 registro identificado).
