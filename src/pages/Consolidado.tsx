@@ -66,7 +66,44 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
 
       const { data, error } = await q.order("carga_id", { ascending: true });
       if (error) throw error;
-      return data as Carregamento[];
+      let rows = (data ?? []) as Carregamento[];
+
+      // Carry-over adicional: quando estamos vendo "hoje" (single-day),
+      // também trazer cargas com data < hoje cuja operação física aconteceu
+      // hoje (movimento de portaria registrado hoje), mesmo se status = Carregado.
+      // Isto evita que marcar "Carregado" no dia seguinte faça a carga sumir da tela.
+      if (isSingleDay && dateFrom === todayStr) {
+        const startOfDay = `${dateFrom}T00:00:00`;
+        const endOfDay = `${dateFrom}T23:59:59.999`;
+        const { data: movsHoje } = await supabase
+          .from("movimentacoes_portaria")
+          .select("carga_id")
+          .not("carga_id", "is", null)
+          .gte("data_hora", startOfDay)
+          .lte("data_hora", endOfDay);
+        const cargaIdsHoje = Array.from(
+          new Set(((movsHoje ?? []) as { carga_id: string | null }[])
+            .map((m) => m.carga_id)
+            .filter((v): v is string => !!v))
+        );
+        const jaPresentes = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
+        const faltantes = cargaIdsHoje.filter((cid) => !jaPresentes.has(cid));
+        if (faltantes.length > 0) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
+          const { data: extra } = await supabase
+            .from("carregamentos_dia")
+            .select("*, vendedores(nome_vendedor)")
+            .in("carga_id", faltantes)
+            .lt("data", dateFrom)
+            .gte("data", limitDate);
+          if (extra && extra.length > 0) {
+            rows = [...rows, ...(extra as Carregamento[])];
+          }
+        }
+      }
+      return rows;
     },
     staleTime: 15_000,
   });

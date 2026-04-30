@@ -145,33 +145,72 @@ export function useRegistrarChegadaPortaria() {
       const isCargaPropria = (v.grupo || "").toUpperCase().includes("PROPRIA") || (v.grupo || "").toUpperCase().includes("PRÓPRIA");
       const categoria = isCargaPropria ? "carga_propria" : "terceirizado";
       const nowIso = new Date().toISOString();
+      const placaNorm = (v.placa || "").trim().toUpperCase();
 
-      const movPayload: Record<string, any> = {
-        tipo_movimento: "entrada",
-        categoria,
-        placa: v.placa,
-        motorista: v.motorista,
-        tipo_caminhao: v.tipo_veiculo,
-        carga_id: v.carga_id,
-        peso: v.peso,
-        qtd_entregas: v.qtd_entregas,
-        horario_entrada: nowIso,
-        horario_chegada: v.created_at,
-        data_hora: nowIso,
-        usuario_id: user?.id ?? null,
-        observacoes: v.observacoes,
-      };
-      if (categoria === "terceirizado") {
-        movPayload.empresa = v.transportadora;
-        movPayload.etapa_terceirizado = "no_patio";
-      } else {
-        movPayload.etapa_carga_propria = "chegou";
+      // Procura movimentação de chegada já criada (no momento do walk-in)
+      // para apenas marcar a entrada no pátio, preservando horario_chegada real.
+      let movExistenteId: string | null = null;
+      if (placaNorm) {
+        const etapaField = categoria === "terceirizado" ? "etapa_terceirizado" : "etapa_carga_propria";
+        const etapaChegada = categoria === "terceirizado" ? "chegada" : "aguardando_liberacao";
+        const { data: existentes } = await supabase
+          .from("movimentacoes_portaria")
+          .select("id, data_hora")
+          .ilike("placa", placaNorm)
+          .eq("tipo_movimento", "entrada")
+          .eq("categoria", categoria)
+          .eq(etapaField, etapaChegada)
+          .is("horario_entrada", null)
+          .order("data_hora", { ascending: false })
+          .limit(1);
+        if (existentes && existentes.length > 0) {
+          movExistenteId = (existentes[0] as any).id;
+        }
       }
 
-      const { error: movErr } = await supabase
-        .from("movimentacoes_portaria")
-        .insert(movPayload as any);
-      if (movErr) throw movErr;
+      if (movExistenteId) {
+        const upd: Record<string, any> = {
+          horario_entrada: nowIso,
+          carga_id: v.carga_id,
+          peso: v.peso,
+          qtd_entregas: v.qtd_entregas,
+        };
+        if (categoria === "terceirizado") upd.etapa_terceirizado = "no_patio";
+        else upd.etapa_carga_propria = "chegou";
+        const { error: updErr } = await supabase
+          .from("movimentacoes_portaria")
+          .update(upd as any)
+          .eq("id", movExistenteId);
+        if (updErr) throw updErr;
+      } else {
+        // Fallback (walk-ins antigos sem movimentação prévia): cria a movimentação
+        // usando created_at do veiculo_esperado como aproximação do horario_chegada.
+        const movPayload: Record<string, any> = {
+          tipo_movimento: "entrada",
+          categoria,
+          placa: v.placa,
+          motorista: v.motorista,
+          tipo_caminhao: v.tipo_veiculo,
+          carga_id: v.carga_id,
+          peso: v.peso,
+          qtd_entregas: v.qtd_entregas,
+          horario_entrada: nowIso,
+          horario_chegada: v.created_at,
+          data_hora: nowIso,
+          usuario_id: user?.id ?? null,
+          observacoes: v.observacoes,
+        };
+        if (categoria === "terceirizado") {
+          movPayload.empresa = v.transportadora;
+          movPayload.etapa_terceirizado = "no_patio";
+        } else {
+          movPayload.etapa_carga_propria = "chegou";
+        }
+        const { error: movErr } = await supabase
+          .from("movimentacoes_portaria")
+          .insert(movPayload as any);
+        if (movErr) throw movErr;
+      }
 
       const { error: updErr } = await supabase
         .from("veiculos_esperados" as any)
@@ -209,12 +248,18 @@ export function useRegistrarChegadaWalkIn() {
       grupo?: string;
     }) => {
       const today = new Date().toISOString().slice(0, 10);
+      const nowIso = new Date().toISOString();
+      const grupoStr = (input.grupo || "WALK-IN").toUpperCase();
+      const isCargaPropria = grupoStr.includes("PROPRIA") || grupoStr.includes("PRÓPRIA");
+      const categoria = isCargaPropria ? "carga_propria" : "terceirizado";
+      const placaNorm = input.placa.toUpperCase().trim();
+
       const { data, error } = await supabase
         .from("veiculos_esperados" as any)
         .insert({
           data_referencia: today,
           grupo: input.grupo || "WALK-IN",
-          placa: input.placa.toUpperCase().trim(),
+          placa: placaNorm,
           motorista: input.motorista || null,
           transportadora: input.transportadora || null,
           tipo_veiculo: input.tipo_veiculo || null,
@@ -227,6 +272,33 @@ export function useRegistrarChegadaWalkIn() {
         .select()
         .single();
       if (error) throw error;
+
+      // Cria já a movimentação de portaria registrando a CHEGADA física
+      // (sem entrada no pátio ainda). Carga é vinculada depois pela Logística;
+      // a entrada no pátio é liberada num segundo passo pela Portaria.
+      const movPayload: Record<string, any> = {
+        tipo_movimento: "entrada",
+        categoria,
+        placa: placaNorm,
+        motorista: input.motorista || null,
+        empresa: input.transportadora || null,
+        tipo_caminhao: input.tipo_veiculo || null,
+        carga_id: null,
+        horario_chegada: nowIso,
+        horario_entrada: null,
+        data_hora: nowIso,
+        usuario_id: user?.id ?? null,
+        observacoes: input.observacoes || null,
+      };
+      if (categoria === "terceirizado") {
+        movPayload.etapa_terceirizado = "chegada";
+      } else {
+        movPayload.etapa_carga_propria = "aguardando_liberacao";
+      }
+      // Se a inserção da movimentação falhar não revertemos o veiculo_esperado
+      // — o fluxo de liberação ainda funciona via fallback antigo.
+      await supabase.from("movimentacoes_portaria").insert(movPayload as any);
+
       return data;
     },
     onSuccess: () => {
@@ -234,6 +306,7 @@ export function useRegistrarChegadaWalkIn() {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
       qc.invalidateQueries({ queryKey: ["veiculos_aguardando_vinculo"] });
       qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
       toast.success("Entrada registrada — aguardando vínculo de carga pela Logística");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao registrar entrada"),

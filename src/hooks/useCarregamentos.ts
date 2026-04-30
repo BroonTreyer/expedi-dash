@@ -608,6 +608,17 @@ export function useVincularWalkInACarga() {
         .update(updateData)
         .eq("carga_id", input.cargaId);
       if (e2) throw e2;
+
+      // Se já existe uma movimentação de chegada (etapa=chegada, sem carga_id ainda)
+      // para esta placa, anexa a carga_id e o vínculo - sem mexer em horários.
+      const placaNorm = input.placaReal.trim().toUpperCase();
+      await supabase
+        .from("movimentacoes_portaria")
+        .update({ carga_id: input.cargaId } as any)
+        .ilike("placa", placaNorm)
+        .eq("tipo_movimento", "entrada")
+        .eq("etapa_terceirizado", "chegada")
+        .is("carga_id", null);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
@@ -617,6 +628,7 @@ export function useVincularWalkInACarga() {
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_para_vincular"] });
       qc.invalidateQueries({ queryKey: ["carregamentos"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
       toast.success("Carga vinculada — veículo liberado para entrada");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao vincular carga"),
