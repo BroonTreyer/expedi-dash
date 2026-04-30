@@ -251,6 +251,8 @@ export function useDeleteMovimentacao() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] });
+      queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga"] });
       toast.success("Registro excluído com sucesso!");
     },
     onError: (e: any) => {
@@ -274,6 +276,8 @@ export function useUpdateMovimentacao() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] });
+      queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga"] });
       toast.success("Registro atualizado com sucesso!");
     },
     onError: (e: any) => {
@@ -328,6 +332,8 @@ export function useCreateMovimentacao() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] });
+      queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga"] });
       toast.success("Movimento registrado com sucesso!");
     },
     onError: (e: any) => {
