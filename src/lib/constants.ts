@@ -27,13 +27,6 @@ export const RUPTURA_STATUSES = [
 
 export type RupturaStatus = typeof RUPTURA_STATUSES[number];
 
-export const RUPTURA_STATUS_COLORS: Record<RupturaStatus, string> = {
-  'Aguardando pedido': 'bg-status-ruptura-aguardando text-white',
-  'Romaneio Liberado': 'bg-status-ruptura-liberado text-white',
-  'Aguardando montagem de carga': 'bg-status-ruptura-montagem text-white',
-  'Aguardando Produto': 'bg-status-ruptura-produto text-black',
-};
-
 // Produtos contabilizados por unidade (não por kg)
 export const PRODUTOS_POR_UNIDADE: string[] = [
   "PAO DE ALHO",
