@@ -74,6 +74,7 @@ const superAdminTree: NavNode[] = [
       { to: "/logs", label: "Logs", icon: History, roles: ["admin"] },
       { to: "/lixeira", label: "Lixeira", icon: Trash2, roles: ["admin"] },
       { to: "/backups", label: "Backups", icon: Database, roles: ["admin"] },
+      { to: "/manual-tecnico", label: "Manual Técnico", icon: BookOpen, roles: ["admin"] },
     ],
   },
 ];
