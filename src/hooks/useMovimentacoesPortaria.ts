@@ -245,6 +245,38 @@ export function useCreateMovimentacao() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (mov: Record<string, any>) => {
+      // Trava anti-órfão: ao registrar uma "saida" sem vínculo explícito,
+      // exige que exista uma entrada ativa correspondente (mesma placa,
+      // ainda no pátio) nas últimas 72h. Sem isso a saída fica órfã e
+      // contamina o status da carga nos painéis.
+      if (
+        mov.tipo_movimento === "saida" &&
+        !mov.movimento_vinculado_id &&
+        mov.placa
+      ) {
+        const placaNorm = String(mov.placa).trim().toUpperCase();
+        const desde = new Date();
+        desde.setHours(desde.getHours() - 72);
+        const { data: entradas } = await supabase
+          .from("movimentacoes_portaria")
+          .select("id, etapa_terceirizado, etapa_carga_propria, categoria")
+          .ilike("placa", placaNorm)
+          .eq("tipo_movimento", "entrada")
+          .gte("data_hora", desde.toISOString())
+          .order("data_hora", { ascending: false })
+          .limit(5);
+        const ativa = (entradas ?? []).some(
+          (e: any) =>
+            !(e.categoria === "terceirizado" && e.etapa_terceirizado === "finalizado") &&
+            !(e.categoria === "carga_propria" && e.etapa_carga_propria === "finalizado"),
+        );
+        if (!ativa) {
+          throw new Error(
+            "Não há entrada ativa para esta placa nas últimas 72h. Registre a entrada primeiro ou use 'Saída' a partir do pátio.",
+          );
+        }
+      }
+
       const { data, error } = await supabase
         .from("movimentacoes_portaria")
         .insert(mov as any)
