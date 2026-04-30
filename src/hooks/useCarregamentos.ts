@@ -493,14 +493,13 @@ export function useCargasFechadasAguardando() {
         .from("veiculos_esperados" as any)
         .select("carga_id, walk_in, conferido")
         .in("carga_id", cargaIds);
-      // Antes: qualquer previsão (criada automaticamente pelo trigger
-      // on_carga_fechada) removia a carga do card azul. Isso fazia a
-      // carga "pular" o card azul e ir direto para Esperados.
-      // Agora só removemos do card azul quando o veículo previsto já
-      // foi conferido (chegou de fato pela tela de Esperados).
-      const cargasComPrevistoConferido = new Set(
+      // Cargas que já têm um veículo previsto não-walk-in (criado pelo trigger
+      // on_carga_fechada quando a placa é preenchida) já são geridas pelo card
+      // "A Chegar" da Expedição. Removemos do card azul para evitar duplicação.
+      // Walk-ins continuam aparecendo aqui como "Motorista já no pátio".
+      const cargasComVeiculoPrevisto = new Set(
         ((previstos ?? []) as unknown as { carga_id: string | null; walk_in: boolean | null; conferido: boolean | null }[])
-          .filter((v) => v.carga_id && !v.walk_in && v.conferido)
+          .filter((v) => v.carga_id && !v.walk_in)
           .map((v) => v.carga_id as string)
       );
       // Mapeia (carga_id + data_carga) -> info de movimento, considerando
@@ -557,8 +556,8 @@ export function useCargasFechadasAguardando() {
       for (const c of cargasArr) {
         if (!c.carga_id) continue;
         if (finalizadaCarga.has(c.carga_id)) continue;
-        // Veículo previsto já conferido (chegou via Esperados) → não mostra mais aqui.
-        if (cargasComPrevistoConferido.has(c.carga_id)) continue;
+        // Veículo previsto já cadastrado (não walk-in) → vive em "A Chegar".
+        if (cargasComVeiculoPrevisto.has(c.carga_id)) continue;
         const entrada = entradaPorCarga.get(c.carga_id);
         // Se já tem entrada com horario_entrada preenchido, está no pátio — não listar
         if (entrada && entrada.horario_entrada) continue;

@@ -1,35 +1,60 @@
-## Contexto
+## Problema
 
-O CELIO ALVES OLIVEIRA já está visível corretamente após as correções anteriores (registro `e1406a61...` está com `data_referencia=2026-04-30`, `grupo=TERCEIRIZADO`, `conferido=false`, `placa=RSB1H70`). Verifiquei no banco e o registro está íntegro.
+Cargas com placa/motorista/transportadora já preenchidos aparecem **simultaneamente** em dois cards na tela de Expedição:
 
-Porém, mapeando todo o código, ainda existem **dois pontos** que filtram apenas por `carga_id` (sem checar a placa). Quando um `carga_id` é reutilizado (caso "JR" — FAGNO 27/04 e CELIO 30/04), eles podem cruzar dados antigos com a operação atual e causar bugs sutis.
+1. **"A Chegar"** — lista todos os `veiculos_esperados` ainda não conferidos.
+2. **"Cargas fechadas - aguardando veículo"** — lista cargas fechadas cujo veículo previsto ainda não foi marcado como conferido.
 
-## Problemas remanescentes a corrigir
+Como existe um trigger automático que cria o `veiculo_esperado` no momento que a Logística fecha a carga (placa/motorista/transportadora preenchidos), a mesma carga acaba listada em ambos os painéis até a Portaria registrar a chegada.
 
-### 1. `src/pages/Expedicao.tsx` — `cargasComMotoristaChegado`
-Hoje monta um `Set<carga_id>` a partir das movimentações do dia. Se houver qualquer movimento antigo do mesmo `carga_id` entrando em `chegouOuNoPatio`, a carga atual de CELIO some do painel "Cargas Fechadas Aguardando" e some do painel "A Chegar".
+A intenção do produto (regra antiga) é: **se já tem veículo previsto cadastrado, a carga sai de "Aguardando veículo" e passa a viver apenas em "A Chegar"**.
 
-**Correção:** mudar para `Set<"carga_id|placa_normalizada">` e cruzar com a placa esperada da carga / do veículo previsto.
+## Causa-raiz (técnico)
 
-### 2. `CargasFechadasAguardandoPanel.tsx` — `liberarEntrada`
-Faz `update veiculos_esperados ... where carga_id = c.carga_id` sem filtrar por placa. Como o gatilho corrigido só mantém um `previsto/conferido=false` por `carga_id`, hoje funciona — mas é defesa em profundidade somar `eq("placa", c.placa)` (ou `ilike` normalizado) para nunca marcar conferido um registro de outro veículo.
+Em `src/hooks/useCarregamentos.ts` (linhas 501-505), o filtro `cargasComPrevistoConferido` só remove a carga quando `walk_in === false E conferido === true`. Deveria remover já quando existe um previsto **não walk-in** (com placa preenchida) — porque o caso já está representado em "A Chegar".
 
-## O que NÃO precisa mudar
+Walk-ins (motorista que chegou sem aviso) devem **continuar** aparecendo no card azul como "Motorista já no pátio" — isso é correto e deve ser mantido.
 
-- `useStatusPortariaPorCarga` — já recebe `placa` dos chamadores (Expedicao e Consolidado) e filtra corretamente.
-- `useCargasFechadasAguardando` — já cruza placa + janela ±48h em volta da `data` da carga.
-- Trigger `on_carga_fechada` / `vincular_veiculo_esperado_tardio` — já corrigido para considerar somente registros pendentes (`conferido=false`).
-- Registro do CELIO — já existe e visível em "Esperados" (Terceirizado) e nos painéis de Registro de Entrada.
+## Mudança proposta
 
-## Plano de implementação
+### Arquivo: `src/hooks/useCarregamentos.ts`
 
-1. **Refatorar `cargasComMotoristaChegado` em `src/pages/Expedicao.tsx`**:
-   - Trocar `Set<string>` por `Set<"cargaId|placa">`.
-   - Ao filtrar `cargasFechadas` e `veiculosEsperados`, montar a chave usando a placa daquela carga / veículo. Se a carga não tiver placa prevista, manter o comportamento atual (matching só por `carga_id`).
+Trocar o conjunto `cargasComPrevistoConferido` por `cargasComVeiculoPrevisto`, que captura cargas que **já têm um veículo esperado não walk-in** (independente de já estarem conferidas), porque essas já são geridas pelo card "A Chegar":
 
-2. **Tighten `liberarEntrada` em `src/components/portaria/CargasFechadasAguardandoPanel.tsx`**:
-   - No `update` de `veiculos_esperados`, adicionar `.ilike("placa", c.placa)` quando `c.placa` existir, mais `.eq("conferido", false)`. Isso garante que a marcação de "conferido" nunca cruze ciclos.
+```ts
+// Antes:
+const cargasComPrevistoConferido = new Set(
+  ((previstos ?? []) as ...[])
+    .filter((v) => v.carga_id && !v.walk_in && v.conferido)
+    .map((v) => v.carga_id as string)
+);
 
-## Riscos
+// Depois:
+const cargasComVeiculoPrevisto = new Set(
+  ((previstos ?? []) as ...[])
+    .filter((v) => v.carga_id && !v.walk_in)
+    .map((v) => v.carga_id as string)
+);
+```
 
-Nenhum risco operacional — são reforços defensivos. Não há mudança de schema, não há migração SQL nova, apenas filtros adicionais em queries que já existem.
+E a checagem dentro do loop de agrupamento passa a ser:
+
+```ts
+if (cargasComVeiculoPrevisto.has(c.carga_id)) continue;
+```
+
+### Comportamento resultante
+
+| Situação                                                   | A Chegar | Cargas fechadas - aguardando veículo |
+|------------------------------------------------------------|:--------:|:------------------------------------:|
+| Carga fechada **sem** placa preenchida                     |    —     |          ✅ aparece                   |
+| Carga fechada **com** placa (gera previsto automaticamente)|✅ aparece|          ❌ não aparece               |
+| Walk-in (motorista chegou sem aviso, vinculado à carga)    |    —     | ✅ aparece como "Motorista no pátio"  |
+| Após registrar chegada do veículo                          |    —     |          —                            |
+| Após liberar entrada no pátio                              |    —     |  — (vai pra "No pátio")              |
+
+### Arquivos editados
+
+- `src/hooks/useCarregamentos.ts` — ajustar lógica de remoção em `useCargasFechadasAguardando`.
+
+Sem alterações de banco de dados, sem mudanças de RLS, sem mudanças de UI — apenas correção da regra de filtro. O tratamento defensivo já implementado em `Expedicao.tsx` (`cargasTerc` com chave composta `carga_id|placa`) permanece como segunda linha de defesa.
