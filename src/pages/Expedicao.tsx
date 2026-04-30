@@ -277,7 +277,9 @@ export default function Expedicao() {
           </div>
         </div>
 
-        <ExpedicaoKpiCards {...counts} />
+        <ErrorBoundary name="Indicadores">
+          <ExpedicaoKpiCards {...counts} />
+        </ErrorBoundary>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           <ErrorBoundary name="No Pátio">
