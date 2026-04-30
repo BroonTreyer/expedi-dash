@@ -243,17 +243,46 @@ export function useBatchUpdateCarregamento() {
   return useMutation({
     mutationFn: async (updates: { id: string;[key: string]: any }[]) => {
       if (updates.length === 0) return [];
-      // Use Promise.all but with a single connection context
+      // IMPORTANTE: NÃO usar `.single()`. Quando RLS oculta a linha (ou o id
+      // simplesmente não existe mais), `.single()` devolve PGRST116 e aborta
+      // o lote inteiro — o que escondia silenciosamente cargas em que só o
+      // primeiro item era persistido. Aqui usamos `.select()` puro e
+      // detectamos linhas que voltaram vazias para reportar IDs específicos.
       const results = await Promise.all(
-        updates.map(({ id, ...values }) =>
-          supabase.from("carregamentos_dia").update(values).eq("id", id).select().single()
-        )
+        updates.map(async ({ id, ...values }) => {
+          const res = await supabase
+            .from("carregamentos_dia")
+            .update(values)
+            .eq("id", id)
+            .select("id");
+          return { id, error: res.error, rows: res.data ?? [] };
+        })
       );
-      // 23505 (unique violation) é tratado como sucesso silencioso —
-      // protege contra raras colisões em cascade de irmãos.
-      const firstError = results.find(r => r.error && (r.error as any).code !== "23505");
-      if (firstError?.error) throw firstError.error;
-      return results.map(r => r.data);
+      // 23505 (unique violation em índice secundário) é tratado como sucesso
+      // silencioso — protege contra raras colisões em cascade de irmãos.
+      const realErrors = results.filter(
+        (r) => r.error && (r.error as any).code !== "23505"
+      );
+      // Linhas que voltaram 0 rows = update bloqueado por RLS ou id sumiu.
+      const noRowIds = results
+        .filter((r) => !r.error && r.rows.length === 0)
+        .map((r) => r.id);
+      if (realErrors.length > 0) {
+        const msg = realErrors
+          .map((r) => `${r.id.slice(0, 8)}: ${r.error?.message ?? "erro"}`)
+          .join(" | ");
+        throw new Error(
+          `Falha ao salvar ${realErrors.length}/${updates.length} item(ns): ${msg}`
+        );
+      }
+      if (noRowIds.length > 0) {
+        throw new Error(
+          `${noRowIds.length}/${updates.length} item(ns) não foram salvos (sem permissão ou registro removido). IDs: ${noRowIds
+            .map((id) => id.slice(0, 8))
+            .join(", ")}`
+        );
+      }
+      return results.map((r) => ({ id: r.id }));
     },
     onMutate: async (updates) => {
       await qc.cancelQueries({ queryKey: ["carregamentos"] });
