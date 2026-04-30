@@ -98,7 +98,15 @@ export default function Expedicao() {
   const cargasComMotoristaChegado = useMemo(
     () =>
       new Set(
-        chegouOuNoPatio.map((m) => m.carga_id).filter((x): x is string => !!x)
+        chegouOuNoPatio
+          .map((m) => {
+            if (!m.carga_id) return null;
+            const placa = (m.placa || "").trim().toUpperCase();
+            // Chave composta carga_id|placa evita contaminação cruzada quando o
+            // mesmo carga_id é reutilizado entre cargas distintas (ex.: "JR").
+            return `${m.carga_id}|${placa}`;
+          })
+          .filter((x): x is string => !!x)
       ),
     [chegouOuNoPatio]
   );
@@ -110,7 +118,7 @@ export default function Expedicao() {
         if (v.conferido) return false;
         const placa = (v.placa || "").trim().toUpperCase();
         if (placa && placasChegadas.has(placa)) return false;
-        if (v.carga_id && cargasComMotoristaChegado.has(v.carga_id)) return false;
+        if (v.carga_id && placa && cargasComMotoristaChegado.has(`${v.carga_id}|${placa}`)) return false;
         return true;
       }),
     [veiculosEsperados, placasChegadas, cargasComMotoristaChegado]
@@ -120,7 +128,13 @@ export default function Expedicao() {
   const cargasTerc = useMemo(
     () =>
       cargasFechadas.filter(
-        (c) => !!c.transportadora && !cargasComMotoristaChegado.has(c.carga_id)
+        (c) => {
+          if (!c.transportadora) return false;
+          const placa = (c.placa || "").trim().toUpperCase();
+          // Sem placa prevista não há como descartar com segurança — mantém visível.
+          if (!placa) return true;
+          return !cargasComMotoristaChegado.has(`${c.carga_id}|${placa}`);
+        }
       ),
     [cargasFechadas, cargasComMotoristaChegado]
   );
