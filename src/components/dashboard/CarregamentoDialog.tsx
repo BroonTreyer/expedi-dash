@@ -350,8 +350,14 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       `${opId}__${attemptSuffix}__${item.codigo_produto || "x"}__${rowCounter++}`;
 
     if (editing && editing.id && !editing.id.startsWith("clone-")) {
-      // First item is the main update; additional items are inserts (or updates when editingGroup)
-      const firstItem = finalItems[0];
+      // Em modo "editar grupo", o item "principal" (que casa com editing.id)
+      // pode NÃO ser o finalItems[0] se a lista foi reordenada/filtrada na UI.
+      // Encontrar pelo originalId garante que os campos do item certo vão pro UPDATE.
+      const mainIndex = editingGroup
+        ? finalItems.findIndex((it) => (it as any).originalId === editing.id)
+        : 0;
+      const safeMainIndex = mainIndex >= 0 ? mainIndex : 0;
+      const firstItem = finalItems[safeMainIndex];
       const updatePayload = {
         ...basePayload,
         id: editing.id,
@@ -365,11 +371,13 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       };
 
       if (editingGroup && cloneItems && cloneItems.length > 0) {
-        // Group edit: classify each "extra" item as update (originalId) or insert
+        // Group edit: classify cada "extra" item (todos exceto o principal)
+        // como update (originalId) ou insert (sem originalId = item novo).
         const batchUpdates: Record<string, any>[] = [];
         const batchInserts: Record<string, any>[] = [];
-        for (let i = 0; i < finalItems.slice(1).length; i++) {
-          const item = finalItems.slice(1)[i];
+        const extras = finalItems.filter((_, idx) => idx !== safeMainIndex);
+        for (let i = 0; i < extras.length; i++) {
+          const item = extras[i];
           const row = {
             ...basePayload,
             codigo_produto: item.codigo_produto,
