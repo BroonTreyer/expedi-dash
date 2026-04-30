@@ -99,11 +99,32 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       const categoria = isCargaPropria ? "carga_propria" : "terceirizado";
       const nowIso = new Date().toISOString();
 
+      const placaNorm = placa.trim().toUpperCase();
+      const motoristaNorm = motorista.trim();
+
+      // Dedup defensivo: se a portaria já registrou uma chegada para essa placa
+      // nas últimas 4 horas e ela ainda não recebeu liberação para o pátio
+      // (horario_entrada IS NULL), atualiza esse registro em vez de criar um novo.
+      // Isso evita que uma chegada "solta" (sem carga) feita por engano antes
+      // continue aparecendo como "Chegou — aguardando liberação" na Expedição.
+      const since4h = new Date(Date.now() - 4 * 3600_000).toISOString();
+      const { data: pendentes } = await supabase
+        .from("movimentacoes_portaria")
+        .select("id, carga_id")
+        .eq("tipo_movimento", "entrada")
+        .ilike("placa", placaNorm)
+        .is("horario_entrada", null)
+        .gte("data_hora", since4h)
+        .order("data_hora", { ascending: false });
+      const reaproveitar = (pendentes ?? []).find(
+        (p: any) => !p.carga_id || p.carga_id === cargaId,
+      ) as { id: string; carga_id: string | null } | undefined;
+
       const movPayload: Record<string, any> = {
         tipo_movimento: "entrada",
         categoria,
-        placa: placa.trim().toUpperCase(),
-        motorista: motorista.trim(),
+        placa: placaNorm,
+        motorista: motoristaNorm,
         tipo_caminhao: tipoVeiculo,
         carga_id: cargaId,
         // Apenas chegada — entrada no pátio será liberada em um segundo passo
@@ -118,14 +139,30 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       } else {
         movPayload.etapa_carga_propria = "aguardando_liberacao";
       }
-      const { error: movErr } = await supabase
-        .from("movimentacoes_portaria")
-        .insert(movPayload as any);
-      if (movErr) throw movErr;
+      if (reaproveitar) {
+        const { error: updErr } = await supabase
+          .from("movimentacoes_portaria")
+          .update(movPayload as any)
+          .eq("id", reaproveitar.id);
+        if (updErr) throw updErr;
+        // Apaga eventuais OUTRAS chegadas pendentes da mesma placa, sem carga,
+        // para não deixar "fantasmas" na Expedição.
+        const orfaos = (pendentes ?? [])
+          .filter((p: any) => p.id !== reaproveitar.id && !p.carga_id)
+          .map((p: any) => p.id as string);
+        if (orfaos.length > 0) {
+          await supabase.from("movimentacoes_portaria").delete().in("id", orfaos);
+        }
+      } else {
+        const { error: movErr } = await supabase
+          .from("movimentacoes_portaria")
+          .insert(movPayload as any);
+        if (movErr) throw movErr;
+      }
 
       // Atualiza placa/motorista nas linhas da carga (caso o veículo real seja diferente do previsto)
-      const updateData: Record<string, any> = { placa: placa.trim().toUpperCase() };
-      if (motorista.trim()) updateData.motorista = motorista.trim();
+      const updateData: Record<string, any> = { placa: placaNorm };
+      if (motoristaNorm) updateData.motorista = motoristaNorm;
       await supabase.from("carregamentos_dia").update(updateData).eq("carga_id", cargaId);
 
       // NÃO marca veiculo_esperado como conferido ainda — só na liberação para o pátio.
