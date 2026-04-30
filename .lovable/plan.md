@@ -1,44 +1,35 @@
-## Problema
+## Contexto
 
-A carga **JR** foi fechada com a placa **RSB1H70** (motorista CELIO ALVES OLIVEIRA), mas o registro em `veiculos_esperados` para `carga_id='JR'` é de outra placa antiga (**QWE1B20 / FAGNO**, walk-in de 27/04). Por isso CELIO não aparece em "Registro de Entrada" nem em "Terceirizado".
+O CELIO ALVES OLIVEIRA já está visível corretamente após as correções anteriores (registro `e1406a61...` está com `data_referencia=2026-04-30`, `grupo=TERCEIRIZADO`, `conferido=false`, `placa=RSB1H70`). Verifiquei no banco e o registro está íntegro.
 
-### Causa raiz
-A função `on_carga_fechada()` faz:
-```
-SELECT EXISTS(SELECT 1 FROM veiculos_esperados WHERE carga_id = NEW.carga_id)
-```
-Se já existe **qualquer** linha com aquele `carga_id` (mesmo de outra placa), a trigger pula a criação. Isso quebra quando:
-- Uma carga teve placa trocada após fechamento.
-- Um walk-in antigo foi vinculado a um `carga_id` que depois é reutilizado.
-- A logística reabre/refecha a carga com placa diferente.
+Porém, mapeando todo o código, ainda existem **dois pontos** que filtram apenas por `carga_id` (sem checar a placa). Quando um `carga_id` é reutilizado (caso "JR" — FAGNO 27/04 e CELIO 30/04), eles podem cruzar dados antigos com a operação atual e causar bugs sutis.
 
-A mesma falha existe em `vincular_veiculo_esperado_tardio()`.
+## Problemas remanescentes a corrigir
 
-## Correções
+### 1. `src/pages/Expedicao.tsx` — `cargasComMotoristaChegado`
+Hoje monta um `Set<carga_id>` a partir das movimentações do dia. Se houver qualquer movimento antigo do mesmo `carga_id` entrando em `chegouOuNoPatio`, a carga atual de CELIO some do painel "Cargas Fechadas Aguardando" e some do painel "A Chegar".
 
-### 1. Migração SQL — corrigir lógica das triggers
-Trocar `EXISTS(... WHERE carga_id = X)` por `EXISTS(... WHERE carga_id = X AND upper(trim(placa)) = upper(trim(NEW.placa)))` em ambas as funções:
-- `on_carga_fechada()`
-- `vincular_veiculo_esperado_tardio()`
+**Correção:** mudar para `Set<"carga_id|placa_normalizada">` e cruzar com a placa esperada da carga / do veículo previsto.
 
-Assim, se o `carga_id` já existe mas com **placa diferente**, um novo `veiculos_esperados` será criado para a placa atual (mantendo o histórico antigo).
+### 2. `CargasFechadasAguardandoPanel.tsx` — `liberarEntrada`
+Faz `update veiculos_esperados ... where carga_id = c.carga_id` sem filtrar por placa. Como o gatilho corrigido só mantém um `previsto/conferido=false` por `carga_id`, hoje funciona — mas é defesa em profundidade somar `eq("placa", c.placa)` (ou `ilike` normalizado) para nunca marcar conferido um registro de outro veículo.
 
-### 2. Migração SQL — recuperar o registro do CELIO
-INSERT manual na `veiculos_esperados` para a carga JR/RSB1H70/CELIO, com:
-- `grupo = 'TERCEIRIZADO'`
-- `status_autorizacao = 'previsto'`
-- `walk_in = false`
-- `conferido = false`
-- `data_referencia = CURRENT_DATE`
+## O que NÃO precisa mudar
 
-### 3. Limpar duplicatas em `carregamentos_dia` (opcional, somente investigar)
-A carga JR tem 5 linhas iguais (mesma placa, motorista, data) — provavelmente fechamentos repetidos. Isto não é o foco do bug, mas vale verificar se a UI de fechamento está disparando múltiplas vezes. Não vou alterar dados de pedidos sem confirmação.
+- `useStatusPortariaPorCarga` — já recebe `placa` dos chamadores (Expedicao e Consolidado) e filtra corretamente.
+- `useCargasFechadasAguardando` — já cruza placa + janela ±48h em volta da `data` da carga.
+- Trigger `on_carga_fechada` / `vincular_veiculo_esperado_tardio` — já corrigido para considerar somente registros pendentes (`conferido=false`).
+- Registro do CELIO — já existe e visível em "Esperados" (Terceirizado) e nos painéis de Registro de Entrada.
 
-## Resultado esperado
+## Plano de implementação
 
-- CELIO ALVES OLIVEIRA / RSB1H70 passa a aparecer no painel **Cargas Fechadas Aguardando** (em `/portaria/registro-entrada`) e na aba **Terceirizado**.
-- Futuras cargas reabertas com nova placa criam corretamente o registro em `veiculos_esperados`.
-- Registros antigos de outras placas para o mesmo `carga_id` permanecem intocados (histórico preservado).
+1. **Refatorar `cargasComMotoristaChegado` em `src/pages/Expedicao.tsx`**:
+   - Trocar `Set<string>` por `Set<"cargaId|placa">`.
+   - Ao filtrar `cargasFechadas` e `veiculosEsperados`, montar a chave usando a placa daquela carga / veículo. Se a carga não tiver placa prevista, manter o comportamento atual (matching só por `carga_id`).
 
-## Aprovação
-Posso aplicar a migração?
+2. **Tighten `liberarEntrada` em `src/components/portaria/CargasFechadasAguardandoPanel.tsx`**:
+   - No `update` de `veiculos_esperados`, adicionar `.ilike("placa", c.placa)` quando `c.placa` existir, mais `.eq("conferido", false)`. Isso garante que a marcação de "conferido" nunca cruze ciclos.
+
+## Riscos
+
+Nenhum risco operacional — são reforços defensivos. Não há mudança de schema, não há migração SQL nova, apenas filtros adicionais em queries que já existem.
