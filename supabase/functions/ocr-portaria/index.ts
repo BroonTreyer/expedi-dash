@@ -14,19 +14,20 @@ async function ocrPlacaPlateRecognizer(imageUrl: string): Promise<{ texto: strin
   const imgResp = await fetch(imageUrl);
   if (!imgResp.ok) throw new Error("Failed to download image");
   const imgBuffer = await imgResp.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+
+  // Envia o arquivo binário diretamente (a API do Plate Recognizer aceita
+  // multipart/form-data com o arquivo bruto). Antes usávamos
+  // `btoa(String.fromCharCode(...new Uint8Array(imgBuffer)))`, que estourava
+  // a pilha em imagens reais (Maximum call stack size exceeded) porque o
+  // spread empurrava centenas de milhares de bytes como argumentos.
+  const form = new FormData();
+  form.append("upload", new Blob([imgBuffer]), "plate.jpg");
+  form.append("regions", "br");
 
   const response = await fetch("https://api.platerecognizer.com/v1/plate-reader/", {
     method: "POST",
-    headers: {
-      Authorization: `Token ${token}`,
-    },
-    body: (() => {
-      const form = new FormData();
-      form.append("upload", base64);
-      form.append("regions", "br");
-      return form;
-    })(),
+    headers: { Authorization: `Token ${token}` },
+    body: form,
   });
 
   if (!response.ok) {
