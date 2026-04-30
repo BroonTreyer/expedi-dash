@@ -321,9 +321,20 @@ export function useUpdateCarregamento() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...values }: Record<string, any>) => {
-      const { data, error } = await supabase.from("carregamentos_dia").update(values).eq("id", id).select().single();
+      // Sem `.single()`: se RLS bloqueia ou o id sumiu, queremos detectar
+      // explicitamente em vez de tomar PGRST116 e perder a operação inteira.
+      const { data, error } = await supabase
+        .from("carregamentos_dia")
+        .update(values)
+        .eq("id", id)
+        .select("id");
       if (error) throw error;
-      return data;
+      if (!data || data.length === 0) {
+        throw new Error(
+          `Item ${String(id).slice(0, 8)} não foi salvo (sem permissão ou registro removido).`
+        );
+      }
+      return data[0];
     },
     onMutate: async (variables) => {
       const { id, ...values } = variables;
