@@ -1,61 +1,61 @@
-## Auditoria do Sistema — Resultados
+## Bugs encontrados na auditoria
 
-Verifiquei código, banco, triggers, RLS, hooks e logs. Abaixo os achados, separados por gravidade.
+### Bug #1 — Admin "Finalizar fantasmas" usa etapa errada (CRÍTICO)
+**Arquivo:** `src/components/portaria/PortariaAdminPanel.tsx` (linhas 73 e 96)
 
-### 1. CRÍTICO (UX) — Cards sumindo após "Registrar Chegada" em terceirizado
+A mutation marca registros como `etapa_terceirizado: "saida"`, mas esse é um estado **intermediário**. O resto do sistema (`PainelNoPatio`, `Portaria.tsx`, `useStatusPortariaPorCarga`, `PortariaKpiCards`, `PatioAtualTab`) só remove do pátio quando `etapa_terceirizado === "finalizado"`.
 
-**O que descobri:** o handler `openRegistroFromVeiculoEsperado` em `src/pages/Portaria.tsx` (linhas 135-185) já está correto — cria o movimento direto com `etapa_terceirizado='chegada'`. Mas tem um efeito colateral: **chama `marcarConferidoMutation` imediatamente**, marcando `veiculos_esperados.conferido=true`. Isso faz a carga sumir do card azul "Cargas Fechadas Aguardando" (que filtra `conferido=true`) **antes mesmo de o porteiro liberar a entrada no pátio**. Resultado: o card azul some, e a carga só reaparece como "Aguardando liberação" no painel laranja — perdendo a sequência visual vermelho→azul→verde que o usuário pediu.
+**Sintoma confirmado em produção:** 8+ registros marcados "Finalizado em lote pelo admin" continuam aparecendo no pátio porque ficaram na etapa errada (`saida` em vez de `finalizado`). Exemplos: SZP8G56, BRA2E19, MXE9B40, TFK2C79, etc.
 
-**Correção:** marcar `conferido=true` apenas quando o porteiro **liberar a entrada no pátio** (segunda etapa, `horario_entrada` preenchido), não na chegada. A lista de Esperados já trata esse caso (filtra por `conferido=false`), e a tela "Aguardando liberação" continua aparecendo.
-
-### 2. DADOS — 6 cargas com previsão duplicada em `veiculos_esperados`
-
-**Cargas afetadas:** `ELIAS ROTA` (3 registros), `JR MIX` (3), `SANTA LUCIA` (2), `JR` (2), `EDIVAR` (2), `ELIAS + EDIVAR` (2).
-
-**Causa:** o trigger `on_carga_fechada` cria 1 previsão automática quando a carga fecha; quando um walk-in com a mesma placa também é criado pelo porteiro, vira duplicata. O `ON CONFLICT DO NOTHING` do trigger não pega porque só há `UNIQUE` em outro conjunto de colunas. Todos os duplicados já estão `conferido=true`, então não atrapalham mais — mas vão poluir relatórios futuros.
-
-**Correção:** migration única para limpar duplicatas mantendo o registro mais antigo de cada `carga_id`, e adicionar índice parcial `UNIQUE(carga_id) WHERE walk_in=false` para impedir reincidência.
-
-### 3. SUJEIRA — 5 entradas "fantasma" sem saída há mais de 10 dias
-
-Movimentos terceirizados em `etapa='no_patio'` desde 17-20/abril (placas `SZP8G56`, `ROO9D09`, `TFK2C79`, `OAW4J70`, `ONC6549`). Não são exibidos no Pátio Atual porque o filtro de 7 dias de `useMovimentacoesAtivasPatio` já os exclui, mas continuam ocupando a base e afetando KPIs históricos.
-
-**Correção:** não mexer no banco automaticamente — apresentar lista no painel admin de Portaria com botão "Marcar como finalizado" (one-click). Evitar deletar dados sem confirmação.
-
-### 4. SUJEIRA — 30 veículos esperados antigos (>7 dias) não conferidos
-
-São entradas previstas que nunca chegaram. Não causam bug, mas inflam queries.
-
-**Correção:** mesma solução do item 3 — botão "Limpar antigos" (>30 dias, não conferidos) no painel admin. Sem ação automática.
-
-### 5. INFORMATIVO — 42 warnings do linter (não vou alterar)
-
-Todos do mesmo tipo: "SECURITY DEFINER function executable by anon/authenticated". São funções legítimas (`has_role`, `notify_role`, `get_portal_token_public`, etc.) que **precisam** ser SECURITY DEFINER para funcionar. Revogar `EXECUTE` quebraria autenticação, notificações e portal do motorista. Risco real = baixo, falso positivo do scanner. Recomendo manter.
+**Correção:**
+- Trocar `etapa_terceirizado: "saida"` por `etapa_terceirizado: "finalizado"` nas 2 mutations.
+- Migração de dados: UPDATE nos 8 registros existentes com observação `[Finalizado ... pelo admin - registro antigo]` para corrigir a etapa.
 
 ---
 
-## Plano de implementação
+### Bug #2 — Triggers duplicados em `veiculos_esperados` (notificações em dobro)
+**Banco:** schema `public`
 
-```text
-1. src/pages/Portaria.tsx
-   - Remover marcarConferidoMutation do handler de "Registrar Chegada"
-   - Adicionar handler "Liberar Entrada no Pátio" que faz UPDATE
-     (horario_entrada=now, etapa_terceirizado='no_patio') E marca conferido
+A tabela `veiculos_esperados` tem 2 pares de triggers idênticos:
+- `trg_on_veiculo_chegou` + `trg_veiculo_chegou` → ambos chamam `on_veiculo_chegou()`
+- `trg_on_walkin_status_change` + `trg_walkin_status_change` → ambos chamam `on_walkin_status_change()`
 
-2. src/components/portaria/CargasFechadasAguardandoPanel.tsx (verificar)
-   - Confirmar que mostra botão "Liberar Entrada" para cargas
-     com movimento já em etapa='chegada'
+**Sintoma:** cada chegada de veículo gera 2 notificações idênticas; cada mudança de status walk-in gera 2 notificações.
 
-3. Migration SQL única:
-   - Limpar duplicatas em veiculos_esperados (manter mais antigo)
-   - CREATE UNIQUE INDEX ON veiculos_esperados(carga_id) WHERE walk_in=false
+**Correção:** Migration que faz `DROP TRIGGER IF EXISTS trg_veiculo_chegou` e `DROP TRIGGER IF EXISTS trg_walkin_status_change` (mantém os com prefixo `trg_on_*`, padrão usado nas demais tabelas).
 
-4. src/components/portaria/PortariaAdminPanel (novo painel pequeno,
-   visível só para admin/logistica) com:
-   - "5 entradas pendentes há +10 dias" → botão Finalizar
-   - "30 veículos esperados antigos" → botão Limpar
-```
+---
 
-**Não mexido:** linter warnings (item 5), saídas de `carga_propria` sem vínculo (é design correto — frota própria usa um único movimento `tipo='saida'` para todo o ciclo).
+### Bug #3 — Carga histórica sem veículo esperado
+**Carga:** `EDIVAR + VANESSA` (85 itens, placa QWA2B01, transp. MOREIRA)
 
-Pronto para implementar quando aprovar.
+Provavelmente criada antes do trigger `trg_vincular_veiculo_tardio` existir, ou a placa foi adicionada por update direto que não satisfez a condição do trigger. Não há outras cargas afetadas.
+
+**Correção:** Insert único em `veiculos_esperados` para essa carga, status `previsto`, grupo `TERCEIRIZADO`. Sem mudança de código.
+
+---
+
+### Itens auditados e considerados OK / não-bugs
+- `0` walk-ins órfãos > 24h (estado limpo após fix do trigger)
+- `0` cargas com `veiculos_esperados` duplicados
+- `0` pedidos sem `numero_pedido` em etapa não-rascunho
+- `0` pesos/quantidades negativos
+- 7 movimentos de carga própria parados em `aguardando_liberacao` desde 10/04 — todos do mesmo dia, padrão de teste antigo, não bug ativo
+- 42 rupturas sem motivo nos últimos 30 dias — comportamento intencional (motivo é opcional ao sinalizar)
+- Triggers **estão** todos habilitados (o bloco `<db-triggers>` do contexto estava enganoso — verificado direto via `pg_trigger`)
+
+---
+
+### Plano de execução
+
+1. **Migração SQL** (`supabase/migrations/...`):
+   - DROP dos 2 triggers duplicados em `veiculos_esperados`
+   - UPDATE nos registros admin-finalizados com etapa errada (`etapa_terceirizado='saida'` + observação contém `pelo admin`) → setar `etapa_terceirizado='finalizado'`
+   - INSERT do `veiculo_esperado` faltante para carga `EDIVAR + VANESSA`
+
+2. **Edição de código** (`src/components/portaria/PortariaAdminPanel.tsx`):
+   - Trocar `etapa_terceirizado: "saida"` → `"finalizado"` nas duas mutations (linhas 73 e 96)
+
+Risco: baixo. Nenhuma mudança em fluxo de negócio normal — só corrige um valor literal que estava errado, deduplica triggers que já são idempotentes, e regulariza dados históricos.
+
+Quer que eu aplique?
