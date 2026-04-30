@@ -447,16 +447,17 @@ export function useCargasFechadasAguardando() {
         .from("movimentacoes_portaria")
         .select("id, carga_id, tipo_movimento, horario_entrada, horario_chegada, data_hora, etapa_terceirizado, etapa_carga_propria, horario_real_saida, horario_saida_final, placa")
         .in("carga_id", cargaIds);
-      // Cargas que já têm veículo previsto em veiculos_esperados não são
-      // mais "aguardando veículo" — elas já aparecem no painel "A chegar".
+      // Cargas com previsão automática (não walk-in) já aparecem em "A chegar".
+      // IMPORTANTE: não filtrar walk-ins — eles ficam neste card como
+      // "Motorista chegou" até a portaria registrar a entrada do veículo.
       const { data: previstos } = await supabase
         .from("veiculos_esperados" as any)
-        .select("carga_id")
+        .select("carga_id, walk_in")
         .in("carga_id", cargaIds);
       const cargasComVeiculoPrevisto = new Set(
-        ((previstos ?? []) as unknown as { carga_id: string | null }[])
-          .map((v) => v.carga_id)
-          .filter((v): v is string => !!v)
+        ((previstos ?? []) as unknown as { carga_id: string | null; walk_in: boolean | null }[])
+          .filter((v) => v.carga_id && !v.walk_in)
+          .map((v) => v.carga_id as string)
       );
       // Mapeia (carga_id + data_carga) -> info de movimento, considerando
       // apenas movimentos dentro de uma janela operacional ao redor da
