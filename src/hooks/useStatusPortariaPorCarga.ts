@@ -200,11 +200,18 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
     let attempts = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
 
     const connect = () => {
-      channel = supabase
-        .channel(`status-portaria-${idsKey}`)
-        .on(
+      if (cancelled) return;
+      // Nome único por tentativa para evitar o erro
+      // "cannot add `postgres_changes` callbacks ... after subscribe()",
+      // que ocorre quando o Supabase reaproveita uma instância de channel
+      // já inscrita com o mesmo topic.
+      const topic = `status-portaria-${idsKey}-${Date.now()}-${attempts}`;
+      const ch = supabase.channel(topic);
+      channel = ch;
+      ch.on(
           "postgres_changes",
           { event: "*", schema: "public", table: "movimentacoes_portaria" },
           () => {
@@ -213,15 +220,17 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
               queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga", idsKey] });
             }, 1500);
           }
-        )
-        .subscribe((status) => {
+        ).subscribe((status) => {
+          if (cancelled) return;
           if (status === "SUBSCRIBED") {
             attempts = 0;
           } else if (status === "CHANNEL_ERROR" || status === "CLOSED" || status === "TIMED_OUT") {
             // Reconexão com backoff (3s, 10s, 30s, 60s)
             const delay = Math.min(60_000, 3_000 * Math.pow(2, attempts));
             attempts += 1;
-            if (channel) supabase.removeChannel(channel);
+            if (channel) {
+              try { supabase.removeChannel(channel); } catch { /* noop */ }
+            }
             channel = null;
             reconnectTimer = setTimeout(connect, delay);
           }
@@ -230,9 +239,12 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
     connect();
 
     return () => {
+      cancelled = true;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (channel) supabase.removeChannel(channel);
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch { /* noop */ }
+      }
     };
   }, [idsKey, session, cargaIds.length, queryClient]);
 
