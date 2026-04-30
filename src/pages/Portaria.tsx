@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Search, Truck, ParkingCircle, History, Download, Upload, X, ClipboardCheck } from "lucide-react";
-import { useMovimentacoes, useCreateMovimentacao, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { useMovimentacoes, useMovimentacoesAtivasPatio, useCreateMovimentacao, type MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados, useImportarVeiculosEsperados, useMarcarConferido, useLimparVeiculosEsperados, useDeleteVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import type { VeiculoEsperado } from "@/hooks/useVeiculosEsperados";
 import { PortariaKpiCards } from "@/components/portaria/PortariaKpiCards";
@@ -66,6 +66,13 @@ export default function Portaria({ categoria }: PortariaProps) {
   const movimentacoes = useMemo(
     () => movimentacoesAll.filter((m) => m.categoria === categoria),
     [movimentacoesAll, categoria]
+  );
+  // Pátio atual ignora filtro de data — veículos que entraram em dias
+  // anteriores e ainda não saíram precisam continuar visíveis aqui.
+  const { data: movimentacoesAtivasAll = [], isLoading: isLoadingAtivas } = useMovimentacoesAtivasPatio();
+  const movimentacoesAtivasPatio = useMemo(
+    () => movimentacoesAtivasAll.filter((m) => m.categoria === categoria),
+    [movimentacoesAtivasAll, categoria]
   );
   const createMov = useCreateMovimentacao();
   const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateFromStr);
