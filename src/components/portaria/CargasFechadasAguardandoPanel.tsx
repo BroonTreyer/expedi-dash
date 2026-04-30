@@ -58,26 +58,48 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
       setWalkInIds(new Set());
       return;
     }
+    // Mapa carga_id -> placa atual (normalizada). Usado para evitar matches com
+    // movimentações antigas de cargas que reutilizaram o mesmo carga_id.
+    const placaPorCarga = new Map<string, string>();
+    cargas.forEach((c) => {
+      if (c.carga_id && c.placa) {
+        placaPorCarga.set(c.carga_id, c.placa.trim().toUpperCase());
+      }
+    });
     let cancelled = false;
     (async () => {
-      // "Motorista já no pátio" = existe movimentação de entrada com horario_entrada preenchido
-      // (não basta veiculo_esperado autorizado; ele pode estar apenas aguardando liberação)
+      // "Motorista já no pátio" = existe movimentação de entrada com horario_entrada
+      // preenchido, ainda não finalizada, E com a mesma placa da carga atual.
+      // Filtrar só por carga_id falha quando o ID é reutilizado entre cargas distintas.
       const { data } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id, horario_entrada")
+        .select("carga_id, placa, horario_entrada, horario_saida_final, etapa_terceirizado, etapa_carga_propria")
         .in("carga_id", ids)
         .eq("tipo_movimento", "entrada")
-        .not("horario_entrada", "is", null);
+        .not("horario_entrada", "is", null)
+        .is("horario_saida_final", null);
       if (cancelled) return;
-      const set = new Set<string>(
-        ((data ?? []) as unknown as { carga_id: string | null }[])
-          .map((r) => r.carga_id)
-          .filter((v): v is string => !!v)
-      );
+      const rows = (data ?? []) as unknown as {
+        carga_id: string | null;
+        placa: string | null;
+        etapa_terceirizado: string | null;
+        etapa_carga_propria: string | null;
+      }[];
+      const set = new Set<string>();
+      for (const r of rows) {
+        if (!r.carga_id) continue;
+        // Ignora movimentos já finalizados (defesa em profundidade)
+        if (r.etapa_terceirizado === "finalizado" || r.etapa_carga_propria === "finalizado") continue;
+        const placaAtual = placaPorCarga.get(r.carga_id);
+        const placaMov = (r.placa ?? "").trim().toUpperCase();
+        // Se temos placa atual da carga, exige match; senão (carga sem placa), aceita por carga_id
+        if (placaAtual && placaMov && placaAtual !== placaMov) continue;
+        set.add(r.carga_id);
+      }
       setWalkInIds(set);
     })();
     return () => { cancelled = true; };
-  }, [cargas.map((c) => c.carga_id).join("|")]);
+  }, [cargas.map((c) => `${c.carga_id}:${c.placa ?? ""}`).join("|")]);
 
   // Cronômetro vivo para "aguardando liberação"
   useEffect(() => {
