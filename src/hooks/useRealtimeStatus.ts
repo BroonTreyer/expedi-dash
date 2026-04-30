@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type RealtimeStatus = "connecting" | "connected" | "disconnected";
+type RealtimeStatus = "connecting" | "connected" | "disconnected";
 
 /**
  * Lightweight realtime status check — reuses existing channels if possible.

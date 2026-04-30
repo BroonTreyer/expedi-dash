@@ -44,7 +44,7 @@ export type Carregamento = {
   vendedores?: { nome_vendedor: string } | null;
 };
 
-export type RealtimeStatus = "connecting" | "connected" | "disconnected";
+type RealtimeStatus = "connecting" | "connected" | "disconnected";
 
 export function useCarregamentos(dateFrom: string, dateTo?: string) {
   const dateEnd = dateTo || dateFrom;
