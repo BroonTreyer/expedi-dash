@@ -92,7 +92,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
           )}
           <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
             <Clock className="h-3 w-3" />
-            {formatDistanceToNow(new Date(v.created_at), { addSuffix: true, locale: ptBR })}
+            Chegou {format(new Date(v.created_at), "HH:mm")} ({formatDistanceToNow(new Date(v.created_at), { addSuffix: true, locale: ptBR })})
           </Badge>
           {v.carga_id && (
             <Badge variant="secondary" className="text-[10px] h-5 font-mono gap-1">

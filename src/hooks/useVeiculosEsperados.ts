@@ -587,6 +587,26 @@ export function useReabrirComoWalkIn() {
         } as any);
       if (insErr) throw insErr;
 
+      // Cria registro de chegada em movimentacoes_portaria preservando o
+      // horário original de entrada (m.data_hora) como horario_chegada — assim
+      // o tempo total no pátio continua sendo computado corretamente.
+      const { error: movErr } = await supabase
+        .from("movimentacoes_portaria")
+        .insert({
+          tipo_movimento: "entrada",
+          categoria: "terceirizado",
+          placa: m.placa.toUpperCase().trim(),
+          motorista: m.motorista,
+          empresa: m.empresa,
+          tipo_caminhao: m.tipo_caminhao,
+          etapa_terceirizado: "chegada",
+          horario_chegada: m.data_hora,
+          data_hora: m.data_hora,
+          observacoes: obs,
+          usuario_id: user?.id ?? null,
+        } as any);
+      if (movErr) throw movErr;
+
       const { error: delErr } = await supabase
         .from("movimentacoes_portaria")
         .delete()
