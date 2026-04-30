@@ -1,5 +1,5 @@
 import React from "react";
-import { Package, Weight, Truck, CheckCircle, AlertTriangle } from "lucide-react";
+import { Package, Weight, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Carregamento } from "@/hooks/useCarregamentos";
@@ -16,6 +16,7 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
   const totalClientes = new Set(source.filter(c => c.codigo_cliente).map(c => c.codigo_cliente)).size;
   const pesoTotal = source.reduce((s, c) => s + (c.peso ?? 0), 0);
   // Peso efetivo: ignora itens em ruptura (não foram fisicamente carregados).
+  // Mantido apenas para o cálculo de "peso a carregar" no card "Peso Total".
   const pesoCarregado = source
     .filter(c => c.status === "Carregado" && !c.ruptura)
     .reduce((s, c) => s + (c.peso ?? 0), 0);
@@ -23,7 +24,6 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
     .filter(c => c.status === "Carregando" && !c.ruptura)
     .reduce((s, c) => s + (c.peso ?? 0), 0);
   const pesoFaltante = Math.max(0, pesoTotal - pesoCarregado - pesoCarregando);
-  const totalVeiculos = new Set(source.filter(c => c.placa).map(c => c.placa)).size;
   // Rupturas por pedido único
   const totalPedidosUnicos = new Set(source.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
   const pedidosComRuptura = new Set(source.filter(c => temRuptura(c) && c.numero_pedido).map(c => c.numero_pedido)).size;
@@ -56,13 +56,11 @@ export const KpiCards = React.memo(function KpiCards({ data, selectedData }: Pro
       color: "text-foreground",
       tooltip: `Soma do peso planejado (pedido). Faltam ${pesoFaltante.toLocaleString("pt-BR")} kg a carregar (status Aguardando, descontando rupturas).`,
     },
-    { label: "Peso Carregado", value: `${pesoCarregado.toLocaleString("pt-BR")} kg`, icon: CheckCircle, color: "text-status-carregado", tooltip: "Peso efetivo embarcado nos status 'Carregado' (desconsidera itens em ruptura)." },
-    { label: "Veículos", value: totalVeiculos, icon: Truck, color: "text-primary", tooltip: "Quantidade de veículos (placas) distintos" },
   ];
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
         {cards.map((c) => (
           <Tooltip key={c.label}>
             <TooltipTrigger asChild>
