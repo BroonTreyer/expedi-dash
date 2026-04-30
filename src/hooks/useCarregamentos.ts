@@ -447,6 +447,17 @@ export function useCargasFechadasAguardando() {
         .from("movimentacoes_portaria")
         .select("id, carga_id, tipo_movimento, horario_entrada, horario_chegada, data_hora, etapa_terceirizado, etapa_carga_propria, horario_real_saida, horario_saida_final, placa")
         .in("carga_id", cargaIds);
+      // Cargas que já têm veículo previsto em veiculos_esperados não são
+      // mais "aguardando veículo" — elas já aparecem no painel "A chegar".
+      const { data: previstos } = await supabase
+        .from("veiculos_esperados" as any)
+        .select("carga_id")
+        .in("carga_id", cargaIds);
+      const cargasComVeiculoPrevisto = new Set(
+        ((previstos ?? []) as unknown as { carga_id: string | null }[])
+          .map((v) => v.carga_id)
+          .filter((v): v is string => !!v)
+      );
       // Mapeia (carga_id + data_carga) -> info de movimento, considerando
       // apenas movimentos dentro de uma janela operacional ao redor da
       // data da carga (de -12h até +48h). Sem isso, ciclos antigos com o
@@ -501,6 +512,8 @@ export function useCargasFechadasAguardando() {
       for (const c of cargasArr) {
         if (!c.carga_id) continue;
         if (finalizadaCarga.has(c.carga_id)) continue;
+        // Já tem veículo previsto → aparece em "A chegar", não aqui.
+        if (cargasComVeiculoPrevisto.has(c.carga_id)) continue;
         const entrada = entradaPorCarga.get(c.carga_id);
         // Se já tem entrada com horario_entrada preenchido, está no pátio — não listar
         if (entrada && entrada.horario_entrada) continue;
