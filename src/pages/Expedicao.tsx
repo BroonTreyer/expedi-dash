@@ -18,6 +18,7 @@ import { PainelChegou } from "@/components/expedicao/PainelChegou";
 import { PainelAChegar } from "@/components/expedicao/PainelAChegar";
 import { PainelCargasFechadas } from "@/components/expedicao/PainelCargasFechadas";
 import { useQueryClient } from "@tanstack/react-query";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function Expedicao() {
   const qc = useQueryClient();
@@ -26,8 +27,10 @@ export default function Expedicao() {
   const dateStr = format(date, "yyyy-MM-dd");
   const hojeStr = format(today, "yyyy-MM-dd");
 
-  const { data: movimentacoesAll = [] } = useMovimentacoes(dateStr, dateStr);
-  const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateStr);
+  const movimentacoesQ = useMovimentacoes(dateStr, dateStr);
+  const veiculosEsperadosQ = useVeiculosEsperados(dateStr);
+  const movimentacoesAll = movimentacoesQ.data ?? [];
+  const veiculosEsperadosAll = veiculosEsperadosQ.data ?? [];
 
   const movimentacoes = useMemo(
     () => movimentacoesAll.filter((m) => m.categoria === "terceirizado"),
@@ -128,12 +131,14 @@ export default function Expedicao() {
   // Carregado = cargas com etapa portaria "carregando" OU "expedido"
   // A carregar = restante (aguardando / chegou / patio)
   // Total = soma de tudo
-  const { data: cargasDoDia = [] } = useCargasDiaExpedicao(dateStr);
+  const cargasDoDiaQ = useCargasDiaExpedicao(dateStr);
+  const cargasDoDia = cargasDoDiaQ.data ?? [];
   const cargaIdsDia = useMemo(
     () => cargasDoDia.map((c) => ({ carga_id: c.carga_id, data: c.data, placa: c.placa })),
     [cargasDoDia]
   );
-  const { data: statusPortariaMap } = useStatusPortariaPorCarga(cargaIdsDia);
+  const statusPortariaQ = useStatusPortariaPorCarga(cargaIdsDia);
+  const statusPortariaMap = statusPortariaQ.data;
 
   const pesosKpi = useMemo(() => {
     let kgCarregado = 0;
@@ -275,10 +280,18 @@ export default function Expedicao() {
         <ExpedicaoKpiCards {...counts} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-          <PainelNoPatio movimentacoes={movimentacoesComPeso} now={now} />
-          <PainelChegou movimentacoes={movimentacoesComPeso} now={now} />
-          <PainelAChegar veiculos={veiculosAChegar} hoje={hojeStr} />
-          <PainelCargasFechadas cargas={cargasExpedidasDoDia} />
+          <ErrorBoundary name="No Pátio">
+            <PainelNoPatio movimentacoes={movimentacoesComPeso} now={now} />
+          </ErrorBoundary>
+          <ErrorBoundary name="Chegou — aguardando">
+            <PainelChegou movimentacoes={movimentacoesComPeso} now={now} />
+          </ErrorBoundary>
+          <ErrorBoundary name="A chegar">
+            <PainelAChegar veiculos={veiculosAChegar} hoje={hojeStr} />
+          </ErrorBoundary>
+          <ErrorBoundary name="Cargas expedidas do dia">
+            <PainelCargasFechadas cargas={cargasExpedidasDoDia} />
+          </ErrorBoundary>
         </div>
       </main>
     </Layout>
