@@ -443,7 +443,7 @@ export default function Consolidado() {
   // Status da Portaria (terceirizados) por carga — passa também a data para
   // evitar que cargas homônimas em datas diferentes se misturem no status.
   const cargaIds = useMemo(
-    () => rawGroups.map((g) => ({ carga_id: g.cargaId, data: g.data })),
+    () => rawGroups.map((g) => ({ carga_id: g.cargaId, data: g.data, placa: g.placa })),
     [rawGroups]
   );
   const { data: statusPortariaMap } = useStatusPortariaPorCarga(cargaIds);

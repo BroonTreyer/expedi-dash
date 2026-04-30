@@ -128,7 +128,7 @@ export default function Expedicao() {
   // Total = soma de tudo
   const { data: cargasDoDia = [] } = useCargasDiaExpedicao(dateStr);
   const cargaIdsDia = useMemo(
-    () => cargasDoDia.map((c) => ({ carga_id: c.carga_id, data: c.data })),
+    () => cargasDoDia.map((c) => ({ carga_id: c.carga_id, data: c.data, placa: c.placa })),
     [cargasDoDia]
   );
   const { data: statusPortariaMap } = useStatusPortariaPorCarga(cargaIdsDia);
