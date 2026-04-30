@@ -32,23 +32,6 @@ export interface VeiculoEsperado {
   observacoes: string | null;
 }
 
-export function useSolicitacoesPendentes() {
-  const session = useSession();
-  return useQuery({
-    queryKey: ["veiculos_esperados_pendentes"],
-    enabled: !!session,
-    refetchInterval: 15000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("veiculos_esperados" as any)
-        .select("*")
-        .in("status_autorizacao", ["aguardando_vinculo", "aguardando_autorizacao"])
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as VeiculoEsperado[];
-    },
-  });
-}
 
 /**
  * Walk-ins ainda em circulação na página Registro de Entrada:
