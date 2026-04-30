@@ -234,6 +234,7 @@ export default function Usuarios() {
                       <SelectItem value="faturamento">Faturamento</SelectItem>
                       <SelectItem value="portaria">Portaria</SelectItem>
                       <SelectItem value="vendedor">Vendedor</SelectItem>
+                      <SelectItem value="expedicao">Expedição</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

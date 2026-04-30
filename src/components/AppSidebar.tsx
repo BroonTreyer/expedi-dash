@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RegistroEntradaBadge } from "@/components/portaria/RegistroEntradaBadge";
 
-type Role = "admin" | "logistica" | "faturamento" | "portaria" | "vendedor";
+type Role = "admin" | "logistica" | "faturamento" | "portaria" | "vendedor" | "expedicao";
 
 interface NavLeaf {
   to: string;
@@ -34,7 +34,7 @@ const isGroup = (n: NavNode): n is NavGroup => (n as NavGroup).children !== unde
 const navTree: NavNode[] = [
   { to: "/meu-painel", label: "Meu Painel", icon: User, roles: ["vendedor"] },
   { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/expedicao", label: "Expedição", icon: Monitor, roles: ["admin", "logistica", "portaria"] },
+  { to: "/expedicao", label: "Expedição", icon: Monitor, roles: ["admin", "logistica", "portaria", "expedicao"] },
   { to: "/aprovacoes", label: "Aprovações", icon: Inbox, roles: ["admin", "faturamento"] },
   { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
