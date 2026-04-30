@@ -91,6 +91,7 @@ function deriveEtapa(movs: MovRow[]): EtapaPortaria {
 export interface CargaRef {
   carga_id: string;
   data: string; // YYYY-MM-DD
+  placa?: string | null;
 }
 
 /**
@@ -123,6 +124,13 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
     }
     return m;
   }, [refs]);
+  const placaByCarga = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of refs) {
+      if (r.placa) m.set(r.carga_id, r.placa.trim().toUpperCase());
+    }
+    return m;
+  }, [refs]);
 
   const queryClient = useQueryClient();
   const session = useSession();
@@ -141,24 +149,28 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id, tipo_movimento, categoria, etapa_terceirizado, etapa_carga_propria, horario_entrada, horario_chegada, horario_saida_final, data_hora")
+        .select("carga_id, tipo_movimento, categoria, etapa_terceirizado, etapa_carga_propria, horario_entrada, horario_chegada, horario_saida_final, data_hora, placa")
         .in("carga_id", cargaIds)
         .in("categoria", ["terceirizado", "carga_propria"]);
       if (error) throw error;
 
       const grouped = new Map<string, MovRow[]>();
-      for (const row of (data ?? []) as MovRow[]) {
+      for (const row of (data ?? []) as (MovRow & { placa?: string | null })[]) {
         if (!row.carga_id) continue;
         const dataCarga = dataByCarga.get(row.carga_id);
-        // Se temos data de referência da carga, ignora movimentos fora da janela
-        // [data 00:00 local, data+1d 00:00 local). Isso evita que cargas distintas
-        // com o mesmo carga_id em dias diferentes se misturem no status.
+        // Janela operacional ampliada: de 12h antes até 48h depois da data
+        // da carga. Isso cobre cargas que entram tarde da noite e saem na
+        // madrugada do dia seguinte, sem deixar ciclos antigos vazarem.
         if (dataCarga && row.data_hora) {
-          const inicio = new Date(`${dataCarga}T00:00:00`).getTime();
-          const fim = inicio + 24 * 60 * 60 * 1000;
+          const base = new Date(`${dataCarga}T00:00:00`).getTime();
+          const inicio = base - 12 * 3600_000;
+          const fim = base + 48 * 3600_000;
           const ts = new Date(row.data_hora).getTime();
           if (Number.isFinite(ts) && (ts < inicio || ts >= fim)) continue;
         }
+        // Se a carga tem placa esperada e o movimento tem placa, exigimos match.
+        const placaRef = placaByCarga.get(row.carga_id);
+        if (placaRef && row.placa && row.placa.trim().toUpperCase() !== placaRef) continue;
         const arr = grouped.get(row.carga_id) ?? [];
         arr.push(row);
         grouped.set(row.carga_id, arr);

@@ -156,17 +156,58 @@ export function useMovimentacoesAtivasPatio() {
           .map((m) => m.movimento_vinculado_id!)
       );
 
+      // Indexa por placa normalizada para detectar ciclos posteriores que
+      // tornam uma entrada antiga obsoleta (ex.: o motorista voltou em
+      // outro dia e finalizou). Sem isso, entradas órfãs antigas ficam
+      // pendurando no pátio com "161h" e poluindo a operação atual.
+      const norm = (p: string | null) => (p || "").trim().toUpperCase();
+      const porPlaca = new Map<string, MovimentacaoPortaria[]>();
+      for (const m of all) {
+        const k = norm(m.placa);
+        if (!k) continue;
+        const arr = porPlaca.get(k) ?? [];
+        arr.push(m);
+        porPlaca.set(k, arr);
+      }
+
+      const ehFinalizado = (m: MovimentacaoPortaria) =>
+        m.tipo_movimento === "saida" ||
+        (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") ||
+        (m.categoria === "carga_propria" && m.etapa_carga_propria === "finalizado") ||
+        !!m.horario_saida_final ||
+        !!m.horario_real_saida;
+
       return all.filter((m) => {
         // Carga própria: mantém enquanto não está finalizado
         if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
-          return m.etapa_carga_propria !== "finalizado";
+          if (m.etapa_carga_propria === "finalizado") return false;
+          // Se a mesma placa teve um ciclo posterior finalizado, esta etapa antiga
+          // não pertence ao ciclo atual e fica obsoleta.
+          const k = norm(m.placa);
+          const irmaos = porPlaca.get(k) ?? [];
+          const ts = new Date(m.data_hora).getTime();
+          const haCicloPosteriorFinalizado = irmaos.some(
+            (x) => x.id !== m.id && ehFinalizado(x) && new Date(x.data_hora).getTime() > ts,
+          );
+          if (haCicloPosteriorFinalizado) return false;
+          return true;
         }
         // Para o pátio só interessam entradas
         if (m.tipo_movimento !== "entrada") return false;
-        // Já saiu
+        // Já saiu (saida explicitamente vinculada)
         if (saidasVinculadas.has(m.id)) return false;
         // Terceirizado finalizado: já saiu
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+        // Entrada antiga obsoleta: existe um movimento posterior da mesma placa
+        // que já está finalizado (saída ou etapa final). Nesse caso esta
+        // entrada pertence a um ciclo passado que ficou aberto por engano.
+        const k = norm(m.placa);
+        const irmaos = porPlaca.get(k) ?? [];
+        const ts = new Date(m.data_hora).getTime();
+        const haCicloPosteriorFinalizado = irmaos.some(
+          (x) => x.id !== m.id && ehFinalizado(x) && new Date(x.data_hora).getTime() > ts,
+        );
+        if (haCicloPosteriorFinalizado) return false;
         return true;
       });
     },
@@ -210,6 +251,8 @@ export function useDeleteMovimentacao() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] });
+      queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga"] });
       toast.success("Registro excluído com sucesso!");
     },
     onError: (e: any) => {
@@ -233,6 +276,8 @@ export function useUpdateMovimentacao() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] });
+      queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga"] });
       toast.success("Registro atualizado com sucesso!");
     },
     onError: (e: any) => {
@@ -287,6 +332,8 @@ export function useCreateMovimentacao() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] });
+      queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga"] });
       toast.success("Movimento registrado com sucesso!");
     },
     onError: (e: any) => {

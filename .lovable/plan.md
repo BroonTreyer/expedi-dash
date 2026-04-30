@@ -1,65 +1,76 @@
-## Diagnóstico real
+Encontrei a causa real dos sintomas novos: não é só “saída órfã”. Existem registros antigos ainda abertos e várias consultas continuam olhando apenas `carga_id` ou placa, sem separar o ciclo atual do ciclo antigo do motorista/caminhão.
 
-A correção anterior só endureceu uma parte da lógica — não atacou a causa raiz. Investigando o banco e o código, identifiquei **três bugs independentes** que produzem exatamente os sintomas relatados (Fagno "Expedido" sem entrar, Jesumar sumido do Pátio, Sinomar inconsistente).
-
-### Bug 1 — Status colapsa cargas diferentes que reusam o mesmo nome
-`useStatusPortariaPorCarga` agrupa movimentos **só por `carga_id` (string)**, sem considerar a data da carga.
-
-No banco existem várias cargas chamadas `"JR"` em datas distintas. A entrada antiga do Fagno em 27/04 (carga "JR" finalizada) está marcando como "Expedido" qualquer carga futura cujo `carga_id` também seja "JR" — incluindo a carga "JR" mostrada no print que ainda nem teve movimento na portaria.
-
-### Bug 2 — Aba "Pátio" filtra por data do dia
-`Portaria.tsx` aplica `dateFromStr/dateToStr` em todos os tabs. Jesumar entrou em 29/04 (`no_patio`, sem saída), mas a aba "Pátio" só lê movimentos do dia atual (30/04), então o veículo desaparece. Veículos sem saída devem aparecer no Pátio independentemente da data de chegada.
-
-### Bug 3 — Migration de limpeza não foi aplicada
-Os dois registros órfãos (Fagno `292abd8e…` e Sinomar `8768b164…`) ainda estão no banco. A migration anterior precisa de fato rodar.
-
----
+Achados confirmados no banco:
+- Fagno / QWE1B20 / `JR MIX`: a carga atual é de 30/04, mas existe ciclo antigo de `JR MIX` em 22/04 já finalizado. Algumas rotinas ainda tratam qualquer movimento com mesmo `carga_id` como se fosse da carga atual.
+- Toni / JBM8E58: existe uma entrada antiga aberta de 23/04, por isso aparece com cerca de 161h. Mas depois disso ele teve ciclos mais novos em 24/04 e 29/04-30/04 já finalizados. A entrada de 23/04 está obsoleta e não deveria aparecer como pátio atual.
+- Hiago / RZU1A65: mesmo padrão do Toni. Entrada antiga aberta em 23/04, ciclo posterior em 24/04 finalizado. Como ele nem era do dia 29/30, não deve aparecer no pátio atual.
+- Jesumar / SMQ3D94: entrada legítima de 29/04 ainda sem saída, deve continuar no pátio.
 
 ## Plano de correção
 
-### 1. `src/hooks/useStatusPortariaPorCarga.ts` — agregar por (carga_id + data)
-- Adicionar a `data` da carga como parâmetro: o hook passa a receber `Array<{ carga_id, data }>`.
-- Filtrar movimentos de cada carga por janela `[data 00:00, data+1d 00:00)` em `data_hora`. Movimentos antigos com mesmo nome de carga deixam de poluir o status.
-- Atualizar todos os callers (dashboards/listas) para passar a data junto com o `carga_id`. Backwards-compatible via overload aceitando `string[]` legado, mas marcaremos uso novo nos arquivos de dashboard principal.
+### 1. Corrigir a lógica do “Pátio atual”
+Atualizar `useMovimentacoesAtivasPatio` para não considerar simplesmente “entrada sem saída vinculada”.
 
-### 2. `src/components/portaria/PatioAtualTab.tsx` — receber lista "ativos" sem corte de data
-- Em `Portaria.tsx`, passar para `PatioAtualTab` uma segunda lista (`movimentacoesAtivas`) carregada **sem filtro de data** — somente entradas dos últimos 7 dias que ainda não têm saída vinculada e não estão `finalizado`.
-- O filtro de data continua valendo para Histórico e KPIs do dia.
-- Pequena query nova no `useMovimentacoesPortaria` (`useMovimentacoesAtivasPatio`) com índice já existente em `data_hora`.
+Nova regra:
+- Agrupar movimentos por placa normalizada.
+- Considerar o ciclo mais recente da placa.
+- Se existe uma movimentação mais nova finalizada/saída para a mesma placa, qualquer entrada antiga aberta fica obsoleta e não aparece.
+- Só mostrar no pátio quando o ciclo mais recente estiver realmente ativo (`entrada` em `no_patio`/com `horario_entrada`, sem finalização posterior).
 
-### 3. Aplicar limpeza dos dois órfãos
-A migration `20260430125118_remove_movimentacoes_orfas.sql` já existe e está correta (tabela `movimentacoes_portaria`). Confirmar que ela é executada nesta rodada — os IDs ainda estão no banco.
+Resultado:
+- Toni 161h sai do pátio.
+- Hiago sai do pátio.
+- Jesumar permanece no pátio.
+- Sinomar permanece se ainda não teve saída.
 
-### 4. Trava de prevenção em `MovimentoDetailsDialog.tsx`
-Bloquear a criação de uma "saida" quando não há nenhuma "entrada" vinculável para a placa/carga nas últimas 72h, evitando reincidência de órfãos.
+### 2. Corrigir consultas que cruzam carga atual com movimentos antigos
+Atualizar `useCargasFechadasAguardando` para relacionar movimentos com carga usando contexto do ciclo, não apenas `carga_id`.
 
----
+Nova regra:
+- Para cada carga fechada, comparar movimentos por `carga_id` e janela operacional ao redor da data da carga, por exemplo de `data - 12h` até `data + 48h`.
+- Quando houver placa prevista, priorizar também placa normalizada.
+- Ignorar movimentos muito antigos com mesmo nome de carga.
 
-## Snippet chave (agregação por carga_id + data)
+Resultado:
+- Fagno / `JR MIX` de 30/04 não herda mais a finalização antiga de 22/04.
+- Cargas overnight, como Toni saindo após meia-noite, continuam funcionando.
 
-```typescript
-// useStatusPortariaPorCarga.ts
-const { data } = await supabase
-  .from("movimentacoes_portaria")
-  .select("carga_id, data_hora, tipo_movimento, categoria, etapa_terceirizado, etapa_carga_propria, horario_entrada, horario_chegada, horario_saida_final")
-  .in("carga_id", cargaIds)
-  .in("categoria", ["terceirizado", "carga_propria"]);
+### 3. Fortalecer `useStatusPortariaPorCarga`
+A correção anterior ainda é frágil porque o resultado final é um `Map` por `carga_id`; se o mesmo nome de carga reaparece, pode haver colisão.
 
-// Agrupar por (carga_id + data da carga)
-for (const row of data ?? []) {
-  const key = `${row.carga_id}::${cargaDataMap.get(row.carga_id)}`;
-  const inicio = startOfDay(cargaData);
-  const fim = addDays(inicio, 1);
-  const ts = new Date(row.data_hora).getTime();
-  if (ts < inicio.getTime() || ts >= fim.getTime()) continue; // ignora movimento de outra carga homônima
-  grouped.get(key)!.push(row);
-}
-```
+Ajuste:
+- Expandir `CargaRef` para aceitar também `placa` e/ou `motorista` quando disponível.
+- Calcular status por chave de ciclo: `carga_id + data + placa normalizada`.
+- Manter compatibilidade com chamadas antigas, mas atualizar `Expedicao` e `Consolidado` para passar placa/motorista.
+- Usar janela operacional, não só o dia exato, para não quebrar cargas que entram em um dia e saem no seguinte.
 
----
+Resultado:
+- Status “Expedido” só aparece quando o movimento pertence ao ciclo atual da carga.
+
+### 4. Limpeza pontual dos registros obsoletos
+Executar uma limpeza de dados, não migration estrutural, nos registros antigos abertos que já foram superados por ciclos posteriores:
+- Toni: entrada aberta antiga de 23/04 (`2f0bed02-5e12-4fbd-815d-7baa8ca9e659`).
+- Hiago: entrada aberta antiga de 23/04 (`8e68e4f4-40cc-40b9-a2fd-485835fe99f5`).
+
+Opção segura: marcar como `finalizado` com observação de regularização, em vez de apagar, preservando histórico.
+
+### 5. Prevenir reincidência no registro de saída/entrada
+Fortalecer `useCreateMovimentacao`:
+- Ao criar nova entrada para uma placa que já tem entrada aberta antiga, fechar/regularizar ou bloquear com aviso claro.
+- Ao criar saída, exigir vínculo com a entrada ativa mais recente da mesma placa/carga.
+- Invalidar também a query `movimentacoes_portaria_ativas_patio` após criação/edição/exclusão, para a tela atualizar imediatamente.
+
+## Arquivos a alterar
+- `src/hooks/useMovimentacoesPortaria.ts`
+- `src/hooks/useCarregamentos.ts`
+- `src/hooks/useStatusPortariaPorCarga.ts`
+- `src/pages/Expedicao.tsx`
+- `src/pages/Consolidado.tsx`
+- possivelmente `src/components/portaria/PatioAtualTab.tsx`, apenas se precisar ajustar exibição/ordenação após a nova regra
 
 ## Resultado esperado
-- Fagno deixa de aparecer "Expedido" na carga "JR" de 30/04 (movimentos antigos da "JR" de 27/04 são filtrados pela data).
-- Jesumar volta a aparecer na aba "Pátio" mesmo tendo entrado em 29/04.
-- Sinomar exibe corretamente os movimentos legítimos sem o órfão de hoje.
-- Órfãos antigos limpos; novos órfãos bloqueados na origem.
+- Fagno volta para estado correto: aguardando/chegada, não “Expedido” sem ter entrado.
+- Toni não aparece mais com 161h no pátio.
+- Hiago não aparece no pátio/lista de 29/30.
+- Jesumar aparece corretamente no pátio enquanto não tiver saída.
+- O sistema deixa de puxar informações antigas quando o motorista ou caminhão retorna em outro dia.
