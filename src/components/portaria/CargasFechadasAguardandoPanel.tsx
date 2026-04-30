@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,11 +45,25 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   const canAct = role === "admin" || role === "logistica" || role === "portaria";
   const canCancel = role === "admin" || role === "logistica";
 
-  const cargas = cargasRaw.filter((c) => {
-    if (!categoria) return true;
-    const isPropria = !c.transportadora;
-    return categoria === "carga_propria" ? isPropria : !isPropria;
-  });
+  const cargas = useMemo(() => {
+    return cargasRaw.filter((c) => {
+      if (!categoria) return true;
+      const isPropria = !c.transportadora;
+      return categoria === "carga_propria" ? isPropria : !isPropria;
+    });
+  }, [cargasRaw, categoria]);
+
+  // Chave estável para detectar mudanças relevantes (carga_id + placa) sem
+  // expressões complexas dentro do array de deps do useEffect (regra de hooks).
+  const cargasKey = useMemo(
+    () => cargas.map((c) => `${c.carga_id}:${c.placa ?? ""}`).join("|"),
+    [cargas]
+  );
+
+  const hasWaiting = useMemo(
+    () => cargas.some((c) => c.chegouAguardandoLiberacao),
+    [cargas]
+  );
 
   // Identifica quais cargas vieram de um walk-in já no pátio
   useEffect(() => {
@@ -99,16 +113,16 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
       setWalkInIds(set);
     })();
     return () => { cancelled = true; };
-  }, [cargas.map((c) => `${c.carga_id}:${c.placa ?? ""}`).join("|")]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cargasKey]);
 
   // Cronômetro vivo para "aguardando liberação"
   useEffect(() => {
-    const hasWaiting = cargas.some((c) => c.chegouAguardandoLiberacao);
     if (!hasWaiting) return;
     // 5s para que o lockout de 30s e o cronômetro fiquem realmente vivos
     const t = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(t);
-  }, [cargas.some((c) => c.chegouAguardandoLiberacao)]);
+  }, [hasWaiting]);
 
   if (isLoading || cargas.length === 0) return null;
 

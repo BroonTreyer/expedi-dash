@@ -200,7 +200,7 @@ export function CarregamentoDialog({ open, onOpenChange, onSubmit, editing, mode
       set("cidade", lookedUpCliente.cidade ?? "");
       set("uf", lookedUpCliente.uf ?? "");
     }
-  }, [lookedUpCliente]);
+  }, [lookedUpCliente, codigoClienteInput]);
 
   const updateItem = (index: number, updates: Partial<ProductItem>) => {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));

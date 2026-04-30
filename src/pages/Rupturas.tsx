@@ -121,7 +121,8 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
   const queryClient = useQueryClient();
   // Espelha exatamente o Painel principal: hoje + carry-over de pedidos não finalizados.
   // Passar a mesma data em from/to ativa a regra especial do hook (carry-over 30d, status != 'Carregado').
-  const today = new Date();
+  // Estabiliza 'today' por render-cycle para não invalidar useMemo abaixo.
+  const today = useMemo(() => new Date(), []);
   const todayStr = format(today, "yyyy-MM-dd");
   const { data: carregamentos = [], isLoading, dataUpdatedAt, refetch } = useCarregamentos(todayStr, todayStr);
   const [cargaFilter, setCargaFilter] = useState(() => searchParams.get("carga") || "todos");
