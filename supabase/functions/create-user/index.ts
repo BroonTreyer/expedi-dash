@@ -8,6 +8,9 @@ const corsHeaders = {
 
 const VALID_ROLES = ["admin", "logistica", "faturamento", "portaria", "vendedor", "expedicao"];
 
+const isValidEmail = (s: unknown) => typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+const isUuid = (s: unknown) => typeof s === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -52,28 +55,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, password, nome, role, vendedor_id } = await req.json();
+    let body: Record<string, unknown> = {};
+    try { body = await req.json(); } catch { /* ignore */ }
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const nome = typeof body.nome === "string" ? body.nome.trim() : "";
+    const role = typeof body.role === "string" ? body.role : "";
+    const vendedor_id = body.vendedor_id;
 
-    if (!email || !password || !nome || !role) {
-      return new Response(
-        JSON.stringify({ error: "email, password, nome e role são obrigatórios" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const errors: string[] = [];
+    if (!isValidEmail(email)) errors.push("email inválido");
+    if (!password || password.length < 6) errors.push("senha deve ter pelo menos 6 caracteres");
+    if (!nome || nome.length < 2 || nome.length > 100) errors.push("nome inválido (2-100 caracteres)");
+    if (!VALID_ROLES.includes(role)) errors.push(`role inválida (permitidas: ${VALID_ROLES.join(", ")})`);
+    if (role === "vendedor" && !isUuid(vendedor_id)) errors.push("vendedor_id obrigatório para role 'vendedor'");
 
-    // Validate role
-    if (!VALID_ROLES.includes(role)) {
-      return new Response(
-        JSON.stringify({ error: `Role inválida. Valores permitidos: ${VALID_ROLES.join(", ")}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (role === "vendedor" && !vendedor_id) {
-      return new Response(
-        JSON.stringify({ error: "Para o nível 'vendedor' é obrigatório informar o cadastro de vendedor vinculado." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (errors.length > 0) {
+      return new Response(JSON.stringify({ error: errors.join("; ") }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Create user with service role (auto-confirms email)
@@ -96,34 +97,46 @@ Deno.serve(async (req) => {
       });
     }
 
-    // The trigger creates profile + default role (logistica).
-    // Always upsert the desired role to handle any race condition.
-    await serviceClient
-      .from("user_roles")
-      .upsert({ user_id: newUser.user.id, role }, { onConflict: "user_id,role" });
+    const newUserId = newUser.user.id;
 
-    // If the desired role differs from the trigger default, remove the default
-    if (role !== "logistica") {
-      await serviceClient
+    // Pós-criação: garantir role correta + vínculo vendedor. Em caso de erro, ROLLBACK do auth.users.
+    try {
+      const { error: roleErr } = await serviceClient
         .from("user_roles")
-        .delete()
-        .eq("user_id", newUser.user.id)
-        .eq("role", "logistica");
-    }
+        .upsert({ user_id: newUserId, role }, { onConflict: "user_id,role" });
+      if (roleErr) throw roleErr;
 
-    // Garantir o vínculo vendedor_users (idempotente — o trigger já tenta, mas reforçamos via service role)
-    if (role === "vendedor" && vendedor_id) {
-      await serviceClient
-        .from("vendedor_users")
-        .upsert({ user_id: newUser.user.id, vendedor_id }, { onConflict: "user_id" });
-    }
+      if (role !== "logistica") {
+        await serviceClient
+          .from("user_roles")
+          .delete()
+          .eq("user_id", newUserId)
+          .eq("role", "logistica");
+      }
 
-    return new Response(
-      JSON.stringify({ success: true, user_id: newUser.user.id }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+      if (role === "vendedor" && vendedor_id) {
+        const { error: linkErr } = await serviceClient
+          .from("vendedor_users")
+          .upsert({ user_id: newUserId, vendedor_id }, { onConflict: "user_id" });
+        if (linkErr) throw linkErr;
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, user_id: newUserId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (postErr) {
+      // Rollback: usuário ficou criado em auth.users mas sem perfil válido — apaga
+      try { await serviceClient.auth.admin.deleteUser(newUserId); } catch { /* swallow */ }
+      const msg = postErr instanceof Error ? postErr.message : String(postErr);
+      return new Response(
+        JSON.stringify({ error: `Falha ao configurar perfil; usuário revertido. Detalhes: ${msg}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    const msg = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
