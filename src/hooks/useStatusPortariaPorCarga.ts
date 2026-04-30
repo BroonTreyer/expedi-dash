@@ -32,6 +32,8 @@ interface MovRow {
   carga_id: string | null;
   tipo_movimento: string | null;
   etapa_terceirizado: string | null;
+  etapa_carga_propria: string | null;
+  categoria: string | null;
   horario_entrada: string | null;
   horario_chegada: string | null;
   horario_saida_final: string | null;
@@ -40,22 +42,47 @@ interface MovRow {
 
 function deriveEtapa(movs: MovRow[]): EtapaPortaria {
   let etapa: EtapaPortaria = "aguardando";
+  // Existe alguma "entrada" registrada para esta carga? Usado para evitar que
+  // uma "saida" órfã (sem entrada correspondente) marque indevidamente como Expedido.
+  const temEntrada = movs.some((m) => m.tipo_movimento === "entrada");
+
   for (const m of movs) {
     let cur: EtapaPortaria = "aguardando";
-    if (
-      m.tipo_movimento === "saida" ||
+    const isCargaPropria = m.categoria === "carga_propria";
+
+    // Sinais inequívocos de finalização (vale para qualquer categoria)
+    const finalizado =
       m.etapa_terceirizado === "finalizado" ||
-      m.horario_saida_final
-    ) {
+      !!m.horario_saida_final ||
+      m.etapa_carga_propria === "em_rota" ||
+      m.etapa_carga_propria === "retornou";
+
+    if (finalizado) {
       cur = "expedido";
-    } else if (m.etapa_terceirizado === "liberado") {
-      cur = "carregando";
-    } else if (m.etapa_terceirizado === "no_patio" || m.horario_entrada) {
-      cur = "patio";
-    } else if (m.etapa_terceirizado === "chegada" || m.horario_chegada) {
-      // Motorista já chegou, mas ainda aguarda liberação para entrar no pátio
-      cur = "chegou";
+    } else if (m.tipo_movimento === "saida") {
+      // Saída sem etapa final: só conta como expedido se houver entrada correspondente.
+      // Saídas órfãs (sem nenhuma entrada vinculada) são ignoradas — provavelmente
+      // movimentos soltos / duplicatas.
+      if (temEntrada) cur = "expedido";
+      else continue;
+    } else if (isCargaPropria) {
+      // Carga própria: mapeia etapa_carga_propria
+      if (m.etapa_carga_propria === "chegou" || m.horario_entrada) {
+        cur = "patio";
+      } else if (m.etapa_carga_propria === "aguardando_liberacao" || m.horario_chegada) {
+        cur = "chegou";
+      }
+    } else {
+      // Terceirizado em andamento
+      if (m.etapa_terceirizado === "liberado") {
+        cur = "carregando";
+      } else if (m.etapa_terceirizado === "no_patio" || m.horario_entrada) {
+        cur = "patio";
+      } else if (m.etapa_terceirizado === "chegada" || m.horario_chegada) {
+        cur = "chegou";
+      }
     }
+
     if (ORDEM[cur] > ORDEM[etapa]) etapa = cur;
   }
   return etapa;
@@ -76,9 +103,9 @@ export function useStatusPortariaPorCarga(cargaIds: string[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id, tipo_movimento, etapa_terceirizado, horario_entrada, horario_chegada, horario_saida_final, data_hora")
+        .select("carga_id, tipo_movimento, categoria, etapa_terceirizado, etapa_carga_propria, horario_entrada, horario_chegada, horario_saida_final, data_hora")
         .in("carga_id", cargaIds)
-        .eq("categoria", "terceirizado");
+        .in("categoria", ["terceirizado", "carga_propria"]);
       if (error) throw error;
 
       const grouped = new Map<string, MovRow[]>();
@@ -114,7 +141,7 @@ export function useStatusPortariaPorCarga(cargaIds: string[]) {
       .channel(`status-portaria-${idsKey}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "movimentacoes_portaria", filter: "categoria=eq.terceirizado" },
+        { event: "*", schema: "public", table: "movimentacoes_portaria" },
         () => {
           if (debounceRef.current) clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(() => {
