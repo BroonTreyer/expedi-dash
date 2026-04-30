@@ -197,22 +197,42 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
 
   useEffect(() => {
     if (!session || cargaIds.length === 0) return;
-    const channel = supabase
-      .channel(`status-portaria-${idsKey}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "movimentacoes_portaria" },
-        () => {
-          if (debounceRef.current) clearTimeout(debounceRef.current);
-          debounceRef.current = setTimeout(() => {
-            queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga", idsKey] });
-          }, 1500);
-        }
-      )
-      .subscribe();
+    let attempts = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const connect = () => {
+      channel = supabase
+        .channel(`status-portaria-${idsKey}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "movimentacoes_portaria" },
+          () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ["status_portaria_por_carga", idsKey] });
+            }, 1500);
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            attempts = 0;
+          } else if (status === "CHANNEL_ERROR" || status === "CLOSED" || status === "TIMED_OUT") {
+            // Reconexão com backoff (3s, 10s, 30s, 60s)
+            const delay = Math.min(60_000, 3_000 * Math.pow(2, attempts));
+            attempts += 1;
+            if (channel) supabase.removeChannel(channel);
+            channel = null;
+            reconnectTimer = setTimeout(connect, delay);
+          }
+        });
+    };
+    connect();
+
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      supabase.removeChannel(channel);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [idsKey, session, cargaIds.length, queryClient]);
 
