@@ -130,10 +130,17 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   // Without this, the user could trigger 2 simultaneous batch updates and create duplicate
   // carga_id rows + duplicate veiculos_esperados entries.
   const submitGuard = useRef<boolean>(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Reset submitting ao reabrir o dialog
+  useEffect(() => {
+    if (open) setSubmitting(false);
+  }, [open]);
 
   const handleSubmit = async () => {
-    if (submitGuard.current) return;
+    if (submitGuard.current || submitting) return;
     submitGuard.current = true;
+    setSubmitting(true);
     try {
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
@@ -236,6 +243,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     } finally {
       // Libera após o submit; o dialog já foi fechado por onOpenChange(false) acima.
       submitGuard.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -245,7 +253,11 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => {
+      // Bloqueia fechar (ESC, overlay, X) enquanto a operação está em curso
+      if (!o && submitting) return;
+      onOpenChange(o);
+    }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Truck className="h-5 w-5" /> Fechar Carga</DialogTitle>
@@ -423,9 +435,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
-            Fechar Carga ({totalPedidos} pedidos)
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
+            {submitting ? "Fechando carga..." : `Fechar Carga (${totalPedidos} pedidos)`}
           </Button>
         </div>
       </DialogContent>

@@ -281,9 +281,15 @@ export function PortariaAdminPanel() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => finalizarTodosFantasmas.mutate()}>
-              Confirmar
+            <AlertDialogCancel disabled={finalizarTodosFantasmas.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={finalizarTodosFantasmas.isPending}
+              onClick={(e) => {
+                if (finalizarTodosFantasmas.isPending) { e.preventDefault(); return; }
+                finalizarTodosFantasmas.mutate();
+              }}
+            >
+              {finalizarTodosFantasmas.isPending ? "Finalizando..." : "Confirmar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -298,9 +304,15 @@ export function PortariaAdminPanel() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => excluirTodosEsperados.mutate()}>
-              Confirmar exclusão
+            <AlertDialogCancel disabled={excluirTodosEsperados.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={excluirTodosEsperados.isPending}
+              onClick={(e) => {
+                if (excluirTodosEsperados.isPending) { e.preventDefault(); return; }
+                excluirTodosEsperados.mutate();
+              }}
+            >
+              {excluirTodosEsperados.isPending ? "Excluindo..." : "Confirmar exclusão"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
