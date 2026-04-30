@@ -4,7 +4,7 @@ import { useAuth, useSession } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
-export interface MeuPainelData {
+interface MeuPainelData {
   vendedorId: string | null;
   vendedorNome: string | null;
   carregamentos: any[];

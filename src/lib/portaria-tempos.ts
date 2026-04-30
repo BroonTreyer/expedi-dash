@@ -18,7 +18,7 @@ function diffMin(a?: string | null, b?: string | null): number | null {
   return d < 0 ? null : d;
 }
 
-export interface TemposOperacionais {
+interface TemposOperacionais {
   /** Chegada → Entrada (espera no portão) */
   espera: number | null;
   /** Entrada → Saída (operação interna) */

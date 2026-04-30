@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-export type OcorrenciaCarga = {
+type OcorrenciaCarga = {
   id: string;
   created_at: string;
   tipo: string;

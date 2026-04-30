@@ -88,7 +88,7 @@ function deriveEtapa(movs: MovRow[]): EtapaPortaria {
   return etapa;
 }
 
-export interface CargaRef {
+interface CargaRef {
   carga_id: string;
   data: string; // YYYY-MM-DD
   placa?: string | null;

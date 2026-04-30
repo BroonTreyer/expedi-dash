@@ -14,7 +14,7 @@ export interface EditItemPayload {
   ruptura?: boolean;
 }
 
-export interface EditarPedidoPayload {
+interface EditarPedidoPayload {
   // Identidade do grupo (para novos itens)
   vendedor_id: string;
   data: string; // yyyy-mm-dd

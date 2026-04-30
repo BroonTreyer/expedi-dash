@@ -23,14 +23,14 @@ export interface AnalyticsFilters {
   ufs?: string[];
 }
 
-export interface DailyWeight {
+interface DailyWeight {
   date: string;
   peso: number;
   carregado: number;
   acumulado: number;
 }
 
-export interface VendedorRanking {
+interface VendedorRanking {
   nome: string;
   peso: number;
   pedidos: number;
@@ -38,45 +38,45 @@ export interface VendedorRanking {
   mediaPorPedido: number;
 }
 
-export interface UfDistribution {
+interface UfDistribution {
   uf: string;
   peso: number;
   pedidos: number;
   participacao: number;
 }
 
-export interface RupturaDaily {
+interface RupturaDaily {
   date: string;
   total: number;
   rupturas: number;
   taxa: number;
 }
 
-export interface StatusBreakdown {
+interface StatusBreakdown {
   status: string;
   count: number;
   peso: number;
 }
 
-export interface TipoCaminhaoBreakdown {
+interface TipoCaminhaoBreakdown {
   tipo: string;
   peso: number;
   pedidos: number;
 }
 
-export interface DailyByTipo {
+interface DailyByTipo {
   date: string;
   [tipo: string]: string | number;
 }
 
-export interface ProdutoRuptura {
+interface ProdutoRuptura {
   produto: string;
   rupturas: number;
   peso: number;
   pesoNaoCarregado: number;
 }
 
-export interface ClienteRuptura {
+interface ClienteRuptura {
   codigo: string;
   nome: string;
   ocorrencias: number;
@@ -84,7 +84,7 @@ export interface ClienteRuptura {
   produtos: string[];
 }
 
-export interface CargaPendencia {
+interface CargaPendencia {
   cargaId: string;
   nomeCarga: string;
   ocorrencias: number;
@@ -92,7 +92,7 @@ export interface CargaPendencia {
   motoristas: string[];
 }
 
-export interface KpiComparison {
+interface KpiComparison {
   totalPeso: number;
   totalPedidos: number;
   totalRupturas: number;
