@@ -342,17 +342,24 @@ export function useAutorizarChegada() {
   });
 }
 
-export function useVeiculosEsperados(dataReferencia: string) {
-  const dataInicio = (() => {
-    const d = new Date(dataReferencia + "T00:00:00");
-    d.setDate(d.getDate() - 3);
-    return d.toISOString().slice(0, 10);
-  })();
-
-  const dataLimite = (() => {
-    const d = new Date(dataReferencia + "T00:00:00");
-    d.setDate(d.getDate() + 3);
-    return d.toISOString().slice(0, 10);
+export function useVeiculosEsperados(dataReferencia: string, dataFim?: string) {
+  // Se dataFim for informado, usa o intervalo exato selecionado pelo usuário.
+  // Caso contrário, mantém a janela legada de ±3 dias para compatibilidade
+  // com chamadas que passam apenas uma data (ex.: painel A Chegar).
+  const { dataInicio, dataLimite } = (() => {
+    if (dataFim && dataFim.length === 10) {
+      const start = dataReferencia <= dataFim ? dataReferencia : dataFim;
+      const end = dataReferencia <= dataFim ? dataFim : dataReferencia;
+      return { dataInicio: start, dataLimite: end };
+    }
+    const ini = new Date(dataReferencia + "T00:00:00");
+    ini.setDate(ini.getDate() - 3);
+    const lim = new Date(dataReferencia + "T00:00:00");
+    lim.setDate(lim.getDate() + 3);
+    return {
+      dataInicio: ini.toISOString().slice(0, 10),
+      dataLimite: lim.toISOString().slice(0, 10),
+    };
   })();
 
   const session = useSession();
