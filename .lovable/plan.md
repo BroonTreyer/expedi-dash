@@ -1,39 +1,40 @@
-## O que muda
+## Problema
 
-Você quer que a aba **Esperados** da Portaria mostre **sempre todos os veículos esperados**, sem filtrar por data — mesmo estando hoje (30/04) com veículos cadastrados para 02/05, 04/05, semana que vem etc.
+Na aba **Pátio Atual** (Portaria → Carga Própria), os três veículos com tag "Em Rota" mostram exatamente o mesmo tempo decorrido (ex.: "em rota há 3h 41min"), mesmo tendo horários de partida bem diferentes (01:01, 04:19, 05:57).
 
-## Correção (2 arquivos)
+## Causa raiz
 
-### 1. `src/hooks/useVeiculosEsperados.ts`
-Adicionar uma flag opcional `options.showAll`. Quando `true`, a query ignora `data_referencia` e traz todos os esperados (limite alto de 2000 registros para segurança):
+O cálculo usa o campo errado. Em `src/components/portaria/PatioAtualTab.tsx` (`getMinutosNoPatio`), para veículos `em_rota` o tempo é calculado a partir de `m.horario_saida_final`. Verificando o banco:
+
+- Os 27 registros com `etapa_carga_propria='em_rota'` compartilham **o mesmo** `horario_saida_final = 2026-04-30 20:46:34.246709+00` (valor único, provavelmente vindo de um update em lote anterior).
+- O horário real da partida para a rota está em `horario_real_saida`, que é distinto por registro (ex.: 06:40, 09:21, 10:07, 10:54...).
+
+Por isso todos exibem o mesmo "há 3h 41min" — é a diferença entre `now` e esse timestamp único.
+
+Semanticamente, `horario_saida_final` representa a saída final/lacre (preenchida quando o veículo retorna e sai definitivamente). Para um veículo ainda **em rota**, o marco correto é `horario_real_saida` (saída para rota).
+
+## Correção
+
+Em `src/components/portaria/PatioAtualTab.tsx`, alterar `getMinutosNoPatio` para que, no caso `em_rota`, use `horario_real_saida` como referência (com fallback para `horario_saida_final` e depois `data_hora`, por segurança):
 
 ```ts
-useVeiculosEsperados(dataReferencia, dataFim?, { showAll: true })
+function getMinutosNoPatio(m: MovimentacaoPortaria, now: Date): number {
+  if (isEmRota(m)) {
+    const ref = m.horario_real_saida || m.horario_saida_final || m.data_hora;
+    return differenceInMinutes(now, new Date(ref));
+  }
+  return differenceInMinutes(now, new Date(m.data_hora));
+}
 ```
 
-- Mantém compatibilidade com as outras telas que ainda chamam com 1 ou 2 argumentos.
-- Sem `showAll`, comportamento atual permanece (janela ±3 dias ou intervalo exato).
+Isso afeta tanto a renderização de tabela (linha ~433) quanto a de cards mobile (linha ~296), pois ambas usam a mesma função.
 
-### 2. `src/pages/Portaria.tsx`
-Trocar a chamada atual:
-```ts
-useVeiculosEsperados(dateFromStr, dateToStr)
-```
-por:
-```ts
-useVeiculosEsperados(dateFromStr, dateToStr, { showAll: true })
-```
+## Escopo
 
-Resultado: a aba **Esperados** passa a listar todos os veículos do grupo (`PRÓPRIA` ou `TERCEIRIZADO`) que ainda não foram conferidos, **independentemente da data selecionada na página**.
+- Edita apenas `src/components/portaria/PatioAtualTab.tsx`.
+- Não mexe no banco nem em outras telas. O `horario_saida_final` corrompido nos registros `em_rota`/`retornou`/`aguardando_liberacao` deixa de impactar a UI porque passamos a usar o campo correto.
+- Não altera lógica de finalizados (que continuam usando `horario_saida_final` legítimo via `computeTempos`).
 
-## O que NÃO muda
+## Resultado esperado
 
-- O filtro de data continua valendo para as abas **Pátio**, **Histórico** e **Movimentações** (que dependem de data).
-- A janela ±3 dias permanece para outras telas que usam o hook (ex.: painel "A Chegar" da Expedição).
-- Os ajustes anteriores (auto-expansão do range no import, suporte a `dateFim`) continuam funcionais como fallback.
-
-## Consequência prática
-
-Hoje (30/04), a aba Esperados de Carga Própria vai listar imediatamente os 30 veículos importados (2 do dia 02/05 + 28 do dia 04/05) sem nenhum ajuste no calendário.
-
-Posso aplicar?
+Cada linha "Em Rota" passa a mostrar o tempo real desde a saída para rota — coerente com o horário exibido na coluna "Horário".

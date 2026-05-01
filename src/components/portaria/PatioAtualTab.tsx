@@ -54,9 +54,12 @@ function isEmRota(m: MovimentacaoPortaria): boolean {
 }
 
 function getMinutosNoPatio(m: MovimentacaoPortaria, now: Date): number {
-  // For "em_rota" vehicles, count time since they left for route (not since arrival)
-  if (isEmRota(m) && m.horario_saida_final) {
-    return differenceInMinutes(now, new Date(m.horario_saida_final));
+  // For "em_rota" vehicles, count time since they actually left for route.
+  // Use horario_real_saida (per-record actual departure) — horario_saida_final
+  // is reserved for the final/seal exit and may not be per-record.
+  if (isEmRota(m)) {
+    const ref = m.horario_real_saida || m.horario_saida_final || m.data_hora;
+    return differenceInMinutes(now, new Date(ref));
   }
   return differenceInMinutes(now, new Date(m.data_hora));
 }
