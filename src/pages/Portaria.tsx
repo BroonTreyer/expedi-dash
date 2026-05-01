@@ -75,7 +75,7 @@ export default function Portaria({ categoria }: PortariaProps) {
     [movimentacoesAtivasAll, categoria]
   );
   const createMov = useCreateMovimentacao();
-  const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateFromStr);
+  const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateFromStr, dateToStr);
   const veiculosEsperados = useMemo(
     () => veiculosEsperadosAll.filter((v) => v.grupo === meta.grupoEsperado),
     [veiculosEsperadosAll, meta.grupoEsperado]
@@ -180,7 +180,53 @@ export default function Portaria({ categoria }: PortariaProps) {
   };
 
   const handleImportConfirm = (rows: ParsedRow[]) => {
-    importarMutation.mutate({ rows, dataReferencia: dateFromStr });
+    importarMutation.mutate(
+      { rows, dataReferencia: dateFromStr },
+      {
+        onSuccess: () => {
+          // Coleta as datas reais que vieram na planilha e expande o
+          // intervalo da tela se algo ficou de fora — assim o usuário vê
+          // imediatamente o que acabou de importar.
+          const datas = rows
+            .map((r) => {
+              const raw = (r as any).data as string | undefined;
+              if (!raw) return null;
+              const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+              if (m) {
+                const [, d, mo, y] = m;
+                return new Date(Number(y), Number(mo) - 1, Number(d));
+              }
+              if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+                return new Date(raw + "T00:00:00");
+              }
+              return null;
+            })
+            .filter((d): d is Date => !!d && !isNaN(d.getTime()));
+
+          if (datas.length === 0) return;
+
+          const minDate = new Date(Math.min(...datas.map((d) => d.getTime())));
+          const maxDate = new Date(Math.max(...datas.map((d) => d.getTime())));
+          const currentFrom = dateRange.from ?? today;
+          const currentTo = dateRange.to ?? currentFrom;
+
+          const needsExpand =
+            minDate.getTime() < currentFrom.getTime() ||
+            maxDate.getTime() > currentTo.getTime();
+
+          if (needsExpand) {
+            const newFrom = minDate < currentFrom ? minDate : currentFrom;
+            const newTo = maxDate > currentTo ? maxDate : currentTo;
+            setDateRange({ from: newFrom, to: newTo });
+            const sameDay = minDate.toDateString() === maxDate.toDateString();
+            const label = sameDay
+              ? format(minDate, "dd/MM")
+              : `${format(minDate, "dd/MM")} a ${format(maxDate, "dd/MM")}`;
+            toast.info(`Intervalo da tela ajustado para abranger as datas importadas (${label}).`);
+          }
+        },
+      }
+    );
   };
 
   const handleDialogClose = (v: boolean) => {
