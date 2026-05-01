@@ -75,7 +75,7 @@ export default function Portaria({ categoria }: PortariaProps) {
     [movimentacoesAtivasAll, categoria]
   );
   const createMov = useCreateMovimentacao();
-  const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateFromStr, dateToStr);
+  const { data: veiculosEsperadosAll = [] } = useVeiculosEsperados(dateFromStr, dateToStr, { showAll: true });
   const veiculosEsperados = useMemo(
     () => veiculosEsperadosAll.filter((v) => v.grupo === meta.grupoEsperado),
     [veiculosEsperadosAll, meta.grupoEsperado]

@@ -1,51 +1,39 @@
-## Diagnóstico (confirmado)
+## O que muda
 
-A planilha **foi importada corretamente**. Estão no banco, todos como `grupo='PRÓPRIA'`:
+Você quer que a aba **Esperados** da Portaria mostre **sempre todos os veículos esperados**, sem filtrar por data — mesmo estando hoje (30/04) com veículos cadastrados para 02/05, 04/05, semana que vem etc.
 
-- 02/05/2026 → 2 veículos
-- 04/05/2026 → 28 veículos
+## Correção (2 arquivos)
 
-Então por que você não vê em **Portaria → Carga Própria → Esperados**? Por causa da **janela fixa de ±3 dias** do hook `useVeiculosEsperados`:
+### 1. `src/hooks/useVeiculosEsperados.ts`
+Adicionar uma flag opcional `options.showAll`. Quando `true`, a query ignora `data_referencia` e traz todos os esperados (limite alto de 2000 registros para segurança):
 
-- Hoje é 30/04. A página inicia com data = hoje.
-- O hook (`src/hooks/useVeiculosEsperados.ts`) calcula `dataInicio = data - 3` e `dataLimite = data + 3` → janela 27/04 até 03/05.
-- Os 2 do dia 02/05 caem dentro (devem aparecer).
-- **Os 28 do dia 04/05 ficam fora** — 1 dia além da janela. Por isso "não aparece nada".
+```ts
+useVeiculosEsperados(dataReferencia, dataFim?, { showAll: true })
+```
 
-Além disso, a página `Portaria.tsx` (linha 78) só passa `dateFromStr` ao hook, ignorando o `dateTo` do seletor de intervalo. Mesmo se você escolher "30/04 → 04/05" no calendário da Portaria, a janela continua ancorada só no `from`.
+- Mantém compatibilidade com as outras telas que ainda chamam com 1 ou 2 argumentos.
+- Sem `showAll`, comportamento atual permanece (janela ±3 dias ou intervalo exato).
 
-## Correção
+### 2. `src/pages/Portaria.tsx`
+Trocar a chamada atual:
+```ts
+useVeiculosEsperados(dateFromStr, dateToStr)
+```
+por:
+```ts
+useVeiculosEsperados(dateFromStr, dateToStr, { showAll: true })
+```
 
-### 1. Respeitar o intervalo selecionado
-Em `src/hooks/useVeiculosEsperados.ts`, alterar `useVeiculosEsperados(dataReferencia: string)` para `useVeiculosEsperados(dataInicio: string, dataFim?: string)`:
-- Se `dataFim` vier, usar `[dataInicio .. dataFim]` exatamente.
-- Se não vier, manter o comportamento atual (±3 dias) para não quebrar outras telas.
+Resultado: a aba **Esperados** passa a listar todos os veículos do grupo (`PRÓPRIA` ou `TERCEIRIZADO`) que ainda não foram conferidos, **independentemente da data selecionada na página**.
 
-Em `src/pages/Portaria.tsx` (linha 78) passar os dois: `useVeiculosEsperados(dateFromStr, dateToStr)`.
+## O que NÃO muda
 
-Com isso, basta o usuário escolher "30/04 → 04/05" para ver os 30 veículos.
+- O filtro de data continua valendo para as abas **Pátio**, **Histórico** e **Movimentações** (que dependem de data).
+- A janela ±3 dias permanece para outras telas que usam o hook (ex.: painel "A Chegar" da Expedição).
+- Os ajustes anteriores (auto-expansão do range no import, suporte a `dateFim`) continuam funcionais como fallback.
 
-### 2. Auto-ajustar o range após import
-No `handleImportConfirm` em `Portaria.tsx`, depois de importar com sucesso:
-- Calcular min/max das datas dos `rows` importados.
-- Se algum estiver fora do `dateRange` atual, expandir o `dateRange` para englobar todas.
-- Toast informando: `"30 veículos importados — datas 02/05 a 04/05. Intervalo da tela ajustado."`
+## Consequência prática
 
-Assim o usuário **vê imediatamente** o que acabou de importar, sem precisar mexer no calendário.
-
-### 3. Mensagem clara quando há registros fora da janela
-Ainda no `Portaria.tsx`, adicionar um aviso pequeno acima da lista de Esperados quando houver registros importados em datas fora do intervalo atual: `"Há N veículos esperados em outras datas (ex.: 04/05). Amplie o intervalo para visualizá-los."` — com botão "Mostrar tudo" que expande pra abranger min/max.
-
-## O que NÃO mudar
-
-- O parser do Excel (já leu e gravou corretamente para esta planilha).
-- O grupo padrão `PRÓPRIA` (correto para esta planilha).
-- A semântica do hook nas demais páginas que ainda chamam com 1 argumento (compatibilidade preservada via parâmetro opcional).
-
-## Resultado esperado
-
-1. Selecionando data "Hoje" + janela ampliada após import → você vê os 30 veículos imediatamente.
-2. Escolhendo manualmente intervalo 30/04 → 04/05 no calendário → você vê os 30.
-3. Próximas importações ajustam a tela automaticamente para abranger as datas trazidas.
+Hoje (30/04), a aba Esperados de Carga Própria vai listar imediatamente os 30 veículos importados (2 do dia 02/05 + 28 do dia 04/05) sem nenhum ajuste no calendário.
 
 Posso aplicar?
