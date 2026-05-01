@@ -342,11 +342,18 @@ export function useAutorizarChegada() {
   });
 }
 
-export function useVeiculosEsperados(dataReferencia: string, dataFim?: string) {
-  // Se dataFim for informado, usa o intervalo exato selecionado pelo usuário.
-  // Caso contrário, mantém a janela legada de ±3 dias para compatibilidade
-  // com chamadas que passam apenas uma data (ex.: painel A Chegar).
+export function useVeiculosEsperados(
+  dataReferencia: string,
+  dataFim?: string,
+  options?: { showAll?: boolean }
+) {
+  // showAll: ignora janela de datas e traz todos os esperados (útil quando o
+  // usuário importa uma planilha com datas distantes do dia atual).
+  // dataFim: usa o intervalo exato selecionado pelo usuário.
+  // Default: janela ±3 dias (compatibilidade com painel "A Chegar" etc.).
+  const showAll = !!options?.showAll;
   const { dataInicio, dataLimite } = (() => {
+    if (showAll) return { dataInicio: "", dataLimite: "" };
     if (dataFim && dataFim.length === 10) {
       const start = dataReferencia <= dataFim ? dataReferencia : dataFim;
       const end = dataReferencia <= dataFim ? dataFim : dataReferencia;
@@ -365,16 +372,21 @@ export function useVeiculosEsperados(dataReferencia: string, dataFim?: string) {
   const session = useSession();
 
   return useQuery({
-    queryKey: ["veiculos_esperados", dataInicio, dataLimite],
+    queryKey: showAll
+      ? ["veiculos_esperados", "all"]
+      : ["veiculos_esperados", dataInicio, dataLimite],
     enabled: !!session,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("veiculos_esperados" as any)
         .select("*")
-        .gte("data_referencia", dataInicio)
-        .lte("data_referencia", dataLimite)
         .order("data_referencia", { ascending: true })
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true })
+        .limit(2000);
+      if (!showAll) {
+        q = q.gte("data_referencia", dataInicio).lte("data_referencia", dataLimite);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as VeiculoEsperado[];
     },
