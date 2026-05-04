@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2 } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2, LogIn } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -118,10 +118,10 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         // Normal: show entradas without linked saída
         if (m.tipo_movimento !== "entrada") return false;
         if (saidasVinculadas.has(m.id)) return false;
-        // Excluir chegadas ainda aguardando liberação (não estão no pátio de fato)
-        if (m.carga_id && !m.horario_entrada && (m.etapa_terceirizado === "chegada" || m.etapa_carga_propria === "aguardando_liberacao")) {
-          return false;
-        }
+        // Chegadas ainda aguardando liberação são MANTIDAS aqui como cartão
+        // "Aguardando liberar entrada", para que a portaria sempre tenha um
+        // ponto único de visibilidade — independentemente de existir carga
+        // fechada correspondente cobrindo no painel azul.
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
         return true;
@@ -212,6 +212,28 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     );
   };
 
+  /** Movimento que registrou apenas a chegada — ainda não foi liberado para o pátio. */
+  const isAguardandoLiberacao = (m: MovimentacaoPortaria): boolean => {
+    if (m.horario_entrada) return false;
+    if (m.categoria === "carga_propria" && m.etapa_carga_propria === "aguardando_liberacao") return true;
+    if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada") return true;
+    return false;
+  };
+
+  const handleLiberarEntrada = async (m: MovimentacaoPortaria) => {
+    setSavingId(m.id);
+    try {
+      const update: Record<string, any> = { horario_entrada: new Date().toISOString() };
+      if (m.categoria === "carga_propria") update.etapa_carga_propria = "chegou";
+      else if (m.categoria === "terceirizado") update.etapa_terceirizado = "no_patio";
+      await updateMov.mutateAsync({ id: m.id, ...update } as any);
+    } catch {
+      // toast já tratado pelo hook
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const handleReabrirRegistro = async (m: MovimentacaoPortaria) => {
     setSavingId(m.id);
     try {
@@ -262,13 +284,19 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           const infoExtra = getInfoExtra(m);
           const isReabrir = reabrirId === m.id;
           const podeReabrir = podeReabrirRegistro(m);
+          const aguardandoLib = isAguardandoLiberacao(m);
 
           return (
-            <Card key={m.id} className={emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
+            <Card key={m.id} className={aguardandoLib ? "border-amber-500/40 bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
                   <div className="flex items-center gap-1">
+                    {aguardandoLib && (
+                      <Badge variant="outline" className="text-[10px] h-5 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        Aguardando Liberação
+                      </Badge>
+                    )}
                     {m.categoria === "carga_propria" && m.etapa_carga_propria && (
                       <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
                         {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
@@ -328,7 +356,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </div>
                 {!readOnly && (
                 <div className="flex justify-end pt-1">
-                  {m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
+                  {aguardandoLib ? (
+                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={isSaving}>
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogIn className="h-3 w-3" />}
+                      Liberar Entrada no Pátio
+                    </Button>
+                  ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                        <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
                     </Button>
@@ -421,9 +454,10 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
             const infoExtra = getInfoExtra(m);
             const isReabrir = reabrirId === m.id;
             const podeReabrir = podeReabrirRegistro(m);
+            const aguardandoLib = isAguardandoLiberacao(m);
 
             return (
-              <TableRow key={m.id} className={emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
+              <TableRow key={m.id} className={aguardandoLib ? "bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
                 <TableCell className="text-sm">
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -441,6 +475,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
                       {getCategoriaLabel(m.categoria)}
                     </Badge>
+                    {aguardandoLib && (
+                      <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        Aguardando Liberação
+                      </Badge>
+                    )}
                     {m.categoria === "carga_propria" && m.etapa_carga_propria && (
                       <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
                         {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
@@ -468,7 +507,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <TableCell className="text-right">
                   {!readOnly && (
                   <div className="flex items-center gap-1 justify-end">
-                  {m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
+                  {aguardandoLib ? (
+                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={isSaving}>
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogIn className="h-3 w-3" />}
+                      Liberar Entrada
+                    </Button>
+                  ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
                     </Button>

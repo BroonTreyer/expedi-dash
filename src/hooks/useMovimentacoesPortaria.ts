@@ -198,10 +198,11 @@ export function useMovimentacoesAtivasPatio() {
         if (saidasVinculadas.has(m.id)) return false;
         // Terceirizado finalizado: já saiu
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
-        // Ainda na portaria (chegou mas não foi liberado pra entrar no pátio):
-        // não conta como pátio. Aparece no painel "Aguardando liberação".
-        if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada" && !m.horario_entrada) return false;
-        if (m.categoria === "carga_propria" && m.etapa_carga_propria === "aguardando_liberacao" && !m.horario_entrada) return false;
+        // Chegou mas ainda não foi liberado para o pátio: MANTER visível no
+        // Pátio Atual como cartão "Aguardando liberar entrada". Antes essas
+        // chegadas eram escondidas e, quando não havia carga fechada
+        // correspondente cobrindo-as no painel azul, sumiam do operacional
+        // e só apareciam no Histórico. Agora ficam sempre acessíveis.
         // Entrada antiga obsoleta: existe um movimento posterior da mesma placa
         // que já está finalizado (saída ou etapa final). Nesse caso esta
         // entrada pertence a um ciclo passado que ficou aberto por engano.
