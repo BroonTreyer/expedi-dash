@@ -125,6 +125,15 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         // fechada correspondente cobrindo no painel azul.
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+        // Onda 5 — Terceirizado em 'chegada' SEM carga vinculada não pertence
+        // ao Pátio Atual: pertence à fila "Aguardando Vínculo Logístico"
+        // (painel laranja acima das tabs). A Portaria não pode liberar a
+        // entrada antes da Logística vincular uma carga.
+        if (
+          m.categoria === "terceirizado" &&
+          m.etapa_terceirizado === "chegada" &&
+          !m.carga_id
+        ) return false;
         return true;
       })
       .filter((m) => {
