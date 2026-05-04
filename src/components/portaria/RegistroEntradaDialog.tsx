@@ -127,8 +127,8 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         motorista: motoristaNorm,
         tipo_caminhao: tipoVeiculo,
         carga_id: cargaId,
-        // Apenas chegada — entrada no pátio será liberada em um segundo passo
-        horario_entrada: null,
+        // Carga própria entra direto no pátio; terceirizado aguarda liberação.
+        horario_entrada: isCargaPropria ? nowIso : null,
         horario_chegada: nowIso,
         data_hora: nowIso,
         usuario_id: user?.id ?? null,
@@ -137,7 +137,7 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         movPayload.empresa = transportadora;
         movPayload.etapa_terceirizado = "chegada";
       } else {
-        movPayload.etapa_carga_propria = "aguardando_liberacao";
+        movPayload.etapa_carga_propria = "chegou";
       }
       if (reaproveitar) {
         const { error: updErr } = await supabase
@@ -226,7 +226,9 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           </DialogTitle>
           <DialogDescription>
             {isVinculadoACarga
-              ? "Registra a chegada do motorista na portaria. O veículo só entrará no pátio após a liberação no painel."
+              ? (grupo === "PRÓPRIA"
+                  ? "Registra a chegada do motorista da frota própria. O veículo entra direto no pátio."
+                  : "Registra a chegada do motorista terceirizado. O veículo entrará no pátio após a liberação no painel.")
               : "Vincule motorista e veículo já cadastrados. O veículo ficará disponível para a Logística vincular ao fechar uma carga."}
           </DialogDescription>
         </DialogHeader>
