@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Truck, Building2, LogIn } from "lucide-react";
+import { Building2, LogIn } from "lucide-react";
 import { RegistroEntradaDialog } from "@/components/portaria/RegistroEntradaDialog";
 import { SolicitacoesPendentesPanel } from "@/components/portaria/SolicitacoesPendentesPanel";
 import { CargasFechadasAguardandoPanel } from "@/components/portaria/CargasFechadasAguardandoPanel";
 
 export default function RegistroEntrada() {
-  const [grupo, setGrupo] = useState<"PRÓPRIA" | "TERCEIRIZADO" | null>(null);
+  const [grupo, setGrupo] = useState<"TERCEIRIZADO" | null>(null);
 
   return (
     <Layout>
@@ -24,22 +24,7 @@ export default function RegistroEntrada() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card
-            className="cursor-pointer hover:border-primary hover:shadow-md transition-all"
-            onClick={() => setGrupo("PRÓPRIA")}
-          >
-            <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-              <div className="p-4 rounded-full bg-primary/10">
-                <Truck className="h-8 w-8 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Frota Própria</h3>
-                <p className="text-xs text-muted-foreground mt-1">Registrar entrada de veículo da empresa</p>
-              </div>
-            </CardContent>
-          </Card>
-
+        <div className="max-w-sm mx-auto w-full">
           <Card
             className="cursor-pointer hover:border-primary hover:shadow-md transition-all"
             onClick={() => setGrupo("TERCEIRIZADO")}
