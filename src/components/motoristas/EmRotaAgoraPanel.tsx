@@ -37,7 +37,8 @@ export function EmRotaAgoraPanel({ data, onSelect }: { data: MotoristaAgg[]; onS
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {emRota.map((m) => {
         const ativo = m.movimentos.find((i) =>
-          (i.etapa_carga_propria === "em_rota" || i.etapa_terceirizado === "em_rota") &&
+          // Terceirizado não tem etapa "em_rota"; só Carga Própria modela rota.
+          i.etapa_carga_propria === "em_rota" &&
           i.horario_real_saida && !i.horario_real_retorno && !i.horario_saida_final,
         );
         return (

@@ -120,7 +120,8 @@ export function useMotoristasPainel(opts: {
         const ultima = items[0]?.data_hora ?? null;
 
         const emRotaItem = items.find((i) =>
-          (i.etapa_carga_propria === "em_rota" || i.etapa_terceirizado === "em_rota") &&
+          // Apenas Carga Própria possui etapa "em_rota"; terceirizado não modela rota.
+          i.etapa_carga_propria === "em_rota" &&
           !!i.horario_real_saida &&
           !i.horario_real_retorno &&
           !i.horario_saida_final,

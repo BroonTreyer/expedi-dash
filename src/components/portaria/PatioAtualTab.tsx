@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useReabrirComoWalkIn } from "@/hooks/useVeiculosEsperados";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { nextEtapa, etapaEfetiva, isFinalizada, type EtapaCargaPropria } from "@/lib/carga-propria-fsm";
 
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
@@ -201,7 +202,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
       if (entrada.categoria === "carga_propria") {
         await updateMov.mutateAsync({
           id: entrada.id,
-          etapa_carga_propria: "finalizado",
+          etapa_carga_propria: nextEtapa(entrada.etapa_carga_propria as EtapaCargaPropria | null, "saida_rapida"),
           horario_saida_final: new Date().toISOString(),
         });
       }
@@ -335,8 +336,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         <AlertTriangle className="h-3 w-3" /> Estado inconsistente
                       </Badge>
                     )}
-                    {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && m.etapa_carga_propria !== "finalizado" && (() => {
-                      const etapaEff = m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou" ? m.etapa_carga_propria : "chegou";
+                    {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && !isFinalizada(m.etapa_carga_propria as any) && (() => {
+                      const etapaEff = etapaEfetiva(m.etapa_carga_propria as any);
                       return (
                         <Badge variant={etapaEff === "em_rota" ? "outline" : "default"} className={`text-[10px] ${etapaEff === "chegou" ? "bg-orange-500 text-white" : etapaEff === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
                           {etapaEff === "chegou" ? "Chegou" : etapaEff === "em_rota" ? "Em Rota" : "Retornou"}
@@ -526,8 +527,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         <AlertTriangle className="h-3 w-3" /> Estado inconsistente
                       </Badge>
                     )}
-                    {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && m.etapa_carga_propria !== "finalizado" && (() => {
-                      const etapaEff = m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou" ? m.etapa_carga_propria : "chegou";
+                    {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && !isFinalizada(m.etapa_carga_propria as any) && (() => {
+                      const etapaEff = etapaEfetiva(m.etapa_carga_propria as any);
                       return (
                         <Badge variant={etapaEff === "em_rota" ? "outline" : "default"} className={`text-[10px] ${etapaEff === "chegou" ? "bg-orange-500 text-white" : etapaEff === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
                           {etapaEff === "chegou" ? "Chegou" : etapaEff === "em_rota" ? "Em Rota" : "Retornou"}

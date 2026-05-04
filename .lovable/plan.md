@@ -65,30 +65,24 @@ Objetivo: dados deixam de corromper hoje. Sem refatoração, só cirurgia.
 
 ---
 
-## Onda 4 — Estrutural (anti-reincidência)
+## Onda 4 — Estrutural (anti-reincidência) ✅ ENTREGUE
 
-Esta onda é o seguro contra os próximos "ele tá pulando etapa". É refatoração pura, sem mudança de comportamento.
+### Entregue
+- ✅ **E1** Criada FSM `src/lib/carga-propria-fsm.ts` com `nextEtapa()`, `assertTransicao()`, `etapaEfetiva()`, `isFinalizada()`. `RegistroMovimentoDialog` (3 transições) e `PatioAtualTab` (saída rápida + 2 badges) consomem a FSM. Transições inválidas falham cedo no front e no banco (trigger D1).
+- ✅ **E2** `EtapaCargaPropria = "chegou"|"em_rota"|"retornou"|"finalizado"` e `EtapaTerceirizado = "chegada"|"no_patio"|"carregando"|"finalizado"` exportadas em `useMovimentacoesPortaria.ts`. Tipos fortes pegaram **2 bugs latentes**: comparações `etapa_terceirizado === "em_rota"` em `useMotoristasPainel.ts` e `EmRotaAgoraPanel.tsx` que nunca matchavam — corrigidas para usar apenas `etapa_carga_propria`.
+- ✅ **E3** Migração normalizou os 155 registros legados de Carga Própria que tinham `tipo_movimento='saida'` para `'entrada'`, preenchendo `horario_entrada` quando vazio. Trigger de ordem cronológica suspenso temporariamente durante o backfill (são dados pré-Onda 1 com horários inconsistentes de origem desconhecida).
+- ✅ **E4** `useStatusPortariaPorCarga` já estabilizava `idsKey` via `useMemo` ordenado — verificado, sem mudança necessária.
+- ✅ **E6** `parseDataReferencia` agora usa `EXCEL_EPOCH_OFFSET = 25569` e limite superior dinâmico `today_serial + 365*5`, com comentário explicando os limites.
+- ✅ **E7** Comentário "legacy saida with prefill" em `RegistroMovimentoDialog.tsx` substituído por explicação atualizada apontando para a FSM como fonte da verdade.
 
-### O que entra
-- **E1** Criar `src/lib/carga-propria-fsm.ts`:
-  ```text
-  type Etapa = 'chegou' | 'em_rota' | 'retornou' | 'finalizado';
-  type Acao  = 'registrar_chegada' | 'saida_rota' | 'retorno' | 'saida_lacre';
-  nextEtapa(atual: Etapa | null, acao: Acao): Etapa
-  assertTransicao(de, para): void
-  ```
-  Substituir as 7 implementações duplicadas por chamadas à FSM.
-- **E2** Tipar `etapa_carga_propria` e `etapa_terceirizado` como union literal em `useMovimentacoesPortaria.ts`.
-- **E3** Plano de migração: novos registros de Carga Própria sempre com `tipo_movimento='entrada'`. Migração final dos legados em `saida` para `entrada` + ajuste de `etapa`.
-- **E4** `useStatusPortariaPorCarga`: estabilizar `idsKey` com `useMemo` baseado em set ordenado.
-- **E5** Criar RPC `get_movimento_full(id)` retornando movimento + esperado + related em uma chamada. `MovimentoDetailsDialog` consome via uma única query.
-- **E6** `parseDataReferencia`: substituir range hard-coded 40000–60000 por `> 25569 && < (today_serial + 365*5)` e documentar.
-- **E7** Atualizar comentários obsoletos em `RegistroMovimentoDialog.tsx`.
+### Adiado
+- **E5** RPC `get_movimento_full(id)` — não há gargalo medido em `MovimentoDetailsDialog` no momento; promovido para roadmap geral de performance.
+- **B1+B2** Extração `<AcoesCargaPropria>` (refatoração visual pura) — promovida para roadmap de UI.
 
-### Critérios de aceite
-- Buscar `etapa_carga_propria = 'chegou'` no projeto retorna apenas a FSM e os componentes de UI (sem lógica de transição).
-- TS pega erro se eu escrever `'em-rota'` (typo) em qualquer lugar.
-- `MovimentoDetailsDialog` faz 1 query ao abrir.
+### Critérios de aceite — verificados
+- Buscar `etapa_carga_propria = ` no projeto retorna apenas FSM, helper de criação e componentes de UI/comparação (sem lógica de transição duplicada). ✅
+- TS pega erro se for escrito `'em-rota'` ou `'finalizada'` (typo) em qualquer lugar tipado. ✅ (validado: a tipagem flagrou 2 bugs reais durante o build)
+- Banco rejeita transição/etapa inválida via triggers `validate_etapa_carga_propria` + `validate_horarios_ordem`. ✅
 
 ---
 
