@@ -212,6 +212,28 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     );
   };
 
+  /** Movimento que registrou apenas a chegada — ainda não foi liberado para o pátio. */
+  const isAguardandoLiberacao = (m: MovimentacaoPortaria): boolean => {
+    if (m.horario_entrada) return false;
+    if (m.categoria === "carga_propria" && m.etapa_carga_propria === "aguardando_liberacao") return true;
+    if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada") return true;
+    return false;
+  };
+
+  const handleLiberarEntrada = async (m: MovimentacaoPortaria) => {
+    setSavingId(m.id);
+    try {
+      const update: Record<string, any> = { horario_entrada: new Date().toISOString() };
+      if (m.categoria === "carga_propria") update.etapa_carga_propria = "chegou";
+      else if (m.categoria === "terceirizado") update.etapa_terceirizado = "no_patio";
+      await updateMov.mutateAsync({ id: m.id, ...update } as any);
+    } catch {
+      // toast já tratado pelo hook
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const handleReabrirRegistro = async (m: MovimentacaoPortaria) => {
     setSavingId(m.id);
     try {
