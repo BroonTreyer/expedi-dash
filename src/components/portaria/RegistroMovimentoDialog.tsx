@@ -236,6 +236,24 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
       toast.error("Tire a foto do Painel KM (Saída p/ Rota) ou marque 'Regularizar sem foto'.");
       return;
     }
+    // A1 — Validação de KM rodado no front (banco também valida via trigger)
+    {
+      const kmIniSrc = tipo === "saida" && prefill?.km_inicial != null ? prefill.km_inicial : values.km_inicial;
+      const kmIni = kmIniSrc !== "" && kmIniSrc != null ? Number(kmIniSrc) : null;
+      const kmFim = values.km_final !== "" && values.km_final != null ? Number(values.km_final) : null;
+      if (kmIni != null && kmFim != null) {
+        if (Number.isFinite(kmIni) && Number.isFinite(kmFim)) {
+          if (kmFim < kmIni) {
+            toast.error(`KM Final (${kmFim}) não pode ser menor que KM Inicial (${kmIni}).`);
+            return;
+          }
+          if (kmFim - kmIni > 3000) {
+            toast.error(`Diferença de KM (${kmFim - kmIni}) excede o limite de 3000 km. Verifique os valores.`);
+            return;
+          }
+        }
+      }
+    }
     setSaving(true);
 
     try {
