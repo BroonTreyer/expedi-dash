@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useSession } from "@/hooks/useAuth";
@@ -401,11 +402,41 @@ export function useVeiculosEsperados(
 
   const session = useSession();
 
+  const queryClient = useQueryClient();
+  const queryKey = showAll
+    ? ["veiculos_esperados", "all"]
+    : ["veiculos_esperados", dataInicio, dataLimite];
+
+  // Realtime: invalida automaticamente ao detectar qualquer mudança
+  // em veiculos_esperados. Mantém o painel de Expedição sempre atualizado.
+  useEffect(() => {
+    if (!session) return;
+    const channel = supabase
+      .channel(`veiculos-esperados-${showAll ? "all" : `${dataInicio}-${dataLimite}`}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "veiculos_esperados" },
+        () => {
+          queryClient.invalidateQueries({ queryKey });
+          queryClient.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+          queryClient.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+          queryClient.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
+          queryClient.invalidateQueries({ queryKey: ["veiculos_aguardando_vinculo"] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAll, dataInicio, dataLimite, session, queryClient]);
+
   return useQuery({
     queryKey: showAll
       ? ["veiculos_esperados", "all"]
       : ["veiculos_esperados", dataInicio, dataLimite],
     enabled: !!session,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       let q = supabase
         .from("veiculos_esperados" as any)

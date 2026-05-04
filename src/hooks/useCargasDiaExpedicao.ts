@@ -1,4 +1,5 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { pesoEfetivo } from "@/lib/peso-utils";
@@ -24,11 +25,33 @@ export interface CargaDiaExpedicao {
  */
 export function useCargasDiaExpedicao(dateStr: string) {
   const session = useSession();
+  const queryClient = useQueryClient();
+
+  // Realtime: qualquer alteração em carregamentos_dia atualiza o painel
+  // (KPIs de peso, "Cargas expedidas do dia") em ~1s.
+  useEffect(() => {
+    if (!session) return;
+    const channel = supabase
+      .channel(`cargas-dia-expedicao-${dateStr}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "carregamentos_dia" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["cargas_dia_expedicao"] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dateStr, session, queryClient]);
+
   return useQuery({
     queryKey: ["cargas_dia_expedicao", dateStr],
     enabled: !!session,
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
     retry: 2,
     placeholderData: keepPreviousData,
     queryFn: async () => {
