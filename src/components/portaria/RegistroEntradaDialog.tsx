@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { LogIn, Package } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { buildCargaPropriaPayload } from "@/lib/carga-propria-criar";
 
 interface Prefill {
   placa?: string;
