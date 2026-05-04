@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2, LogIn } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2, LogIn, Link2 } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,6 +16,10 @@ import { useReabrirComoWalkIn } from "@/hooks/useVeiculosEsperados";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { nextEtapa, etapaEfetiva, isFinalizada, type EtapaCargaPropria } from "@/lib/carga-propria-fsm";
+import { VincularMovimentoCargaDialog } from "./VincularMovimentoCargaDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
@@ -86,6 +90,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [saidaRapidaId, setSaidaRapidaId] = useState<string | null>(null);
   const [reabrirId, setReabrirId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [vincularMov, setVincularMov] = useState<MovimentacaoPortaria | null>(null);
+  const qc = useQueryClient();
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
   // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
@@ -128,15 +134,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         if (m.horario_chegada && !m.horario_entrada) return false;
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
-        // Onda 5 — Terceirizado em 'chegada' SEM carga vinculada não pertence
-        // ao Pátio Atual: pertence à fila "Aguardando Vínculo Logístico"
-        // (painel laranja acima das tabs). A Portaria não pode liberar a
-        // entrada antes da Logística vincular uma carga.
-        if (
-          m.categoria === "terceirizado" &&
-          m.etapa_terceirizado === "chegada" &&
-          !m.carga_id
-        ) return false;
+        // Terceirizado em 'chegada' SEM carga vinculada permanece visível
+        // aqui em destaque vermelho com ação "Vincular carga". Antes era
+        // escondido para um "painel laranja" que nunca existiu — virava fantasma.
         return true;
       })
       .filter((m) => {
@@ -243,6 +243,36 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     return false;
   };
 
+  /** Terceirizado chegou sem carga vinculada — bloqueia liberação até a Logística vincular. */
+  const isAguardandoVinculoCarga = (m: MovimentacaoPortaria): boolean => {
+    return (
+      m.categoria === "terceirizado" &&
+      m.etapa_terceirizado === "chegada" &&
+      !m.carga_id
+    );
+  };
+
+  const canVincular = role === "admin" || role === "logistica";
+
+  const handleDesfazerChegada = async (m: MovimentacaoPortaria) => {
+    if (m.horario_entrada) return;
+    setSavingId(m.id);
+    try {
+      const { error } = await supabase
+        .from("movimentacoes_portaria")
+        .delete()
+        .eq("id", m.id)
+        .is("horario_entrada", null);
+      if (error) throw error;
+      toast.success("Chegada desfeita");
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao desfazer chegada");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   /**
    * B7 — Estado inconsistente: Carga Própria deveria ter `horario_entrada`
    * preenchido desde a criação (helper `buildCargaPropriaPayload` da Onda 1).
@@ -331,13 +361,19 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           const isReabrir = reabrirId === m.id;
           const podeReabrir = podeReabrirRegistro(m);
           const aguardandoLib = isAguardandoLiberacao(m);
+          const aguardandoVinculo = isAguardandoVinculoCarga(m);
 
           return (
-            <Card key={m.id} className={aguardandoLib ? "border-amber-500/40 bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
+            <Card key={m.id} className={aguardandoVinculo ? "border-destructive/60 bg-destructive/5 ring-1 ring-destructive/30" : aguardandoLib ? "border-amber-500/40 bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{m.placa || "—"}</span>
                   <div className="flex items-center gap-1">
+                    {aguardandoVinculo && (
+                      <Badge variant="outline" className="text-[10px] h-5 gap-0.5 border-destructive/60 bg-destructive/10 text-destructive">
+                        <AlertTriangle className="h-3 w-3" /> Aguardando vínculo
+                      </Badge>
+                    )}
                     {aguardandoLib && (
                       <Badge variant="outline" className="text-[10px] h-5 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                         Aguardando Liberação
@@ -410,7 +446,21 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 </div>
                 {!readOnly && (
                 <div className="flex justify-end pt-1">
-                  {aguardandoLib ? (
+                  {aguardandoVinculo ? (
+                    <div className="flex items-center gap-1">
+                      {canVincular && (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive" onClick={() => handleDesfazerChegada(m)} disabled={isSaving}>
+                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                          Desfazer
+                        </Button>
+                      )}
+                      {canVincular && (
+                        <Button size="sm" variant="default" className="gap-1 h-7 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground" onClick={() => setVincularMov(m)} disabled={isSaving}>
+                          <Link2 className="h-3 w-3" /> Vincular carga
+                        </Button>
+                      )}
+                    </div>
+                  ) : aguardandoLib ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={isSaving}>
                       {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogIn className="h-3 w-3" />}
                       Liberar Entrada no Pátio
