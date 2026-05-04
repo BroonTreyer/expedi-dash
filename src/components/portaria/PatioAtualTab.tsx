@@ -525,8 +525,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
                     </Button>
                   ) : m.categoria === "carga_propria" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
-                      <ArrowDownToLine className="h-3 w-3" /> Retorno
+                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
+                      <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
                     </Button>
                   ) : m.categoria === "terceirizado" || m.categoria === "fornecedor" ? (
                     isReabrir ? (
