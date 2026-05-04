@@ -268,7 +268,8 @@ export function useRegistrarChegadaWalkIn() {
         tipo_caminhao: input.tipo_veiculo || null,
         carga_id: null,
         horario_chegada: nowIso,
-        horario_entrada: null,
+        // Carga própria entra direto no pátio; terceirizado aguarda liberação.
+        horario_entrada: isCargaPropria ? nowIso : null,
         data_hora: nowIso,
         usuario_id: user?.id ?? null,
         observacoes: input.observacoes || null,
@@ -276,7 +277,7 @@ export function useRegistrarChegadaWalkIn() {
       if (categoria === "terceirizado") {
         movPayload.etapa_terceirizado = "chegada";
       } else {
-        movPayload.etapa_carga_propria = "aguardando_liberacao";
+        movPayload.etapa_carga_propria = "chegou";
       }
       // Se a inserção da movimentação falhar não revertemos o veiculo_esperado
       // — o fluxo de liberação ainda funciona via fallback antigo.

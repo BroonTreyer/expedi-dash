@@ -215,7 +215,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   /** Movimento que registrou apenas a chegada — ainda não foi liberado para o pátio. */
   const isAguardandoLiberacao = (m: MovimentacaoPortaria): boolean => {
     if (m.horario_entrada) return false;
-    if (m.categoria === "carga_propria" && m.etapa_carga_propria === "aguardando_liberacao") return true;
+    // Carga própria não tem etapa intermediária — entra direto no pátio ao registrar chegada.
     if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada") return true;
     return false;
   };
