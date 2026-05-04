@@ -1,52 +1,42 @@
 ## Problema
 
-Após a correção anterior (marcar `conferido = true` quando o porteiro registra a chegada), o veículo:
-- ✅ Sai da lista de **Esperados** (correto)
-- ❌ Não aparece no **Pátio** (cartão azul "Aguardando liberação")
-- ❌ Vai direto para o **Histórico** — efeito colateral inesperado
+Na aba **Portaria → Carga Própria**, está aparecendo o veículo do **Célio** (motorista da JR Transportes — terceirizado). Ele deveria estar apenas na aba **Terceirizado**.
 
 ## Causa
 
-Conflito entre dois filtros que assumiam significados diferentes para o flag `veiculos_esperados.conferido`:
+No hook `useCargasFechadasAguardando` (`src/hooks/useCarregamentos.ts`, linhas 556-571), o agrupamento usa **apenas `carga_id`** como chave (`grouped.set(c.carga_id, ...)`).
 
-1. **`useCargasFechadasAguardando`** (`src/hooks/useCarregamentos.ts`, linha 501-505): remove a carga do painel azul "Cargas Fechadas Aguardando" se existir um `veiculo_esperado` com aquela `carga_id` e `conferido = true`. O comentário diz explicitamente: *"motorista entrou no pátio"*.
+Hoje há duas cargas distintas reusando o mesmo `carga_id = "JR"`:
 
-2. **`PatioAtualTab`** (linhas 121-124): exclui movimentações em `etapa_terceirizado = "chegada"` ou `etapa_carga_propria = "aguardando_liberacao"` enquanto `horario_entrada` for `null` — pois ainda não estão fisicamente no pátio.
+| carga_id | data       | motorista | placa    | transportadora |
+|----------|------------|-----------|----------|----------------|
+| JR       | 2026-04-27 | Fagno     | QWE1B20  | JR TRANSPORTES |
+| JR       | 2026-05-02 | Célio     | RSB1H70  | JR TRANSPORTES |
 
-Antes da correção, "conferido" significava "entrou no pátio". Agora significa apenas "chegada registrada na portaria". A movimentação fica em fase intermediária (chegada/aguardando_liberacao, sem `horario_entrada`), que **nenhum painel** mostra. O único lugar que mostra é o **Histórico**, que lista tudo.
+Como o agrupamento usa só `carga_id`, as duas viagens viram **um único item** no painel. Os campos `placa`, `motorista`, `transportadora` ficam fixos com os dados da **primeira linha** que entrar no Map. Quando uma das viagens ainda não tem `transportadora` preenchida em todos os itens (ex.: linha mais antiga sem o campo), o item agrupado pode ficar `transportadora = null`, e o filtro `isPropria = !c.transportadora` em `CargasFechadasAguardandoPanel.tsx:51` o classifica como **carga própria** → Célio aparece no lugar errado.
 
 ## Correção
 
-**Arquivo único: `src/hooks/useCarregamentos.ts`** — ajustar `cargasComPrevistoConferido` para refletir o novo significado de "conferido":
+**Arquivo único: `src/hooks/useCarregamentos.ts`** — alterar a chave de agrupamento em `useCargasFechadasAguardando` para distinguir viagens diferentes que reusam o mesmo `carga_id`:
 
-1. Trazer também `horario_entrada` (na verdade já é difícil — precisamos cruzar com movimentação). Solução mais simples: **manter a carga no painel azul "Aguardando liberação" enquanto `horario_entrada` da movimentação for `null`**.
-
-2. Mudar a linha 561 de:
+1. Trocar a chave do `grouped` Map de `c.carga_id` para uma chave composta:
    ```ts
-   if (cargasComPrevistoConferido.has(c.carga_id)) continue;
+   const groupKey = `${c.carga_id}|${(c.placa || "").trim().toUpperCase()}|${c.data}`;
    ```
-   para:
-   ```ts
-   // Só some do painel quando o veículo realmente entrou no pátio
-   // (existe entrada com horario_entrada preenchido).
-   if (entrada && entrada.horario_entrada) continue;          // já tratado abaixo
-   if (cargasComPrevistoConferido.has(c.carga_id) && entrada?.horario_entrada) continue;
-   ```
-   Na prática, basta **remover a verificação de `cargasComPrevistoConferido.has(...)`** porque a linha 564 (`if (entrada && entrada.horario_entrada) continue;`) já cobre o caso "motorista entrou no pátio" via movimentação.
 
-3. Como `cargasComPrevistoConferido` ficaria sem uso, remover também o bloco de query de `previstos` (linhas 492-505) para evitar query desnecessária.
+2. Aplicar a mesma chave composta no fallback de busca de `entradaPorCarga`: hoje a entrada é buscada por `carga_id` puro, mas com a nova lógica precisa cruzar **carga_id + placa** com a movimentação correspondente (já há filtro de janela de data e placa nas movimentações nas linhas 530-538, então basta usar `placaCarga` para resolver a entrada certa).
+
+3. Manter a interface `CargaFechadaAguardando` igual — o que muda é só o agrupamento interno.
 
 ## Resultado esperado
 
-Após clicar em **Registrar Chegada** num veículo da lista Esperados:
-- Some imediatamente da lista de Esperados ✅
-- Aparece no painel **azul "Cargas Fechadas Aguardando Veículo"** com badge laranja "Aguardando liberação" e botão **"Liberar entrada no pátio"** ✅
-- Ao liberar, vai para a aba **Pátio** (cartão verde) ✅
-- Continua aparecendo no **Histórico** como movimentação registrada ✅
+- Célio (RSB1H70 / JR TRANSPORTES) e Fagno (QWE1B20 / JR TRANSPORTES) viram **dois itens separados** no painel.
+- Ambos passam o filtro `!isPropria` → aparecem só na aba **Terceirizado**.
+- A aba **Carga Própria** fica limpa de veículos terceirizados.
+- Não mexe em nenhum outro fluxo (Esperados, Pátio, Histórico) — apenas refina o agrupamento de cargas que reusam `carga_id`.
 
 ## Impacto
 
-- Arquivo único, sem migração de banco, sem mudança de RLS.
-- Remove uma query (`veiculos_esperados`) — ligeira melhora de performance.
-- Não afeta walk-ins (já tratados por `chegouAguardandoLiberacao` e fluxo `useRegistrarChegadaPortaria`).
-- Não afeta o card azul para cargas que ainda não tiveram chegada registrada.
+- 1 arquivo, sem migração de banco, sem mudança de RLS.
+- Compatível com cargas que **não** reusam `carga_id` (a chave composta segue única para elas).
+- Resolve também outros casos invisíveis em que cargas distintas com mesmo nome se fundiam no painel (peso/qtd somados errado).
