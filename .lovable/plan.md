@@ -1,79 +1,56 @@
 ## Problema
 
-Na aba **Esperados** de `/portaria/carga-propria`, ao clicar em **"Registrar Chegada"** o veículo NÃO aparece no Pátio nem no painel azul "Aguardando liberação" — vai direto para o **Histórico**.
+No card do Pátio em `/portaria/carga-propria`, o veículo OND0B48 (PEDRO) aparece com:
+- Badge amber **"Aguardando Liberação"** ✓ (correto)
+- Badge yellow **"Retornou"** ✗ (errado — confunde o usuário)
+- Botão **"Liberar Entrada no Pátio"** ✓ (correto)
 
 ## Causa raiz
 
-Fluxo atual em `Portaria.tsx → openRegistroFromVeiculoEsperado` (linhas 129‑190):
+No banco, o registro está com `etapa_carga_propria = "aguardando_liberacao"` e `horario_entrada = NULL`. Isso é o estado correto para um veículo registrado via **Esperados → Registrar Chegada** (cria a chegada, mas a entrada física no pátio só é confirmada quando a portaria clica em "Liberar Entrada").
 
-1. Cria uma `movimentacoes_portaria` com:
-   - `tipo_movimento: "entrada"`
-   - `categoria: "carga_propria"`
-   - `etapa_carga_propria: "aguardando_liberacao"`
-   - `horario_chegada: agora`
-   - **`horario_entrada: null`** ← o veículo ainda não foi fisicamente liberado para o pátio
+O bug está em `PatioAtualTab.tsx` (linhas 300-303 e 483-487) onde o badge da etapa usa um ternário com **fallback para "Retornou"** em qualquer valor diferente de `chegou` ou `em_rota`:
 
-2. Marca o `veiculo_esperado` como **conferido = true** (sai da aba Esperados).
+```tsx
+{m.etapa_carga_propria === "chegou" ? "Chegou" 
+  : m.etapa_carga_propria === "em_rota" ? "Em Rota" 
+  : "Retornou"}  // pega aguardando_liberacao por engano
+```
 
-Onde isso quebra:
+Por isso `aguardando_liberacao` (e `finalizado`) acabam rotulados como "Retornou".
 
-- **Aba Pátio Atual** (`useMovimentacoesAtivasPatio`, linha 204):
-  ```
-  if (categoria === "carga_propria" && etapa === "aguardando_liberacao" && !horario_entrada) return false;
-  ```
-  → o movimento é EXPLICITAMENTE excluído. Correto: ele deveria estar no painel azul.
+## Por que pede "Liberar Entrada" se já registrei em Esperados?
 
-- **Painel azul "Aguardando vínculo / liberação"** (`CargasFechadasAguardandoPanel`):
-  Esse painel parte de `carregamentos_dia` filtrado por `etapa = 'logistica'` e cruza com a movimentação pelo `carga_id`. Funciona para cargas fechadas pela Logística. **Não funciona** quando:
-  - o veículo esperado não tem `carga_id`, OU
-  - a carga não está em `etapa = 'logistica'`, OU
-  - foi importado via planilha sem vincular a uma carga real.
+Esse é o fluxo desenhado (correto):
+1. Em **Esperados** → "Registrar Chegada" → cria movimento com `horario_chegada` mas SEM `horario_entrada`. Aparece no Pátio em estado **amber "Aguardando Liberação"**.
+2. Em **Pátio** → portaria clica em **"Liberar Entrada no Pátio"** → preenche `horario_entrada` e marca `etapa = chegou`. Vira card laranja "Chegou", liberado para Saída p/ Rota.
 
-- **Histórico** (`HistoricoTab`): mostra todos os movimentos do período sem filtro — então o registro acaba "aparecendo só lá".
-
-Resultado: se o `veiculo_esperado` não tem carga fechada correspondente em `carregamentos_dia`, a chegada vira invisível em Pátio E em Aguardando, sobrando só no Histórico.
+Esse passo intermediário existe porque "Registrar Chegada" no Esperados é só pré-cadastro/triagem; a entrada física só é confirmada na portaria. Foi a mecânica acordada no fix anterior.
 
 ## Correção
 
-A intenção do código é clara: **chegada registrada (sem entrada física) = painel azul "Aguardando liberação"**. Como o painel azul não cobre o caso "esperado sem carga fechada", precisamos exibir esses movimentos pendentes em algum lugar **ativo**, não no Histórico.
+Em `src/components/portaria/PatioAtualTab.tsx`, ajustar a renderização do badge de etapa em **dois lugares** (mobile linha ~300 e desktop linha ~485):
 
-A solução mínima e segura é incluir movimentos "aguardando liberação sem `horario_entrada`" no **Pátio Atual** como cartão laranja "Aguardando liberar entrada", em vez de escondê-los. Hoje o filtro já tem o ramo de exclusão em `useMovimentacoesAtivasPatio`; basta inverter para **incluir** quando não há painel azul cobrindo aquele movimento.
+1. **Não renderizar o badge da etapa** quando `etapa_carga_propria === "aguardando_liberacao"` — o badge amber "Aguardando Liberação" já cobre esse estado, evitando duplicidade visual.
+2. **Substituir o ternário por mapeamento explícito** com fallback seguro:
+   - `chegou` → "Chegou" (laranja)
+   - `em_rota` → "Em Rota" (azul outline)
+   - `retornou` → "Retornou" (amarelo)
+   - qualquer outro → não renderizar badge (`null`)
 
-### Mudança 1 — `src/hooks/useMovimentacoesPortaria.ts` (linhas 200‑204)
-
-Remover as duas linhas que descartam chegadas sem `horario_entrada` do Pátio Atual:
-
-```ts
-// Antes:
-if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada" && !m.horario_entrada) return false;
-if (m.categoria === "carga_propria" && m.etapa_carga_propria === "aguardando_liberacao" && !m.horario_entrada) return false;
-
-// Depois: removidas. O Pátio Atual passa a manter esses movimentos visíveis
-// para que a portaria possa liberar a entrada também a partir da aba Pátio,
-// não só do painel azul.
+Trocar a estrutura para algo como:
+```tsx
+{m.categoria === "carga_propria" && 
+ m.etapa_carga_propria && 
+ m.etapa_carga_propria !== "aguardando_liberacao" && 
+ m.etapa_carga_propria !== "finalizado" && (
+  <Badge ...>{labelMap[m.etapa_carga_propria]}</Badge>
+)}
 ```
 
-### Mudança 2 — `src/components/portaria/PatioAtualTab.tsx` (renderização do cartão)
+## Resultado
 
-Garantir que, quando `!horario_entrada`, o cartão mostre badge laranja **"Aguardando liberar entrada"** e botão **"Liberar entrada no pátio"** (que apenas faz `UPDATE movimentacoes_portaria SET horario_entrada = now()` no movimento). Verificar o componente — se o botão já existe para outra finalidade, reaproveitar; senão, adicionar bloco condicional simples.
+O card vai mostrar somente o badge "Aguardando Liberação" (amber) + botão "Liberar Entrada no Pátio". Quando portaria liberar, o card passa para badge "Chegou" (laranja) + botão "Saída p/ Rota". Sem mais "Retornou" fantasma.
 
-Plano de inspeção rápida na implementação:
-- Ler `PatioAtualTab.tsx` para ver se já trata o estado `!horario_entrada`.
-- Se já trata (provavelmente sim para o caso vinculado a carga via painel azul), nada a fazer aqui.
-- Se não trata, adicionar a condição com o mesmo handler usado no painel azul (`useLiberarEntradaPatio` ou equivalente — confirmar nome do hook na hora).
-
-### Mudança 3 — Sem alterações em `Portaria.tsx`
-
-O `openRegistroFromVeiculoEsperado` já cria o movimento corretamente. Não muda.
-
-## Resultado esperado
-
-1. Em Esperados → clicar **Registrar Chegada**: o veículo sai de Esperados, aparece no **Pátio Atual** com badge laranja "Aguardando liberar entrada".
-2. Quando a portaria libera, o cartão vira verde (entrada confirmada).
-3. Para cargas que JÁ estão fechadas pela Logística com `carga_id` válido, ele continua aparecendo também no painel azul "Cargas fechadas aguardando" — comportamento atual preservado.
-4. Histórico passa a mostrar apenas o que faz sentido (movimentos do período, incluindo os que ainda estão ativos), sem "vazar" como único local visível.
-
-## Arquivos
-
-- `src/hooks/useMovimentacoesPortaria.ts` — remover as duas linhas de exclusão.
-- `src/components/portaria/PatioAtualTab.tsx` — verificar/ajustar render do cartão "aguardando liberar entrada" (se necessário).
+## Arquivos alterados
+- `src/components/portaria/PatioAtualTab.tsx` (renderização do badge em mobile e desktop)
