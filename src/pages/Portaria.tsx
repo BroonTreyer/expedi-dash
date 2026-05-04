@@ -112,15 +112,9 @@ export default function Portaria({ categoria }: PortariaProps) {
         .map((m) => m.movimento_vinculado_id!)
     );
     // Pátio: usa a mesma fonte (sem filtro de data) que PatioAtualTab.
-    // Onda 5 — terceirizado em 'chegada' SEM carga_id está na fila
-    // "Aguardando Vínculo Logístico", não no Pátio. Removido do badge.
-    const patio = movimentacoesAtivasPatio.filter(
-      (m) => !(
-        m.categoria === "terceirizado" &&
-        m.etapa_terceirizado === "chegada" &&
-        !m.carga_id
-      )
-    ).length;
+    // Inclui terceirizado em 'chegada' SEM carga_id (cards vermelhos
+    // "Aguardando vínculo") — eles permanecem no Pátio Atual.
+    const patio = movimentacoesAtivasPatio.length;
     const historico = movimentacoes.length - saidasVinculadas.size;
     return { patio, historico };
   }, [movimentacoes, movimentacoesAtivasPatio]);
