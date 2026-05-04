@@ -23,7 +23,6 @@ import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDi
 import { VeiculosEsperadosPanel } from "@/components/portaria/VeiculosEsperadosPanel";
 import { SolicitacoesPendentesPanel } from "@/components/portaria/SolicitacoesPendentesPanel";
 import { CargasFechadasAguardandoPanel } from "@/components/portaria/CargasFechadasAguardandoPanel";
-import { AguardandoVinculoLogisticoPanel } from "@/components/portaria/AguardandoVinculoLogisticoPanel";
 
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
