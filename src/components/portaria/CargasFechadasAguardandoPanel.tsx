@@ -438,6 +438,53 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* B3 — substitui window.confirm por AlertDialog shadcn */}
+      <AlertDialog open={!!confirmDesfazer} onOpenChange={(o) => {
+        if (!o && busyId) return;
+        if (!o) setConfirmDesfazer(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5 text-destructive" />
+              Desfazer chegada?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  O registro de chegada do motorista{" "}
+                  <span className="font-semibold text-foreground">
+                    {confirmDesfazer?.motorista || "—"}
+                  </span>{" "}
+                  (placa{" "}
+                  <span className="font-mono font-semibold text-foreground">
+                    {confirmDesfazer?.placa || "—"}
+                  </span>
+                  ) será apagado e a carga voltará a aguardar veículo.
+                </p>
+                <p className="text-amber-700 dark:text-amber-400 text-xs">
+                  Use apenas se a chegada foi registrada por engano.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!busyId}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              disabled={!!busyId}
+              onClick={async (e) => {
+                if (busyId) { e.preventDefault(); return; }
+                const c = confirmDesfazer;
+                setConfirmDesfazer(null);
+                if (c) await desfazerChegada(c);
+              }}
+            >
+              {busyId ? "Apagando..." : "Sim, apagar chegada"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
