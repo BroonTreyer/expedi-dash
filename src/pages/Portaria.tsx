@@ -139,11 +139,7 @@ export default function Portaria({ categoria }: PortariaProps) {
     const agora = new Date().toISOString();
     try {
       if (categoria === "carga_propria") {
-        await createMov.mutateAsync({
-          tipo_movimento: "entrada",
-          categoria: "carga_propria",
-          etapa_carga_propria: "chegou",
-          data_hora: agora,
+        await createMov.mutateAsync(buildCargaPropriaPayload({
           placa: v.placa || null,
           motorista: v.motorista || null,
           tipo_caminhao: v.tipo_veiculo || null,
@@ -152,9 +148,8 @@ export default function Portaria({ categoria }: PortariaProps) {
           qtd_entregas: v.qtd_entregas ?? null,
           carga_id: v.carga_id || null,
           usuario_id: user?.id ?? null,
-          horario_chegada: agora,
-          horario_entrada: agora,
-        } as any);
+          horarioChegadaIso: agora,
+        }) as any);
       } else {
         await createMov.mutateAsync({
           tipo_movimento: "entrada",
