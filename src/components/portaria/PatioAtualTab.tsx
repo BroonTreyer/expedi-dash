@@ -559,9 +559,10 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
             const isReabrir = reabrirId === m.id;
             const podeReabrir = podeReabrirRegistro(m);
             const aguardandoLib = isAguardandoLiberacao(m);
+            const aguardandoVinculo = isAguardandoVinculoCarga(m);
 
             return (
-              <TableRow key={m.id} className={aguardandoLib ? "bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
+              <TableRow key={m.id} className={aguardandoVinculo ? "bg-destructive/10 hover:bg-destructive/15" : aguardandoLib ? "bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
                 <TableCell className="text-sm">
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -579,6 +580,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
                       {getCategoriaLabel(m.categoria)}
                     </Badge>
+                    {aguardandoVinculo && (
+                      <Badge variant="outline" className="text-[10px] gap-0.5 border-destructive/60 bg-destructive/10 text-destructive">
+                        <AlertTriangle className="h-3 w-3" /> Aguardando vínculo
+                      </Badge>
+                    )}
                     {aguardandoLib && (
                       <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                         Aguardando Liberação
@@ -619,7 +625,21 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <TableCell className="text-right">
                   {!readOnly && (
                   <div className="flex items-center gap-1 justify-end">
-                  {aguardandoLib ? (
+                  {aguardandoVinculo ? (
+                    <>
+                      {canVincular && (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive" onClick={() => handleDesfazerChegada(m)} disabled={isSaving}>
+                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                          Desfazer
+                        </Button>
+                      )}
+                      {canVincular && (
+                        <Button size="sm" variant="default" className="gap-1 h-7 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground" onClick={() => setVincularMov(m)} disabled={isSaving}>
+                          <Link2 className="h-3 w-3" /> Vincular carga
+                        </Button>
+                      )}
+                    </>
+                  ) : aguardandoLib ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={isSaving}>
                       {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogIn className="h-3 w-3" />}
                       Liberar Entrada
