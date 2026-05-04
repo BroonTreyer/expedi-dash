@@ -715,6 +715,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           })}
         </TableBody>
       </Table>
+      <VincularMovimentoCargaDialog
+        open={!!vincularMov}
+        onOpenChange={(o) => { if (!o) setVincularMov(null); }}
+        movimento={vincularMov}
+      />
     </div>
   );
 }
