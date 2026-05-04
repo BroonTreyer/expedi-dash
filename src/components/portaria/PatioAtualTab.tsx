@@ -351,6 +351,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
 
   if (isMobile) {
     return (
+      <>
       <div className="p-3 space-y-3">
         {sortedVeiculos.map((m) => {
           const emRota = isEmRota(m);
@@ -532,6 +533,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           );
         })}
       </div>
+      <VincularMovimentoCargaDialog
+        open={!!vincularMov}
+        onOpenChange={(o) => { if (!o) setVincularMov(null); }}
+        movimento={vincularMov}
+      />
+      </>
     );
   }
 
