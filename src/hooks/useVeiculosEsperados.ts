@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useSession } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { ParsedRow } from "@/components/portaria/ImportarPlanilhaDialog";
+import { buildCargaPropriaPayload } from "@/lib/carga-propria-criar";
 
 export type StatusAutorizacao = "previsto" | "aguardando_vinculo" | "aguardando_autorizacao" | "autorizado" | "recusado";
 
@@ -173,26 +174,38 @@ export function useRegistrarChegadaPortaria() {
       } else {
         // Fallback (walk-ins antigos sem movimentação prévia): cria a movimentação
         // usando created_at do veiculo_esperado como aproximação do horario_chegada.
-        const movPayload: Record<string, any> = {
-          tipo_movimento: "entrada",
-          categoria,
-          placa: v.placa,
-          motorista: v.motorista,
-          tipo_caminhao: v.tipo_veiculo,
-          carga_id: v.carga_id,
-          peso: v.peso,
-          qtd_entregas: v.qtd_entregas,
-          horario_entrada: nowIso,
-          horario_chegada: v.created_at,
-          data_hora: nowIso,
-          usuario_id: user?.id ?? null,
-          observacoes: v.observacoes,
-        };
-        if (categoria === "terceirizado") {
-          movPayload.empresa = v.transportadora;
-          movPayload.etapa_terceirizado = "no_patio";
+        let movPayload: Record<string, any>;
+        if (categoria === "carga_propria") {
+          movPayload = buildCargaPropriaPayload({
+            placa: v.placa,
+            motorista: v.motorista,
+            tipo_caminhao: v.tipo_veiculo,
+            carga_id: v.carga_id,
+            peso: v.peso,
+            qtd_entregas: v.qtd_entregas,
+            usuario_id: user?.id ?? null,
+            observacoes: v.observacoes,
+            horarioChegadaIso: v.created_at,
+            horarioEntradaIso: nowIso,
+          });
         } else {
-          movPayload.etapa_carga_propria = "chegou";
+          movPayload = {
+            tipo_movimento: "entrada",
+            categoria,
+            placa: v.placa,
+            motorista: v.motorista,
+            tipo_caminhao: v.tipo_veiculo,
+            carga_id: v.carga_id,
+            peso: v.peso,
+            qtd_entregas: v.qtd_entregas,
+            empresa: v.transportadora,
+            etapa_terceirizado: "no_patio",
+            horario_entrada: nowIso,
+            horario_chegada: v.created_at,
+            data_hora: nowIso,
+            usuario_id: user?.id ?? null,
+            observacoes: v.observacoes,
+          };
         }
         const { error: movErr } = await supabase
           .from("movimentacoes_portaria")
@@ -264,25 +277,36 @@ export function useRegistrarChegadaWalkIn() {
       // Cria já a movimentação de portaria registrando a CHEGADA física
       // (sem entrada no pátio ainda). Carga é vinculada depois pela Logística;
       // a entrada no pátio é liberada num segundo passo pela Portaria.
-      const movPayload: Record<string, any> = {
-        tipo_movimento: "entrada",
-        categoria,
-        placa: placaNorm,
-        motorista: input.motorista || null,
-        empresa: input.transportadora || null,
-        tipo_caminhao: input.tipo_veiculo || null,
-        carga_id: null,
-        horario_chegada: nowIso,
-        // Carga própria entra direto no pátio; terceirizado aguarda liberação.
-        horario_entrada: isCargaPropria ? nowIso : null,
-        data_hora: nowIso,
-        usuario_id: user?.id ?? null,
-        observacoes: input.observacoes || null,
-      };
-      if (categoria === "terceirizado") {
-        movPayload.etapa_terceirizado = "chegada";
+      let movPayload: Record<string, any>;
+      if (isCargaPropria) {
+        // Carga própria entra direto no pátio.
+        movPayload = buildCargaPropriaPayload({
+          placa: placaNorm,
+          motorista: input.motorista || null,
+          empresa: input.transportadora || null,
+          tipo_caminhao: input.tipo_veiculo || null,
+          carga_id: null,
+          usuario_id: user?.id ?? null,
+          observacoes: input.observacoes || null,
+          horarioChegadaIso: nowIso,
+        });
       } else {
-        movPayload.etapa_carga_propria = "chegou";
+        // Terceirizado aguarda liberação (horario_entrada=null).
+        movPayload = {
+          tipo_movimento: "entrada",
+          categoria,
+          placa: placaNorm,
+          motorista: input.motorista || null,
+          empresa: input.transportadora || null,
+          tipo_caminhao: input.tipo_veiculo || null,
+          carga_id: null,
+          etapa_terceirizado: "chegada",
+          horario_chegada: nowIso,
+          horario_entrada: null,
+          data_hora: nowIso,
+          usuario_id: user?.id ?? null,
+          observacoes: input.observacoes || null,
+        };
       }
       // Se a inserção da movimentação falhar não revertemos o veiculo_esperado
       // — o fluxo de liberação ainda funciona via fallback antigo.

@@ -20,14 +20,39 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
       saidas.filter((m) => m.movimento_vinculado_id).map((m) => m.movimento_vinculado_id!)
     );
 
-    // All vehicles in yard (non-terceirizados without exit + terceirizados with etapa no_patio)
-    const noPatio = entradas.filter((e) => {
-      if (saidasVinculadas.has(e.id)) return false;
-      if (e.categoria === "terceirizado" && e.etapa_terceirizado === "finalizado") return false;
-      // Excluir chegadas ainda aguardando liberação para o pátio
-      if (e.carga_id && !e.horario_entrada && (e.etapa_terceirizado === "chegada" || e.etapa_carga_propria === "aguardando_liberacao")) return false;
+    // A3 — All vehicles in yard
+    // Para Carga Própria, conta independente do tipo_movimento desde que etapa esteja
+    // num estado ativo (chegou/em_rota/retornou). Para terceirizado, mantém regra antiga.
+    const noPatioCargaPropria = movimentacoes.filter((m) => {
+      if (m.categoria !== "carga_propria") return false;
+      const etapa = (m as any).etapa_carga_propria;
+      return etapa === "chegou" || etapa === "em_rota" || etapa === "retornou";
+    });
+    // Deduplica por (placa + carga_id) para não contar saída legada + entrada nova
+    const seenCp = new Set<string>();
+    const noPatioCargaPropriaCount = noPatioCargaPropria.filter((m) => {
+      const k = `${m.placa || ""}|${m.carga_id || m.id}`;
+      if (seenCp.has(k)) return false;
+      seenCp.add(k);
       return true;
     }).length;
+
+    const noPatioTerceirizado = entradas.filter((e) => {
+      if (e.categoria !== "terceirizado") return false;
+      if (saidasVinculadas.has(e.id)) return false;
+      if (e.etapa_terceirizado === "finalizado") return false;
+      if (e.carga_id && !e.horario_entrada && e.etapa_terceirizado === "chegada") return false;
+      return true;
+    }).length;
+
+    // Outras categorias (visitante, fornecedor, etc.) — regra antiga por entrada/saída
+    const noPatioOutros = entradas.filter((e) => {
+      if (e.categoria === "carga_propria" || e.categoria === "terceirizado") return false;
+      if (saidasVinculadas.has(e.id)) return false;
+      return true;
+    }).length;
+
+    const noPatio = noPatioCargaPropriaCount + noPatioTerceirizado + noPatioOutros;
 
     // Tempos médios — pareia entradas com suas saídas vinculadas
     const saidaPorEntradaId = new Map<string, MovimentacaoPortaria>();

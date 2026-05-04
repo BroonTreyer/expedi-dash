@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { LogIn, Package } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { buildCargaPropriaPayload } from "@/lib/carga-propria-criar";
 
 interface Prefill {
   placa?: string;
@@ -120,24 +121,32 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         (p: any) => !p.carga_id || p.carga_id === cargaId,
       ) as { id: string; carga_id: string | null } | undefined;
 
-      const movPayload: Record<string, any> = {
-        tipo_movimento: "entrada",
-        categoria,
-        placa: placaNorm,
-        motorista: motoristaNorm,
-        tipo_caminhao: tipoVeiculo,
-        carga_id: cargaId,
-        // Carga própria entra direto no pátio; terceirizado aguarda liberação.
-        horario_entrada: isCargaPropria ? nowIso : null,
-        horario_chegada: nowIso,
-        data_hora: nowIso,
-        usuario_id: user?.id ?? null,
-      };
-      if (categoria === "terceirizado") {
-        movPayload.empresa = transportadora;
-        movPayload.etapa_terceirizado = "chegada";
+      let movPayload: Record<string, any>;
+      if (isCargaPropria) {
+        movPayload = buildCargaPropriaPayload({
+          placa: placaNorm,
+          motorista: motoristaNorm,
+          tipo_caminhao: tipoVeiculo,
+          carga_id: cargaId,
+          empresa: transportadora || null,
+          usuario_id: user?.id ?? null,
+          horarioChegadaIso: nowIso,
+        });
       } else {
-        movPayload.etapa_carga_propria = "chegou";
+        movPayload = {
+          tipo_movimento: "entrada",
+          categoria,
+          placa: placaNorm,
+          motorista: motoristaNorm,
+          tipo_caminhao: tipoVeiculo,
+          carga_id: cargaId,
+          empresa: transportadora,
+          etapa_terceirizado: "chegada",
+          horario_entrada: null,
+          horario_chegada: nowIso,
+          data_hora: nowIso,
+          usuario_id: user?.id ?? null,
+        };
       }
       if (reaproveitar) {
         const { error: updErr } = await supabase
