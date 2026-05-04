@@ -160,7 +160,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
   const blocks = useMemo(() => getVisibleBlocks(categoria, effectiveTipo), [categoria, effectiveTipo]);
   // Fields skipped during regularization (no photos available + KM Inicial pode entrar manual)
   const canSave = useMemo(() => {
-    const REGULARIZAR_SKIP = ["foto_painel_url", "foto_painel_saida_url", "foto_lacre_url", "foto_placa_url"];
+    const REGULARIZAR_SKIP = ["foto_painel_url", "foto_painel_saida_url", "foto_lacre_url", "foto_placa_url", "foto_documento_url", "foto_nota_url"];
     if (regularizar) {
       // Validate everything except skipped fields, AND require motivo
       if (!motivoRegularizacao.trim() || motivoRegularizacao.trim().length < 5) return false;
@@ -171,9 +171,19 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     return validateForm(categoria, values, effectiveTipo);
   }, [categoria, values, effectiveTipo, regularizar, motivoRegularizacao]);
 
-  // Show regularizar checkbox only on carga_propria stages where photos block the flow
-  const showRegularizarOption = canRegularizar && categoria === "carga_propria" && (
-    prefillEtapa === "saida_rota" || prefillEtapa === "retorno" || prefillEtapa === "lacre"
+  // Show regularizar checkbox for any flow that has mandatory photos blocking submission.
+  // Restricted by role (canRegularizar = admin/logística).
+  const showRegularizarOption = canRegularizar && (
+    // Carga própria: etapas com foto obrigatória (saída p/ rota, retorno, lacre)
+    (categoria === "carga_propria" && (prefillEtapa === "saida_rota" || prefillEtapa === "retorno" || prefillEtapa === "lacre"))
+    // Terceirizado: entrada (foto placa) e saída/lacre (foto lacre)
+    || categoria === "terceirizado"
+    // Fornecedor: várias fotos obrigatórias (placa, documento, nota, lacre)
+    || categoria === "fornecedor"
+    // Prestador / Visitante / Outros: foto documento/placa obrigatória
+    || categoria === "prestador"
+    || categoria === "visitante"
+    || categoria === "outros"
   );
 
   const handleSelectCategoria = (cat: Categoria) => {
