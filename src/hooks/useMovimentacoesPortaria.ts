@@ -177,19 +177,32 @@ export function useMovimentacoesAtivasPatio() {
         !!m.horario_saida_final ||
         !!m.horario_real_saida;
 
+      // C6 — pré-computa o timestamp do MAIS RECENTE movimento finalizado por
+      // placa. Antes o filtro chamava `irmaos.some()` por linha (O(N×M)).
+      // Agora cada decisão vira lookup O(1).
+      const tsFinalPorPlaca = new Map<string, number>();
+      for (const [placa, irmaos] of porPlaca) {
+        let maxTs = -Infinity;
+        for (const x of irmaos) {
+          if (ehFinalizado(x)) {
+            const t = new Date(x.data_hora).getTime();
+            if (t > maxTs) maxTs = t;
+          }
+        }
+        if (maxTs !== -Infinity) tsFinalPorPlaca.set(placa, maxTs);
+      }
+      const haCicloPosteriorFinalizado = (m: MovimentacaoPortaria): boolean => {
+        const k = norm(m.placa);
+        const tsFinal = tsFinalPorPlaca.get(k);
+        if (tsFinal === undefined) return false;
+        return tsFinal > new Date(m.data_hora).getTime();
+      };
+
       return all.filter((m) => {
         // Carga própria: mantém enquanto não está finalizado
         if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
           if (m.etapa_carga_propria === "finalizado") return false;
-          // Se a mesma placa teve um ciclo posterior finalizado, esta etapa antiga
-          // não pertence ao ciclo atual e fica obsoleta.
-          const k = norm(m.placa);
-          const irmaos = porPlaca.get(k) ?? [];
-          const ts = new Date(m.data_hora).getTime();
-          const haCicloPosteriorFinalizado = irmaos.some(
-            (x) => x.id !== m.id && ehFinalizado(x) && new Date(x.data_hora).getTime() > ts,
-          );
-          if (haCicloPosteriorFinalizado) return false;
+          if (haCicloPosteriorFinalizado(m)) return false;
           return true;
         }
         // Para o pátio só interessam entradas
@@ -198,21 +211,8 @@ export function useMovimentacoesAtivasPatio() {
         if (saidasVinculadas.has(m.id)) return false;
         // Terceirizado finalizado: já saiu
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
-        // Chegou mas ainda não foi liberado para o pátio: MANTER visível no
-        // Pátio Atual como cartão "Aguardando liberar entrada". Antes essas
-        // chegadas eram escondidas e, quando não havia carga fechada
-        // correspondente cobrindo-as no painel azul, sumiam do operacional
-        // e só apareciam no Histórico. Agora ficam sempre acessíveis.
-        // Entrada antiga obsoleta: existe um movimento posterior da mesma placa
-        // que já está finalizado (saída ou etapa final). Nesse caso esta
-        // entrada pertence a um ciclo passado que ficou aberto por engano.
-        const k = norm(m.placa);
-        const irmaos = porPlaca.get(k) ?? [];
-        const ts = new Date(m.data_hora).getTime();
-        const haCicloPosteriorFinalizado = irmaos.some(
-          (x) => x.id !== m.id && ehFinalizado(x) && new Date(x.data_hora).getTime() > ts,
-        );
-        if (haCicloPosteriorFinalizado) return false;
+        // Entrada antiga obsoleta: ciclo posterior da mesma placa já finalizou.
+        if (haCicloPosteriorFinalizado(m)) return false;
         return true;
       });
     },

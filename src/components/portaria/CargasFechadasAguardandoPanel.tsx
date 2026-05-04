@@ -37,6 +37,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [confirmLiberar, setConfirmLiberar] = useState<CargaFechadaAguardando | null>(null);
+  const [confirmDesfazer, setConfirmDesfazer] = useState<CargaFechadaAguardando | null>(null);
 
   /** Tempo mínimo (em segundos) entre o registro da chegada e a liberação para o pátio.
    *  Evita o "clique reflexivo" no botão verde logo após registrar a chegada. */
@@ -188,7 +189,6 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
 
   const desfazerChegada = async (c: CargaFechadaAguardando) => {
     if (!c.movimentoChegadaId) return;
-    if (!confirm("Desfazer a chegada deste motorista? O registro será apagado.")) return;
     setBusyId(c.carga_id);
     try {
       const { error } = await supabase
@@ -316,7 +316,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                             variant="ghost"
                             className="h-8 text-xs gap-1 text-muted-foreground hover:text-destructive"
                             disabled={isBusy}
-                            onClick={() => desfazerChegada(c)}
+                            onClick={() => setConfirmDesfazer(c)}
                           >
                             <Undo2 className="h-3.5 w-3.5" />
                             Desfazer chegada
@@ -434,6 +434,53 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
               }}
             >
               {busyId ? "Liberando..." : "Sim, está entrando agora"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* B3 — substitui window.confirm por AlertDialog shadcn */}
+      <AlertDialog open={!!confirmDesfazer} onOpenChange={(o) => {
+        if (!o && busyId) return;
+        if (!o) setConfirmDesfazer(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5 text-destructive" />
+              Desfazer chegada?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  O registro de chegada do motorista{" "}
+                  <span className="font-semibold text-foreground">
+                    {confirmDesfazer?.motorista || "—"}
+                  </span>{" "}
+                  (placa{" "}
+                  <span className="font-mono font-semibold text-foreground">
+                    {confirmDesfazer?.placa || "—"}
+                  </span>
+                  ) será apagado e a carga voltará a aguardar veículo.
+                </p>
+                <p className="text-amber-700 dark:text-amber-400 text-xs">
+                  Use apenas se a chegada foi registrada por engano.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!busyId}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              disabled={!!busyId}
+              onClick={async (e) => {
+                if (busyId) { e.preventDefault(); return; }
+                const c = confirmDesfazer;
+                setConfirmDesfazer(null);
+                if (c) await desfazerChegada(c);
+              }}
+            >
+              {busyId ? "Apagando..." : "Sim, apagar chegada"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

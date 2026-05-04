@@ -101,7 +101,19 @@ interface CargaRef {
  * O modo novo evita que cargas distintas com o mesmo nome/carga_id em datas
  * diferentes contaminem o status umas das outras.
  */
-export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
+/**
+ * C4 — Janela operacional parametrizável.
+ * Por padrão considera movimentos de 12h antes a 48h depois da data da carga
+ * (cobre cargas que entram tarde e saem na madrugada do dia seguinte).
+ */
+export interface StatusPortariaOptions {
+  janelaAntesHoras?: number;
+  janelaDepoisHoras?: number;
+}
+
+export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?: StatusPortariaOptions) {
+  const janelaAntes = options?.janelaAntesHoras ?? 12;
+  const janelaDepois = options?.janelaDepoisHoras ?? 48;
   // Normaliza para CargaRef[]; quando legado, data = "" (sem filtro)
   const refs: CargaRef[] = useMemo(() => {
     if (input.length === 0) return [];
@@ -143,7 +155,7 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
   );
 
   const query = useQuery({
-    queryKey: ["status_portaria_por_carga", idsKey],
+    queryKey: ["status_portaria_por_carga", idsKey, janelaAntes, janelaDepois],
     enabled: !!session && cargaIds.length > 0,
     staleTime: 15_000,
     queryFn: async () => {
@@ -158,13 +170,11 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[]) {
       for (const row of (data ?? []) as (MovRow & { placa?: string | null })[]) {
         if (!row.carga_id) continue;
         const dataCarga = dataByCarga.get(row.carga_id);
-        // Janela operacional ampliada: de 12h antes até 48h depois da data
-        // da carga. Isso cobre cargas que entram tarde da noite e saem na
-        // madrugada do dia seguinte, sem deixar ciclos antigos vazarem.
+        // C4 — Janela operacional parametrizável (default 12h antes / 48h depois)
         if (dataCarga && row.data_hora) {
           const base = new Date(`${dataCarga}T00:00:00`).getTime();
-          const inicio = base - 12 * 3600_000;
-          const fim = base + 48 * 3600_000;
+          const inicio = base - janelaAntes * 3600_000;
+          const fim = base + janelaDepois * 3600_000;
           const ts = new Date(row.data_hora).getTime();
           if (Number.isFinite(ts) && (ts < inicio || ts >= fim)) continue;
         }

@@ -213,12 +213,13 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   };
 
   const podeReabrirRegistro = (m: MovimentacaoPortaria): boolean => {
-    return (
-      m.categoria === "terceirizado" &&
-      !m.carga_id &&
-      m.etapa_terceirizado === "no_patio" &&
-      (role === "admin" || role === "logistica")
-    );
+    if (!(role === "admin" || role === "logistica")) return false;
+    if (m.carga_id) return false; // só sem carga vinculada
+    // D4 — Carga Própria também pode ser reaberta (ciclo na etapa "chegou"
+    // sem progresso). Antes só terceirizado podia.
+    if (m.categoria === "terceirizado" && m.etapa_terceirizado === "no_patio") return true;
+    if (m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou") return true;
+    return false;
   };
 
   /** Movimento que registrou apenas a chegada — ainda não foi liberado para o pátio. */
@@ -275,6 +276,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         empresa: m.empresa,
         tipo_caminhao: m.tipo_caminhao,
         data_hora: m.data_hora,
+        categoria: m.categoria,
       });
       setReabrirId(null);
     } catch {

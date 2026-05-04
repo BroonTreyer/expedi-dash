@@ -45,6 +45,12 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
   const cargaId = prefill?.carga_id || null;
   const isVinculadoACarga = !!cargaId;
 
+  // C5 — janela de dedup parametrizada (default 12h, justificada).
+  // Antes era 4h hardcoded; subimos para 12h porque há cargas que entram
+  // tarde da noite e o motorista chega no dia seguinte sem nova carga vinculada.
+  // Depois de 12h, considera-se que é uma chegada nova e cria registro novo.
+  const DEDUP_WINDOW_HOURS = 12;
+
   // Hidrata estado quando prefill muda / dialog abre
   useEffect(() => {
     if (!open) return;
@@ -68,7 +74,8 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
   const handleSelectMotorista = (m: { nome_completo: string; transportadora?: string | null; tipo_caminhao?: string | null }) => {
     setMotorista(m.nome_completo);
     setMotoristaSelecionado(true);
-    if (m.transportadora && !transportadora) setTransportadora(m.transportadora);
+    // B4 — em CP, transportadora não se aplica.
+    if (m.transportadora && !transportadora && grupo === "TERCEIRIZADO") setTransportadora(m.transportadora);
     if (m.tipo_caminhao && !tipoVeiculo) setTipoVeiculo(m.tipo_caminhao);
   };
 
@@ -81,7 +88,11 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
     setPlaca(c.placa);
     setPlacaSelecionada(true);
     if (c.tipo_caminhao) setTipoVeiculo(c.tipo_caminhao);
-    if (c.transportadora) setTransportadora(c.transportadora);
+    // B4 — Walk-in/CP NÃO recebe transportadora. Se a placa pertence à
+    // frota própria (sem transportadora), não preenchemos. Se tem
+    // transportadora vinda do cadastro do caminhão, ela só importa para
+    // grupo TERCEIRIZADO.
+    if (c.transportadora && grupo === "TERCEIRIZADO") setTransportadora(c.transportadora);
     if (c.motorista && !motorista) {
       setMotorista(c.motorista);
       setMotoristaSelecionado(true);
@@ -103,19 +114,15 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       const placaNorm = placa.trim().toUpperCase();
       const motoristaNorm = motorista.trim();
 
-      // Dedup defensivo: se a portaria já registrou uma chegada para essa placa
-      // nas últimas 4 horas e ela ainda não recebeu liberação para o pátio
-      // (horario_entrada IS NULL), atualiza esse registro em vez de criar um novo.
-      // Isso evita que uma chegada "solta" (sem carga) feita por engano antes
-      // continue aparecendo como "Chegou — aguardando liberação" na Expedição.
-      const since4h = new Date(Date.now() - 4 * 3600_000).toISOString();
+      // C5 — janela parametrizada (vide DEDUP_WINDOW_HOURS no topo do componente).
+      const sinceWindow = new Date(Date.now() - DEDUP_WINDOW_HOURS * 3600_000).toISOString();
       const { data: pendentes } = await supabase
         .from("movimentacoes_portaria")
         .select("id, carga_id")
         .eq("tipo_movimento", "entrada")
         .ilike("placa", placaNorm)
         .is("horario_entrada", null)
-        .gte("data_hora", since4h)
+        .gte("data_hora", sinceWindow)
         .order("data_hora", { ascending: false });
       const reaproveitar = (pendentes ?? []).find(
         (p: any) => !p.carga_id || p.carga_id === cargaId,
@@ -128,6 +135,9 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           motorista: motoristaNorm,
           tipo_caminhao: tipoVeiculo,
           carga_id: cargaId,
+          // B6 — em CP, transportadora não se aplica. Mas se o operador
+          // preencheu por engano, propagamos para `empresa` para não
+          // perder a informação (será visível na edição/auditoria).
           empresa: transportadora || null,
           usuario_id: user?.id ?? null,
           horarioChegadaIso: nowIso,
@@ -154,12 +164,18 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           .update(movPayload as any)
           .eq("id", reaproveitar.id);
         if (updErr) throw updErr;
-        // Apaga eventuais OUTRAS chegadas pendentes da mesma placa, sem carga,
-        // para não deixar "fantasmas" na Expedição.
+        // C3 — Apaga OUTRAS chegadas pendentes da mesma placa, sem carga.
+        // Antes do DELETE, registramos o motivo da exclusão em `observacoes`
+        // para auditoria (caso o operador venha questionar depois).
         const orfaos = (pendentes ?? [])
           .filter((p: any) => p.id !== reaproveitar.id && !p.carga_id)
           .map((p: any) => p.id as string);
         if (orfaos.length > 0) {
+          const motivoExclusao = `Excluído automaticamente em ${nowIso}: chegada órfã (sem carga) reaproveitada pela carga ${cargaId} via dedup ${DEDUP_WINDOW_HOURS}h. Reaproveitado: ${reaproveitar.id}.`;
+          await supabase
+            .from("movimentacoes_portaria")
+            .update({ observacoes: motivoExclusao } as any)
+            .in("id", orfaos);
           await supabase.from("movimentacoes_portaria").delete().in("id", orfaos);
         }
       } else {
@@ -186,10 +202,18 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         } as any)
         .eq("carga_id", cargaId);
 
-      toast.success(
-        "Chegada registrada. Quando o caminhão entrar fisicamente no pátio, clique em 'Liberar entrada no pátio' no painel.",
-        { duration: 7000 }
-      );
+      // B5 — toast contextual por categoria
+      if (isCargaPropria) {
+        toast.success("Chegada registrada — veículo no pátio", {
+          description: "Carga Própria entra direto no pátio. Próximo passo: registrar saída p/ rota.",
+          duration: 6000,
+        });
+      } else {
+        toast.success(
+          "Chegada registrada. Quando o caminhão entrar fisicamente no pátio, clique em 'Liberar entrada no pátio' no painel.",
+          { duration: 7000 }
+        );
+      }
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });

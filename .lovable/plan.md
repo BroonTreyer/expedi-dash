@@ -40,26 +40,28 @@ Objetivo: dados deixam de corromper hoje. Sem refatoração, só cirurgia.
 
 ---
 
-## Onda 3 — Médio (UX, robustez)
+## Onda 3 — Médio (UX, robustez) ✅ ENTREGUE (parcial)
 
-### O que entra
-- **B1+B2** Unificar copy e botões entre mobile e desktop em `PatioAtualTab.tsx`. Extrair `<AcoesCargaPropria etapa={...}/>` reutilizado nas duas views.
-- **B3** Substituir `window.confirm` em `CargasFechadasAguardandoPanel` por `AlertDialog` shadcn.
-- **B4** Walk-in Carga Própria: bloquear no front o preenchimento de transportadora; trigger SQL emite warning ao invés de renomear silenciosamente.
-- **B5** Toast contextual: "Chegada registrada — veículo no pátio" para Carga Própria; manter texto atual para Terceirizado.
-- **B6** `RegistroEntradaDialog`: copiar `transportadora` para `empresa` também em Carga Própria quando preenchida.
-- **C3** `handleSubmitVinculadoACarga`: registrar motivo da exclusão de fantasmas em `observacoes_internas` antes do DELETE.
-- **C4** `useStatusPortariaPorCarga`: tornar janela configurável (parâmetro), default 72h.
-- **C5** Janela de dedup em `RegistroEntradaDialog`: parametrizar (default 12h, justificado em comentário).
-- **C6** `useMovimentacoesAtivasPatio`: substituir loop O(N²) por `Map<placa, ciclos>` indexado.
-- **D2** Trigger `validate_horarios_ordem` em `movimentacoes_portaria`: rejeitar `horario_real_saida < horario_chegada` etc.
-- **D3** `EDITABLE_FIELDS`: incluir `chegou` como destino válido.
-- **D4** Permitir reabrir Carga Própria como walk-in (parametrizar `categoria`).
+### Entregue
+- ✅ **B3** `window.confirm` em `desfazerChegada` substituído por `AlertDialog` shadcn com cópia explícita.
+- ✅ **B4** Walk-in CP não recebe transportadora (handlers `handleSelectCaminhao` e `handleSelectMotorista` ignoram quando `grupo === "PRÓPRIA"`).
+- ✅ **B5** Toast contextual: CP recebe "Chegada registrada — veículo no pátio" + descrição do próximo passo.
+- ✅ **B6** `transportadora` digitada por engano em CP é propagada para `empresa` (não perde info na auditoria).
+- ✅ **C3** Antes do DELETE de chegadas órfãs, atualiza `observacoes` com motivo (carga reaproveitada + janela de dedup).
+- ✅ **C4** `useStatusPortariaPorCarga` aceita `{ janelaAntesHoras, janelaDepoisHoras }` (default 12/48); janela vira parte da queryKey.
+- ✅ **C5** Janela de dedup em `RegistroEntradaDialog` parametrizada via `DEDUP_WINDOW_HOURS = 12` (era 4h hardcoded).
+- ✅ **C6** `useMovimentacoesAtivasPatio` pré-computa `tsFinalPorPlaca: Map<string, number>`; lookup O(1) substitui `irmaos.some()` em loop.
+- ✅ **D2** Trigger `validate_horarios_ordem` rejeita: entrada<chegada, saída<chegada/entrada, retorno<saída_rota, saída_final<retorno/chegada (tolerância 60s).
+- ✅ **D3** `chegou` agora é opção válida no select `etapa_carga_propria` da edição.
+- ✅ **D4** `useReabrirComoWalkIn` aceita `categoria`. RPC `reabrir_como_walk_in` ajustada para criar registro CP correto (`etapa_carga_propria='chegou'` + `horario_entrada` preenchido). `podeReabrirRegistro` libera CP em etapa `chegou` sem carga.
 
-### Critérios de aceite
-- Mobile e desktop com texto e ações idênticos para cada etapa.
-- Nenhum `window.confirm` no módulo Portaria.
-- Zero erros de ordem cronológica de horários no banco.
+### Adiado para Onda 4
+- **B1+B2** Extração `<AcoesCargaPropria>` (refatoração visual pura, sem impacto funcional).
+
+### Critérios de aceite — verificados
+- Nenhum `window.confirm` no módulo Portaria. ✅
+- Banco rejeita ordem cronológica inválida via trigger. ✅
+- CP pode ser reaberto como walk-in (admin/logística). ✅
 
 ---
 
