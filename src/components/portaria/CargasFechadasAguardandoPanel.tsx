@@ -37,6 +37,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [confirmLiberar, setConfirmLiberar] = useState<CargaFechadaAguardando | null>(null);
+  const [confirmDesfazer, setConfirmDesfazer] = useState<CargaFechadaAguardando | null>(null);
 
   /** Tempo mínimo (em segundos) entre o registro da chegada e a liberação para o pátio.
    *  Evita o "clique reflexivo" no botão verde logo após registrar a chegada. */
@@ -188,7 +189,6 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
 
   const desfazerChegada = async (c: CargaFechadaAguardando) => {
     if (!c.movimentoChegadaId) return;
-    if (!confirm("Desfazer a chegada deste motorista? O registro será apagado.")) return;
     setBusyId(c.carga_id);
     try {
       const { error } = await supabase
@@ -316,7 +316,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                             variant="ghost"
                             className="h-8 text-xs gap-1 text-muted-foreground hover:text-destructive"
                             disabled={isBusy}
-                            onClick={() => desfazerChegada(c)}
+                            onClick={() => setConfirmDesfazer(c)}
                           >
                             <Undo2 className="h-3.5 w-3.5" />
                             Desfazer chegada
