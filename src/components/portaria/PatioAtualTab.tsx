@@ -454,9 +454,10 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
             const infoExtra = getInfoExtra(m);
             const isReabrir = reabrirId === m.id;
             const podeReabrir = podeReabrirRegistro(m);
+            const aguardandoLib = isAguardandoLiberacao(m);
 
             return (
-              <TableRow key={m.id} className={emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
+              <TableRow key={m.id} className={aguardandoLib ? "bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
                 <TableCell className="text-sm">
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -474,6 +475,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     <Badge variant="outline" className={categoriaBadgeColor[m.categoria] || ""}>
                       {getCategoriaLabel(m.categoria)}
                     </Badge>
+                    {aguardandoLib && (
+                      <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        Aguardando Liberação
+                      </Badge>
+                    )}
                     {m.categoria === "carga_propria" && m.etapa_carga_propria && (
                       <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
                         {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
@@ -501,7 +507,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <TableCell className="text-right">
                   {!readOnly && (
                   <div className="flex items-center gap-1 justify-end">
-                  {m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
+                  {aguardandoLib ? (
+                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => handleLiberarEntrada(m)} disabled={isSaving}>
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogIn className="h-3 w-3" />}
+                      Liberar Entrada
+                    </Button>
+                  ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
                     </Button>
