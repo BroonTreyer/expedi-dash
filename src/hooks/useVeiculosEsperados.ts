@@ -445,10 +445,16 @@ function parseDataReferencia(raw: string | undefined | null, fallback: string): 
     return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
 
-  // Excel serial number
+  // E6 — Excel serial number
+  // 25569 = 1970-01-01 (epoch Unix em dias-Excel). Limites:
+  //   mínimo: > 25569 (datas posteriores a 01/01/1970 — nada antes faz sentido aqui)
+  //   máximo: até hoje + 5 anos (evita aceitar números aleatórios futuros distantes)
   const num = Number(s);
-  if (!isNaN(num) && num > 40000 && num < 60000) {
-    const d = new Date((num - 25569) * 86400000);
+  const EXCEL_EPOCH_OFFSET = 25569;
+  const todaySerial = Math.floor(Date.now() / 86400000) + EXCEL_EPOCH_OFFSET;
+  const maxSerial = todaySerial + 365 * 5;
+  if (!isNaN(num) && num > EXCEL_EPOCH_OFFSET && num < maxSerial) {
+    const d = new Date((num - EXCEL_EPOCH_OFFSET) * 86400000);
     return d.toISOString().slice(0, 10);
   }
 
