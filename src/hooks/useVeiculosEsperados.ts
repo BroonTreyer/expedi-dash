@@ -590,6 +590,7 @@ export function useReabrirComoWalkIn() {
       empresa: string | null;
       tipo_caminhao: string | null;
       data_hora: string;
+      categoria?: string | null;
     }) => {
       if (!m.placa) {
         throw new Error("Movimentação sem placa — não é possível enviar para Registro de Entrada");
@@ -597,10 +598,12 @@ export function useReabrirComoWalkIn() {
       // C1 — Reabertura agora roda numa única transação no banco via RPC.
       // Antes: 3 chamadas separadas (insert esperado / insert chegada / delete
       // movimento original) podiam falhar no meio e deixar duplicado ou órfão.
+      // D4 — categoria pode ser `carga_propria` ou `terceirizado`.
+      const isCargaPropria = m.categoria === "carga_propria";
       const { error } = await supabase.rpc("reabrir_como_walk_in" as any, {
         p_movimento_id: m.id,
-        p_categoria_destino: "terceirizado",
-        p_grupo: "WALK-IN-TERCEIRIZADO",
+        p_categoria_destino: isCargaPropria ? "carga_propria" : "terceirizado",
+        p_grupo: isCargaPropria ? "WALK-IN-PROPRIA" : "WALK-IN-TERCEIRIZADO",
       });
       if (error) throw error;
     },
