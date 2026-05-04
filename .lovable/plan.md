@@ -1,26 +1,42 @@
-Vou ajustar o comportamento para bater com o que você espera: quando clicar em **Registrar Chegada** em **Esperados** para **Carga Própria**, o veículo já deve ficar como **no pátio**, sem pedir **Liberar Entrada**.
+O problema ainda existe porque o registro RBY2D00 continua no banco com:
+
+```text
+etapa_carga_propria = aguardando_liberacao
+horario_entrada = null
+```
+
+Enquanto OND0B48 está correto:
+
+```text
+etapa_carga_propria = chegou
+horario_entrada = preenchido
+```
+
+Por isso a tela fica visualmente diferente: o botão aparece como “Saída p/ Rota”, mas a tag “Chegou” não aparece no RBY2D00 porque a etapa dele ainda está antiga.
 
 Plano de correção:
 
-1. Corrigir o registro vindo de **Esperados**
-   - Em `useRegistrarChegadaPortaria`, para `carga_propria`, gravar `horario_entrada` junto com `horario_chegada`.
-   - Definir `etapa_carga_propria = 'chegou'` imediatamente.
-   - Manter o fluxo de terceirizado separado se ainda depender de liberação.
+1. Normalizar o dado atual do RBY2D00 e qualquer outro registro recente de Carga Própria que ainda esteja em `aguardando_liberacao` ou sem `horario_entrada`.
+   - Definir `etapa_carga_propria = 'chegou'`.
+   - Definir `horario_entrada = COALESCE(horario_entrada, horario_chegada, data_hora)`.
 
-2. Corrigir o registro manual vinculado à carga
-   - Em `RegistroEntradaDialog`, quando for **Carga Própria** vinculada à carga, também gravar `horario_entrada` e `etapa_carga_propria = 'chegou'` no ato de registrar.
-   - Atualizar o texto do diálogo para não dizer que a Carga Própria “só entrará no pátio após liberação”.
+2. Corrigir o ponto que ainda gera registros antigos.
+   - Em `useRegistrarChegadaPortaria`, a busca por movimentação existente ainda procura Carga Própria como `aguardando_liberacao`.
+   - Vou ajustar para tratar Carga Própria como fluxo direto de chegada ao pátio (`chegou`) e evitar reaproveitar/criar registro com estado antigo.
 
-3. Remover a ação indevida na aba Pátio para Carga Própria
-   - Em `PatioAtualTab`, a condição de “Aguardando Liberação” não deve mais se aplicar à `carga_propria`.
-   - Assim, Carga Própria recém-registrada passa a mostrar **Chegou** e o botão correto **Saída p/ Rota**.
-   - O botão **Liberar Entrada** ficará apenas para o fluxo que realmente precisar de etapa intermediária, como terceirizado se aplicável.
+3. Ajustar mensagens de sucesso/comentários da tela.
+   - A mensagem atual ainda diz “Aguardando liberação no pátio”, mesmo para Carga Própria.
+   - Para Carga Própria, passará a indicar que a chegada foi registrada e o veículo está pronto para “Saída p/ Rota”.
+   - Para Terceirizado, permanece o fluxo de aguardar/liberar entrada.
 
-4. Limpar o caso atual já preso no estado errado
-   - O registro atual da placa `OND0B48` está no banco com `etapa_carga_propria = 'aguardando_liberacao'` e `horario_entrada = null`.
-   - Farei uma migração/update para converter registros recentes de **Carga Própria** nesse estado para `etapa_carga_propria = 'chegou'` e preencher `horario_entrada` com `horario_chegada`/`data_hora`.
+4. Deixar a interface tolerante a dados antigos.
+   - Se uma Carga Própria de entrada tiver `horario_entrada` preenchido, a tela deve exibir “Chegou” mesmo se a etapa antiga vier inconsistente.
+   - Isso evita diferenças visuais caso algum registro legado escape da normalização.
 
 Resultado esperado:
-- Clicou em **Registrar Chegada** em Esperados para Carga Própria → aparece no **Pátio** como **Chegou**.
-- Não aparece mais **Aguardando Liberação** nem botão **Liberar Entrada** para Carga Própria.
-- O próximo botão será **Saída p/ Rota**.
+
+```text
+Esperados -> Registrar Chegada -> Pátio com tag Chegou -> Saída p/ Rota -> Em Rota -> Retorno -> Saída c/ Lacre
+```
+
+Depois da correção, RBY2D00 deve aparecer igual aos outros: `Carga Própria` + `Chegou` + botão `Saída p/ Rota`.
