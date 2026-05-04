@@ -10,4 +10,6 @@ O controle de Portaria para veículos Terceirizados (e Frota Própria vinculados
 
 Estado intermediário "Aguardando liberação" mostra cronômetro de espera no painel `CargasFechadasAguardandoPanel` e permite "Desfazer chegada" (DELETE só permitido enquanto `horario_entrada IS NULL`).
 
+**Terceirizado SEM carga vinculada** (`etapa_terceirizado='chegada'` + `carga_id=null`) permanece visível no Pátio Atual (`PatioAtualTab`) em destaque vermelho com badge "Aguardando vínculo". Admin/Logística vê botões "Vincular carga" (abre `VincularMovimentoCargaDialog`) e "Desfazer". Não há painel separado para esse estado — antes o registro era escondido aguardando um "painel laranja" inexistente, virando fantasma.
+
 Campos obrigatórios na chegada: Empresa, Foto da Placa, Placa, Motorista, Tipo de Caminhão. O sistema calcula Tempo de Espera (fila) e Tempo Total de permanência. Após liberação seguem as etapas: Liberado para carregar → Saída.
