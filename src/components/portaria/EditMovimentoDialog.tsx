@@ -61,22 +61,35 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
   if (!movimento) return null;
 
   const handleSave = async () => {
+    // A9 — apenas campos efetivamente exibidos no formulário entram no UPDATE.
+    // Antes, todos os EDITABLE_FIELDS viravam null e apagavam dados não visíveis.
     const updates: Record<string, any> = {};
-    EDITABLE_FIELDS.forEach((f) => {
+    finalFields.forEach((f) => {
       const val = values[f.key];
       if (f.type === "number") {
-        updates[f.key] = val !== "" && val !== undefined ? Number(val) : null;
+        updates[f.key] = val !== "" && val !== undefined && val !== null ? Number(val) : null;
       } else if (f.type === "select") {
         updates[f.key] = val || null;
       } else {
-        updates[f.key] = val?.trim() || null;
+        updates[f.key] = (typeof val === "string" ? val.trim() : val) || null;
       }
     });
 
-    // Only recalculate km_rodado if both values are in the same record
-    // For retorno records, km_inicial lives on the entrada — don't produce wrong values
+    // A1 — validação de KM (banco também valida via trigger)
     if (updates.km_final != null && updates.km_inicial != null) {
-      updates.km_rodado = Number(updates.km_final) - Number(updates.km_inicial);
+      const kmIni = Number(updates.km_inicial);
+      const kmFim = Number(updates.km_final);
+      if (Number.isFinite(kmIni) && Number.isFinite(kmFim)) {
+        if (kmFim < kmIni) {
+          toast.error(`KM Final (${kmFim}) não pode ser menor que KM Inicial (${kmIni}).`);
+          return;
+        }
+        if (kmFim - kmIni > 3000) {
+          toast.error(`Diferença de KM (${kmFim - kmIni}) excede o limite de 3000 km.`);
+          return;
+        }
+        updates.km_rodado = kmFim - kmIni;
+      }
     }
 
     await updateMov.mutateAsync({ id: movimento.id, ...updates });
