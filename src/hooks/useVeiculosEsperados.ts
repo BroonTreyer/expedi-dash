@@ -582,7 +582,6 @@ export function useLimparVeiculosEsperados() {
  */
 export function useReabrirComoWalkIn() {
   const qc = useQueryClient();
-  const { user } = useAuth();
   return useMutation({
     mutationFn: async (m: {
       id: string;
