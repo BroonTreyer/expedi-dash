@@ -229,6 +229,28 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     return false;
   };
 
+  /**
+   * B7 — Estado inconsistente: Carga Própria deveria ter `horario_entrada`
+   * preenchido desde a criação (helper `buildCargaPropriaPayload` da Onda 1).
+   * Se um registro chega aqui sem horario_entrada e ainda não está finalizado,
+   * é defeito de criação anterior à Onda 1 ou inserção direta no banco.
+   */
+  const isCargaPropriaInconsistente = (m: MovimentacaoPortaria): boolean => {
+    if (m.categoria !== "carga_propria") return false;
+    if (m.etapa_carga_propria === "finalizado") return false;
+    return !m.horario_entrada;
+  };
+
+  // Loga uma vez para auditoria (não polui o console em re-render)
+  useEffect(() => {
+    const inconsistentes = movimentacoes.filter(isCargaPropriaInconsistente);
+    if (inconsistentes.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn("[Portaria] Carga Própria sem horario_entrada (estado inconsistente):", inconsistentes.map((m) => ({ id: m.id, placa: m.placa, etapa: m.etapa_carga_propria })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movimentacoes.length]);
+
   const handleLiberarEntrada = async (m: MovimentacaoPortaria) => {
     setSavingId(m.id);
     try {
