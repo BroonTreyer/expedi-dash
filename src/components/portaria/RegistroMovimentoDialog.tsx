@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowDownToLine, ArrowUpFromLine, ArrowLeft, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { nextEtapa } from "@/lib/carga-propria-fsm";
 import {
   type Categoria,
   type TipoMovimentoPortaria,
@@ -286,7 +287,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           updates.confianca_placa = confiancaPlaca;
           updates.placa_confirmada = values.placa?.trim().toUpperCase() || null;
           updates.horario_real_saida = new Date().toISOString();
-          updates.etapa_carga_propria = "em_rota";
+          updates.etapa_carga_propria = nextEtapa(prefill.etapa_carga_propria as any, "saida_rota");
           if (regularizar || fotoViaArquivo) {
             updates.observacoes = appendReg(prefill.observacoes);
           }
@@ -298,7 +299,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
             : (values.observacoes?.trim() || prefill.observacoes || null);
           updates.ocorrencia = values.ocorrencia?.trim() || null;
           updates.horario_real_retorno = new Date().toISOString();
-          updates.etapa_carga_propria = "retornou";
+          updates.etapa_carga_propria = nextEtapa(prefill.etapa_carga_propria as any, "retorno");
           // Calculate km_rodado
           if (updates.km_final != null && prefill.km_inicial != null) {
             updates.km_rodado = Number(updates.km_final) - Number(prefill.km_inicial);
@@ -321,7 +322,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           }
           // Não sobrescrever horario_real_saida (saída p/ rota); usar campo dedicado
           updates.horario_saida_final = new Date().toISOString();
-          updates.etapa_carga_propria = "finalizado";
+          updates.etapa_carga_propria = nextEtapa(prefill.etapa_carga_propria as any, "saida_lacre");
         }
 
         await updateMov.mutateAsync({ id: prefill.id, ...updates });
