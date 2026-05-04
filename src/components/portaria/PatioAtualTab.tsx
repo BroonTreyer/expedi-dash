@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2 } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2, LogIn } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
