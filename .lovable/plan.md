@@ -22,21 +22,21 @@ Objetivo: dados deixam de corromper hoje. Sem refatoração, só cirurgia.
 
 ---
 
-## Onda 2 — Alto (latentes, vão estourar com volume)
+## Onda 2 — Alto (latentes, vão estourar com volume) ✅ ENTREGUE
 
-### O que entra
-- **A5** `handleSaidaRapida` em `PatioAtualTab`: para Carga Própria, marcar `etapa_carga_propria='finalizado'` + `horario_saida_final=now()` na entrada original.
-- **A8** Refatorar `portaria-fields-config.ts` para que `saida_rota` tenha matriz própria (não herdar de `entrada`).
-- **A10** `EditMovimentoDialog`: bloquear troca de categoria. Se necessário, exigir reabertura via fluxo dedicado.
-- **B7** Tratar combinação inválida (Carga Própria sem `horario_entrada`): exibir aviso "Estado inconsistente — abra o registro para corrigir" e logar.
-- **C1** `useReabrirComoWalkIn`: envolver os 3 passos numa RPC SQL transacional `reabrir_como_walk_in(movimento_id)`.
-- **C2** `liberarEntrada` em `CargasFechadasAguardandoPanel`: filtrar também por `placa` além de `carga_id`, eliminando risco de carga_id reutilizado.
-- **D1** Adicionar trigger `validate_etapa_carga_propria` (BEFORE INSERT/UPDATE) limitando aos 4 valores válidos (`chegou`, `em_rota`, `retornou`, `finalizado`).
+### Entregue
+- ✅ **A5** `handleSaidaRapida` em `PatioAtualTab` agora finaliza Carga Própria (`etapa_carga_propria='finalizado'` + `horario_saida_final`).
+- ✅ **A8** `VISIBILITY_SAIDA_ROTA` em `portaria-fields-config.ts` — saída p/ rota deixa de herdar `VISIBILITY` e pede só foto do painel + km_inicial + opcionais (rota/peso/qtd/km_rota/observações).
+- ✅ **A10** `EditMovimentoDialog`: campo `categoria` removido dos editáveis e exibido como read-only. Cascata `categoria→etapa_*` removida.
+- ✅ **B7** PatioAtualTab detecta CP sem `horario_entrada` (não-finalizado), exibe badge "Estado inconsistente" no card/linha e loga warn no console.
+- ✅ **C1** RPC `reabrir_como_walk_in(p_movimento_id, p_categoria_destino, p_grupo)` SECURITY DEFINER faz INSERT esperado + INSERT chegada + DELETE original em uma transação. Hook `useReabrirComoWalkIn` chama a RPC.
+- ✅ **C2** `liberarEntrada` em `CargasFechadasAguardandoPanel` agora filtra `id` + `ilike placa` quando há placa.
+- ✅ **D1** Trigger `validate_etapa_carga_propria` (BEFORE INSERT/UPDATE) rejeita qualquer valor fora de `{chegou, em_rota, retornou, finalizado}`.
 
-### Critérios de aceite
-- "Saída rápida" em Carga Própria fecha o registro e some do pátio.
-- Tentativa de gravar etapa inválida via SQL é rejeitada.
-- Reabertura como walk-in: ou completa tudo ou não altera nada.
+### Critérios de aceite — verificados
+- Saída rápida em Carga Própria fecha o ciclo e some do pátio. ✅
+- INSERT/UPDATE com `etapa_carga_propria='foo'` é rejeitado pelo banco. ✅
+- Reabertura walk-in: tudo ou nada (transação SQL). ✅
 
 ---
 

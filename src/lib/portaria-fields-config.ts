@@ -196,9 +196,28 @@ function getMatrix(tipoMovimento: TipoMovimentoPortaria): VisibilityMatrix {
   if (tipoMovimento === "retorno") return VISIBILITY_RETORNO;
   if (tipoMovimento === "lacre") return VISIBILITY_SAIDA;
   if (tipoMovimento === "saida") return VISIBILITY_SAIDA;
-  if (tipoMovimento === "saida_rota") return VISIBILITY; // same fields as normal entrada/saida
+  if (tipoMovimento === "saida_rota") return VISIBILITY_SAIDA_ROTA;
   return VISIBILITY;
 }
+
+// A8 — SAIDA_ROTA visibility — etapa "saída p/ rota" da carga própria.
+// Antes herdava VISIBILITY (mesmo formulário da chegada), o que pedia novamente
+// motorista/placa/km_inicial e abria espaço para o operador trocar identidade
+// no meio do ciclo. Agora pede só o que falta: foto do painel de saída,
+// confirmação de km_inicial (já preenchido) e observações opcionais.
+export const VISIBILITY_SAIDA_ROTA: VisibilityMatrix = Object.fromEntries(
+  Object.keys(VISIBILITY).map((key) => {
+    const allOculto: Record<Categoria, FieldVisibility> = { carga_propria: "oculto", terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" };
+    if (key === "foto_painel_saida_url") return [key, { ...allOculto, carga_propria: "obrigatorio" }];
+    if (key === "km_inicial") return [key, { ...allOculto, carga_propria: "obrigatorio" }];
+    if (key === "rota") return [key, { ...allOculto, carga_propria: "opcional" }];
+    if (key === "peso") return [key, { ...allOculto, carga_propria: "opcional" }];
+    if (key === "qtd_entregas") return [key, { ...allOculto, carga_propria: "opcional" }];
+    if (key === "km_rota") return [key, { ...allOculto, carga_propria: "opcional" }];
+    if (key === "observacoes") return [key, { ...allOculto, carga_propria: "opcional" }];
+    return [key, allOculto];
+  })
+);
 
 export function getVisibleFields(categoria: Categoria, tipoMovimento: TipoMovimentoPortaria = "entrada") {
   const matrix = getMatrix(tipoMovimento);

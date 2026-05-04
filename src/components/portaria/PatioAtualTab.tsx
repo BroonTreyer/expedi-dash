@@ -196,6 +196,15 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           horario_real_saida: new Date().toISOString(),
         });
       }
+      // A5 — Carga Própria também precisa fechar o ciclo na entrada original,
+      // senão o veículo continua aparecendo no pátio mesmo após a saída rápida.
+      if (entrada.categoria === "carga_propria") {
+        await updateMov.mutateAsync({
+          id: entrada.id,
+          etapa_carga_propria: "finalizado",
+          horario_saida_final: new Date().toISOString(),
+        });
+      }
       setSaidaRapidaId(null);
     } catch {
     } finally {
@@ -219,6 +228,28 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada") return true;
     return false;
   };
+
+  /**
+   * B7 — Estado inconsistente: Carga Própria deveria ter `horario_entrada`
+   * preenchido desde a criação (helper `buildCargaPropriaPayload` da Onda 1).
+   * Se um registro chega aqui sem horario_entrada e ainda não está finalizado,
+   * é defeito de criação anterior à Onda 1 ou inserção direta no banco.
+   */
+  const isCargaPropriaInconsistente = (m: MovimentacaoPortaria): boolean => {
+    if (m.categoria !== "carga_propria") return false;
+    if (m.etapa_carga_propria === "finalizado") return false;
+    return !m.horario_entrada;
+  };
+
+  // Loga uma vez para auditoria (não polui o console em re-render)
+  useEffect(() => {
+    const inconsistentes = movimentacoes.filter(isCargaPropriaInconsistente);
+    if (inconsistentes.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn("[Portaria] Carga Própria sem horario_entrada (estado inconsistente):", inconsistentes.map((m) => ({ id: m.id, placa: m.placa, etapa: m.etapa_carga_propria })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movimentacoes.length]);
 
   const handleLiberarEntrada = async (m: MovimentacaoPortaria) => {
     setSavingId(m.id);
@@ -295,6 +326,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     {aguardandoLib && (
                       <Badge variant="outline" className="text-[10px] h-5 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                         Aguardando Liberação
+                      </Badge>
+                    )}
+                    {isCargaPropriaInconsistente(m) && (
+                      <Badge variant="outline" className="text-[10px] h-5 gap-0.5 border-destructive/50 bg-destructive/10 text-destructive">
+                        <AlertTriangle className="h-3 w-3" /> Estado inconsistente
                       </Badge>
                     )}
                     {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && m.etapa_carga_propria !== "finalizado" && (() => {
@@ -481,6 +517,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     {aguardandoLib && (
                       <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                         Aguardando Liberação
+                      </Badge>
+                    )}
+                    {isCargaPropriaInconsistente(m) && (
+                      <Badge variant="outline" className="text-[10px] gap-0.5 border-destructive/50 bg-destructive/10 text-destructive" title="Carga Própria sem horario_entrada — abra o registro e edite para corrigir.">
+                        <AlertTriangle className="h-3 w-3" /> Estado inconsistente
                       </Badge>
                     )}
                     {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && m.etapa_carga_propria !== "finalizado" && (() => {

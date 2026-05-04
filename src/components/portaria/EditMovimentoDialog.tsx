@@ -20,7 +20,10 @@ const EDITABLE_FIELDS: { key: string; label: string; type: "text" | "number" | "
   { key: "placa", label: "Placa", type: "text" },
   { key: "motorista", label: "Motorista", type: "text" },
   { key: "empresa", label: "Empresa", type: "text" },
-  { key: "categoria", label: "Categoria", type: "select", options: ["carga_propria", "terceirizado", "fornecedor", "visitante", "prestador", "outros"] },
+  // A10 — categoria NÃO pode ser trocada por edição. Trocar categoria invalida
+  // toda a máquina de etapas (carga_propria↔terceirizado têm campos distintos
+  // de etapa e fluxo). Para mudar categoria, exclua o registro e crie de novo.
+  // Mantida como display read-only no diálogo.
   { key: "tipo_movimento", label: "Tipo Movimento", type: "select", options: ["entrada", "saida"] },
   { key: "nome_completo", label: "Nome Completo", type: "text" },
   { key: "documento", label: "Documento", type: "text" },
@@ -126,6 +129,14 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
         </DialogHeader>
 
         <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Categoria (não editável)</Label>
+            <Input
+              value={CATEGORIAS.find((c) => c.value === movimento.categoria)?.label || movimento.categoria}
+              readOnly
+              disabled
+            />
+          </div>
           {finalFields.map((f) => (
             <div key={f.key} className="space-y-1">
               <Label className="text-xs">{f.label}</Label>
@@ -150,15 +161,6 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
                 <Select value={values[f.key] ?? ""} onValueChange={(v) => {
                   setValues((prev) => {
                     const next = { ...prev, [f.key]: v };
-                    if (f.key === "categoria") {
-                      if (v === "terceirizado") {
-                        next.etapa_carga_propria = "";
-                        next.etapa_terceirizado = "no_patio";
-                      } else if (v === "carga_propria") {
-                        next.etapa_terceirizado = "";
-                        next.etapa_carga_propria = "chegou";
-                      }
-                    }
                     return next;
                   });
                 }}>
