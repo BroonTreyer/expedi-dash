@@ -532,6 +532,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           );
         })}
       </div>
+      {/* Mobile dialog mount handled at root via parent return; included here as well */}
     );
   }
 
