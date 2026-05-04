@@ -505,34 +505,58 @@ export function useCargasFechadasAguardando() {
         const t = new Date(ts).getTime();
         return Number.isFinite(t) && t >= ini && t <= fim;
       };
-      // Cargas (carga_id) -> data alvo (mais recente). Várias linhas dia-a-dia
-      // podem aparecer; pegamos a maior data como referência.
-      const cargaData = new Map<string, string>();
-      const cargaPlaca = new Map<string, string>();
+      // Chave composta: carga_id pode ser reusado por viagens diferentes
+      // (ex.: "JR" usado pelo Fagno num dia e pelo Célio em outro). Sem
+      // distinguir por placa+data, os dois viravam um único item, herdando
+      // os campos da primeira linha — incluindo `transportadora`, o que
+      // misturava terceirizado em "carga própria" no painel.
+      const groupKeyOf = (carga_id: string, placa: string | null | undefined, data: string | null | undefined) =>
+        `${carga_id}|${norm(placa)}|${data ?? ""}`;
+
+      // Indexa data e placa por chave composta para casar movimentações.
+      const cargaDataByKey = new Map<string, string>();
+      const cargaPlacaByKey = new Map<string, string>();
+      const keysByCargaId = new Map<string, Set<string>>();
       for (const c of cargasArr) {
         if (!c.carga_id) continue;
-        const prev = cargaData.get(c.carga_id);
-        if (!prev || (c.data && c.data > prev)) cargaData.set(c.carga_id, c.data);
-        if (c.placa && !cargaPlaca.get(c.carga_id)) cargaPlaca.set(c.carga_id, norm(c.placa));
+        const k = groupKeyOf(c.carga_id, c.placa, c.data);
+        if (!cargaDataByKey.has(k) && c.data) cargaDataByKey.set(k, c.data);
+        if (!cargaPlacaByKey.has(k) && c.placa) cargaPlacaByKey.set(k, norm(c.placa));
+        const set = keysByCargaId.get(c.carga_id) ?? new Set<string>();
+        set.add(k);
+        keysByCargaId.set(c.carga_id, set);
       }
-      const entradaPorCarga = new Map<string, { id: string; horario_entrada: string | null; horario_chegada: string | null; data_hora: string | null }>();
-      const finalizadaCarga = new Set<string>();
+
+      const entradaPorKey = new Map<string, { id: string; horario_entrada: string | null; horario_chegada: string | null; data_hora: string | null }>();
+      const finalizadaKey = new Set<string>();
       for (const m of ((movs ?? []) as any[])) {
         if (!m.carga_id) continue;
-        const dCarga = cargaData.get(m.carga_id);
-        if (!dCarga) continue;
-        if (!dentroJanela(dCarga, m.data_hora)) continue;
-        // Se a carga tem placa prevista e o movimento tem placa, devem coincidir.
-        const placaCarga = cargaPlaca.get(m.carga_id);
-        if (placaCarga && m.placa && norm(m.placa) !== placaCarga) continue;
+        const candidateKeys = keysByCargaId.get(m.carga_id);
+        if (!candidateKeys) continue;
+        // Resolve qual viagem (key) este movimento pertence, casando placa
+        // (quando o movimento traz placa) e janela de data ao redor de cada
+        // viagem candidata. Se não há placa no movimento, casa pela janela.
+        const placaMov = norm(m.placa);
+        let matchedKey: string | null = null;
+        for (const k of candidateKeys) {
+          const dCarga = cargaDataByKey.get(k);
+          if (!dCarga) continue;
+          if (!dentroJanela(dCarga, m.data_hora)) continue;
+          const placaCarga = cargaPlacaByKey.get(k);
+          if (placaCarga && placaMov && placaMov !== placaCarga) continue;
+          matchedKey = k;
+          // Preferimos um match com placa coincidente; já encontrado, paramos.
+          if (placaCarga && placaMov) break;
+        }
+        if (!matchedKey) continue;
         if (m.tipo_movimento === "saida" || m.etapa_terceirizado === "finalizado" || m.etapa_carga_propria === "finalizado" || m.horario_saida_final) {
-          finalizadaCarga.add(m.carga_id);
+          finalizadaKey.add(matchedKey);
           continue;
         }
         if (m.tipo_movimento === "entrada") {
-          const prev = entradaPorCarga.get(m.carga_id);
+          const prev = entradaPorKey.get(matchedKey);
           if (!prev || (m.data_hora && prev.data_hora && m.data_hora > prev.data_hora)) {
-            entradaPorCarga.set(m.carga_id, {
+            entradaPorKey.set(matchedKey, {
               id: m.id,
               horario_entrada: m.horario_entrada,
               horario_chegada: m.horario_chegada,
@@ -545,16 +569,21 @@ export function useCargasFechadasAguardando() {
       const grouped = new Map<string, CargaFechadaAguardando>();
       for (const c of cargasArr) {
         if (!c.carga_id) continue;
-        if (finalizadaCarga.has(c.carga_id)) continue;
-        const entrada = entradaPorCarga.get(c.carga_id);
+        const key = groupKeyOf(c.carga_id, c.placa, c.data);
+        if (finalizadaKey.has(key)) continue;
+        const entrada = entradaPorKey.get(key);
         // Se já tem entrada com horario_entrada preenchido, está no pátio — não listar
         if (entrada && entrada.horario_entrada) continue;
-        const g = grouped.get(c.carga_id);
+        const g = grouped.get(key);
         if (g) {
           g.peso_total += Number(c.peso) || 0;
           g.qtd_pedidos += 1;
+          // Preencher campos que possam ter ficado nulos na primeira linha.
+          if (!g.transportadora && c.transportadora) g.transportadora = c.transportadora;
+          if (!g.motorista && c.motorista) g.motorista = c.motorista;
+          if (!g.tipo_caminhao && c.tipo_caminhao) g.tipo_caminhao = c.tipo_caminhao;
         } else {
-          grouped.set(c.carga_id, {
+          grouped.set(key, {
             carga_id: c.carga_id,
             nome_carga: c.nome_carga,
             placa: c.placa,
