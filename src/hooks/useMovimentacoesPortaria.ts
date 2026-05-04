@@ -203,7 +203,9 @@ export function useMovimentacoesAtivasPatio() {
       };
 
       return all.filter((m) => {
-        // Carga própria: mantém enquanto não está finalizado
+        // Carga própria LEGADO (pré-Onda 4): registros antigos com
+        // tipo_movimento='saida'. Após a normalização da Onda 4 quase não
+        // existem mais, mas o ramo permanece como defesa.
         if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
           if (m.etapa_carga_propria === "finalizado") return false;
           if (haCicloPosteriorFinalizado(m)) return false;
@@ -215,6 +217,13 @@ export function useMovimentacoesAtivasPatio() {
         if (saidasVinculadas.has(m.id)) return false;
         // Terceirizado finalizado: já saiu
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+        // BUGFIX pós-Onda 4: hoje toda Carga Própria é tipo_movimento='entrada'
+        // e o ciclo termina via etapa_carga_propria='finalizado'. Sem este
+        // filtro o veículo finalizado continuava aparecendo no Pátio Atual.
+        if (m.categoria === "carga_propria" && m.etapa_carga_propria === "finalizado") return false;
+        // Defesa extra: horario_saida_final preenchido também encerra o ciclo
+        // (cobre registros editados manualmente que pulam etapas).
+        if (m.categoria === "carga_propria" && m.horario_saida_final) return false;
         // Entrada antiga obsoleta: ciclo posterior da mesma placa já finalizou.
         if (haCicloPosteriorFinalizado(m)) return false;
         return true;
