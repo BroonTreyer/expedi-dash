@@ -30,6 +30,7 @@ import {
   getBlockFields,
   validateForm,
 } from "@/lib/portaria-fields-config";
+import { buildCargaPropriaPayload } from "@/lib/carga-propria-criar";
 
 interface Props {
   open: boolean;
