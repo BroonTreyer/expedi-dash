@@ -141,7 +141,7 @@ export default function Portaria({ categoria }: PortariaProps) {
         await createMov.mutateAsync({
           tipo_movimento: "entrada",
           categoria: "carga_propria",
-          etapa_carga_propria: "aguardando_liberacao",
+          etapa_carga_propria: "chegou",
           data_hora: agora,
           placa: v.placa || null,
           motorista: v.motorista || null,
@@ -152,7 +152,7 @@ export default function Portaria({ categoria }: PortariaProps) {
           carga_id: v.carga_id || null,
           usuario_id: user?.id ?? null,
           horario_chegada: agora,
-          horario_entrada: null,
+          horario_entrada: agora,
         } as any);
       } else {
         await createMov.mutateAsync({
@@ -170,7 +170,7 @@ export default function Portaria({ categoria }: PortariaProps) {
           qtd_entregas: v.qtd_entregas ?? null,
           usuario_id: user?.id ?? null,
           horario_chegada: agora,
-          horario_entrada: null,
+          horario_entrada: agora,
         } as any);
       }
       // Marca o veiculo_esperado como conferido para sair da lista de Esperados.
