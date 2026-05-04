@@ -233,7 +233,7 @@ export function useMovimentacoesAtivasPatio() {
 
   useEffect(() => {
     const channel = supabase
-      .channel(`movimentacoes-ativas-patio`)
+      .channel(`movimentacoes-ativas-patio-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "movimentacoes_portaria" },
