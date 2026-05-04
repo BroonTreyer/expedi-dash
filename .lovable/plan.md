@@ -1,47 +1,44 @@
-## Por que sumiu a opção
+## Bug confirmado
 
-A função **"Regularizar sem foto"** (checkbox + motivo obrigatório que dispensa fotos travando o fluxo) existe no código e nunca foi removida. O problema é que ela está restrita **só à Carga Própria** desde a implementação original — porque o caso de uso inicial era destravar o fluxo de saída p/ rota / retorno / lacre da frota própria.
+O motorista **FLENDSON RODRIGUES DE MEDEIROS** (placa MXE9B40, TREVINHO) registrou chegada hoje às 19:33 como `terceirizado / etapa_terceirizado=chegada`, **sem `carga_id` e sem `horario_entrada`**.
 
-Como você está em **/portaria/terceirizado**, a checkbox **nunca aparece**, mesmo sendo admin/logística. E o terceirizado também tem fotos obrigatórias que travam o registro:
-- **Entrada**: `foto_placa_url` (obrigatória)
-- **Saída** (lacre): `foto_lacre_url` (obrigatória)
+Confirmei via DB que o movimento existe (`6ff03e6e-d469-4c87-9d64-3ec14ead09f8`), mas ele **não aparece em nenhum painel** da tela `/portaria/terceirizado`:
 
-Mesmo problema vale para **Fornecedor** (`foto_placa_url`, `foto_documento_url`, `foto_nota_url`, `foto_lacre_url` — todas obrigatórias) e **Prestador / Visitante / Outros**.
+| Painel | Por que não mostra |
+|---|---|
+| `PatioAtualTab` | `PatioAtualTab.tsx:135-139` exclui explicitamente `terceirizado + chegada + !carga_id` |
+| `CargasFechadasAguardandoPanel` | Só lista cargas já fechadas no dashboard — não há carga vinculada |
+| `SolicitacoesPendentesPanel` | Lê de `veiculos_esperados` (walk-in). Como a chegada foi feita pelo diálogo de Registro, **nenhum `veiculos_esperados` foi criado** |
 
-## Solução
+Antes (suspeita): o card aparecia em vermelho no `PatioAtualTab` como "Aguardando vínculo". Em algum momento o filtro das linhas 131-139 foi adicionado para mover esses casos para um "painel laranja" — mas esse painel **nunca foi criado**, então o registro virou fantasma.
 
-Estender a opção "Regularizar sem foto" a **todas as categorias** que tenham fotos obrigatórias travando o fluxo, mantendo a restrição de perfil (só admin/logística vê a checkbox).
+## Correção
 
-### Mudança em `src/components/portaria/RegistroMovimentoDialog.tsx`
+**Reexibir movimentos `terceirizado + chegada + sem carga_id` no Pátio Atual com destaque vermelho e ação para vincular carga.**
 
-1. **Liberar a checkbox em mais categorias** (linha ~174-177):
-   - Substituir a regra `categoria === "carga_propria" && (saida_rota|retorno|lacre)` por uma regra genérica: mostrar sempre que a categoria tiver pelo menos um campo de foto marcado como `obrigatorio` na config (`portaria-fields-config.ts`).
-   - Na prática isso libera para: `carga_propria`, `terceirizado`, `fornecedor`, `prestador`, `visitante`, `outros`.
+### Arquivo: `src/components/portaria/PatioAtualTab.tsx`
 
-2. **Ampliar `REGULARIZAR_SKIP`** (linha ~163) para incluir as fotos que hoje não estão na lista:
-   - Adicionar: `foto_documento_url`, `foto_nota_url`.
-   - Lista final: `foto_placa_url`, `foto_painel_url`, `foto_painel_saida_url`, `foto_lacre_url`, `foto_documento_url`, `foto_nota_url`.
+1. **Remover** o filtro das linhas 131-139 (que escondia esses registros).
+2. Adicionar helper `isAguardandoVinculoCarga(m)`:
+   ```ts
+   m.categoria === "terceirizado" &&
+   m.etapa_terceirizado === "chegada" &&
+   !m.carga_id
+   ```
+3. Quando `isAguardandoVinculoCarga(m)` for `true`:
+   - Card mobile: borda/fundo vermelho (`border-destructive/50 bg-destructive/5`) — mesma intensidade dos cards de >8h.
+   - Badge: `"Aguardando vínculo"` (vermelho, com ícone `AlertTriangle`).
+   - Substituir botão "Liberar entrada" por **"Vincular carga"** abrindo o `VincularMovimentoCargaDialog` já existente (`src/components/portaria/VincularMovimentoCargaDialog.tsx`).
+   - Manter botão "Desfazer chegada" (DELETE permitido enquanto `horario_entrada IS NULL`) para admin/logística.
 
-3. **Manter `km_inicial` obrigatório** (regra anterior do plano original — sem KM não dá pra calcular KM rodado).
+### Arquivo: `src/pages/Portaria.tsx`
 
-4. **Manter o prefixo de auditoria** em `observacoes`: `[REGULARIZADO por <user> em <data>: <motivo>]` — já implementado, não muda.
+Atualizar o cálculo `counts.patio` (linhas 117-123) para **não excluir** mais esses registros — a contagem do badge da aba "Pátio" precisa contemplá-los novamente.
 
-5. **Manter o badge "Regularizado"** no `MovimentoDetailsDialog` — já implementado, não muda.
+### Memória
 
-### Por que não estender também para `numero_lacre`
+Atualizar `mem://features/portaria-third-party-workflow.md`: chegada terceirizada sem carga vinculada **permanece visível no Pátio Atual** em estado vermelho "Aguardando vínculo", com ação de vincular carga ou desfazer chegada — não há painel separado.
 
-O número do lacre é texto curto que o operador consegue digitar mesmo sem foto. A obrigatoriedade dele continua, só a foto vira opcional via checkbox.
+## Resultado esperado
 
-## Arquivos afetados
-
-- `src/components/portaria/RegistroMovimentoDialog.tsx` — ajustar `showRegularizarOption` e ampliar `REGULARIZAR_SKIP`.
-
-Sem migration, sem mudança de banco. Correção pontual de escopo da feature que já existe.
-
-## Observação sobre "implementa e some"
-
-Verifiquei e **nenhuma das duas funções foi removida**:
-- `regularizar` / motivo / badge "Regularizado" → existe (linhas 65, 164-172, 262-263, 560-574 do `RegistroMovimentoDialog.tsx`).
-- `allowFileUpload` (botão "Enviar arquivo") → existe e está ativo para admin/logística em todas as categorias (linha 662).
-
-O que aconteceu foi que a regularização nasceu restrita a Carga Própria e nunca foi ampliada — você cruzou com o caso em terceirizado e parecia que tinha sumido.
+O card do FLENDSON volta a aparecer no Pátio Atual em vermelho, com ação clara para a Logística vincular a carga (ou desfazer a chegada se o caminhão saiu).
