@@ -148,10 +148,17 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
       const update: Record<string, any> = { horario_entrada: nowIso };
       if (isPropria) update.etapa_carga_propria = "chegou";
       else update.etapa_terceirizado = "no_patio";
-      const { error } = await supabase
+      // C2 — além do id, filtrar por placa (quando houver) para que um
+      // carga_id reutilizado em outro ciclo não permita marcar a entrada
+      // errada caso `movimentoChegadaId` esteja stale.
+      let upd = supabase
         .from("movimentacoes_portaria")
         .update(update as any)
         .eq("id", c.movimentoChegadaId);
+      if (c.placa && c.placa.trim()) {
+        upd = upd.ilike("placa", c.placa.trim());
+      }
+      const { error } = await upd;
       if (error) throw error;
       // Marca veiculo_esperado como conferido só agora (entrou de fato)
       // Filtramos por placa (quando houver) e por conferido=false para nunca
