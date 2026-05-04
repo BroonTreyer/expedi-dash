@@ -1136,6 +1136,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      reabrir_como_walk_in: {
+        Args: {
+          p_categoria_destino?: string
+          p_grupo?: string
+          p_movimento_id: string
+        }
+        Returns: undefined
+      }
       sync_clients_to_orders: { Args: never; Returns: Json }
     }
     Enums: {
