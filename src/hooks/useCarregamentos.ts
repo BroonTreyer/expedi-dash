@@ -708,3 +708,50 @@ export function useVincularWalkInACarga() {
     onError: (e: any) => toast.error(e.message || "Erro ao vincular carga"),
   });
 }
+
+/**
+ * Vincula uma movimentação de chegada (terceirizado em `etapa_terceirizado='chegada'`
+ * sem `carga_id`) a uma carga fechada — usado no painel "Aguardando Vínculo Logístico".
+ * Diferente de useVincularWalkInACarga, este NÃO depende de um registro em
+ * veiculos_esperados; opera direto sobre movimentacoes_portaria.
+ */
+export function useVincularMovimentoACarga() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      movimentoId: string;
+      cargaId: string;
+      placaReal: string;
+      motoristaReal?: string | null;
+      transportadoraReal?: string | null;
+    }) => {
+      // 1. Anexa carga_id ao movimento de chegada (mantém estado 'chegada' —
+      //    a Portaria depois clica "Liberar Entrada no Pátio").
+      const movUpdate: Record<string, any> = { carga_id: input.cargaId };
+      if (input.transportadoraReal) movUpdate.empresa = input.transportadoraReal;
+      const { error: e1 } = await supabase
+        .from("movimentacoes_portaria")
+        .update(movUpdate as any)
+        .eq("id", input.movimentoId);
+      if (e1) throw e1;
+
+      // 2. Atualiza placa/motorista nos pedidos da carga, se ainda divergirem.
+      const cargaUpdate: Record<string, any> = { placa: input.placaReal };
+      if (input.motoristaReal) cargaUpdate.motorista = input.motoristaReal;
+      const { error: e2 } = await supabase
+        .from("carregamentos_dia")
+        .update(cargaUpdate)
+        .eq("carga_id", input.cargaId);
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      qc.invalidateQueries({ queryKey: ["cargas_fechadas_para_vincular"] });
+      qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      toast.success("Carga vinculada — veículo liberado para entrada");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao vincular carga"),
+  });
+}

@@ -23,6 +23,7 @@ import { MovimentoDetailsDialog } from "@/components/portaria/MovimentoDetailsDi
 import { VeiculosEsperadosPanel } from "@/components/portaria/VeiculosEsperadosPanel";
 import { SolicitacoesPendentesPanel } from "@/components/portaria/SolicitacoesPendentesPanel";
 import { CargasFechadasAguardandoPanel } from "@/components/portaria/CargasFechadasAguardandoPanel";
+import { AguardandoVinculoLogisticoPanel } from "@/components/portaria/AguardandoVinculoLogisticoPanel";
 
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
@@ -111,9 +112,16 @@ export default function Portaria({ categoria }: PortariaProps) {
         .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
         .map((m) => m.movimento_vinculado_id!)
     );
-    // Pátio: usa a mesma fonte (sem filtro de data) que PatioAtualTab,
-    // assim o badge na aba não diverge do que aparece dentro dela.
-    const patio = movimentacoesAtivasPatio.length;
+    // Pátio: usa a mesma fonte (sem filtro de data) que PatioAtualTab.
+    // Onda 5 — terceirizado em 'chegada' SEM carga_id está na fila
+    // "Aguardando Vínculo Logístico", não no Pátio. Removido do badge.
+    const patio = movimentacoesAtivasPatio.filter(
+      (m) => !(
+        m.categoria === "terceirizado" &&
+        m.etapa_terceirizado === "chegada" &&
+        !m.carga_id
+      )
+    ).length;
     const historico = movimentacoes.length - saidasVinculadas.size;
     return { patio, historico };
   }, [movimentacoes, movimentacoesAtivasPatio]);
@@ -383,6 +391,7 @@ export default function Portaria({ categoria }: PortariaProps) {
         {/* Walk-in pending approvals */}
         <SolicitacoesPendentesPanel categoria={categoria} />
         <CargasFechadasAguardandoPanel categoria={categoria} />
+        {categoria === "terceirizado" && <AguardandoVinculoLogisticoPanel />}
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">

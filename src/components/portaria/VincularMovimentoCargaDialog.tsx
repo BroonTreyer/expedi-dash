@@ -5,31 +5,31 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, Package, Link2 } from "lucide-react";
-import { useCargasFechadasParaVincular, useVincularWalkInACarga } from "@/hooks/useCarregamentos";
+import { useCargasFechadasParaVincular, useVincularMovimentoACarga } from "@/hooks/useCarregamentos";
+import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  veiculoEsperado: { id: string; placa: string; motorista?: string | null } | null;
+  movimento: MovimentacaoPortaria | null;
 }
 
-/**
- * Vincula um veículo walk-in (registro em veiculos_esperados aguardando vínculo)
- * a uma carga fechada terceirizada. Usado pelo SolicitacoesPendentesPanel.
- */
-export function VincularCargaDialog({ open, onOpenChange, veiculoEsperado }: Props) {
+export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: Props) {
   const { data: cargas = [], isLoading } = useCargasFechadasParaVincular();
-  const vincular = useVincularWalkInACarga();
+  const vincular = useVincularMovimentoACarga();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const placaVe = (veiculoEsperado?.placa || "").trim().toUpperCase();
+  // Mostra apenas cargas terceirizadas (com transportadora) e prioriza as
+  // que ainda não têm placa atribuída ou cuja placa já casa com a do veículo.
+  const placaMov = (movimento?.placa || "").trim().toUpperCase();
   const filteredCargas = useMemo(() => {
     return cargas
       .filter((c) => c.transportadora && c.transportadora.trim() !== "")
       .filter((c) => {
         const placaCarga = (c.placa || "").trim().toUpperCase();
-        return !placaCarga || placaCarga === placaVe;
+        // Só lista: sem placa atribuída OU placa igual à do veículo que chegou.
+        return !placaCarga || placaCarga === placaMov;
       })
       .filter((c) => {
         if (!search) return true;
@@ -41,15 +41,18 @@ export function VincularCargaDialog({ open, onOpenChange, veiculoEsperado }: Pro
           c.motorista?.toLowerCase().includes(s)
         );
       });
-  }, [cargas, search, placaVe]);
+  }, [cargas, search, placaMov]);
 
   const handleConfirm = async () => {
-    if (!veiculoEsperado || !selectedId) return;
+    if (!movimento || !selectedId) return;
+    const carga = cargas.find((c) => c.carga_id === selectedId);
+    if (!carga) return;
     await vincular.mutateAsync({
-      veiculoEsperadoId: veiculoEsperado.id,
-      cargaId: selectedId,
-      placaReal: veiculoEsperado.placa,
-      motoristaReal: veiculoEsperado.motorista ?? null,
+      movimentoId: movimento.id,
+      cargaId: carga.carga_id,
+      placaReal: movimento.placa || carga.placa || "",
+      motoristaReal: movimento.motorista || carga.motorista || null,
+      transportadoraReal: carga.transportadora || null,
     });
     setSelectedId(null);
     setSearch("");
@@ -70,14 +73,14 @@ export function VincularCargaDialog({ open, onOpenChange, veiculoEsperado }: Pro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5 text-primary" />
-            Vincular carga ao veículo
+            Vincular carga ao motorista
           </DialogTitle>
           <DialogDescription>
-            {veiculoEsperado ? (
+            {movimento ? (
               <>
                 Selecione a carga fechada que será atribuída a{" "}
-                <strong className="font-mono">{veiculoEsperado.placa}</strong>
-                {veiculoEsperado.motorista && <> — {veiculoEsperado.motorista}</>}.
+                <strong className="font-mono">{movimento.placa}</strong>
+                {movimento.motorista && <> — {movimento.motorista}</>}.
               </>
             ) : (
               "Selecione uma carga"
@@ -114,7 +117,7 @@ export function VincularCargaDialog({ open, onOpenChange, veiculoEsperado }: Pro
               {filteredCargas.map((c) => {
                 const isSelected = selectedId === c.carga_id;
                 const placaCarga = (c.placa || "").trim().toUpperCase();
-                const placaMatch = placaCarga && placaCarga === placaVe;
+                const placaMatch = placaCarga && placaCarga === placaMov;
                 return (
                   <button
                     key={c.carga_id}
