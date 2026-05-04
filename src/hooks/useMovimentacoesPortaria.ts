@@ -58,10 +58,14 @@ export interface MovimentacaoPortaria {
   numero_lacre: string | null;
   horario_chegada: string | null;
   horario_entrada: string | null;
-  etapa_terceirizado: string | null;
+  etapa_terceirizado: EtapaTerceirizado | null;
   tipo_caminhao: string | null;
-  etapa_carga_propria: string | null;
+  etapa_carga_propria: EtapaCargaPropria | null;
 }
+
+/** Etapas válidas — espelham os triggers `validate_etapa_*` do banco. */
+export type EtapaCargaPropria = "chegou" | "em_rota" | "retornou" | "finalizado";
+export type EtapaTerceirizado = "chegada" | "no_patio" | "carregando" | "finalizado";
 
 export const CATEGORIAS = [
   { value: "carga_propria", label: "Carga Própria" },
