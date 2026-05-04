@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useUpdateMovimentacao, type MovimentacaoPortaria, CATEGORIAS } from "@/hooks/useMovimentacoesPortaria";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
