@@ -14,7 +14,7 @@ interface Props {
   movimento: MovimentacaoPortaria | null;
 }
 
-export function VincularCargaDialog({ open, onOpenChange, movimento }: Props) {
+export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: Props) {
   const { data: cargas = [], isLoading } = useCargasFechadasParaVincular();
   const vincular = useVincularMovimentoACarga();
   const [search, setSearch] = useState("");
