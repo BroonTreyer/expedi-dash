@@ -1,48 +1,38 @@
-## Diagnóstico
+## Problema
 
-O erro **"Não há entrada ativa para esta placa nas últimas 72h. Registre a entrada primeiro ou use 'Saída' a partir do pátio"** que aparece em quase tudo da Portaria não é um problema de banco, permissão ou Lovable Cloud. Os logs do servidor estão totalmente limpos.
+Ao clicar em **Registrar Chegada** na lista de **Esperados**, o toast de sucesso aparece (`"Chegada de XXX registrada! Aguardando liberação no pátio."`) e a movimentação é criada corretamente no Pátio (cartão laranja "Aguardando liberação"), **mas o veículo continua aparecendo na lista de Esperados**.
 
-É um **bug lógico introduzido recentemente** em `src/pages/Portaria.tsx` no handler `openRegistroFromVeiculoEsperado` (botão "Registrar Chegada" do painel de Esperados):
+## Causa
 
-- Para **Carga Própria**, ele está enviando `tipo_movimento: "saida"` ao registrar a CHEGADA do veículo.
-- Isso faz disparar a trava anti-órfão de `useCreateMovimentacao` (que existe para impedir saídas sem entrada correspondente) e devolve a mensagem de erro vermelha.
-- Como Carga Própria é a maioria do fluxo da empresa, a sensação é "tudo está quebrado".
+No arquivo `src/pages/Portaria.tsx`, função `openRegistroFromVeiculoEsperado` (linhas 129-182), há um comentário explícito:
 
-O fluxo correto (visto no hook `useRegistrarChegadaPortaria` que usa esse mesmo dado) trata chegada de Carga Própria como `tipo_movimento: "entrada"` + `categoria: "carga_propria"` + `etapa_carga_propria: "aguardando_liberacao"` + `horario_entrada: null`.
+```
+// NÃO marcar conferido aqui — só quando porteiro liberar entrada no pátio.
+```
+
+A lista de Esperados (`VeiculosEsperadosPanel`) filtra por `!v.conferido`. Como o registro `veiculos_esperados` nunca recebe `conferido = true` na ação de "Registrar Chegada", ele permanece visível indefinidamente. Comparando com `useRegistrarChegadaPortaria` (hook usado para walk-ins), aquele fluxo já marca `conferido: true` exatamente para o veículo sair da lista assim que a chegada é registrada.
 
 ## Correção
 
-### 1. Arquivo: `src/pages/Portaria.tsx` — função `openRegistroFromVeiculoEsperado`
+**Arquivo único: `src/pages/Portaria.tsx`** (handler `openRegistroFromVeiculoEsperado`):
 
-Trocar o bloco de Carga Própria para usar `tipo_movimento: "entrada"` (como já é feito para Terceirizado), com a etapa correta e `horario_entrada: null`:
+1. Após o `createMov.mutateAsync(...)` ser bem-sucedido (tanto Carga Própria quanto Terceirizado), fazer um `UPDATE` em `veiculos_esperados` definindo:
+   - `conferido: true`
+   - `conferido_por: user?.id ?? null`
+   - `conferido_em: new Date().toISOString()`
 
-```text
-ANTES (bug):
-  tipo_movimento: "saida",
-  categoria: "carga_propria",
-  etapa_carga_propria: "chegou",
+2. Após o update, invalidar as queries para o painel atualizar imediatamente:
+   - `["veiculos_esperados"]`
+   - `["veiculos_esperados_pendentes"]`
+   - `["movimentacoes_portaria"]`
 
-DEPOIS (correto):
-  tipo_movimento: "entrada",
-  categoria: "carga_propria",
-  etapa_carga_propria: "aguardando_liberacao",
-  horario_entrada: null,
-  empresa: (nome próprio da frota / null)
-```
+3. Remover/atualizar o comentário antigo ("NÃO marcar conferido aqui...") para refletir o novo comportamento: o veículo sai de Esperados assim que a chegada é registrada e passa a viver no Pátio (cartão laranja → azul → verde).
 
-Assim a chegada cria o cartão laranja "aguardando liberação" igual ao Terceirizado, e o porteiro libera no pátio depois (fluxo já existente em `CargasFechadasAguardandoPanel` / `useRegistrarChegadaPortaria`).
+4. Manter o `try/catch` exibindo `e?.message` no toast de erro.
 
-### 2. Tratamento de erro: mostrar a mensagem real
+## Impacto
 
-Linha 178: `toast.error("Erro ao registrar chegada")` está engolindo a mensagem real do servidor. Trocar para `toast.error(e?.message || "Erro ao registrar chegada")` para que erros futuros fiquem visíveis (igual ao padrão usado nos outros hooks).
-
-### 3. Verificação pós-correção
-
-Após o deploy, validar manualmente:
-- Carga Própria: clicar "Registrar Chegada" no painel de Esperados → deve aparecer o cartão laranja "aguardando liberação", sem o toast vermelho.
-- Terceirizado: continua funcionando igual (não muda).
-- Saída de fato (botão "Saída" do Pátio Atual): continua bloqueando placa sem entrada ativa (a trava anti-órfão segue valendo, é correta).
-
-## Escopo
-
-Mudança pequena, cirúrgica, em **1 arquivo** (`src/pages/Portaria.tsx`), apenas no handler `openRegistroFromVeiculoEsperado` (linhas 140-179). Sem migração de banco, sem mexer em RLS, sem alterar hooks. Não afeta dados existentes — apenas conserta o comportamento de novas chegadas.
+- **Comportamento visível:** clicar em Registrar Chegada → toast verde → linha desaparece de Esperados → cartão laranja "Aguardando liberação" aparece no Pátio (carga própria) ou cartão azul "No pátio" (terceirizado, dependendo da etapa).
+- **Sem migração de banco**, sem mudança de RLS, sem mudança em hooks compartilhados.
+- **Sem efeito retroativo**: registros já marcados continuam como estão.
+- Mantém paridade total com o fluxo de walk-in (`useRegistrarChegadaPortaria`), que já funciona dessa forma.

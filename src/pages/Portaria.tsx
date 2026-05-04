@@ -173,8 +173,23 @@ export default function Portaria({ categoria }: PortariaProps) {
           horario_entrada: null,
         } as any);
       }
-      // NÃO marcar conferido aqui — só quando porteiro liberar entrada no pátio.
-      // Isso preserva a sequência visual: vermelho (chegou) → azul (no pátio) → verde (finalizado).
+      // Marca o veiculo_esperado como conferido para sair da lista de Esperados.
+      // O cartão correspondente no Pátio (laranja → azul → verde) representa o ciclo seguinte.
+      try {
+        await supabase
+          .from("veiculos_esperados" as any)
+          .update({
+            conferido: true,
+            conferido_por: user?.id ?? null,
+            conferido_em: agora,
+          } as any)
+          .eq("id", v.id);
+        qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+        qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+        qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      } catch {
+        // não bloqueia o fluxo se o update falhar — a movimentação já foi criada.
+      }
       toast.success(`Chegada de ${v.placa} registrada! Aguardando liberação no pátio.`);
     } catch (e: any) {
       toast.error(e?.message || "Erro ao registrar chegada");
