@@ -174,26 +174,38 @@ export function useRegistrarChegadaPortaria() {
       } else {
         // Fallback (walk-ins antigos sem movimentação prévia): cria a movimentação
         // usando created_at do veiculo_esperado como aproximação do horario_chegada.
-        const movPayload: Record<string, any> = {
-          tipo_movimento: "entrada",
-          categoria,
-          placa: v.placa,
-          motorista: v.motorista,
-          tipo_caminhao: v.tipo_veiculo,
-          carga_id: v.carga_id,
-          peso: v.peso,
-          qtd_entregas: v.qtd_entregas,
-          horario_entrada: nowIso,
-          horario_chegada: v.created_at,
-          data_hora: nowIso,
-          usuario_id: user?.id ?? null,
-          observacoes: v.observacoes,
-        };
-        if (categoria === "terceirizado") {
-          movPayload.empresa = v.transportadora;
-          movPayload.etapa_terceirizado = "no_patio";
+        let movPayload: Record<string, any>;
+        if (categoria === "carga_propria") {
+          movPayload = buildCargaPropriaPayload({
+            placa: v.placa,
+            motorista: v.motorista,
+            tipo_caminhao: v.tipo_veiculo,
+            carga_id: v.carga_id,
+            peso: v.peso,
+            qtd_entregas: v.qtd_entregas,
+            usuario_id: user?.id ?? null,
+            observacoes: v.observacoes,
+            horarioChegadaIso: v.created_at,
+            horarioEntradaIso: nowIso,
+          });
         } else {
-          movPayload.etapa_carga_propria = "chegou";
+          movPayload = {
+            tipo_movimento: "entrada",
+            categoria,
+            placa: v.placa,
+            motorista: v.motorista,
+            tipo_caminhao: v.tipo_veiculo,
+            carga_id: v.carga_id,
+            peso: v.peso,
+            qtd_entregas: v.qtd_entregas,
+            empresa: v.transportadora,
+            etapa_terceirizado: "no_patio",
+            horario_entrada: nowIso,
+            horario_chegada: v.created_at,
+            data_hora: nowIso,
+            usuario_id: user?.id ?? null,
+            observacoes: v.observacoes,
+          };
         }
         const { error: movErr } = await supabase
           .from("movimentacoes_portaria")
