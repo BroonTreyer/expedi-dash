@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useSession } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { ParsedRow } from "@/components/portaria/ImportarPlanilhaDialog";
+import { buildCargaPropriaPayload } from "@/lib/carga-propria-criar";
 
 export type StatusAutorizacao = "previsto" | "aguardando_vinculo" | "aguardando_autorizacao" | "autorizado" | "recusado";
 
