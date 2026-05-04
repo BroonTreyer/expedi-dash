@@ -129,6 +129,14 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
         </DialogHeader>
 
         <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Categoria (não editável)</Label>
+            <Input
+              value={CATEGORIAS.find((c) => c.value === movimento.categoria)?.label || movimento.categoria}
+              readOnly
+              disabled
+            />
+          </div>
           {finalFields.map((f) => (
             <div key={f.key} className="space-y-1">
               <Label className="text-xs">{f.label}</Label>
