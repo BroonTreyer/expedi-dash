@@ -118,10 +118,10 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         // Normal: show entradas without linked saída
         if (m.tipo_movimento !== "entrada") return false;
         if (saidasVinculadas.has(m.id)) return false;
-        // Excluir chegadas ainda aguardando liberação (não estão no pátio de fato)
-        if (m.carga_id && !m.horario_entrada && (m.etapa_terceirizado === "chegada" || m.etapa_carga_propria === "aguardando_liberacao")) {
-          return false;
-        }
+        // Chegadas ainda aguardando liberação são MANTIDAS aqui como cartão
+        // "Aguardando liberar entrada", para que a portaria sempre tenha um
+        // ponto único de visibilidade — independentemente de existir carga
+        // fechada correspondente cobrindo no painel azul.
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
         return true;
