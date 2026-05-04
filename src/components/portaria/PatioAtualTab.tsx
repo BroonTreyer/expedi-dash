@@ -196,6 +196,15 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           horario_real_saida: new Date().toISOString(),
         });
       }
+      // A5 — Carga Própria também precisa fechar o ciclo na entrada original,
+      // senão o veículo continua aparecendo no pátio mesmo após a saída rápida.
+      if (entrada.categoria === "carga_propria") {
+        await updateMov.mutateAsync({
+          id: entrada.id,
+          etapa_carga_propria: "finalizado",
+          horario_saida_final: new Date().toISOString(),
+        });
+      }
       setSaidaRapidaId(null);
     } catch {
     } finally {
