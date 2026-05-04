@@ -170,7 +170,7 @@ export default function Portaria({ categoria }: PortariaProps) {
           qtd_entregas: v.qtd_entregas ?? null,
           usuario_id: user?.id ?? null,
           horario_chegada: agora,
-          horario_entrada: agora,
+          horario_entrada: null,
         } as any);
       }
       // Marca o veiculo_esperado como conferido para sair da lista de Esperados.
