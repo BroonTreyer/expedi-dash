@@ -277,25 +277,36 @@ export function useRegistrarChegadaWalkIn() {
       // Cria já a movimentação de portaria registrando a CHEGADA física
       // (sem entrada no pátio ainda). Carga é vinculada depois pela Logística;
       // a entrada no pátio é liberada num segundo passo pela Portaria.
-      const movPayload: Record<string, any> = {
-        tipo_movimento: "entrada",
-        categoria,
-        placa: placaNorm,
-        motorista: input.motorista || null,
-        empresa: input.transportadora || null,
-        tipo_caminhao: input.tipo_veiculo || null,
-        carga_id: null,
-        horario_chegada: nowIso,
-        // Carga própria entra direto no pátio; terceirizado aguarda liberação.
-        horario_entrada: isCargaPropria ? nowIso : null,
-        data_hora: nowIso,
-        usuario_id: user?.id ?? null,
-        observacoes: input.observacoes || null,
-      };
-      if (categoria === "terceirizado") {
-        movPayload.etapa_terceirizado = "chegada";
+      let movPayload: Record<string, any>;
+      if (isCargaPropria) {
+        // Carga própria entra direto no pátio.
+        movPayload = buildCargaPropriaPayload({
+          placa: placaNorm,
+          motorista: input.motorista || null,
+          empresa: input.transportadora || null,
+          tipo_caminhao: input.tipo_veiculo || null,
+          carga_id: null,
+          usuario_id: user?.id ?? null,
+          observacoes: input.observacoes || null,
+          horarioChegadaIso: nowIso,
+        });
       } else {
-        movPayload.etapa_carga_propria = "chegou";
+        // Terceirizado aguarda liberação (horario_entrada=null).
+        movPayload = {
+          tipo_movimento: "entrada",
+          categoria,
+          placa: placaNorm,
+          motorista: input.motorista || null,
+          empresa: input.transportadora || null,
+          tipo_caminhao: input.tipo_veiculo || null,
+          carga_id: null,
+          etapa_terceirizado: "chegada",
+          horario_chegada: nowIso,
+          horario_entrada: null,
+          data_hora: nowIso,
+          usuario_id: user?.id ?? null,
+          observacoes: input.observacoes || null,
+        };
       }
       // Se a inserção da movimentação falhar não revertemos o veiculo_esperado
       // — o fluxo de liberação ainda funciona via fallback antigo.
