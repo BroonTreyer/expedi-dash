@@ -119,10 +119,13 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         // Normal: show entradas without linked saída
         if (m.tipo_movimento !== "entrada") return false;
         if (saidasVinculadas.has(m.id)) return false;
-        // Chegadas ainda aguardando liberação são MANTIDAS aqui como cartão
-        // "Aguardando liberar entrada", para que a portaria sempre tenha um
-        // ponto único de visibilidade — independentemente de existir carga
-        // fechada correspondente cobrindo no painel azul.
+        // Chegada registrada mas sem entrada física no pátio
+        // (horario_chegada preenchido, horario_entrada nulo) NÃO pertence ao
+        // Pátio Atual — a visibilidade fica no painel azul "Cargas fechadas
+        // aguardando veículo", em estado âmbar com o botão
+        // "Liberar entrada no pátio". Sem este filtro o veículo aparecia
+        // duplicado (painel azul + pátio).
+        if (m.horario_chegada && !m.horario_entrada) return false;
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
         // Onda 5 — Terceirizado em 'chegada' SEM carga vinculada não pertence
