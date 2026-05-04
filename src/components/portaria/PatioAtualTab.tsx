@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useReabrirComoWalkIn } from "@/hooks/useVeiculosEsperados";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { nextEtapa, etapaEfetiva, isFinalizada, type EtapaCargaPropria } from "@/lib/carga-propria-fsm";
 
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
@@ -201,7 +202,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
       if (entrada.categoria === "carga_propria") {
         await updateMov.mutateAsync({
           id: entrada.id,
-          etapa_carga_propria: "finalizado",
+          etapa_carga_propria: nextEtapa(entrada.etapa_carga_propria as EtapaCargaPropria | null, "saida_rapida"),
           horario_saida_final: new Date().toISOString(),
         });
       }
