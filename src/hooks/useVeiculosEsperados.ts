@@ -595,55 +595,15 @@ export function useReabrirComoWalkIn() {
       if (!m.placa) {
         throw new Error("Movimentação sem placa — não é possível enviar para Registro de Entrada");
       }
-      const today = new Date().toISOString().slice(0, 10);
-      const userLabel = user?.email || user?.id || "usuário";
-      const horaEntrada = new Date(m.data_hora).toLocaleString("pt-BR", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
+      // C1 — Reabertura agora roda numa única transação no banco via RPC.
+      // Antes: 3 chamadas separadas (insert esperado / insert chegada / delete
+      // movimento original) podiam falhar no meio e deixar duplicado ou órfão.
+      const { error } = await supabase.rpc("reabrir_como_walk_in" as any, {
+        p_movimento_id: m.id,
+        p_categoria_destino: "terceirizado",
+        p_grupo: "WALK-IN-TERCEIRIZADO",
       });
-      const obs = `Reaberto do Pátio Atual em ${new Date().toLocaleString("pt-BR")} por ${userLabel} — entrada original registrada em ${horaEntrada}`;
-
-      const { error: insErr } = await supabase
-        .from("veiculos_esperados" as any)
-        .insert({
-          data_referencia: today,
-          grupo: "WALK-IN-TERCEIRIZADO",
-          placa: m.placa.toUpperCase().trim(),
-          motorista: m.motorista,
-          transportadora: m.empresa,
-          tipo_veiculo: m.tipo_caminhao,
-          walk_in: true,
-          status_autorizacao: "aguardando_vinculo",
-          observacoes: obs,
-          criado_por: user?.id ?? null,
-        } as any);
-      if (insErr) throw insErr;
-
-      // Cria registro de chegada em movimentacoes_portaria preservando o
-      // horário original de entrada (m.data_hora) como horario_chegada — assim
-      // o tempo total no pátio continua sendo computado corretamente.
-      const { error: movErr } = await supabase
-        .from("movimentacoes_portaria")
-        .insert({
-          tipo_movimento: "entrada",
-          categoria: "terceirizado",
-          placa: m.placa.toUpperCase().trim(),
-          motorista: m.motorista,
-          empresa: m.empresa,
-          tipo_caminhao: m.tipo_caminhao,
-          etapa_terceirizado: "chegada",
-          horario_chegada: m.data_hora,
-          data_hora: m.data_hora,
-          observacoes: obs,
-          usuario_id: user?.id ?? null,
-        } as any);
-      if (movErr) throw movErr;
-
-      const { error: delErr } = await supabase
-        .from("movimentacoes_portaria")
-        .delete()
-        .eq("id", m.id);
-      if (delErr) throw delErr;
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
