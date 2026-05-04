@@ -297,11 +297,14 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         Aguardando Liberação
                       </Badge>
                     )}
-                    {m.categoria === "carga_propria" && (m.etapa_carga_propria === "chegou" || m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou") && (
-                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
-                        {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
-                      </Badge>
-                    )}
+                    {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && m.etapa_carga_propria !== "finalizado" && (() => {
+                      const etapaEff = m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou" ? m.etapa_carga_propria : "chegou";
+                      return (
+                        <Badge variant={etapaEff === "em_rota" ? "outline" : "default"} className={`text-[10px] ${etapaEff === "chegou" ? "bg-orange-500 text-white" : etapaEff === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
+                          {etapaEff === "chegou" ? "Chegou" : etapaEff === "em_rota" ? "Em Rota" : "Retornou"}
+                        </Badge>
+                      );
+                    })()}
                     {m.categoria === "terceirizado" && m.etapa_terceirizado === "no_patio" && (
                       <Badge variant="default" className="text-[10px] bg-emerald-600 text-white">
                         No Pátio
@@ -480,11 +483,14 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         Aguardando Liberação
                       </Badge>
                     )}
-                    {m.categoria === "carga_propria" && (m.etapa_carga_propria === "chegou" || m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou") && (
-                      <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
-                        {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
-                      </Badge>
-                    )}
+                    {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && m.etapa_carga_propria !== "finalizado" && (() => {
+                      const etapaEff = m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou" ? m.etapa_carga_propria : "chegou";
+                      return (
+                        <Badge variant={etapaEff === "em_rota" ? "outline" : "default"} className={`text-[10px] ${etapaEff === "chegou" ? "bg-orange-500 text-white" : etapaEff === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
+                          {etapaEff === "chegou" ? "Chegou" : etapaEff === "em_rota" ? "Em Rota" : "Retornou"}
+                        </Badge>
+                      );
+                    })()}
                     {m.categoria === "terceirizado" && m.etapa_terceirizado === "no_patio" && (
                       <Badge variant="default" className="text-[10px] bg-emerald-600 text-white">
                         No Pátio

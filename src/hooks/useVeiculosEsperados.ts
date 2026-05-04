@@ -134,18 +134,23 @@ export function useRegistrarChegadaPortaria() {
       // para apenas marcar a entrada no pátio, preservando horario_chegada real.
       let movExistenteId: string | null = null;
       if (placaNorm) {
-        const etapaField = categoria === "terceirizado" ? "etapa_terceirizado" : "etapa_carga_propria";
-        const etapaChegada = categoria === "terceirizado" ? "chegada" : "aguardando_liberacao";
-        const { data: existentes } = await supabase
+        // Procura uma chegada já registrada (sem entrada efetiva no pátio).
+        // Para terceirizado a etapa é "chegada"; para carga própria pode haver
+        // resíduo legado em "aguardando_liberacao" — qualquer entrada sem
+        // horario_entrada serve para reaproveitar.
+        let q = supabase
           .from("movimentacoes_portaria")
           .select("id, data_hora")
           .ilike("placa", placaNorm)
           .eq("tipo_movimento", "entrada")
           .eq("categoria", categoria)
-          .eq(etapaField, etapaChegada)
           .is("horario_entrada", null)
           .order("data_hora", { ascending: false })
           .limit(1);
+        if (categoria === "terceirizado") {
+          q = q.eq("etapa_terceirizado", "chegada");
+        }
+        const { data: existentes } = await q;
         if (existentes && existentes.length > 0) {
           movExistenteId = (existentes[0] as any).id;
         }
