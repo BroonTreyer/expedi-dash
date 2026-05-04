@@ -1,42 +1,92 @@
 ## Problema
 
-Na aba **Portaria → Carga Própria**, está aparecendo o veículo do **Célio** (motorista da JR Transportes — terceirizado). Ele deveria estar apenas na aba **Terceirizado**.
+Na tela `/portaria/carga-propria`, o card rosa **"Aguardando vínculo da Logística"** está mostrando o **Célio (RSB1H70 / JR TRANSPORTES)**, que é claramente terceirizado.
 
-## Causa
+## Causa raiz
 
-No hook `useCargasFechadasAguardando` (`src/hooks/useCarregamentos.ts`, linhas 556-571), o agrupamento usa **apenas `carga_id`** como chave (`grouped.set(c.carga_id, ...)`).
+Esse card vem de `SolicitacoesPendentesPanel.tsx` (linhas 57‑62), que lê `veiculos_esperados` e filtra apenas pela string do campo `grupo`:
 
-Hoje há duas cargas distintas reusando o mesmo `carga_id = "JR"`:
+```ts
+const grupo = (v.grupo || "").toUpperCase();
+const isPropria = grupo.includes("PROPRIA") || grupo.includes("PRÓPRIA");
+```
 
-| carga_id | data       | motorista | placa    | transportadora |
-|----------|------------|-----------|----------|----------------|
-| JR       | 2026-04-27 | Fagno     | QWE1B20  | JR TRANSPORTES |
-| JR       | 2026-05-02 | Célio     | RSB1H70  | JR TRANSPORTES |
+No banco, o registro do Célio é:
+- `placa: RSB1H70`
+- `transportadora: JR TRANSPORTES`  ← claramente terceirizado
+- `grupo: WALK-IN-PROPRIA`            ← rotulado erroneamente na hora do registro
 
-Como o agrupamento usa só `carga_id`, as duas viagens viram **um único item** no painel. Os campos `placa`, `motorista`, `transportadora` ficam fixos com os dados da **primeira linha** que entrar no Map. Quando uma das viagens ainda não tem `transportadora` preenchida em todos os itens (ex.: linha mais antiga sem o campo), o item agrupado pode ficar `transportadora = null`, e o filtro `isPropria = !c.transportadora` em `CargasFechadasAguardandoPanel.tsx:51` o classifica como **carga própria** → Célio aparece no lugar errado.
+O `grupo` foi gravado em `RegistroEntradaDialog.tsx:210` como `WALK-IN-PROPRIA` porque na hora do walk-in marcaram "PRÓPRIA" — mas a transportadora preenchida prova que é terceirizado. Essa inconsistência é a fonte da mistura, e o filtro precisa ser tolerante a isso.
+
+Na verdade, a regra de negócio em todo o resto do app já é: **com transportadora = terceirizado; sem transportadora = própria**. O painel rosa é o único lugar que olha só o `grupo`.
 
 ## Correção
 
-**Arquivo único: `src/hooks/useCarregamentos.ts`** — alterar a chave de agrupamento em `useCargasFechadasAguardando` para distinguir viagens diferentes que reusam o mesmo `carga_id`:
+### 1. `src/components/portaria/SolicitacoesPendentesPanel.tsx`
 
-1. Trocar a chave do `grouped` Map de `c.carga_id` para uma chave composta:
-   ```ts
-   const groupKey = `${c.carga_id}|${(c.placa || "").trim().toUpperCase()}|${c.data}`;
-   ```
+Trocar o filtro para usar a mesma regra do resto do sistema — **a transportadora manda**; o grupo só é usado como fallback quando não há transportadora:
 
-2. Aplicar a mesma chave composta no fallback de busca de `entradaPorCarga`: hoje a entrada é buscada por `carga_id` puro, mas com a nova lógica precisa cruzar **carga_id + placa** com a movimentação correspondente (já há filtro de janela de data e placa nas movimentações nas linhas 530-538, então basta usar `placaCarga` para resolver a entrada certa).
+```ts
+const ativos = ativosRaw.filter((v: any) => {
+  if (!categoria) return true;
+  const temTransp = !!(v.transportadora && String(v.transportadora).trim());
+  if (temTransp) {
+    // Com transportadora: sempre terceirizado
+    return categoria === "terceirizado";
+  }
+  // Sem transportadora: usa o grupo como dica; default = própria
+  const grupo = (v.grupo || "").toUpperCase();
+  const isTerc = grupo.includes("TERCEIR");
+  const isPropria = !isTerc;
+  return categoria === "carga_propria" ? isPropria : !isPropria;
+});
+```
 
-3. Manter a interface `CargaFechadaAguardando` igual — o que muda é só o agrupamento interno.
+### 2. Saneamento do registro existente do Célio
+
+Atualizar a única linha inconsistente para refletir a realidade (terceirizado), via migration:
+
+```sql
+UPDATE public.veiculos_esperados
+SET grupo = 'WALK-IN-TERCEIRIZADO'
+WHERE id = 'a27963ce-ce7c-43b5-b7e5-198c7925c4b0'
+  AND status_autorizacao = 'aguardando_vinculo'
+  AND transportadora IS NOT NULL
+  AND grupo = 'WALK-IN-PROPRIA';
+```
+
+(Sem efeito se o registro já tiver sido alterado/finalizado; idempotente.)
+
+### 3. Reforço preventivo (opcional, mesma migration)
+
+Trigger `BEFORE INSERT/UPDATE` em `veiculos_esperados` que normaliza `grupo` quando há transportadora preenchida — garante que casos novos não voltem a aparecer no lado errado mesmo se o operador escolher mal:
+
+```sql
+CREATE OR REPLACE FUNCTION public.normalize_veiculo_esperado_grupo()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.transportadora IS NOT NULL
+     AND btrim(NEW.transportadora) <> ''
+     AND NEW.grupo = 'WALK-IN-PROPRIA' THEN
+    NEW.grupo := 'WALK-IN-TERCEIRIZADO';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_normalize_veic_esperado_grupo ON public.veiculos_esperados;
+CREATE TRIGGER trg_normalize_veic_esperado_grupo
+BEFORE INSERT OR UPDATE OF transportadora, grupo ON public.veiculos_esperados
+FOR EACH ROW EXECUTE FUNCTION public.normalize_veiculo_esperado_grupo();
+```
 
 ## Resultado esperado
 
-- Célio (RSB1H70 / JR TRANSPORTES) e Fagno (QWE1B20 / JR TRANSPORTES) viram **dois itens separados** no painel.
-- Ambos passam o filtro `!isPropria` → aparecem só na aba **Terceirizado**.
-- A aba **Carga Própria** fica limpa de veículos terceirizados.
-- Não mexe em nenhum outro fluxo (Esperados, Pátio, Histórico) — apenas refina o agrupamento de cargas que reusam `carga_id`.
+- Célio (RSB1H70 / JR TRANSPORTES) some de `/portaria/carga-propria` e aparece em `/portaria/terceirizado`.
+- Carga Própria fica limpa de terceirizados, mesmo se o `grupo` foi gravado errado no walk-in.
+- Sem alteração nos demais painéis ou no fluxo de cargas fechadas (o painel azul já foi corrigido na rodada anterior).
 
-## Impacto
+## Arquivos
 
-- 1 arquivo, sem migração de banco, sem mudança de RLS.
-- Compatível com cargas que **não** reusam `carga_id` (a chave composta segue única para elas).
-- Resolve também outros casos invisíveis em que cargas distintas com mesmo nome se fundiam no painel (peso/qtd somados errado).
+- `src/components/portaria/SolicitacoesPendentesPanel.tsx` — ajuste do filtro.
+- Nova migration SQL — UPDATE pontual + trigger de normalização.

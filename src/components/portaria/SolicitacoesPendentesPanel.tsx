@@ -56,8 +56,17 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
 
   const ativos = ativosRaw.filter((v: any) => {
     if (!categoria) return true;
+    // Regra de negócio canônica do app: a presença de transportadora
+    // define terceirizado. O campo `grupo` pode estar incorreto quando o
+    // operador classifica errado no walk-in, então só o usamos como
+    // fallback quando não há transportadora preenchida.
+    const temTransp = !!(v.transportadora && String(v.transportadora).trim());
+    if (temTransp) {
+      return categoria === "terceirizado";
+    }
     const grupo = (v.grupo || "").toUpperCase();
-    const isPropria = grupo.includes("PROPRIA") || grupo.includes("PRÓPRIA");
+    const isTerc = grupo.includes("TERCEIR");
+    const isPropria = !isTerc;
     return categoria === "carga_propria" ? isPropria : !isPropria;
   });
 
