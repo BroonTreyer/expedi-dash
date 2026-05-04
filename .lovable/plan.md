@@ -1,5 +1,13 @@
 # Onda 5 — Fila "Aguardando Vínculo Logístico" para Terceirizados
 
+**Status: implementado.**
+
+- Hook `useVincularMovimentoACarga` em `src/hooks/useCarregamentos.ts`.
+- Componente `AguardandoVinculoLogisticoPanel.tsx` (painel laranja acima das tabs).
+- `VincularMovimentoCargaDialog.tsx` (seletor de carga fechada terceirizada).
+- `PatioAtualTab.tsx` filtra fora terceirizados em `chegada` sem `carga_id`.
+- `Portaria.tsx` monta o painel quando `categoria==='terceirizado'` e ajusta `counts.patio`.
+
 ## Problema
 
 Em `/portaria/terceirizado`, motoristas terceirizados que registraram chegada **sem carga vinculada** (`carga_id IS NULL`, `etapa_terceirizado='chegada'`) aparecem na aba "Pátio" com badge "Aguardando Liberação" e botão "Liberar Entrada". Isso está errado: a Portaria **não pode liberar** um terceirizado enquanto a Logística não vincular uma carga (transportadora + pedidos) ao motorista. O botão atual permite que a Portaria pule a etapa, sujando os dados.
