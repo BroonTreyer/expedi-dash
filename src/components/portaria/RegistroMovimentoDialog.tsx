@@ -331,7 +331,10 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
         onOpenChange(false);
       } else {
         // CREATE new record
-        // Calculate km_rodado for carga_propria (legacy saida with prefill)
+        // Onda 4 / E7: km_rodado é calculado aqui apenas para o caminho de
+        // criação direta (sem prefill). O caminho normal de transição CP usa
+        // o ramo de UPDATE acima, que recalcula km_rodado a partir da etapa
+        // "retorno". A FSM (carga-propria-fsm.ts) é a fonte da verdade das etapas.
         let kmRodado: number | null = null;
         const kmInicialSource = tipo === "saida" && prefill?.km_inicial != null ? prefill.km_inicial : values.km_inicial;
         if (categoria === "carga_propria" && values.km_final && kmInicialSource != null) {
