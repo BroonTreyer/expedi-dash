@@ -74,7 +74,8 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
   const handleSelectMotorista = (m: { nome_completo: string; transportadora?: string | null; tipo_caminhao?: string | null }) => {
     setMotorista(m.nome_completo);
     setMotoristaSelecionado(true);
-    if (m.transportadora && !transportadora) setTransportadora(m.transportadora);
+    // B4 — em CP, transportadora não se aplica.
+    if (m.transportadora && !transportadora && grupo === "TERCEIRIZADO") setTransportadora(m.transportadora);
     if (m.tipo_caminhao && !tipoVeiculo) setTipoVeiculo(m.tipo_caminhao);
   };
 
