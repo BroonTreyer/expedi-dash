@@ -176,17 +176,10 @@ export default function Portaria({ categoria }: PortariaProps) {
       // Marca o veiculo_esperado como conferido para sair da lista de Esperados.
       // O cartão correspondente no Pátio (laranja → azul → verde) representa o ciclo seguinte.
       try {
-        await supabase
-          .from("veiculos_esperados" as any)
-          .update({
-            conferido: true,
-            conferido_por: user?.id ?? null,
-            conferido_em: agora,
-          } as any)
-          .eq("id", v.id);
-        qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
-        qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
-        qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+        await marcarConferidoMutation.mutateAsync({
+          placa: v.placa,
+          dataReferencia: v.data_referencia,
+        });
       } catch {
         // não bloqueia o fluxo se o update falhar — a movimentação já foi criada.
       }
