@@ -486,23 +486,12 @@ export function useCargasFechadasAguardando() {
         .from("movimentacoes_portaria")
         .select("id, carga_id, tipo_movimento, horario_entrada, horario_chegada, data_hora, etapa_terceirizado, etapa_carga_propria, horario_real_saida, horario_saida_final, placa")
         .in("carga_id", cargaIds);
-      // Cargas com previsão automática (não walk-in) já aparecem em "A chegar".
-      // IMPORTANTE: não filtrar walk-ins — eles ficam neste card como
-      // "Motorista chegou" até a portaria registrar a entrada do veículo.
-      const { data: previstos } = await supabase
-        .from("veiculos_esperados" as any)
-        .select("carga_id, walk_in, conferido")
-        .in("carga_id", cargaIds);
-      // Só removemos do card azul as cargas cujo veículo previsto JÁ foi
-      // conferido pela portaria (motorista entrou no pátio). Cargas com placa
-      // atribuída mas ainda não chegando continuam visíveis aqui — esse é o
-      // painel principal usado por Portaria e Registro de Entrada.
-      // Walk-ins permanecem aparecendo como "Motorista já no pátio".
-      const cargasComPrevistoConferido = new Set(
-        ((previstos ?? []) as unknown as { carga_id: string | null; walk_in: boolean | null; conferido: boolean | null }[])
-          .filter((v) => v.carga_id && !v.walk_in && v.conferido)
-          .map((v) => v.carga_id as string)
-      );
+      // A presença/ausência da carga neste painel é controlada exclusivamente
+      // pelas movimentações reais (`entrada.horario_entrada`). Não usamos mais
+      // `veiculos_esperados.conferido` aqui porque agora ele é marcado já no
+      // ato de "Registrar Chegada" — antes do veículo entrar fisicamente no
+      // pátio. Mantemos a carga visível com botão "Liberar entrada" até a
+      // portaria liberar o veículo (preencher horario_entrada).
       // Mapeia (carga_id + data_carga) -> info de movimento, considerando
       // apenas movimentos dentro de uma janela operacional ao redor da
       // data da carga (de -12h até +48h). Sem isso, ciclos antigos com o
@@ -557,8 +546,6 @@ export function useCargasFechadasAguardando() {
       for (const c of cargasArr) {
         if (!c.carga_id) continue;
         if (finalizadaCarga.has(c.carga_id)) continue;
-        // Veículo previsto já conferido pela portaria → não precisa mais aparecer.
-        if (cargasComPrevistoConferido.has(c.carga_id)) continue;
         const entrada = entradaPorCarga.get(c.carga_id);
         // Se já tem entrada com horario_entrada preenchido, está no pátio — não listar
         if (entrada && entrada.horario_entrada) continue;

@@ -1,38 +1,52 @@
 ## Problema
 
-Ao clicar em **Registrar Chegada** na lista de **Esperados**, o toast de sucesso aparece (`"Chegada de XXX registrada! Aguardando liberação no pátio."`) e a movimentação é criada corretamente no Pátio (cartão laranja "Aguardando liberação"), **mas o veículo continua aparecendo na lista de Esperados**.
+Após a correção anterior (marcar `conferido = true` quando o porteiro registra a chegada), o veículo:
+- ✅ Sai da lista de **Esperados** (correto)
+- ❌ Não aparece no **Pátio** (cartão azul "Aguardando liberação")
+- ❌ Vai direto para o **Histórico** — efeito colateral inesperado
 
 ## Causa
 
-No arquivo `src/pages/Portaria.tsx`, função `openRegistroFromVeiculoEsperado` (linhas 129-182), há um comentário explícito:
+Conflito entre dois filtros que assumiam significados diferentes para o flag `veiculos_esperados.conferido`:
 
-```
-// NÃO marcar conferido aqui — só quando porteiro liberar entrada no pátio.
-```
+1. **`useCargasFechadasAguardando`** (`src/hooks/useCarregamentos.ts`, linha 501-505): remove a carga do painel azul "Cargas Fechadas Aguardando" se existir um `veiculo_esperado` com aquela `carga_id` e `conferido = true`. O comentário diz explicitamente: *"motorista entrou no pátio"*.
 
-A lista de Esperados (`VeiculosEsperadosPanel`) filtra por `!v.conferido`. Como o registro `veiculos_esperados` nunca recebe `conferido = true` na ação de "Registrar Chegada", ele permanece visível indefinidamente. Comparando com `useRegistrarChegadaPortaria` (hook usado para walk-ins), aquele fluxo já marca `conferido: true` exatamente para o veículo sair da lista assim que a chegada é registrada.
+2. **`PatioAtualTab`** (linhas 121-124): exclui movimentações em `etapa_terceirizado = "chegada"` ou `etapa_carga_propria = "aguardando_liberacao"` enquanto `horario_entrada` for `null` — pois ainda não estão fisicamente no pátio.
+
+Antes da correção, "conferido" significava "entrou no pátio". Agora significa apenas "chegada registrada na portaria". A movimentação fica em fase intermediária (chegada/aguardando_liberacao, sem `horario_entrada`), que **nenhum painel** mostra. O único lugar que mostra é o **Histórico**, que lista tudo.
 
 ## Correção
 
-**Arquivo único: `src/pages/Portaria.tsx`** (handler `openRegistroFromVeiculoEsperado`):
+**Arquivo único: `src/hooks/useCarregamentos.ts`** — ajustar `cargasComPrevistoConferido` para refletir o novo significado de "conferido":
 
-1. Após o `createMov.mutateAsync(...)` ser bem-sucedido (tanto Carga Própria quanto Terceirizado), fazer um `UPDATE` em `veiculos_esperados` definindo:
-   - `conferido: true`
-   - `conferido_por: user?.id ?? null`
-   - `conferido_em: new Date().toISOString()`
+1. Trazer também `horario_entrada` (na verdade já é difícil — precisamos cruzar com movimentação). Solução mais simples: **manter a carga no painel azul "Aguardando liberação" enquanto `horario_entrada` da movimentação for `null`**.
 
-2. Após o update, invalidar as queries para o painel atualizar imediatamente:
-   - `["veiculos_esperados"]`
-   - `["veiculos_esperados_pendentes"]`
-   - `["movimentacoes_portaria"]`
+2. Mudar a linha 561 de:
+   ```ts
+   if (cargasComPrevistoConferido.has(c.carga_id)) continue;
+   ```
+   para:
+   ```ts
+   // Só some do painel quando o veículo realmente entrou no pátio
+   // (existe entrada com horario_entrada preenchido).
+   if (entrada && entrada.horario_entrada) continue;          // já tratado abaixo
+   if (cargasComPrevistoConferido.has(c.carga_id) && entrada?.horario_entrada) continue;
+   ```
+   Na prática, basta **remover a verificação de `cargasComPrevistoConferido.has(...)`** porque a linha 564 (`if (entrada && entrada.horario_entrada) continue;`) já cobre o caso "motorista entrou no pátio" via movimentação.
 
-3. Remover/atualizar o comentário antigo ("NÃO marcar conferido aqui...") para refletir o novo comportamento: o veículo sai de Esperados assim que a chegada é registrada e passa a viver no Pátio (cartão laranja → azul → verde).
+3. Como `cargasComPrevistoConferido` ficaria sem uso, remover também o bloco de query de `previstos` (linhas 492-505) para evitar query desnecessária.
 
-4. Manter o `try/catch` exibindo `e?.message` no toast de erro.
+## Resultado esperado
+
+Após clicar em **Registrar Chegada** num veículo da lista Esperados:
+- Some imediatamente da lista de Esperados ✅
+- Aparece no painel **azul "Cargas Fechadas Aguardando Veículo"** com badge laranja "Aguardando liberação" e botão **"Liberar entrada no pátio"** ✅
+- Ao liberar, vai para a aba **Pátio** (cartão verde) ✅
+- Continua aparecendo no **Histórico** como movimentação registrada ✅
 
 ## Impacto
 
-- **Comportamento visível:** clicar em Registrar Chegada → toast verde → linha desaparece de Esperados → cartão laranja "Aguardando liberação" aparece no Pátio (carga própria) ou cartão azul "No pátio" (terceirizado, dependendo da etapa).
-- **Sem migração de banco**, sem mudança de RLS, sem mudança em hooks compartilhados.
-- **Sem efeito retroativo**: registros já marcados continuam como estão.
-- Mantém paridade total com o fluxo de walk-in (`useRegistrarChegadaPortaria`), que já funciona dessa forma.
+- Arquivo único, sem migração de banco, sem mudança de RLS.
+- Remove uma query (`veiculos_esperados`) — ligeira melhora de performance.
+- Não afeta walk-ins (já tratados por `chegouAguardandoLiberacao` e fluxo `useRegistrarChegadaPortaria`).
+- Não afeta o card azul para cargas que ainda não tiveram chegada registrada.
