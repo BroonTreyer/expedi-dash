@@ -337,14 +337,20 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           kmRodado = Number(values.km_final) - Number(kmInicialSource);
         }
 
-        // Determine tipo_movimento for DB
-        let dbTipoMovimento = tipo === "entrada" ? "entrada" : "saida";
-        // For carga_propria new entry (1ª saída), create as "saida" with etapa
+        // A4 — Carga Própria sempre nasce como entrada+chegou.
+        // Se o operador já preencheu foto do painel/KM (fluxo "saída p/ rota direto"),
+        // o registro nasce já em "em_rota" no mesmo INSERT.
         const isCargaPropriaPrimeiraSaida = categoria === "carga_propria" && !prefillEtapa;
+        const cargaPropriaJaSaiuParaRota = isCargaPropriaPrimeiraSaida
+          && (!!values.foto_painel_saida_url || values.km_inicial != null && values.km_inicial !== "");
+
+        // Determine tipo_movimento for DB
+        let dbTipoMovimento: string = tipo === "entrada" ? "entrada" : "saida";
         if (isCargaPropriaPrimeiraSaida) {
-          dbTipoMovimento = "saida";
+          dbTipoMovimento = "entrada";
         }
 
+        const nowIso = new Date().toISOString();
         await createMov.mutateAsync({
           tipo_movimento: dbTipoMovimento,
           categoria,
@@ -391,10 +397,12 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
           foto_nota_url: values.foto_nota_url || null,
           foto_lacre_url: values.foto_lacre_url || null,
           tipo_caminhao: values.tipo_caminhao?.trim() || null,
-          // Carga própria 1ª saída
+          // Carga própria sempre tem horario_chegada/entrada preenchidos
           ...(isCargaPropriaPrimeiraSaida ? {
-            etapa_carga_propria: "em_rota",
-            horario_real_saida: new Date().toISOString(),
+            horario_chegada: nowIso,
+            horario_entrada: nowIso,
+            etapa_carga_propria: cargaPropriaJaSaiuParaRota ? "em_rota" : "chegou",
+            ...(cargaPropriaJaSaiuParaRota ? { horario_real_saida: nowIso } : {}),
           } : {}),
           // Terceirizado: já entra no pátio (logística autoriza antes)
           ...(categoria === "terceirizado" && tipo === "entrada" ? {
