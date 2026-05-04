@@ -328,6 +328,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         Aguardando Liberação
                       </Badge>
                     )}
+                    {isCargaPropriaInconsistente(m) && (
+                      <Badge variant="outline" className="text-[10px] h-5 gap-0.5 border-destructive/50 bg-destructive/10 text-destructive">
+                        <AlertTriangle className="h-3 w-3" /> Estado inconsistente
+                      </Badge>
+                    )}
                     {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && m.etapa_carga_propria !== "finalizado" && (() => {
                       const etapaEff = m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou" ? m.etapa_carga_propria : "chegou";
                       return (
@@ -512,6 +517,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                     {aguardandoLib && (
                       <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                         Aguardando Liberação
+                      </Badge>
+                    )}
+                    {isCargaPropriaInconsistente(m) && (
+                      <Badge variant="outline" className="text-[10px] gap-0.5 border-destructive/50 bg-destructive/10 text-destructive" title="Carga Própria sem horario_entrada — abra o registro e edite para corrigir.">
+                        <AlertTriangle className="h-3 w-3" /> Estado inconsistente
                       </Badge>
                     )}
                     {m.categoria === "carga_propria" && m.tipo_movimento === "entrada" && m.etapa_carga_propria !== "finalizado" && (() => {
