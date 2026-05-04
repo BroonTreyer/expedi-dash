@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { buildCargaPropriaPayload } from "@/lib/carga-propria-criar";
 
 interface PortariaProps {
   /** Restrict the page to a single categoria (creates a sub-page for that team) */
