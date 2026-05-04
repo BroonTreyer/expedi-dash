@@ -1,32 +1,35 @@
+# Atualização automática do painel Expedição
+
 ## Problema
+O painel `/expedicao` está demorando para refletir mudanças porque:
+1. `useCargasDiaExpedicao` (KPIs de peso e Cargas Expedidas) depende de polling de 30s — sem realtime.
+2. `useVeiculosEsperados` (painel "A chegar") usa apenas polling de 15s — sem realtime, e a tabela `veiculos_esperados` **não está na publicação `supabase_realtime`**.
+3. `useMovimentacoesPortaria` já tem realtime — funciona bem.
 
-Hoje a tela `/portaria/terceirizado` exibe dois painéis com títulos quase idênticos:
-
-1. **Vermelho/primário** — `SolicitacoesPendentesPanel` → "Aguardando vínculo da Logística" (lê `veiculos_esperados` walk-in).
-2. **Laranja/âmbar** — `AguardandoVinculoLogisticoPanel` (novo, criado na Onda 5) → "Aguardando Vínculo Logístico" (lê `movimentacoes_portaria` de terceirizados em etapa `chegada` sem `carga_id`).
-
-Você quer manter só o **vermelho** e remover o **laranja**.
+Por isso o usuário vê o dashboard "atrasado" entre 15–30s.
 
 ## Solução
 
-Unificar tudo no painel vermelho existente (`SolicitacoesPendentesPanel`), eliminando o painel âmbar.
+### 1. Migration: habilitar realtime em `veiculos_esperados`
+```sql
+ALTER TABLE public.veiculos_esperados REPLICA IDENTITY FULL;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.veiculos_esperados;
+```
 
-### Passos
+### 2. Subscription realtime em `useVeiculosEsperados`
+Adicionar um `useEffect` no hook que cria um channel `postgres_changes` em `veiculos_esperados` e invalida as queries relacionadas (`veiculos_esperados`, `veiculos_esperados_pendentes`, `veiculos_walkin_*`, `veiculos_aguardando_vinculo`).
 
-1. **Remover** a renderização do `AguardandoVinculoLogisticoPanel` em `src/pages/Portaria.tsx` (linha 394) e o respectivo `import` (linha 26).
-2. **Excluir** o arquivo `src/components/portaria/AguardandoVinculoLogisticoPanel.tsx` (não é mais usado).
-3. **Garantir** que terceirizados que chegam direto pela Portaria sem walk-in (registros em `movimentacoes_portaria` `etapa_terceirizado='chegada'` sem `carga_id`) também sejam exibidos no painel vermelho. Para isso, ajustar `useVeiculosWalkInAtivos` (em `src/hooks/useVeiculosEsperados.ts`) — ou o `SolicitacoesPendentesPanel` — para incluir esses movimentos como itens "aguardando vínculo", reusando o `VincularMovimentoCargaDialog` quando o item vier de `movimentacoes_portaria`.
-4. **Manter** o filtro do `PatioAtualTab` que esconde terceirizados sem `carga_id` (já implementado na Onda 5) — eles continuam fora do Pátio até a Logística vincular.
+### 3. Subscription realtime em `useCargasDiaExpedicao`
+Adicionar `useEffect` com channel em `carregamentos_dia` que invalida `["cargas_dia_expedicao"]`. Assim qualquer mudança de status/peso atualiza KPIs e "Cargas expedidas do dia" em ~1s.
 
-### Validação
+### 4. Reduzir polling de fallback
+- `useCargasDiaExpedicao`: `refetchInterval` de 30s → 15s e `refetchOnWindowFocus: true`.
+- Manter `useVeiculosEsperados` com 15s mas adicionar `refetchOnWindowFocus: true`.
 
-- Tela `/portaria/terceirizado` mostra apenas **um** card vermelho "Aguardando vínculo da Logística".
-- Os 4 registros (PBV1F92, JKL9723, RMB0C89, TWD5I87) aparecem dentro desse card único, com botões "Vincular a carga" / "Cancelar chegada" para Admin/Logística.
-- Pátio Atual segue mostrando apenas terceirizados já vinculados.
+## Resultado
+Mudanças feitas na portaria, faturamento ou expedição refletem no dashboard em ~1 segundo, sem clique em "Atualizar".
 
-### Arquivos afetados
-
-- `src/pages/Portaria.tsx` (remover import + render)
-- `src/components/portaria/AguardandoVinculoLogisticoPanel.tsx` (excluir)
-- `src/components/portaria/SolicitacoesPendentesPanel.tsx` (incluir movimentos sem walk-in)
-- `src/hooks/useVeiculosEsperados.ts` (estender query `useVeiculosWalkInAtivos` com union dos movimentos terceirizados sem carga_id) — ou criar hook auxiliar consumido pelo painel.
+## Arquivos alterados
+- `supabase/migrations/<novo>.sql` — habilitar realtime em `veiculos_esperados`.
+- `src/hooks/useVeiculosEsperados.ts` — subscription realtime.
+- `src/hooks/useCargasDiaExpedicao.ts` — subscription realtime + tuning.
