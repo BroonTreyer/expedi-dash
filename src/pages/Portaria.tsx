@@ -139,18 +139,20 @@ export default function Portaria({ categoria }: PortariaProps) {
     try {
       if (categoria === "carga_propria") {
         await createMov.mutateAsync({
-          tipo_movimento: "saida",
+          tipo_movimento: "entrada",
           categoria: "carga_propria",
-          etapa_carga_propria: "chegou",
+          etapa_carga_propria: "aguardando_liberacao",
           data_hora: agora,
           placa: v.placa || null,
           motorista: v.motorista || null,
+          tipo_caminhao: v.tipo_veiculo || null,
           rota: v.destino || null,
           peso: v.peso ?? null,
           qtd_entregas: v.qtd_entregas ?? null,
           carga_id: v.carga_id || null,
           usuario_id: user?.id ?? null,
           horario_chegada: agora,
+          horario_entrada: null,
         } as any);
       } else {
         await createMov.mutateAsync({
@@ -174,8 +176,8 @@ export default function Portaria({ categoria }: PortariaProps) {
       // NÃO marcar conferido aqui — só quando porteiro liberar entrada no pátio.
       // Isso preserva a sequência visual: vermelho (chegou) → azul (no pátio) → verde (finalizado).
       toast.success(`Chegada de ${v.placa} registrada! Aguardando liberação no pátio.`);
-    } catch {
-      toast.error("Erro ao registrar chegada");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao registrar chegada");
     }
   };
 

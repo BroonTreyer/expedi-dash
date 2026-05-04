@@ -1,40 +1,48 @@
-## Problema
+## Diagnóstico
 
-Na aba **Pátio Atual** (Portaria → Carga Própria), os três veículos com tag "Em Rota" mostram exatamente o mesmo tempo decorrido (ex.: "em rota há 3h 41min"), mesmo tendo horários de partida bem diferentes (01:01, 04:19, 05:57).
+O erro **"Não há entrada ativa para esta placa nas últimas 72h. Registre a entrada primeiro ou use 'Saída' a partir do pátio"** que aparece em quase tudo da Portaria não é um problema de banco, permissão ou Lovable Cloud. Os logs do servidor estão totalmente limpos.
 
-## Causa raiz
+É um **bug lógico introduzido recentemente** em `src/pages/Portaria.tsx` no handler `openRegistroFromVeiculoEsperado` (botão "Registrar Chegada" do painel de Esperados):
 
-O cálculo usa o campo errado. Em `src/components/portaria/PatioAtualTab.tsx` (`getMinutosNoPatio`), para veículos `em_rota` o tempo é calculado a partir de `m.horario_saida_final`. Verificando o banco:
+- Para **Carga Própria**, ele está enviando `tipo_movimento: "saida"` ao registrar a CHEGADA do veículo.
+- Isso faz disparar a trava anti-órfão de `useCreateMovimentacao` (que existe para impedir saídas sem entrada correspondente) e devolve a mensagem de erro vermelha.
+- Como Carga Própria é a maioria do fluxo da empresa, a sensação é "tudo está quebrado".
 
-- Os 27 registros com `etapa_carga_propria='em_rota'` compartilham **o mesmo** `horario_saida_final = 2026-04-30 20:46:34.246709+00` (valor único, provavelmente vindo de um update em lote anterior).
-- O horário real da partida para a rota está em `horario_real_saida`, que é distinto por registro (ex.: 06:40, 09:21, 10:07, 10:54...).
-
-Por isso todos exibem o mesmo "há 3h 41min" — é a diferença entre `now` e esse timestamp único.
-
-Semanticamente, `horario_saida_final` representa a saída final/lacre (preenchida quando o veículo retorna e sai definitivamente). Para um veículo ainda **em rota**, o marco correto é `horario_real_saida` (saída para rota).
+O fluxo correto (visto no hook `useRegistrarChegadaPortaria` que usa esse mesmo dado) trata chegada de Carga Própria como `tipo_movimento: "entrada"` + `categoria: "carga_propria"` + `etapa_carga_propria: "aguardando_liberacao"` + `horario_entrada: null`.
 
 ## Correção
 
-Em `src/components/portaria/PatioAtualTab.tsx`, alterar `getMinutosNoPatio` para que, no caso `em_rota`, use `horario_real_saida` como referência (com fallback para `horario_saida_final` e depois `data_hora`, por segurança):
+### 1. Arquivo: `src/pages/Portaria.tsx` — função `openRegistroFromVeiculoEsperado`
 
-```ts
-function getMinutosNoPatio(m: MovimentacaoPortaria, now: Date): number {
-  if (isEmRota(m)) {
-    const ref = m.horario_real_saida || m.horario_saida_final || m.data_hora;
-    return differenceInMinutes(now, new Date(ref));
-  }
-  return differenceInMinutes(now, new Date(m.data_hora));
-}
+Trocar o bloco de Carga Própria para usar `tipo_movimento: "entrada"` (como já é feito para Terceirizado), com a etapa correta e `horario_entrada: null`:
+
+```text
+ANTES (bug):
+  tipo_movimento: "saida",
+  categoria: "carga_propria",
+  etapa_carga_propria: "chegou",
+
+DEPOIS (correto):
+  tipo_movimento: "entrada",
+  categoria: "carga_propria",
+  etapa_carga_propria: "aguardando_liberacao",
+  horario_entrada: null,
+  empresa: (nome próprio da frota / null)
 ```
 
-Isso afeta tanto a renderização de tabela (linha ~433) quanto a de cards mobile (linha ~296), pois ambas usam a mesma função.
+Assim a chegada cria o cartão laranja "aguardando liberação" igual ao Terceirizado, e o porteiro libera no pátio depois (fluxo já existente em `CargasFechadasAguardandoPanel` / `useRegistrarChegadaPortaria`).
+
+### 2. Tratamento de erro: mostrar a mensagem real
+
+Linha 178: `toast.error("Erro ao registrar chegada")` está engolindo a mensagem real do servidor. Trocar para `toast.error(e?.message || "Erro ao registrar chegada")` para que erros futuros fiquem visíveis (igual ao padrão usado nos outros hooks).
+
+### 3. Verificação pós-correção
+
+Após o deploy, validar manualmente:
+- Carga Própria: clicar "Registrar Chegada" no painel de Esperados → deve aparecer o cartão laranja "aguardando liberação", sem o toast vermelho.
+- Terceirizado: continua funcionando igual (não muda).
+- Saída de fato (botão "Saída" do Pátio Atual): continua bloqueando placa sem entrada ativa (a trava anti-órfão segue valendo, é correta).
 
 ## Escopo
 
-- Edita apenas `src/components/portaria/PatioAtualTab.tsx`.
-- Não mexe no banco nem em outras telas. O `horario_saida_final` corrompido nos registros `em_rota`/`retornou`/`aguardando_liberacao` deixa de impactar a UI porque passamos a usar o campo correto.
-- Não altera lógica de finalizados (que continuam usando `horario_saida_final` legítimo via `computeTempos`).
-
-## Resultado esperado
-
-Cada linha "Em Rota" passa a mostrar o tempo real desde a saída para rota — coerente com o horário exibido na coluna "Horário".
+Mudança pequena, cirúrgica, em **1 arquivo** (`src/pages/Portaria.tsx`), apenas no handler `openRegistroFromVeiculoEsperado` (linhas 140-179). Sem migração de banco, sem mexer em RLS, sem alterar hooks. Não afeta dados existentes — apenas conserta o comportamento de novas chegadas.
