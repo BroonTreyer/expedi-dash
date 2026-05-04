@@ -297,7 +297,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         Aguardando Liberação
                       </Badge>
                     )}
-                    {m.categoria === "carga_propria" && m.etapa_carga_propria && (
+                    {m.categoria === "carga_propria" && (m.etapa_carga_propria === "chegou" || m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou") && (
                       <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
                         {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
                       </Badge>
@@ -480,7 +480,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                         Aguardando Liberação
                       </Badge>
                     )}
-                    {m.categoria === "carga_propria" && m.etapa_carga_propria && (
+                    {m.categoria === "carga_propria" && (m.etapa_carga_propria === "chegou" || m.etapa_carga_propria === "em_rota" || m.etapa_carga_propria === "retornou") && (
                       <Badge variant={m.etapa_carga_propria === "em_rota" ? "outline" : "default"} className={`text-[10px] ${m.etapa_carga_propria === "chegou" ? "bg-orange-500 text-white" : m.etapa_carga_propria === "em_rota" ? "border-blue-500 text-blue-700 dark:text-blue-400" : "bg-yellow-500 text-white"}`}>
                         {m.etapa_carga_propria === "chegou" ? "Chegou" : m.etapa_carga_propria === "em_rota" ? "Em Rota" : "Retornou"}
                       </Badge>
