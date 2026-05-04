@@ -157,13 +157,19 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   }, [movimentacoes, search, categoriaFilter]);
 
   const sortedVeiculos = useMemo(() => {
-    return sortData(veiculosNoPatio, {
+    const sorted = sortData(veiculosNoPatio, {
       data_hora: (m) => new Date(m.data_hora).getTime(),
       tempo: (m) => getMinutosNoPatio(m, now),
       categoria: (m) => m.categoria,
       placa: (m) => m.placa,
       motorista: (m) => m.motorista,
       empresa: (m) => m.empresa,
+    });
+    // Cards "Aguardando vínculo" (vermelhos) sempre no topo — exigem ação.
+    return [...sorted].sort((a, b) => {
+      const av = a.categoria === "terceirizado" && a.etapa_terceirizado === "chegada" && !a.carga_id ? 0 : 1;
+      const bv = b.categoria === "terceirizado" && b.etapa_terceirizado === "chegada" && !b.carga_id ? 0 : 1;
+      return av - bv;
     });
   }, [veiculosNoPatio, sortData, now]);
 

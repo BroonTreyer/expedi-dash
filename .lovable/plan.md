@@ -1,44 +1,21 @@
-## Bug confirmado
+Objetivo: terceirizado em `etapa='chegada'` SEM `carga_id` (caso FLENDSON) deve aparecer **apenas** como card vermelho “Aguardando vínculo” na aba Pátio. Nada mais — não conta no badge da aba, não conta no KPI “No Pátio”, não conta em “Entradas Hoje”.
 
-O motorista **FLENDSON RODRIGUES DE MEDEIROS** (placa MXE9B40, TREVINHO) registrou chegada hoje às 19:33 como `terceirizado / etapa_terceirizado=chegada`, **sem `carga_id` e sem `horario_entrada`**.
+Mudanças:
 
-Confirmei via DB que o movimento existe (`6ff03e6e-d469-4c87-9d64-3ec14ead09f8`), mas ele **não aparece em nenhum painel** da tela `/portaria/terceirizado`:
+1. `src/components/portaria/PatioAtualTab.tsx`
+   - Manter o card vermelho “Aguardando vínculo” já existente (ele renderiza FLENDSON).
+   - Garantir ordenação para o vermelho ficar no topo da lista.
 
-| Painel | Por que não mostra |
-|---|---|
-| `PatioAtualTab` | `PatioAtualTab.tsx:135-139` exclui explicitamente `terceirizado + chegada + !carga_id` |
-| `CargasFechadasAguardandoPanel` | Só lista cargas já fechadas no dashboard — não há carga vinculada |
-| `SolicitacoesPendentesPanel` | Lê de `veiculos_esperados` (walk-in). Como a chegada foi feita pelo diálogo de Registro, **nenhum `veiculos_esperados` foi criado** |
+2. `src/pages/Portaria.tsx` — badge da aba Pátio
+   - Trocar `counts.patio = movimentacoesAtivasPatio.length` por uma contagem que **exclua** registros `terceirizado + etapa='chegada' + carga_id null` (os “aguardando vínculo”).
 
-Antes (suspeita): o card aparecia em vermelho no `PatioAtualTab` como "Aguardando vínculo". Em algum momento o filtro das linhas 131-139 foi adicionado para mover esses casos para um "painel laranja" — mas esse painel **nunca foi criado**, então o registro virou fantasma.
+3. `src/components/portaria/PortariaKpiCards.tsx` — KPI “No Pátio” e “Entradas Hoje”
+   - “No Pátio” terceirizado: exigir `horario_entrada IS NOT NULL` e `etapa <> 'finalizado'`. Excluir explicitamente `etapa='chegada' + carga_id null`.
+   - “Entradas Hoje”: passar a contar apenas entradas com `horario_entrada` preenchido (entrada física no pátio). Aguardando vínculo não conta como entrada.
 
-## Correção
+Resultado esperado em `/portaria/terceirizado` hoje:
+- KPIs: Entradas Hoje = 1 (CARLOS MARABA), Saídas = 0, No Pátio = 1.
+- Badge da aba Pátio = 1.
+- Lista mostra 2 itens: card vermelho FLENDSON no topo + linha verde CARLOS MARABA.
 
-**Reexibir movimentos `terceirizado + chegada + sem carga_id` no Pátio Atual com destaque vermelho e ação para vincular carga.**
-
-### Arquivo: `src/components/portaria/PatioAtualTab.tsx`
-
-1. **Remover** o filtro das linhas 131-139 (que escondia esses registros).
-2. Adicionar helper `isAguardandoVinculoCarga(m)`:
-   ```ts
-   m.categoria === "terceirizado" &&
-   m.etapa_terceirizado === "chegada" &&
-   !m.carga_id
-   ```
-3. Quando `isAguardandoVinculoCarga(m)` for `true`:
-   - Card mobile: borda/fundo vermelho (`border-destructive/50 bg-destructive/5`) — mesma intensidade dos cards de >8h.
-   - Badge: `"Aguardando vínculo"` (vermelho, com ícone `AlertTriangle`).
-   - Substituir botão "Liberar entrada" por **"Vincular carga"** abrindo o `VincularMovimentoCargaDialog` já existente (`src/components/portaria/VincularMovimentoCargaDialog.tsx`).
-   - Manter botão "Desfazer chegada" (DELETE permitido enquanto `horario_entrada IS NULL`) para admin/logística.
-
-### Arquivo: `src/pages/Portaria.tsx`
-
-Atualizar o cálculo `counts.patio` (linhas 117-123) para **não excluir** mais esses registros — a contagem do badge da aba "Pátio" precisa contemplá-los novamente.
-
-### Memória
-
-Atualizar `mem://features/portaria-third-party-workflow.md`: chegada terceirizada sem carga vinculada **permanece visível no Pátio Atual** em estado vermelho "Aguardando vínculo", com ação de vincular carga ou desfazer chegada — não há painel separado.
-
-## Resultado esperado
-
-O card do FLENDSON volta a aparecer no Pátio Atual em vermelho, com ação clara para a Logística vincular a carga (ou desfazer a chegada se o caminhão saiu).
+Verificação pós-implementação na prévia: confirmar números acima e que FLENDSON aparece em vermelho com botões “Vincular carga” / “Desfazer”.

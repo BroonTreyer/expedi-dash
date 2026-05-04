@@ -13,7 +13,13 @@ interface Props {
 
 export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: Props) {
   const stats = useMemo(() => {
-    const entradas = movimentacoes.filter((m) => m.tipo_movimento === "entrada");
+    // "Entradas" = veículos que efetivamente entraram no pátio (horario_entrada).
+    // Terceirizado em 'chegada' sem carga_id ("Aguardando vínculo") NÃO entra aqui.
+    const entradas = movimentacoes.filter((m) => {
+      if (m.tipo_movimento !== "entrada") return false;
+      if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada" && !m.carga_id) return false;
+      return true;
+    });
     const saidas = movimentacoes.filter((m) => m.tipo_movimento === "saida");
 
     const saidasVinculadas = new Set(
@@ -41,7 +47,8 @@ export function PortariaKpiCards({ movimentacoes = [], isLoading, dateLabel }: P
       if (e.categoria !== "terceirizado") return false;
       if (saidasVinculadas.has(e.id)) return false;
       if (e.etapa_terceirizado === "finalizado") return false;
-      if (e.carga_id && !e.horario_entrada && e.etapa_terceirizado === "chegada") return false;
+      // Só conta como "no pátio" quem entrou fisicamente.
+      if (!e.horario_entrada) return false;
       return true;
     }).length;
 

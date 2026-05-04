@@ -111,10 +111,13 @@ export default function Portaria({ categoria }: PortariaProps) {
         .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
         .map((m) => m.movimento_vinculado_id!)
     );
-    // Pátio: usa a mesma fonte (sem filtro de data) que PatioAtualTab.
-    // Inclui terceirizado em 'chegada' SEM carga_id (cards vermelhos
-    // "Aguardando vínculo") — eles permanecem no Pátio Atual.
-    const patio = movimentacoesAtivasPatio.length;
+    // Pátio: conta apenas veículos efetivamente no pátio.
+    // Terceirizado em 'chegada' SEM carga_id (cards vermelhos "Aguardando
+    // vínculo") aparece na lista, mas NÃO é contado aqui — não está no
+    // pátio físico, está aguardando a Logística.
+    const patio = movimentacoesAtivasPatio.filter(
+      (m) => !(m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada" && !m.carga_id)
+    ).length;
     const historico = movimentacoes.length - saidasVinculadas.size;
     return { patio, historico };
   }, [movimentacoes, movimentacoesAtivasPatio]);
