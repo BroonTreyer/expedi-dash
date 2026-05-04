@@ -1,92 +1,79 @@
 ## Problema
 
-Na tela `/portaria/carga-propria`, o card rosa **"Aguardando vínculo da Logística"** está mostrando o **Célio (RSB1H70 / JR TRANSPORTES)**, que é claramente terceirizado.
+Na aba **Esperados** de `/portaria/carga-propria`, ao clicar em **"Registrar Chegada"** o veículo NÃO aparece no Pátio nem no painel azul "Aguardando liberação" — vai direto para o **Histórico**.
 
 ## Causa raiz
 
-Esse card vem de `SolicitacoesPendentesPanel.tsx` (linhas 57‑62), que lê `veiculos_esperados` e filtra apenas pela string do campo `grupo`:
+Fluxo atual em `Portaria.tsx → openRegistroFromVeiculoEsperado` (linhas 129‑190):
 
-```ts
-const grupo = (v.grupo || "").toUpperCase();
-const isPropria = grupo.includes("PROPRIA") || grupo.includes("PRÓPRIA");
-```
+1. Cria uma `movimentacoes_portaria` com:
+   - `tipo_movimento: "entrada"`
+   - `categoria: "carga_propria"`
+   - `etapa_carga_propria: "aguardando_liberacao"`
+   - `horario_chegada: agora`
+   - **`horario_entrada: null`** ← o veículo ainda não foi fisicamente liberado para o pátio
 
-No banco, o registro do Célio é:
-- `placa: RSB1H70`
-- `transportadora: JR TRANSPORTES`  ← claramente terceirizado
-- `grupo: WALK-IN-PROPRIA`            ← rotulado erroneamente na hora do registro
+2. Marca o `veiculo_esperado` como **conferido = true** (sai da aba Esperados).
 
-O `grupo` foi gravado em `RegistroEntradaDialog.tsx:210` como `WALK-IN-PROPRIA` porque na hora do walk-in marcaram "PRÓPRIA" — mas a transportadora preenchida prova que é terceirizado. Essa inconsistência é a fonte da mistura, e o filtro precisa ser tolerante a isso.
+Onde isso quebra:
 
-Na verdade, a regra de negócio em todo o resto do app já é: **com transportadora = terceirizado; sem transportadora = própria**. O painel rosa é o único lugar que olha só o `grupo`.
+- **Aba Pátio Atual** (`useMovimentacoesAtivasPatio`, linha 204):
+  ```
+  if (categoria === "carga_propria" && etapa === "aguardando_liberacao" && !horario_entrada) return false;
+  ```
+  → o movimento é EXPLICITAMENTE excluído. Correto: ele deveria estar no painel azul.
+
+- **Painel azul "Aguardando vínculo / liberação"** (`CargasFechadasAguardandoPanel`):
+  Esse painel parte de `carregamentos_dia` filtrado por `etapa = 'logistica'` e cruza com a movimentação pelo `carga_id`. Funciona para cargas fechadas pela Logística. **Não funciona** quando:
+  - o veículo esperado não tem `carga_id`, OU
+  - a carga não está em `etapa = 'logistica'`, OU
+  - foi importado via planilha sem vincular a uma carga real.
+
+- **Histórico** (`HistoricoTab`): mostra todos os movimentos do período sem filtro — então o registro acaba "aparecendo só lá".
+
+Resultado: se o `veiculo_esperado` não tem carga fechada correspondente em `carregamentos_dia`, a chegada vira invisível em Pátio E em Aguardando, sobrando só no Histórico.
 
 ## Correção
 
-### 1. `src/components/portaria/SolicitacoesPendentesPanel.tsx`
+A intenção do código é clara: **chegada registrada (sem entrada física) = painel azul "Aguardando liberação"**. Como o painel azul não cobre o caso "esperado sem carga fechada", precisamos exibir esses movimentos pendentes em algum lugar **ativo**, não no Histórico.
 
-Trocar o filtro para usar a mesma regra do resto do sistema — **a transportadora manda**; o grupo só é usado como fallback quando não há transportadora:
+A solução mínima e segura é incluir movimentos "aguardando liberação sem `horario_entrada`" no **Pátio Atual** como cartão laranja "Aguardando liberar entrada", em vez de escondê-los. Hoje o filtro já tem o ramo de exclusão em `useMovimentacoesAtivasPatio`; basta inverter para **incluir** quando não há painel azul cobrindo aquele movimento.
+
+### Mudança 1 — `src/hooks/useMovimentacoesPortaria.ts` (linhas 200‑204)
+
+Remover as duas linhas que descartam chegadas sem `horario_entrada` do Pátio Atual:
 
 ```ts
-const ativos = ativosRaw.filter((v: any) => {
-  if (!categoria) return true;
-  const temTransp = !!(v.transportadora && String(v.transportadora).trim());
-  if (temTransp) {
-    // Com transportadora: sempre terceirizado
-    return categoria === "terceirizado";
-  }
-  // Sem transportadora: usa o grupo como dica; default = própria
-  const grupo = (v.grupo || "").toUpperCase();
-  const isTerc = grupo.includes("TERCEIR");
-  const isPropria = !isTerc;
-  return categoria === "carga_propria" ? isPropria : !isPropria;
-});
+// Antes:
+if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada" && !m.horario_entrada) return false;
+if (m.categoria === "carga_propria" && m.etapa_carga_propria === "aguardando_liberacao" && !m.horario_entrada) return false;
+
+// Depois: removidas. O Pátio Atual passa a manter esses movimentos visíveis
+// para que a portaria possa liberar a entrada também a partir da aba Pátio,
+// não só do painel azul.
 ```
 
-### 2. Saneamento do registro existente do Célio
+### Mudança 2 — `src/components/portaria/PatioAtualTab.tsx` (renderização do cartão)
 
-Atualizar a única linha inconsistente para refletir a realidade (terceirizado), via migration:
+Garantir que, quando `!horario_entrada`, o cartão mostre badge laranja **"Aguardando liberar entrada"** e botão **"Liberar entrada no pátio"** (que apenas faz `UPDATE movimentacoes_portaria SET horario_entrada = now()` no movimento). Verificar o componente — se o botão já existe para outra finalidade, reaproveitar; senão, adicionar bloco condicional simples.
 
-```sql
-UPDATE public.veiculos_esperados
-SET grupo = 'WALK-IN-TERCEIRIZADO'
-WHERE id = 'a27963ce-ce7c-43b5-b7e5-198c7925c4b0'
-  AND status_autorizacao = 'aguardando_vinculo'
-  AND transportadora IS NOT NULL
-  AND grupo = 'WALK-IN-PROPRIA';
-```
+Plano de inspeção rápida na implementação:
+- Ler `PatioAtualTab.tsx` para ver se já trata o estado `!horario_entrada`.
+- Se já trata (provavelmente sim para o caso vinculado a carga via painel azul), nada a fazer aqui.
+- Se não trata, adicionar a condição com o mesmo handler usado no painel azul (`useLiberarEntradaPatio` ou equivalente — confirmar nome do hook na hora).
 
-(Sem efeito se o registro já tiver sido alterado/finalizado; idempotente.)
+### Mudança 3 — Sem alterações em `Portaria.tsx`
 
-### 3. Reforço preventivo (opcional, mesma migration)
-
-Trigger `BEFORE INSERT/UPDATE` em `veiculos_esperados` que normaliza `grupo` quando há transportadora preenchida — garante que casos novos não voltem a aparecer no lado errado mesmo se o operador escolher mal:
-
-```sql
-CREATE OR REPLACE FUNCTION public.normalize_veiculo_esperado_grupo()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.transportadora IS NOT NULL
-     AND btrim(NEW.transportadora) <> ''
-     AND NEW.grupo = 'WALK-IN-PROPRIA' THEN
-    NEW.grupo := 'WALK-IN-TERCEIRIZADO';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_normalize_veic_esperado_grupo ON public.veiculos_esperados;
-CREATE TRIGGER trg_normalize_veic_esperado_grupo
-BEFORE INSERT OR UPDATE OF transportadora, grupo ON public.veiculos_esperados
-FOR EACH ROW EXECUTE FUNCTION public.normalize_veiculo_esperado_grupo();
-```
+O `openRegistroFromVeiculoEsperado` já cria o movimento corretamente. Não muda.
 
 ## Resultado esperado
 
-- Célio (RSB1H70 / JR TRANSPORTES) some de `/portaria/carga-propria` e aparece em `/portaria/terceirizado`.
-- Carga Própria fica limpa de terceirizados, mesmo se o `grupo` foi gravado errado no walk-in.
-- Sem alteração nos demais painéis ou no fluxo de cargas fechadas (o painel azul já foi corrigido na rodada anterior).
+1. Em Esperados → clicar **Registrar Chegada**: o veículo sai de Esperados, aparece no **Pátio Atual** com badge laranja "Aguardando liberar entrada".
+2. Quando a portaria libera, o cartão vira verde (entrada confirmada).
+3. Para cargas que JÁ estão fechadas pela Logística com `carga_id` válido, ele continua aparecendo também no painel azul "Cargas fechadas aguardando" — comportamento atual preservado.
+4. Histórico passa a mostrar apenas o que faz sentido (movimentos do período, incluindo os que ainda estão ativos), sem "vazar" como único local visível.
 
 ## Arquivos
 
-- `src/components/portaria/SolicitacoesPendentesPanel.tsx` — ajuste do filtro.
-- Nova migration SQL — UPDATE pontual + trigger de normalização.
+- `src/hooks/useMovimentacoesPortaria.ts` — remover as duas linhas de exclusão.
+- `src/components/portaria/PatioAtualTab.tsx` — verificar/ajustar render do cartão "aguardando liberar entrada" (se necessário).
