@@ -213,6 +213,13 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
                 {it.status === "ok" && it.parsed && (
                   <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                    <div className="col-span-2 sm:col-span-6">
+                      <OrdemCargaPicker
+                        value={it.ordem_carga ?? ""}
+                        onChange={(v, picked) => updateOrdem(it.fileId, v, picked)}
+                        cargaIdAtual={it.carga_id ?? null}
+                      />
+                    </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Nº CT-e</Label>
                       <Input value={it.parsed.numero_cte} onChange={(e) => updateParsed(it.fileId, { numero_cte: e.target.value })} className="h-8 text-sm" />
