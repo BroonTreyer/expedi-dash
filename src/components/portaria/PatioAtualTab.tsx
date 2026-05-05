@@ -561,6 +561,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         onOpenChange={(o) => { if (!o) setVincularMov(null); }}
         movimento={vincularMov}
       />
+      <EditarKmDialog
+        open={!!editKmMov}
+        onOpenChange={(o) => { if (!o) setEditKmMov(null); }}
+        movimento={editKmMov}
+      />
       </>
     );
   }
