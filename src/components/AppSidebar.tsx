@@ -41,6 +41,7 @@ const navTree: NavNode[] = [
   { to: "/ocorrencias", label: "Ocorrências", icon: AlertOctagon, roles: ["admin", "logistica", "portaria"] },
   { to: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "logistica", "faturamento"] },
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/logistica", label: "Logística", icon: Truck, roles: ["admin", "logistica"] },
   { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "logistica", "faturamento"] },
   { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "logistica", "faturamento"] },
   { to: "/vendedores-painel", label: "Painel do Vendedor", icon: User, roles: ["admin"] },
