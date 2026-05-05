@@ -29,6 +29,7 @@ import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { buildCargaPropriaPayload } from "@/lib/carga-propria-criar";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface PortariaProps {
   /** Restrict the page to a single categoria (creates a sub-page for that team) */
@@ -54,6 +55,7 @@ export default function Portaria({ categoria }: PortariaProps) {
   const { role, user } = useAuth();
   const isPortaria = role === "portaria";
   const meta = CATEGORIA_META[categoria];
+  const queryClient = useQueryClient();
 
   const [today] = useState(() => new Date());
   const [dateRange, setDateRange] = useState<DateRange>({ from: today, to: today });
@@ -94,6 +96,7 @@ export default function Portaria({ categoria }: PortariaProps) {
   const [detailsMov, setDetailsMov] = useState<MovimentacaoPortaria | null>(null);
   const [detailsSaida, setDetailsSaida] = useState<MovimentacaoPortaria | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [registrandoIds, setRegistrandoIds] = useState<Set<string>>(new Set());
 
   const isToday = dateRange.from?.toDateString() === today.toDateString() && (!dateRange.to || dateRange.to.toDateString() === today.toDateString());
   const dateLabel = isToday ? "Hoje" : "no período";
@@ -132,6 +135,12 @@ export default function Portaria({ categoria }: PortariaProps) {
   };
 
   const openRegistroFromVeiculoEsperado = async (v: VeiculoEsperado) => {
+    if (registrandoIds.has(v.id)) return;
+    setRegistrandoIds((prev) => {
+      const n = new Set(prev);
+      n.add(v.id);
+      return n;
+    });
     if (v.data_referencia > dateFromStr) {
       const dataFormatada = format(new Date(v.data_referencia + "T00:00:00"), "dd/MM");
       toast.warning(`Atenção: este veículo tem saída prevista para ${dataFormatada}`);
@@ -176,16 +185,28 @@ export default function Portaria({ categoria }: PortariaProps) {
       // Marca o veiculo_esperado como conferido para sair da lista de Esperados.
       // O cartão correspondente no Pátio (laranja → azul → verde) representa o ciclo seguinte.
       try {
-        await marcarConferidoMutation.mutateAsync({
-          placa: v.placa,
-          dataReferencia: v.data_referencia,
-        });
+        await marcarConferidoMutation.mutateAsync({ id: v.id });
       } catch {
         // não bloqueia o fluxo se o update falhar — a movimentação já foi criada.
       }
+      // Garante que o Pátio Atual reflita imediatamente.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] }),
+        queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] }),
+        queryClient.invalidateQueries({ queryKey: ["veiculos_esperados"] }),
+      ]);
       toast.success(`Chegada de ${v.placa} registrada! Aguardando liberação no pátio.`);
     } catch (e: any) {
-      toast.error(e?.message || "Erro ao registrar chegada");
+      const msg = e?.message || e?.error_description || e?.hint || "Erro ao registrar chegada";
+      toast.error(`Falha ao registrar ${v.placa}: ${msg}`);
+      // eslint-disable-next-line no-console
+      console.error("[Portaria] Falha ao registrar chegada de esperado", { veiculo: v, erro: e });
+    } finally {
+      setRegistrandoIds((prev) => {
+        const n = new Set(prev);
+        n.delete(v.id);
+        return n;
+      });
     }
   };
 
