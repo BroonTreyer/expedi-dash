@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useCallback, useRef } from "react";
 import { useSession } from "@/hooks/useAuth";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 
 // Debounce timer for realtime INSERT invalidation
 let insertDebounceTimer: ReturnType<typeof setTimeout> | null = null;
