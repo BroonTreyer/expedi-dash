@@ -56,9 +56,17 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
 
   if (veiculos.length === 0) return null;
 
-  const totalConferidos = veiculos.filter((v) => v.conferido).length;
-  const pendentes = veiculos.length - totalConferidos;
+  // Contadores no header refletem apenas a data filtrada (quando houver),
+  // evitando somar datas antigas trazidas pelo modo showAll.
+  const veiculosDoDia = dataFiltrada
+    ? veiculos.filter((v) => v.data_referencia === dataFiltrada)
+    : veiculos;
+  const totalDoDia = veiculosDoDia.length;
+  const totalConferidos = veiculosDoDia.filter((v) => v.conferido).length;
+  const pendentes = totalDoDia - totalConferidos;
 
+  // A lista renderizada continua mostrando pendentes de qualquer data
+  // (futuras/atrasadas), só os contadores são restritos ao dia.
   const pendingVeiculos = veiculos.filter((v) => !v.conferido);
   const filtered = search
     ? pendingVeiculos.filter((v) => {
@@ -143,7 +151,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
               </CardTitle>
               <Badge variant="secondary" className="text-[10px] h-5">
                 <CheckCircle2 className="h-3 w-3 mr-0.5" />
-                {totalConferidos}/{veiculos.length} conferidos
+                {totalConferidos}/{totalDoDia} conferidos
               </Badge>
             </div>
             {!readOnly && onClear && (
@@ -172,7 +180,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
             </CardTitle>
             <div className="flex flex-wrap gap-1">
               <Badge variant="secondary" className="text-[10px] h-5">
-                {totalConferidos}/{veiculos.length} conferidos
+                {totalConferidos}/{totalDoDia} conferidos
               </Badge>
               {pendentes > 0 && (
                 <Badge variant="outline" className="text-[10px] h-5 border-amber-300 text-amber-700 dark:text-amber-400">
