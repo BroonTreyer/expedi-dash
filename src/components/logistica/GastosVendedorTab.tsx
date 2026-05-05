@@ -185,6 +185,12 @@ export function GastosVendedorTab() {
                                     <strong>{d.nome_carga ?? d.carga_id}</strong>
                                     <span className="text-xs text-muted-foreground">({d.carga_id})</span>
                                     <Badge variant="outline" className="text-[11px] capitalize">{d.tipo_veiculo_normalizado}</Badge>
+                                    <Badge
+                                      variant={d.tipo_frete_carga === "cif" ? "default" : d.tipo_frete_carga === "fob" ? "secondary" : "outline"}
+                                      className="text-[11px] uppercase"
+                                    >
+                                      {d.tipo_frete_carga === "nao_classificado" ? "?" : d.tipo_frete_carga}
+                                    </Badge>
                                     {d.ordem_carga && <Badge variant="secondary" className="text-[11px]">OC {d.ordem_carga}</Badge>}
                                     {d.numero_cte ? (
                                       <Badge variant="default" className="text-[11px] gap-1"><FileText className="h-3 w-3" /> CT-e {d.numero_cte}</Badge>
