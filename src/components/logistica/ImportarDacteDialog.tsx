@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { autoVincularCarga, useInsertCteDacte } from "@/hooks/useCtesDacte";
+import { autoVincularCarga, useInsertCteDacte, buscarCargasPorOrdem, type CargaPorOrdemRow } from "@/hooks/useCtesDacte";
 
 type Parsed = {
   numero_cte: string;
@@ -32,6 +32,7 @@ type Item = {
   error?: string;
   parsed?: Parsed;
   carga_id?: string | null;
+  ordem_carga?: string;
   vinculo_status?: "pendente" | "vinculado" | "divergente";
 };
 
@@ -117,6 +118,18 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
     setItems((prev) => prev.map((p) => p.fileId === fileId && p.parsed ? { ...p, parsed: { ...p.parsed, ...patch } } : p));
   };
 
+  const updateOrdem = async (fileId: string, ordem: string, picked?: CargaPorOrdemRow | null) => {
+    setItems((prev) => prev.map((p) => p.fileId === fileId
+      ? {
+          ...p,
+          ordem_carga: ordem,
+          ...(picked
+            ? { carga_id: picked.carga_id, vinculo_status: "vinculado" as const }
+            : {}),
+        }
+      : p));
+  };
+
   const remove = (fileId: string) => setItems((prev) => prev.filter((p) => p.fileId !== fileId));
 
   const handleSaveAll = async () => {
@@ -143,6 +156,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
           pdf_url: path,
           raw_extracao: it.parsed as any,
           carga_id: it.carga_id ?? null,
+          ordem_carga: (it.ordem_carga ?? "").trim() || null,
           status: it.vinculo_status ?? "pendente",
         });
         setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "saved" } : x));
