@@ -26,6 +26,8 @@ type Item = {
   fileId: string;
   file: File;
   fileName: string;
+  ctIndex?: number;
+  ctTotal?: number;
   status: "loading" | "ok" | "error" | "saving" | "saved";
   error?: string;
   parsed?: Parsed;
@@ -81,12 +83,28 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
           body: { fileBase64: b64, fileName: file.name },
         });
         if (error) throw error;
-        const parsed = (data as any)?.data as Parsed | undefined;
-        if (!parsed) throw new Error("Resposta vazia");
-        const vinc = await autoVincularCarga(parsed.notas_fiscais ?? []);
-        setItems((prev) => prev.map((p) => p.fileId === ph.fileId
-          ? { ...p, status: "ok", parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status }
-          : p));
+        const ctes = ((data as any)?.ctes ?? []) as Parsed[];
+        if (!ctes.length) throw new Error("Nenhum CT-e identificado no PDF");
+        // Vincula cada CT-e em paralelo
+        const enriched = await Promise.all(ctes.map(async (parsed) => {
+          const vinc = await autoVincularCarga(parsed.notas_fiscais ?? []);
+          return { parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status };
+        }));
+        const newItems: Item[] = enriched.map((e, i) => ({
+          fileId: `${ph.fileId}-${i}`,
+          file,
+          fileName: file.name,
+          ctIndex: i + 1,
+          ctTotal: enriched.length,
+          status: "ok",
+          parsed: e.parsed,
+          carga_id: e.carga_id,
+          vinculo_status: e.vinculo_status,
+        }));
+        setItems((prev) => {
+          const without = prev.filter((p) => p.fileId !== ph.fileId);
+          return [...without, ...newItems];
+        });
       } catch (e: any) {
         setItems((prev) => prev.map((p) => p.fileId === ph.fileId
           ? { ...p, status: "error", error: e?.message || "Falha" } : p));
@@ -165,6 +183,9 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
                     <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="text-xs font-mono text-muted-foreground truncate">{it.fileName}</span>
+                    {it.ctTotal && it.ctTotal > 1 && (
+                      <Badge variant="outline" className="text-[10px]">CT-e {it.ctIndex}/{it.ctTotal}</Badge>
+                    )}
                     {it.status === "loading" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Lendo</Badge>}
                     {it.status === "saving" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Salvando</Badge>}
                     {it.status === "saved" && <Badge className="bg-emerald-600 text-white gap-1"><CheckCircle2 className="h-3 w-3" /> Salvo</Badge>}
