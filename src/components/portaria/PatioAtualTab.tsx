@@ -92,6 +92,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [reabrirId, setReabrirId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [vincularMov, setVincularMov] = useState<MovimentacaoPortaria | null>(null);
+  const [editKmMov, setEditKmMov] = useState<MovimentacaoPortaria | null>(null);
   const qc = useQueryClient();
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
