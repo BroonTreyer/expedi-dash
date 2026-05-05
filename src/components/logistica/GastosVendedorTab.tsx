@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, Loader2, Users, AlertTriangle, FileText, Info } from "lucide-react";
-import { useGastosVendedor, type FiltroTipoFrete } from "@/hooks/useGastosVendedor";
+import { useGastosVendedor } from "@/hooks/useGastosVendedor";
 import { format, subDays, parseISO } from "date-fns";
 
 const fmtBRL = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
@@ -23,10 +23,9 @@ export function GastosVendedorTab() {
   const [df, setDf] = useState(format(new Date(), "yyyy-MM-dd"));
   const [vendFilter, setVendFilter] = useState<string>("__all__");
   const [soSemTarifa, setSoSemTarifa] = useState(false);
-  const [filtroFrete, setFiltroFrete] = useState<FiltroTipoFrete>("cif");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const { data, isLoading } = useGastosVendedor(di, df, filtroFrete);
+  const { data, isLoading } = useGastosVendedor(di, df);
   const raw = data?.vendedores ?? [];
   const cobertura = data?.cobertura ?? { cif: 0, fob: 0, misto: 0, nao_classificado: 0, total: 0 };
 
@@ -77,17 +76,6 @@ export function GastosVendedorTab() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1 min-w-[200px]">
-            <Label className="text-xs">Tipo de frete</Label>
-            <Select value={filtroFrete} onValueChange={(v) => setFiltroFrete(v as FiltroTipoFrete)}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cif">Apenas CIF</SelectItem>
-                <SelectItem value="incluir_nao_classificado">CIF + não classificadas</SelectItem>
-                <SelectItem value="todos">Todas (CIF, FOB, etc.)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <Button
             variant={soSemTarifa ? "default" : "outline"}
             size="sm"
@@ -101,10 +89,8 @@ export function GastosVendedorTab() {
         {cobertura.total > 0 && (
           <div className="flex flex-wrap items-center gap-2 text-xs rounded-md border bg-muted/40 px-3 py-2">
             <Info className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-muted-foreground">Cobertura no período:</span>
+            <span className="text-muted-foreground">Cobertura no período (FOB excluído):</span>
             <Badge variant="default" className="text-[11px]">CIF: {cobertura.cif}</Badge>
-            <Badge variant="secondary" className="text-[11px]">FOB: {cobertura.fob}</Badge>
-            {cobertura.misto > 0 && <Badge variant="outline" className="text-[11px]">Misto: {cobertura.misto}</Badge>}
             <Badge variant="outline" className="text-[11px]">Não classificadas: {cobertura.nao_classificado}</Badge>
             {cobertura.nao_classificado > 0 && (
               <span className="text-muted-foreground">— preencha o campo "Tipo de Frete" nos pedidos para precisão.</span>
@@ -147,7 +133,7 @@ export function GastosVendedorTab() {
               <TableBody>
                 {filtered.length === 0 && (
                   <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-6">
-                    Nenhuma carga {filtroFrete === "cif" ? "CIF " : ""}fechada no período {soSemTarifa ? "com destinos sem tarifa" : ""}
+                    Nenhuma carga CIF/não classificada no período {soSemTarifa ? "com destinos sem tarifa" : ""}
                   </TableCell></TableRow>
                 )}
                 {filtered.map((r) => {
