@@ -675,17 +675,32 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       Liberar Entrada
                     </Button>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
-                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
-                    </Button>
+                    <>
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
+                        <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
+                      </Button>
+                    </>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
-                      <ArrowDownToLine className="h-3 w-3" /> Retorno
-                    </Button>
+                    <>
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
+                        <ArrowDownToLine className="h-3 w-3" /> Retorno
+                      </Button>
+                    </>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "retornou" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
-                    </Button>
+                    <>
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
+                        <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
+                      </Button>
+                    </>
                   ) : m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
