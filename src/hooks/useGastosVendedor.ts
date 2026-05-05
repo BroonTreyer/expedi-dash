@@ -79,7 +79,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
     const invalidate = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v5_tabelas"] });
+        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v6_consolidado"] });
       }, 1500);
     };
     const channel = supabase
@@ -94,7 +94,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
   }, [session, qc]);
 
   return useQuery({
-    queryKey: ["gastos_vendedor_v5_tabelas", dataInicial, dataFinal],
+    queryKey: ["gastos_vendedor_v6_consolidado", dataInicial, dataFinal],
     enabled: !!session,
     staleTime: 5_000,
     queryFn: async (): Promise<GastosVendedorResult> => {
@@ -382,9 +382,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
             destinos_sem_tarifa: destinos.filter((d) => d.sem_tarifa).length,
             destinos_em_conflito: destinos.filter((d) => d.conflito).length,
             destinos,
-            pedidos: (pedidosPorVend.get(vid) ?? []).slice().sort(
-              (a, b) => (a.numero_pedido ?? 0) - (b.numero_pedido ?? 0),
-            ),
+            pedidos: consolidarPedidos(pedidosPorVend.get(vid) ?? []),
           });
           acc.set(vid, cur);
         }
@@ -401,4 +399,19 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
       return { vendedores, cobertura };
     },
   });
+}
+
+// Consolida múltiplas linhas (itens) do mesmo pedido em uma única entrada,
+// somando peso. Chave: numero_pedido + cliente + cidade/UF.
+function consolidarPedidos(
+  rows: Array<{ numero_pedido: number | null; cliente: string | null; cidade: string | null; uf: string | null; peso: number }>,
+) {
+  const map = new Map<string, { numero_pedido: number | null; cliente: string | null; cidade: string | null; uf: string | null; peso: number }>();
+  for (const r of rows) {
+    const key = `${r.numero_pedido ?? "_"}|${(r.cliente ?? "").trim().toLowerCase()}|${norm(r.cidade)}|${(r.uf ?? "").toUpperCase()}`;
+    const cur = map.get(key);
+    if (cur) cur.peso += r.peso;
+    else map.set(key, { ...r });
+  }
+  return Array.from(map.values()).sort((a, b) => (a.numero_pedido ?? 0) - (b.numero_pedido ?? 0));
 }
