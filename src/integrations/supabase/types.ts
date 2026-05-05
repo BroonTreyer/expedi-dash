@@ -1044,7 +1044,7 @@ export type Database = {
           ativo: boolean
           codigo_cliente: string | null
           created_at: string
-          destino_cidade: string
+          destino_cidade: string | null
           destino_uf: string
           id: string
           tabela_id: string
@@ -1056,7 +1056,7 @@ export type Database = {
           ativo?: boolean
           codigo_cliente?: string | null
           created_at?: string
-          destino_cidade: string
+          destino_cidade?: string | null
           destino_uf: string
           id?: string
           tabela_id: string
@@ -1068,7 +1068,7 @@ export type Database = {
           ativo?: boolean
           codigo_cliente?: string | null
           created_at?: string
-          destino_cidade?: string
+          destino_cidade?: string | null
           destino_uf?: string
           id?: string
           tabela_id?: string

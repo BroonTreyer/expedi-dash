@@ -1,0 +1,1 @@
+ALTER TABLE public.tabelas_frete_itens ALTER COLUMN destino_cidade DROP NOT NULL;
