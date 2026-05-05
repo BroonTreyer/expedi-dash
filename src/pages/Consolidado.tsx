@@ -10,6 +10,7 @@ import { ConsolidadoPrintDialog, type ConsolidadoPrintData } from "@/components/
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 import { cn } from "@/lib/utils";
 import { STATUSES, STATUS_COLORS } from "@/lib/constants";
 import { StatusSelect } from "@/components/dashboard/StatusSelect";
@@ -47,25 +48,28 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
     queryKey: ["consolidado", dateFrom, dateEnd],
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
-      let q = supabase
-        .from("carregamentos_dia")
-        .select("*, vendedores(nome_vendedor)")
-        .not("carga_id", "is", null);
-
       const isSingleDay = dateFrom === dateEnd;
-      if (isSingleDay && dateFrom === todayStr) {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
-        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
-      } else if (isSingleDay) {
-        q = q.eq("data", dateFrom);
-      } else {
-        q = q.gte("data", dateFrom).lte("data", dateEnd);
-      }
-
-      const { data, error } = await q.order("carga_id", { ascending: true });
-      if (error) throw error;
+      // Paginação completa para nunca truncar pedidos da consolidada.
+      const data = await fetchAllPaginated<any>((from, to) => {
+        let q = supabase
+          .from("carregamentos_dia")
+          .select("*, vendedores(nome_vendedor)")
+          .not("carga_id", "is", null);
+        if (isSingleDay && dateFrom === todayStr) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
+          q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
+        } else if (isSingleDay) {
+          q = q.eq("data", dateFrom);
+        } else {
+          q = q.gte("data", dateFrom).lte("data", dateEnd);
+        }
+        return q
+          .order("carga_id", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to);
+      });
       let rows = (data ?? []) as Carregamento[];
 
       // Carry-over adicional: quando estamos vendo "hoje" (single-day),
@@ -92,12 +96,16 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
-          const { data: extra } = await supabase
-            .from("carregamentos_dia")
-            .select("*, vendedores(nome_vendedor)")
-            .in("carga_id", faltantes)
-            .lt("data", dateFrom)
-            .gte("data", limitDate);
+          const extra = await fetchAllPaginated<any>((from, to) =>
+            supabase
+              .from("carregamentos_dia")
+              .select("*, vendedores(nome_vendedor)")
+              .in("carga_id", faltantes)
+              .lt("data", dateFrom)
+              .gte("data", limitDate)
+              .order("id", { ascending: true })
+              .range(from, to),
+          );
           if (extra && extra.length > 0) {
             rows = [...rows, ...(extra as Carregamento[])];
           }

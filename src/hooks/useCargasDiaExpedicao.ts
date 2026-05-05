@@ -3,6 +3,7 @@ import { useQuery, keepPreviousData, useQueryClient } from "@tanstack/react-quer
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { pesoEfetivo } from "@/lib/peso-utils";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 
 export interface CargaDiaExpedicao {
   carga_id: string;
@@ -55,12 +56,15 @@ export function useCargasDiaExpedicao(dateStr: string) {
     retry: 2,
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("carregamentos_dia")
-        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, ruptura, data, numero_pedido, status")
-        .not("carga_id", "is", null)
-        .eq("data", dateStr);
-      if (error) throw error;
+      const data = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from("carregamentos_dia")
+          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, ruptura, data, numero_pedido, status, id")
+          .not("carga_id", "is", null)
+          .eq("data", dateStr)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       // Sem carry-over: KPIs do painel Expedição refletem apenas as cargas
       // com data = dia selecionado. Cargas de outros dias com movimento hoje
       // aparecem nos painéis Pátio/Chegou (via movimentacoes_portaria), mas

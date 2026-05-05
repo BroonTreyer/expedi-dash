@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useCallback, useRef } from "react";
 import { useSession } from "@/hooks/useAuth";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 
 // Debounce timer for realtime INSERT invalidation
 let insertDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -129,27 +130,28 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
     enabled: !!session,
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
-      let q = supabase
-        .from("carregamentos_dia")
-        .select("*, vendedores(nome_vendedor)");
-
       const isSingleDay = dateFrom === dateEnd;
-
-      if (isSingleDay && dateFrom === todayStr) {
-        // Today: also bring pending items from previous days
-        // Limit pending items to last 30 days
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
-        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
-      } else if (isSingleDay) {
-        q = q.eq("data", dateFrom);
-      } else {
-        q = q.gte("data", dateFrom).lte("data", dateEnd);
-      }
-
-      const { data, error } = await q.order("created_at", { ascending: true });
-      if (error) throw error;
+      // Paginação completa para o painel principal não truncar quando há
+      // muitos itens no dia (1000+ linhas).
+      const data = await fetchAllPaginated<any>((from, to) => {
+        let q = supabase
+          .from("carregamentos_dia")
+          .select("*, vendedores(nome_vendedor)");
+        if (isSingleDay && dateFrom === todayStr) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
+          q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
+        } else if (isSingleDay) {
+          q = q.eq("data", dateFrom);
+        } else {
+          q = q.gte("data", dateFrom).lte("data", dateEnd);
+        }
+        return q
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to);
+      });
       // Esconde rascunhos e pedidos aguardando aprovação do faturamento
       // do painel operacional principal.
       const filtered = (data as Carregamento[]).filter(
@@ -471,15 +473,16 @@ export function useCargasFechadasAguardando() {
       since.setDate(since.getDate() - 2);
       const sinceStr = since.toISOString().slice(0, 10);
 
-      const { data: cargas, error } = await supabase
-        .from("carregamentos_dia")
-        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data")
-        .eq("etapa", "logistica")
-        .not("carga_id", "is", null)
-        .gte("data", sinceStr);
-      if (error) throw error;
-
-      const cargasArr = (cargas ?? []) as any[];
+      const cargasArr = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from("carregamentos_dia")
+          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
+          .eq("etapa", "logistica")
+          .not("carga_id", "is", null)
+          .gte("data", sinceStr)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       if (cargasArr.length === 0) return [] as CargaFechadaAguardando[];
 
       const cargaIds = Array.from(new Set(cargasArr.map((c) => c.carga_id).filter(Boolean)));
@@ -617,14 +620,16 @@ export function useCargasFechadasParaVincular() {
       since.setDate(since.getDate() - 3);
       const sinceStr = since.toISOString().slice(0, 10);
 
-      const { data, error } = await supabase
-        .from("carregamentos_dia")
-        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data")
-        .eq("etapa", "logistica")
-        .not("carga_id", "is", null)
-        .gte("data", sinceStr);
-      if (error) throw error;
-      const arr = (data ?? []) as any[];
+      const arr = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from("carregamentos_dia")
+          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
+          .eq("etapa", "logistica")
+          .not("carga_id", "is", null)
+          .gte("data", sinceStr)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
 
       const grouped = new Map<string, CargaFechadaAguardando>();
       for (const c of arr) {

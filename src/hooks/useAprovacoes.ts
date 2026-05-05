@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 
 export function useAprovacoesPendentes() {
   const session = useSession();
@@ -10,13 +11,15 @@ export function useAprovacoesPendentes() {
     enabled: !!session,
     refetchInterval: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("carregamentos_dia")
-        .select("*, vendedores(nome_vendedor, codigo_vendedor)")
-        .eq("etapa", "aguardando_faturamento")
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+      return await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from("carregamentos_dia")
+          .select("*, vendedores(nome_vendedor, codigo_vendedor)")
+          .eq("etapa", "aguardando_faturamento")
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
   });
 }

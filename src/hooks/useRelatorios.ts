@@ -1,16 +1,20 @@
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 
 async function fetchCarregamentos(dataInicio: string, dataFim: string) {
-  const { data, error } = await supabase
-    .from("carregamentos_dia")
-    .select("*, vendedores(nome_vendedor)")
-    .gte("data", dataInicio)
-    .lte("data", dataFim)
-    .order("data", { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+  // Paginação completa para relatórios não truncarem em períodos grandes.
+  return await fetchAllPaginated<any>((from, to) =>
+    supabase
+      .from("carregamentos_dia")
+      .select("*, vendedores(nome_vendedor)")
+      .gte("data", dataInicio)
+      .lte("data", dataFim)
+      .order("data", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 }
 
 async function fetchMovimentacoes(dataInicio: string, dataFim: string) {
