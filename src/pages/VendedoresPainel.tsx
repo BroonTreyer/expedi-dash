@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 import { Layout } from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -36,10 +37,14 @@ export default function VendedoresPainel() {
       since.setDate(since.getDate() - 6);
       const sinceStr = format(since, "yyyy-MM-dd");
 
-      const { data: cargas } = await supabase
-        .from("carregamentos_dia")
-        .select("vendedor_id, numero_pedido")
-        .gte("data", sinceStr);
+      const cargas = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from("carregamentos_dia")
+          .select("vendedor_id, numero_pedido, id")
+          .gte("data", sinceStr)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
 
       const counts = new Map<string, Set<string>>();
       for (const r of (cargas ?? []) as any[]) {
