@@ -103,7 +103,14 @@ export function useCreateMotorista() {
       qc.invalidateQueries({ queryKey: ["motoristas"] });
       toast.success("Motorista cadastrado com sucesso");
     },
-    onError: (e: any) => toast.error(e.message || "Erro ao cadastrar motorista"),
+    onError: (e: any) => {
+      if (e?.code === "23505" || /duplicate key/i.test(e?.message || "")) {
+        const msg = /cpf/i.test(e?.message || "") ? "Já existe motorista ativo com este CPF" : "Já existe motorista ativo com este nome";
+        toast.error(msg);
+      } else {
+        toast.error(e.message || "Erro ao cadastrar motorista");
+      }
+    },
   });
 }
 
@@ -149,7 +156,14 @@ export function useUpdateMotorista() {
       qc.invalidateQueries({ queryKey: ["motoristas"] });
       toast.success("Motorista atualizado");
     },
-    onError: (e: any) => toast.error(e.message || "Erro ao atualizar"),
+    onError: (e: any) => {
+      if (e?.code === "23505" || /duplicate key/i.test(e?.message || "")) {
+        const msg = /cpf/i.test(e?.message || "") ? "Já existe motorista ativo com este CPF" : "Já existe motorista ativo com este nome";
+        toast.error(msg);
+      } else {
+        toast.error(e.message || "Erro ao atualizar");
+      }
+    },
   });
 }
 
