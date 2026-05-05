@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, forwardRef, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -292,13 +292,15 @@ export function GastosVendedorTab() {
   );
 }
 
-function Kpi({ label, value, sub, tone = "muted" }: { label: string; value: string; sub?: string; tone?: "muted" | "good" | "warn" }) {
+type KpiProps = { label: string; value: string; sub?: string; tone?: "muted" | "good" | "warn" };
+const Kpi = forwardRef<HTMLDivElement, KpiProps>(({ label, value, sub, tone = "muted" }, ref) => {
   const toneClass = tone === "good" ? "text-emerald-600" : tone === "warn" ? "text-destructive" : "text-foreground";
   return (
-    <div className="rounded-md border p-3 bg-card">
+    <div ref={ref} className="rounded-md border p-3 bg-card">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`text-xl font-bold tabular-nums ${toneClass}`}>{value}</div>
       {sub && <div className="text-xs text-muted-foreground tabular-nums">{sub}</div>}
     </div>
   );
-}
+});
+Kpi.displayName = "Kpi";

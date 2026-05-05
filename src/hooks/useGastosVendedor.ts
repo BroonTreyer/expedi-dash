@@ -79,7 +79,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
     const invalidate = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v6_consolidado"] });
+        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v7_paginado"] });
       }, 1500);
     };
     const channel = supabase
@@ -94,19 +94,36 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
   }, [session, qc]);
 
   return useQuery({
-    queryKey: ["gastos_vendedor_v6_consolidado", dataInicial, dataFinal],
+    queryKey: ["gastos_vendedor_v7_paginado", dataInicial, dataFinal],
     enabled: !!session,
     staleTime: 5_000,
     queryFn: async (): Promise<GastosVendedorResult> => {
-      const { data: items, error: iErr } = await supabase
-        .from("carregamentos_dia")
-        .select("carga_id, nome_carga, ordem_carga, data, tipo_caminhao, tipo_frete, vendedor_id, peso, numero_pedido, cliente, codigo_cliente, cidade, uf")
-        .eq("etapa", "logistica")
-        .not("carga_id", "is", null)
-        .gte("data", dataInicial)
-        .lte("data", dataFinal)
-        .limit(10000);
-      if (iErr) throw iErr;
+      // Paginação manual: o PostgREST aplica um teto por requisição (1000 linhas
+      // por padrão), então buscamos em páginas até esgotar. Sem isso, períodos
+      // grandes ficam com pedidos truncados — ex.: SENDAS aparecia com 9.000 kg
+      // em vez de 29.000 kg porque parte das linhas do mesmo pedido caíam fora
+      // da primeira página.
+      const PAGE = 1000;
+      let from = 0;
+      const items: any[] = [];
+      while (true) {
+        const { data: page, error: iErr } = await supabase
+          .from("carregamentos_dia")
+          .select("carga_id, nome_carga, ordem_carga, data, tipo_caminhao, tipo_frete, vendedor_id, peso, numero_pedido, cliente, codigo_cliente, cidade, uf")
+          .eq("etapa", "logistica")
+          .not("carga_id", "is", null)
+          .gte("data", dataInicial)
+          .lte("data", dataFinal)
+          .order("data", { ascending: true })
+          .order("carga_id", { ascending: true })
+          .order("numero_pedido", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (iErr) throw iErr;
+        if (!page || page.length === 0) break;
+        items.push(...page);
+        if (page.length < PAGE) break;
+        from += page.length;
+      }
       if (!items || items.length === 0) {
         return { vendedores: [], cobertura: { cif: 0, fob: 0, misto: 0, nao_classificado: 0, total: 0 } };
       }

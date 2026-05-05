@@ -1,32 +1,23 @@
-Diagnóstico confirmado:
+Vou corrigir a aba **Gastos por Vendedor** para buscar todos os registros do período, não só a primeira página retornada pela API.
 
-- No banco, o pedido SENDAS FEIRA DE SANTANA de 30/04, nº 104, está correto: 4 linhas somando 29.000 kg.
-- O problema não é mais cache do navegador: a requisição da tela estava buscando linhas individuais de `carregamentos_dia`, e a visualização/listagem consegue exibir itens parciais do mesmo pedido/carga, dando a impressão de 9k quando deveria consolidar o pedido inteiro.
-- A correção deve ser na lógica de consolidação da aba “Gastos por Vendedor”, não com botão manual.
+Diagnóstico confirmado:
+- No banco, o pedido **#104 / SENDAS FEIRA DE SANTANA / 30/04/2026** tem 4 linhas e soma **29.000 kg**.
+- A requisição da tela tem **1476 registros** no período, mas a API retorna por padrão apenas uma página inicial; no snapshot da rede, aparecem só parte dos registros e o SENDAS completo não chega ao frontend.
+- Por isso a tela está calculando só o pedaço que recebeu e mostra **9.000 kg**.
 
 Plano de correção:
+1. Alterar `src/hooks/useGastosVendedor.ts` para buscar `carregamentos_dia` de forma paginada com `.range(...)`, juntando todas as páginas até acabar.
+2. Ordenar a busca por `data`/`carga_id`/`numero_pedido` para o resultado ser estável e não depender da ordem padrão do banco.
+3. Trocar a query key para uma nova versão, forçando descarte do cache antigo no React Query.
+4. Manter a consolidação de itens do mesmo pedido, então o pedido #104 deve aparecer uma única vez com **29.000 kg**.
+5. Ajustar a invalidação realtime para a nova query key.
+6. Remover o warning de React do componente `Kpi` no `GastosVendedorTab`, porque ele ainda aparece no console dessa aba.
 
-1. Ajustar `src/hooks/useGastosVendedor.ts`
-   - Antes de montar os detalhes por carga/destino/vendedor, consolidar os registros por chave lógica de pedido/produto:
-     - prioridade: `operation_id` quando existir;
-     - fallback: `data + numero_pedido + vendedor_id + codigo_cliente + carga_id`.
-   - Nos detalhes “Pedidos consolidados deste vendedor na carga”, mostrar cada pedido uma única vez com o peso total somado.
-   - Manter os cálculos de destino/carga/vendedor usando a soma real dos itens, sem duplicar e sem pegar apenas uma linha parcial.
-
-2. Proteger contra dados afetados por edições antigas
-   - Garantir que a consolidação some todas as linhas do mesmo pedido, inclusive pedidos multi-item antigos que não tenham `operation_id`.
-   - Preservar os campos necessários para tarifa (`cidade`, `uf`, `codigo_cliente`, `tipo_frete`, `vendedor_id`) usando os dados do grupo consolidado.
-
-3. Reduzir risco de cache velho nessa aba
-   - Trocar a query key de `gastos_vendedor_v5_tabelas` para uma nova versão, por exemplo `gastos_vendedor_v6_consolidado`, forçando o React Query a descartar o resultado antigo.
-   - Atualizar também a invalidação realtime para a nova key.
-
-4. Corrigir aviso de React no componente `Kpi`
-   - O console mostra “Function components cannot be given refs” em `GastosVendedorTab`.
-   - Vou revisar o uso do `Kpi` e ajustar a estrutura para remover esse warning sem alterar a UI.
-
-5. Validação
-   - Verificar que o detalhe do pedido SENDAS nº 104 passa a aparecer como 29.000 kg.
-   - Conferir que os totais por vendedor/carga continuam coerentes e que FOB/misto continuam sendo filtrados como hoje.
-
-Não vou adicionar nenhum botão novo.
+Validação após aplicar:
+- Abrir `/logistica` > **Gastos por Vendedor**.
+- Expandir **MOÍSA**.
+- Confirmar que **SENDAS FEIRA DE SANTANA** mostra:
+  - Peso vendedor: **29.000 kg**
+  - Peso total carga: **29.000 kg**
+  - Pedido consolidado **#104** com **29.000 kg**
+- Conferir que o console não mostra mais o warning do `Kpi`.
