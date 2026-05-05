@@ -9,7 +9,7 @@ import { GastosVendedorTab } from "@/components/logistica/GastosVendedorTab";
 import { useCtesDacte } from "@/hooks/useCtesDacte";
 
 function VisaoGeralTab() {
-  const { ctes } = useCtesDacte();
+  const { data: ctes } = useCtesDacte();
 
   const kpis = useMemo(() => {
     const list = ctes ?? [];
