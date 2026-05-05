@@ -1,41 +1,22 @@
-# Finalizar registros de portaria nas datas corretas
+## Bloquear motoristas duplicados
 
-## Situação atual
+### 1. Schema (migration)
+- Criar índice único parcial em `motoristas(cpf)` onde `cpf IS NOT NULL AND ativo = true`.
+- Criar índice único em `lower(btrim(nome_completo))` onde `ativo = true`.
 
-Ao consultar a tabela `movimentacoes_portaria`, encontrei **4 registros** para essas duas cargas:
+### 2. Limpeza dos duplicados existentes (antes dos índices)
+- **Alair Algusto do Vale** (CPF 841.878.081-91): manter o registro mais antigo, marcar o outro como `ativo=false`. Se houver `caminhoes.motorista_id` apontando para o duplicado, repontar para o mantido.
+- **NILSON RAIMUNDO DIAS** (CPF 586.239.571-72): mesma lógica.
+- Migration faz UPDATE de repointagem em `caminhoes` + UPDATE `ativo=false` no duplicado, depois cria os índices únicos.
 
-| ID | Placa | Motorista | Data | Etapa |
-|---|---|---|---|---|
-| f6177ed1 | OZR0D10 | LUCAS | **05/05 10:46** | chegada (sem entrada/saída) |
-| 65b4de50 | JBM8E58 | TONI | **05/05 10:46** | chegada (sem entrada/saída) |
-| ff9832b6 | OZR0D10 | LUCAS | **02/05** | finalizado (chegada + entrada + saída) |
-| abfe34bf | JBM8E58 | TONI | **04/05** | finalizado (chegada + entrada + saída) |
+### 3. Validação no frontend (`src/pages/Motoristas.tsx` — `MotoristaFormDialog`)
+- Ao digitar CPF completo (11 dígitos) ou ao salvar, consultar `motoristas` ativos:
+  - Por `cpf` exato (se preenchido).
+  - Por `lower(btrim(nome_completo))` exato.
+- Se já existir e não for o registro em edição: mostrar alerta inline ("Já existe motorista X com este CPF/nome") + botão "Editar existente" que carrega o registro encontrado no formulário.
+- No `onError` das mutations, tratar código `23505` (unique violation) com toast: "Já existe motorista com este CPF" / "...com este nome".
 
-Os dois registros de **05/05** foram criados automaticamente pelo trigger quando reabri/fechei as cargas hoje. Eles aparecem no histórico de Terceirizados como "Entrada" recente (foto do print confirma — 10:46 hoje).
-
-Os dois registros **finalizados** em 02/05 e 04/05 (que criei retroativamente na resposta anterior) já estão corretos.
-
-> Observação: você escreveu "02/04 e 04/04", mas pelo contexto entendo que se refere a **02/05 e 04/05** (sábado/segunda passados). Se for outra data, me avise.
-
-## Ação
-
-Criar uma migration que **apaga os 2 registros duplicados de hoje (05/05)**:
-
-- `f6177ed1-a5db-48d5-ba33-b6d40a49952b` (OZR0D10 / LUCAS)
-- `65b4de50-2087-498f-bcf6-c2a151c6ef62` (JBM8E58 / TONI)
-
-Isso vai:
-- Remover as duas linhas vermelhas "Entrada 10:46" do histórico de hoje
-- Manter intactos os registros finalizados em **02/05** (Lucas) e **04/05** (Toni), que continuarão aparecendo no histórico das datas corretas como expedidos
-
-## Detalhes técnicos
-
-```sql
-DELETE FROM public.movimentacoes_portaria
-WHERE id IN (
-  'f6177ed1-a5db-48d5-ba33-b6d40a49952b',
-  '65b4de50-2087-498f-bcf6-c2a151c6ef62'
-);
-```
-
-Migration: `supabase/migrations/20260505150000_remover_duplicatas_portaria.sql`
+### Arquivos
+- Nova migration SQL (cleanup + 2 índices únicos).
+- `src/pages/Motoristas.tsx` — adicionar checagem de duplicidade no dialog e tratamento de erro 23505.
+- `src/hooks/useMotoristas.ts` — melhorar mensagens de erro nas mutations create/update.
