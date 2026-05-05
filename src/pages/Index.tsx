@@ -434,7 +434,7 @@ export default function Index() {
     setUndoCargaId(null);
   }, [undoCargaId, queryClient]);
 
-  const handleLoteSubmit = useCallback(async (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string }[], meta?: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string }) => {
+  const handleLoteSubmit = useCallback(async (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string; ordem_carga?: string }[], meta?: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string; ordemCarga?: string }) => {
     try {
       batchUpdateMut.mutate(updates);
 
