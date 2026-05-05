@@ -44,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
 import { cn } from "@/lib/utils";
+import { RupturasErrorBoundary } from "@/components/RupturasErrorBoundary";
 
 function getToday() { return new Date().toISOString().split("T")[0]; }
 function fmtKg(n: number) { return n.toLocaleString("pt-BR", { maximumFractionDigits: 0 }); }
@@ -729,7 +730,7 @@ function HistoricoMes() {
 /*                              MAIN PAGE                               */
 /* =================================================================== */
 
-export default function Rupturas() {
+function RupturasInner() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
@@ -817,5 +818,13 @@ export default function Rupturas() {
         onConfirm={handleDeleteConfirm}
       />
     </Layout>
+  );
+}
+
+export default function Rupturas() {
+  return (
+    <RupturasErrorBoundary>
+      <RupturasInner />
+    </RupturasErrorBoundary>
   );
 }
