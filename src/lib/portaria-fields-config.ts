@@ -23,8 +23,8 @@ type VisibilityMatrix = Record<string, Record<Categoria, FieldVisibility>>;
 export type TipoMovimentoPortaria = "entrada" | "saida" | "retorno" | "lacre" | "saida_rota";
 
 export const CATEGORIAS_PORTARIA: { value: Categoria; label: string; icon: string; description: string }[] = [
-  { value: "carga_propria", label: "Carga Própria", icon: "🚛", description: "Frota própria com controle de KM e rota" },
-  { value: "terceirizado", label: "Terceirizado", icon: "🚚", description: "Transportadora terceirizada" },
+  { value: "carga_propria", label: "Varejo", icon: "🚛", description: "Varejo com controle de KM e rota" },
+  { value: "terceirizado", label: "Distribuidores", icon: "🚚", description: "Distribuidores" },
   { value: "fornecedor", label: "Fornecedor", icon: "📦", description: "Entrega ou coleta de mercadoria" },
   { value: "visitante", label: "Visitante", icon: "👤", description: "Visita autorizada" },
   { value: "prestador", label: "Prestador de Serviço", icon: "🔧", description: "Manutenção, instalação, coleta" },

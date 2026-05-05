@@ -68,8 +68,8 @@ export type EtapaCargaPropria = "chegou" | "em_rota" | "retornou" | "finalizado"
 export type EtapaTerceirizado = "chegada" | "no_patio" | "carregando" | "finalizado";
 
 export const CATEGORIAS = [
-  { value: "carga_propria", label: "Carga Própria" },
-  { value: "terceirizado", label: "Terceirizado" },
+  { value: "carga_propria", label: "Varejo" },
+  { value: "terceirizado", label: "Distribuidores" },
   { value: "fornecedor", label: "Fornecedor" },
   { value: "visitante", label: "Visitante" },
   { value: "prestador", label: "Prestador" },

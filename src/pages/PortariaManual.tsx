@@ -25,10 +25,10 @@ export default function PortariaManual() {
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="carga_propria" className="gap-1.5 flex-1 sm:flex-initial text-xs sm:text-sm">
-              <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Carga Própria
+              <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Varejo
             </TabsTrigger>
             <TabsTrigger value="terceirizado" className="gap-1.5 flex-1 sm:flex-initial text-xs sm:text-sm">
-              <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Terceirizado
+              <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Distribuidores
             </TabsTrigger>
           </TabsList>
 

@@ -38,8 +38,8 @@ function fmtDateBR(s: string): string {
 }
 
 function categoriaLabel(c: string | null | undefined): string {
-  if (c === "carga_propria") return "Frota Própria";
-  if (c === "terceirizado") return "Terceirizado";
+  if (c === "carga_propria") return "Varejo";
+  if (c === "terceirizado") return "Distribuidores";
   return c || "";
 }
 

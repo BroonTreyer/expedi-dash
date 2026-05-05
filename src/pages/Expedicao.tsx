@@ -228,7 +228,7 @@ export default function Expedicao() {
           <div className="min-w-0">
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
               <Monitor className="h-6 w-6 md:h-7 md:w-7 text-primary shrink-0" />
-              <span className="truncate">Expedição — Terceirizado</span>
+              <span className="truncate">Expedição — Distribuidores</span>
             </h1>
             <p className="text-sm text-muted-foreground hidden sm:block">
               Pátio, chegadas, previsões e cargas prontas — atualização ao vivo
