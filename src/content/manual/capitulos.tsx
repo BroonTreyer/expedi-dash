@@ -646,8 +646,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.minha_tabela;`}</Pre>
         <Tab
           headers={["Tela", "Pra que serve"]}
           rows={[
-            ["Carga Própria", "Caminhão da empresa saindo com mercadoria pra entregar."],
-            ["Terceirizado", "Caminhão de fora chegando pra carregar."],
+            ["Varejo", "Caminhão da empresa saindo com mercadoria pra entregar."],
+            ["Distribuidores", "Caminhão de fora chegando pra carregar."],
           ]}
         />
         <P>
