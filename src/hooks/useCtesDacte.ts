@@ -9,6 +9,7 @@ export type CteDacteRow = {
   serie: string | null;
   valor_frete: number;
   carga_id: string | null;
+  ordem_carga: string | null;
   transportadora: string | null;
   placa: string | null;
   destino_cidade: string | null;
@@ -41,7 +42,21 @@ export function useCtesDacte() {
 }
 
 /** Tenta encontrar carga_id buscando carregamentos cujos numero_pedido estejam nas NFs. */
-export async function autoVincularCarga(notas: string[]): Promise<{ carga_id: string | null; status: "vinculado" | "pendente" | "divergente" }> {
+export async function autoVincularCarga(notas: string[], ordemCarga?: string | null): Promise<{ carga_id: string | null; status: "vinculado" | "pendente" | "divergente" }> {
+  // 1) Tenta por Ordem de Carga (mais confiável)
+  const oc = (ordemCarga ?? "").trim();
+  if (oc) {
+    const { data: byOc } = await (supabase as any)
+      .from("carregamentos_dia")
+      .select("carga_id")
+      .eq("ordem_carga", oc)
+      .not("carga_id", "is", null)
+      .limit(500);
+    const distintos = Array.from(new Set((byOc ?? []).map((r: any) => r.carga_id).filter(Boolean)));
+    if (distintos.length === 1) return { carga_id: distintos[0] as string, status: "vinculado" };
+    if (distintos.length > 1) return { carga_id: distintos[0] as string, status: "divergente" };
+  }
+
   const nums = notas
     .map((n) => parseInt(String(n).replace(/\D/g, ""), 10))
     .filter((n) => Number.isFinite(n));
@@ -60,6 +75,37 @@ export async function autoVincularCarga(notas: string[]): Promise<{ carga_id: st
   if (distintos.length === 1) return { carga_id: distintos[0], status: "vinculado" };
   if (distintos.length === 0) return { carga_id: null, status: "pendente" };
   return { carga_id: distintos[0], status: "divergente" };
+}
+
+/** Busca cargas disponíveis pelo número da Ordem de Carga (autocomplete). */
+export type CargaPorOrdemRow = {
+  carga_id: string;
+  ordem_carga: string;
+  nome_carga: string | null;
+  placa: string | null;
+  transportadora: string | null;
+  motorista: string | null;
+  data: string;
+};
+export async function buscarCargasPorOrdem(termo: string): Promise<CargaPorOrdemRow[]> {
+  const q = termo.trim();
+  if (!q) return [];
+  const { data, error } = await (supabase as any)
+    .from("carregamentos_dia")
+    .select("carga_id, ordem_carga, nome_carga, placa, transportadora, motorista, data")
+    .ilike("ordem_carga", `%${q}%`)
+    .not("carga_id", "is", null)
+    .order("data", { ascending: false })
+    .limit(200);
+  if (error || !data) return [];
+  const seen = new Set<string>();
+  const out: CargaPorOrdemRow[] = [];
+  for (const r of data as any[]) {
+    if (!r.carga_id || seen.has(r.carga_id)) continue;
+    seen.add(r.carga_id);
+    out.push(r as CargaPorOrdemRow);
+  }
+  return out;
 }
 
 export function useInsertCteDacte() {
