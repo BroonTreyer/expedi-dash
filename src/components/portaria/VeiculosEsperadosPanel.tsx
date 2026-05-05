@@ -56,9 +56,17 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
 
   if (veiculos.length === 0) return null;
 
-  const totalConferidos = veiculos.filter((v) => v.conferido).length;
-  const pendentes = veiculos.length - totalConferidos;
+  // Contadores no header refletem apenas a data filtrada (quando houver),
+  // evitando somar datas antigas trazidas pelo modo showAll.
+  const veiculosDoDia = dataFiltrada
+    ? veiculos.filter((v) => v.data_referencia === dataFiltrada)
+    : veiculos;
+  const totalDoDia = veiculosDoDia.length;
+  const totalConferidos = veiculosDoDia.filter((v) => v.conferido).length;
+  const pendentes = totalDoDia - totalConferidos;
 
+  // A lista renderizada continua mostrando pendentes de qualquer data
+  // (futuras/atrasadas), só os contadores são restritos ao dia.
   const pendingVeiculos = veiculos.filter((v) => !v.conferido);
   const filtered = search
     ? pendingVeiculos.filter((v) => {
