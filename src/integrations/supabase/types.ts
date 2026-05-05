@@ -320,6 +320,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ctes_dacte: {
+        Row: {
+          carga_id: string | null
+          created_at: string
+          created_by: string | null
+          data_emissao: string | null
+          destino_cidade: string | null
+          destino_uf: string | null
+          id: string
+          notas_fiscais: Json
+          numero_cte: string
+          pdf_url: string | null
+          peso_total: number | null
+          placa: string | null
+          raw_extracao: Json | null
+          serie: string | null
+          status: string
+          transportadora: string | null
+          updated_at: string
+          valor_frete: number
+        }
+        Insert: {
+          carga_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          destino_cidade?: string | null
+          destino_uf?: string | null
+          id?: string
+          notas_fiscais?: Json
+          numero_cte: string
+          pdf_url?: string | null
+          peso_total?: number | null
+          placa?: string | null
+          raw_extracao?: Json | null
+          serie?: string | null
+          status?: string
+          transportadora?: string | null
+          updated_at?: string
+          valor_frete?: number
+        }
+        Update: {
+          carga_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          destino_cidade?: string | null
+          destino_uf?: string | null
+          id?: string
+          notas_fiscais?: Json
+          numero_cte?: string
+          pdf_url?: string | null
+          peso_total?: number | null
+          placa?: string | null
+          raw_extracao?: Json | null
+          serie?: string | null
+          status?: string
+          transportadora?: string | null
+          updated_at?: string
+          valor_frete?: number
+        }
+        Relationships: []
+      }
       data_snapshots: {
         Row: {
           created_at: string
@@ -907,6 +970,39 @@ export type Database = {
           times_used?: number
           tipo_caminhao?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      tabela_frete: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          destino_cidade: string
+          destino_uf: string
+          id: string
+          tipo_veiculo: string
+          updated_at: string
+          valor_kg: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          destino_cidade: string
+          destino_uf: string
+          id?: string
+          tipo_veiculo: string
+          updated_at?: string
+          valor_kg?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          destino_cidade?: string
+          destino_uf?: string
+          id?: string
+          tipo_veiculo?: string
+          updated_at?: string
+          valor_kg?: number
         }
         Relationships: []
       }
