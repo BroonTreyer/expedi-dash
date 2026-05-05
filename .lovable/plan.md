@@ -1,42 +1,48 @@
-## Contexto
-A aba **Gastos por Vendedor** já faz rateio proporcional por peso, mas o usuário precisa de transparência quando uma carga tem **vários vendedores**: ver exatamente quais pedidos consolidados de cada vendedor entraram no rateio, sem misturar pesos.
+## Objetivo
 
-A lógica atual (`useGastosVendedor`) já calcula corretamente:
-`gasto_vendedor = (peso_do_vendedor_naquela_carga / peso_total_da_carga) × valor_frete_CTe`
-
-O que falta: **visibilidade e drill-down** para o usuário conferir que o sistema está puxando só o peso do vendedor.
+Adicionar campo **Ordem de Carga** no Fechar Carga. Esse número fica gravado em todos os pedidos da carga e, ao importar um DACTE, o usuário digita a Ordem de Carga e o sistema sugere/vincula a carga correspondente automaticamente (busca nas cargas disponíveis).
 
 ## Mudanças
 
-### 1. `useGastosVendedor.ts` — incluir detalhamento
-Adicionar campo `detalhes` em cada `GastoVendedor` com a lista de cargas/CT-es que contribuíram:
+### 1. Migration (schema)
+- `ALTER TABLE carregamentos_dia ADD COLUMN ordem_carga text` + índice.
+- `ALTER TABLE ctes_dacte ADD COLUMN ordem_carga text` + índice.
+
+### 2. Fechar Carga — `src/components/dashboard/FechamentoLoteDialog.tsx`
+- Novo state `ordemCarga` + `<Input>` "Ordem de Carga *" no bloco "Dados de Transporte" (ao lado de "Nome da Carga").
+- Obrigatório (entra em `canSubmit`).
+- Inclui `ordem_carga` em cada update do batch e atualiza tipo do `onSubmit`.
+- Reset no `useEffect(open)`.
+
+### 3. Tipos / hook
+- `src/hooks/useCarregamentos.ts`: adicionar `ordem_carga?: string | null` ao tipo `Carregamento`.
+- `src/hooks/useCtesDacte.ts`: adicionar `ordem_carga` ao tipo `CteDacteRow`.
+
+### 4. Vinculação por Ordem de Carga — `useCtesDacte.ts`
+- Nova função `buscarCargaPorOrdem(ordem: string)` → consulta `carregamentos_dia` distinct `(carga_id, nome_carga, placa, transportadora, motorista, data)` onde `ordem_carga ilike %ordem%` e `etapa = 'logistica'`. Retorna lista para autocomplete.
+- `autoVincularCarga` aceita `ordemCarga?`: se informado e match único, retorna `vinculado`. Fallback NF mantido.
+
+### 5. Importar DACTE — `src/components/logistica/ImportarDacteDialog.tsx`
+- Campo manual **Ordem de Carga** com autocomplete (Command/Popover):
+  - Usuário digita → debounce 300ms → busca cargas disponíveis (via `buscarCargaPorOrdem`).
+  - Mostra lista: `Ordem · Nome da carga · Placa · Transp.` Selecionar preenche `carga_id` e `ordem_carga` no registro.
+  - Se nada selecionado mas valor digitado, ainda salva o texto em `ordem_carga` e tenta auto-vincular no insert.
+- Passa `ordem_carga` para `useInsertCteDacte`.
+
+### 6. Tabela de CT-es — `src/components/logistica/CtesDacteTab.tsx`
+- Nova coluna **Ordem** entre "Carga" e "Status".
+- Inclui `ordem_carga` no filtro de busca textual.
+
+## Comportamento
+
+```text
+Fechar Carga (digita "OC-1234")
+        ↓
+Todos pedidos da carga gravam ordem_carga = "OC-1234"
+        ↓
+Importar DACTE → usuário digita "OC-12" → autocomplete sugere "OC-1234 · Carga MG Norte · ABC1234"
+        ↓
+Selecionado → CT-e fica vinculado àquela carga (status 'vinculado')
 ```
-detalhes: Array<{
-  carga_id: string,
-  nome_carga: string | null,
-  numero_cte: string,
-  data_emissao: string | null,
-  peso_vendedor_kg: number,    // só o peso DESTE vendedor na carga
-  peso_total_carga_kg: number, // peso total da carga (todos vendedores)
-  valor_frete_total: number,   // frete total do CT-e
-  share_percent: number,       // % do rateio
-  frete_rateado: number,       // R$ do vendedor neste CT-e
-  pedidos: Array<{ numero_pedido: number, cliente: string, peso: number }>
-}>
-```
-Buscar também `nome_carga`, `numero_cte`, `numero_pedido`, `cliente` nas queries existentes (sem nova rodada extra).
 
-### 2. `GastosVendedorTab.tsx` — drill-down expansível
-- Tornar cada linha do vendedor **expansível** (botão chevron). Ao clicar, abre uma sub-tabela mostrando:
-  - Carga (nome + carga_id) | CT-e | Data | Peso vendedor / Peso total | Share % | Frete rateado
-  - Sub-linha de pedidos consolidados do vendedor naquela carga (número, cliente, peso)
-- Adicionar coluna "Cargas" (qtd de cargas distintas) ao lado de "CT-es".
-- Indicador visual quando uma carga é **multi-vendedor** (badge "X vendedores") para evidenciar o rateio.
-
-### 3. Filtro adicional
-Adicionar filtro opcional **por vendedor** (Select) no topo, que filtra as linhas exibidas e o totalizador.
-
-## Validação
-- Carga com 2 vendedores (60% peso A, 40% peso B), CT-e R$ 1.000 → A = R$ 600, B = R$ 400, ambos visíveis no drill-down com seus respectivos pedidos.
-- Carga com 1 vendedor → continua igual, drill-down mostra todos os pedidos desse vendedor.
-- Totais de peso e frete batem com a soma dos detalhes.
+Cargas antigas sem `ordem_carga` continuam usando o fallback por NFs.

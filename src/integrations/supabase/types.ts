@@ -140,6 +140,7 @@ export type Database = {
           numero_pedido: number | null
           observacoes: string | null
           operation_id: string | null
+          ordem_carga: string | null
           ordem_entrega: number | null
           peso: number | null
           peso_manual: boolean
@@ -181,6 +182,7 @@ export type Database = {
           numero_pedido?: number | null
           observacoes?: string | null
           operation_id?: string | null
+          ordem_carga?: string | null
           ordem_entrega?: number | null
           peso?: number | null
           peso_manual?: boolean
@@ -222,6 +224,7 @@ export type Database = {
           numero_pedido?: number | null
           observacoes?: string | null
           operation_id?: string | null
+          ordem_carga?: string | null
           ordem_entrega?: number | null
           peso?: number | null
           peso_manual?: boolean
@@ -331,6 +334,7 @@ export type Database = {
           id: string
           notas_fiscais: Json
           numero_cte: string
+          ordem_carga: string | null
           pdf_url: string | null
           peso_total: number | null
           placa: string | null
@@ -351,6 +355,7 @@ export type Database = {
           id?: string
           notas_fiscais?: Json
           numero_cte: string
+          ordem_carga?: string | null
           pdf_url?: string | null
           peso_total?: number | null
           placa?: string | null
@@ -371,6 +376,7 @@ export type Database = {
           id?: string
           notas_fiscais?: Json
           numero_cte?: string
+          ordem_carga?: string | null
           pdf_url?: string | null
           peso_total?: number | null
           placa?: string | null
