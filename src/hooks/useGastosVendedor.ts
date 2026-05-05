@@ -80,7 +80,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
     const invalidate = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v7_paginado"] });
+        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v8_paginado"] });
       }, 1500);
     };
     const channel = supabase
