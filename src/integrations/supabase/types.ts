@@ -1012,6 +1012,80 @@ export type Database = {
         }
         Relationships: []
       }
+      tabelas_frete: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tabelas_frete_itens: {
+        Row: {
+          ativo: boolean
+          codigo_cliente: string | null
+          created_at: string
+          destino_cidade: string
+          destino_uf: string
+          id: string
+          tabela_id: string
+          updated_at: string
+          valor_kg_bitruck: number
+          valor_kg_carreta: number
+        }
+        Insert: {
+          ativo?: boolean
+          codigo_cliente?: string | null
+          created_at?: string
+          destino_cidade: string
+          destino_uf: string
+          id?: string
+          tabela_id: string
+          updated_at?: string
+          valor_kg_bitruck?: number
+          valor_kg_carreta?: number
+        }
+        Update: {
+          ativo?: boolean
+          codigo_cliente?: string | null
+          created_at?: string
+          destino_cidade?: string
+          destino_uf?: string
+          id?: string
+          tabela_id?: string
+          updated_at?: string
+          valor_kg_bitruck?: number
+          valor_kg_carreta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tabelas_frete_itens_tabela_id_fkey"
+            columns: ["tabela_id"]
+            isOneToOne: false
+            referencedRelation: "tabelas_frete"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tipos_caminhao: {
         Row: {
           consumo_km_litro: number | null
@@ -1128,6 +1202,39 @@ export type Database = {
           walk_in?: boolean
         }
         Relationships: []
+      }
+      vendedor_tabelas_frete: {
+        Row: {
+          created_at: string
+          tabela_id: string
+          vendedor_id: string
+        }
+        Insert: {
+          created_at?: string
+          tabela_id: string
+          vendedor_id: string
+        }
+        Update: {
+          created_at?: string
+          tabela_id?: string
+          vendedor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendedor_tabelas_frete_tabela_id_fkey"
+            columns: ["tabela_id"]
+            isOneToOne: false
+            referencedRelation: "tabelas_frete"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendedor_tabelas_frete_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "vendedores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendedor_users: {
         Row: {

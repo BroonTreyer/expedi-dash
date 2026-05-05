@@ -194,6 +194,11 @@ export function GastosVendedorTab() {
                                         <AlertTriangle className="h-3 w-3" /> {d.destinos_sem_tarifa} destino(s) sem tarifa
                                       </Badge>
                                     )}
+                                    {d.destinos_em_conflito > 0 && (
+                                      <Badge variant="destructive" className="text-[11px] gap-1">
+                                        <AlertTriangle className="h-3 w-3" /> {d.destinos_em_conflito} destino(s) em conflito
+                                      </Badge>
+                                    )}
                                   </div>
 
                                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
@@ -229,16 +234,26 @@ export function GastosVendedorTab() {
                                         </thead>
                                         <tbody>
                                           {d.destinos.map((dest, di2) => (
-                                            <tr key={di2} className="border-b last:border-0">
+                                            <tr key={di2} className="border-b last:border-0 align-top">
                                               <td className="py-1 pr-2">
                                                 {dest.cidade}/{dest.uf}
                                                 {dest.sem_tarifa && (
                                                   <Badge variant="destructive" className="ml-2 text-[10px]">sem tarifa</Badge>
                                                 )}
+                                                {dest.conflito && (
+                                                  <>
+                                                    <Badge variant="destructive" className="ml-2 text-[10px]">conflito</Badge>
+                                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                      {dest.tabelas_divergentes.map((t, ti) => (
+                                                        <span key={ti} className="mr-2">{t.nome}: {fmtBRL(t.valor_kg)}/kg</span>
+                                                      ))}
+                                                    </div>
+                                                  </>
+                                                )}
                                               </td>
                                               <td className="text-right py-1 px-2 tabular-nums">{fmtKg(dest.peso)} kg</td>
-                                              <td className="text-right py-1 px-2 tabular-nums">{fmtBRL(dest.valor_kg)}</td>
-                                              <td className="text-right py-1 pl-2 tabular-nums">{fmtBRL(dest.frete)}</td>
+                                              <td className="text-right py-1 px-2 tabular-nums">{dest.conflito ? "—" : fmtBRL(dest.valor_kg)}</td>
+                                              <td className="text-right py-1 pl-2 tabular-nums">{dest.conflito ? "—" : fmtBRL(dest.frete)}</td>
                                             </tr>
                                           ))}
                                         </tbody>
