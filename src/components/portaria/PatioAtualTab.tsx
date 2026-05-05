@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2, LogIn, Link2 } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2, LogIn, Link2, Gauge } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -17,6 +17,7 @@ import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { nextEtapa, etapaEfetiva, isFinalizada, type EtapaCargaPropria } from "@/lib/carga-propria-fsm";
 import { VincularMovimentoCargaDialog } from "./VincularMovimentoCargaDialog";
+import { EditarKmDialog } from "./EditarKmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -91,6 +92,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [reabrirId, setReabrirId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [vincularMov, setVincularMov] = useState<MovimentacaoPortaria | null>(null);
+  const [editKmMov, setEditKmMov] = useState<MovimentacaoPortaria | null>(null);
   const qc = useQueryClient();
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
@@ -473,17 +475,32 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       Liberar Entrada no Pátio
                     </Button>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
-                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
-                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
+                         <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
+                      </Button>
+                    </div>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
-                       <ArrowDownToLine className="h-3 w-3" /> Registrar Retorno
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
+                         <ArrowDownToLine className="h-3 w-3" /> Registrar Retorno
+                      </Button>
+                    </div>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "retornou" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
-                       <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
+                         <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
+                      </Button>
+                    </div>
                   ) : m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                        <ArrowUpFromLine className="h-3 w-3" /> Saída c/ KM
@@ -543,6 +560,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         open={!!vincularMov}
         onOpenChange={(o) => { if (!o) setVincularMov(null); }}
         movimento={vincularMov}
+      />
+      <EditarKmDialog
+        open={!!editKmMov}
+        onOpenChange={(o) => { if (!o) setEditKmMov(null); }}
+        movimento={editKmMov}
       />
       </>
     );
@@ -658,17 +680,32 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       Liberar Entrada
                     </Button>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "chegou" ? (
-                    <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
-                    </Button>
+                    <>
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
+                        <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
+                      </Button>
+                    </>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "em_rota" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
-                      <ArrowDownToLine className="h-3 w-3" /> Retorno
-                    </Button>
+                    <>
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "retorno")}>
+                        <ArrowDownToLine className="h-3 w-3" /> Retorno
+                      </Button>
+                    </>
                   ) : m.categoria === "carga_propria" && m.etapa_carga_propria === "retornou" ? (
-                    <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
-                      <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
-                    </Button>
+                    <>
+                      <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs text-muted-foreground" onClick={() => setEditKmMov(m)} title="Editar KM">
+                        <Gauge className="h-3 w-3" /> KM
+                      </Button>
+                      <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "lacre")}>
+                        <ArrowUpFromLine className="h-3 w-3" /> Saída c/ Lacre
+                      </Button>
+                    </>
                   ) : m.categoria === "carga_propria" ? (
                     <Button size="sm" variant="default" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m, "saida_rota")}>
                       <ArrowUpFromLine className="h-3 w-3" /> Saída p/ Rota
@@ -732,6 +769,11 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         open={!!vincularMov}
         onOpenChange={(o) => { if (!o) setVincularMov(null); }}
         movimento={vincularMov}
+      />
+      <EditarKmDialog
+        open={!!editKmMov}
+        onOpenChange={(o) => { if (!o) setEditKmMov(null); }}
+        movimento={editKmMov}
       />
     </div>
   );
