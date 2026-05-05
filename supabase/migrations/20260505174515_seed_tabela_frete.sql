@@ -1,0 +1,21 @@
+INSERT INTO public.tabela_frete (destino_cidade, destino_uf, tipo_veiculo, valor_kg) VALUES
+('Açailândia/Dom Eliseu/Sta Inês','MA','bitruck',0.99),('Açailândia/Dom Eliseu/Sta Inês','MA','carreta',0.95),
+('Maceió','AL','bitruck',1.46),('Maceió','AL','carreta',1.46),
+('Corrente','PI','bitruck',1.10),('Corrente','PI','carreta',1.05),
+('Campina Grande','PB','bitruck',1.46),('Campina Grande','PB','carreta',1.34),
+('Cuiabá - Sepex','MT','bitruck',0.66),('Cuiabá - Sepex','MT','carreta',0.60),
+('Fortaleza','CE','bitruck',1.63),('Fortaleza','CE','carreta',1.65),
+('Luís Eduardo/Barreiras','BA','bitruck',0.99),('Luís Eduardo/Barreiras','BA','carreta',0.99),
+('Serra','ES','bitruck',1.22),('Serra','ES','carreta',1.05),
+('Natal','RN','bitruck',1.52),('Natal','RN','carreta',1.34),
+('Belém','PA','bitruck',1.29),('Belém','PA','carreta',1.17),
+('Pará/Rede Macre','PA','bitruck',1.80),('Pará/Rede Macre','PA','carreta',1.80),
+('Jequié/Juazeiro','BA','bitruck',1.29),('Jequié/Juazeiro','BA','carreta',1.17),
+('Picos/Teresina/Parnaíba','PI','bitruck',1.29),('Picos/Teresina/Parnaíba','PI','carreta',1.17),
+('São Luís','MA','bitruck',1.22),('São Luís','MA','carreta',1.11),
+('Salvador - 1 entrega','BA','bitruck',1.11),('Salvador - 1 entrega','BA','carreta',0.99),
+('São Paulo','SP','bitruck',1.05),('São Paulo','SP','carreta',1.00),
+('Macapá','AP','bitruck',2.06),('Macapá','AP','carreta',1.94),
+('Assaí Dickson','PI','bitruck',1.62),('Assaí Dickson','PI','carreta',1.62),
+('Mateus','BA','bitruck',1.60),('Mateus','BA','carreta',1.50)
+ON CONFLICT (destino_cidade, destino_uf, tipo_veiculo) DO UPDATE SET valor_kg = EXCLUDED.valor_kg, updated_at = now();
