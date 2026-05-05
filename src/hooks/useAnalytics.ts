@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
 import { useSession } from "@/hooks/useAuth";
 import { format, subDays, differenceInDays } from "date-fns";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 
 // Status que contam como expedição válida (Peso Total / Carregado).
 // "Pendente / Problema", "Cancelado", etc NÃO somam — não é peso real expedido.
@@ -13,7 +14,7 @@ const VALID_STATUS = new Set([
   "Carregado",
 ]);
 const LOADED_STATUS = "Carregado";
-const ROW_LIMIT = 20000;
+const ROW_LIMIT = 50000; // teto de segurança; paginação real busca tudo
 
 export interface AnalyticsFilters {
   dateFrom: string;
@@ -150,36 +151,42 @@ export function useAnalytics(filters: AnalyticsFilters) {
   const prevFrom = format(subDays(new Date(filters.dateFrom), periodDays), "yyyy-MM-dd");
 
   const query = useQuery({
-    queryKey: ["analytics-v4", filters.dateFrom, filters.dateTo],
+    queryKey: ["analytics-v5", filters.dateFrom, filters.dateTo],
     enabled: !!session,
     queryFn: async () => {
       // Mesmas colunas nos dois períodos para que filtros (vendedor/uf/tipo)
       // afetem o comparativo corretamente.
       const cols =
         "data, peso, peso_original, motivo_ruptura, status, vendedor_id, ruptura, ruptura_sinalizada, uf, tipo_caminhao, nome_produto, numero_pedido, cliente, codigo_cliente, carga_id, nome_carga, motorista, vendedores(nome_vendedor)";
-      const [currentRes, prevRes] = await Promise.all([
-        supabase
-          .from("carregamentos_dia")
-          .select(cols)
-          .gte("data", filters.dateFrom)
-          .lte("data", filters.dateTo)
-          .order("data", { ascending: true })
-          .limit(ROW_LIMIT),
-        supabase
-          .from("carregamentos_dia")
-          .select(cols)
-          .gte("data", prevFrom)
-          .lte("data", prevTo)
-          .limit(ROW_LIMIT),
+      // Paginação real: o limit do PostgREST por requisição é 1.000, então
+      // qualquer período razoável era truncado e os totais saíam errados.
+      // Mantemos um teto absoluto (ROW_LIMIT) por segurança.
+      const [current, previous] = await Promise.all([
+        fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from("carregamentos_dia")
+            .select(cols)
+            .gte("data", filters.dateFrom)
+            .lte("data", filters.dateTo)
+            .order("data", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, Math.min(to, ROW_LIMIT - 1)),
+        ),
+        fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from("carregamentos_dia")
+            .select(cols)
+            .gte("data", prevFrom)
+            .lte("data", prevTo)
+            .order("data", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, Math.min(to, ROW_LIMIT - 1)),
+        ),
       ]);
-      if (currentRes.error) throw currentRes.error;
-      if (prevRes.error) throw prevRes.error;
       return {
-        current: currentRes.data as any[],
-        previous: prevRes.data as any[],
-        truncated:
-          (currentRes.data?.length ?? 0) >= ROW_LIMIT ||
-          (prevRes.data?.length ?? 0) >= ROW_LIMIT,
+        current,
+        previous,
+        truncated: current.length >= ROW_LIMIT || previous.length >= ROW_LIMIT,
       };
     },
     staleTime: 60_000,
