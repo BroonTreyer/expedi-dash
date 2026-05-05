@@ -51,8 +51,8 @@ const navTree: NavNode[] = [
     icon: DoorOpen,
     roles: ["admin", "logistica", "portaria"],
     children: [
-      { to: "/portaria/carga-propria", label: "Carga Própria", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
-      { to: "/portaria/terceirizado", label: "Terceirizados", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
+      { to: "/portaria/carga-propria", label: "Varejo", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
+      { to: "/portaria/terceirizado", label: "Distribuidores", icon: DoorOpen, roles: ["admin", "logistica", "portaria"] },
       { to: "/portaria/registro-entrada", label: "Registro de Entrada", icon: LogIn, roles: ["admin", "logistica", "portaria"], badge: ({ collapsed }) => <RegistroEntradaBadge collapsed={collapsed} /> },
       { to: "/cadastros", label: "Cadastros", icon: FolderCog, roles: ["admin", "logistica", "portaria"] },
       { to: "/cadastros?focus=buscar", label: "Buscar/Consultar", icon: Search, roles: ["admin", "logistica", "portaria"] },
