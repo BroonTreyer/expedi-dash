@@ -34,7 +34,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
       if (cErr) throw cErr;
       if (!ctes || ctes.length === 0) return [];
 
-      const cargaIds = Array.from(new Set(ctes.map((c: any) => c.carga_id).filter(Boolean)));
+      const cargaIds = Array.from(new Set(ctes.map((c: any) => c.carga_id).filter(Boolean))) as string[];
 
       // 2) Itens das cargas
       const { data: items, error: iErr } = await supabase
