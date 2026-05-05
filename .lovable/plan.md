@@ -1,36 +1,45 @@
-## Problema
+## Objetivo
 
-Como **admin**, a página `/rupturas` carrega normalmente (verifiquei no preview: 18 itens, KPIs ok). Como **faturamento**, a tela aparece por ~1s e depois "some tudo". Isso é o padrão de:
+Recriar via banco as 2 cargas que tinham sido canceladas/nunca fechadas, já marcando-as como **expedidas/carregadas** (sem precisar passar pelo fluxo manual de portaria).
 
-1. Um erro de runtime dentro do componente derruba a árvore React (sem ErrorBoundary visível, vira tela branca), ou
-2. Uma query lança erro (RLS ou dado inesperado) que dispara um redirect/unmount.
+## Cargas a criar
 
-Não consegui reproduzir como faturamento (estou logado como admin no preview). Também não há logs específicos no console que apontem o erro.
+**Carga 1 — DICKSON J BATISTA** (pedidos 97 e 99, data 02/05/2026, JORGE BATISTA PI/MA)
+- carga_id: novo (gerado)
+- nome_carga: `DICKSON J BATISTA`
+- placa: `OZR0D10` · motorista: `LUCAS BORGES DA SILVA` · transportadora: `MOREIRA ALVORADA` · tipo: `Carreta`
+- 7 linhas do pedido 97 + 8 linhas do pedido 99 = 15 itens
 
-## Plano
+**Carga 2 — CF DISTRIBUIDORA** (pedido 1, data 04/05/2026, CF DISTRIBUIDORA / CEARA FRANGOS)
+- carga_id: novo (gerado)
+- nome_carga: `CF DISTRIBUIDORA`
+- placa: `JBM8E58` · motorista: `TONI DA SILVA COSTA` · transportadora: `Moreira` · tipo: `Carreta`
+- todas as linhas do pedido 1 onde data=2026-05-04 e codigo_cliente=21405
 
-### 1. Capturar o erro real (essencial)
-Envolver a página `Rupturas` com um `ErrorBoundary` que **mostra** o erro em tela em vez de deixar branco. Hoje o app não tem boundary global, então qualquer throw vira tela vazia. O boundary vai:
-- Mostrar mensagem amigável + botão "Recarregar".
-- Logar o stack no `console.error` com prefixo `[Rupturas]` para aparecer no replay.
+## SQL (UPDATE em `carregamentos_dia` para cada grupo)
 
-### 2. Blindar pontos suspeitos no `Rupturas.tsx`
-Revisão defensiva onde o componente assume formato dos dados:
-- `FaltandoAgora` itera `carregamentos.filter(...)` — garantir fallback `?? []` em todos os campos opcionais usados em `.toLowerCase()` (já tem `?.` em alguns, mas há pontos sem proteção).
-- `productSummary` usa `c.codigo_produto` como chave de Map — pular itens sem código em vez de usar `""`.
-- `HistoricoMes` (aba) também consulta `useCarregamentos` com range do mês — se faturamento abre direto na aba ativa e algo no range mensal falha, pode derrubar tudo. Aplicar o mesmo `try/catch` defensivo.
+Para cada carga:
+```sql
+UPDATE carregamentos_dia
+SET carga_id = '<novo_id>',
+    nome_carga = '<nome>',
+    placa = '<placa>',
+    motorista = '<motorista>',
+    transportadora = '<transp>',
+    tipo_caminhao = 'Carreta',
+    etapa = 'logistica',
+    status = 'Carregado',
+    horario_inicio = now(),
+    horario_fim = now()
+WHERE id IN (...);
+```
 
-### 3. Verificar permissões/queries que faturamento dispara
-A página chama: `useCarregamentos`, `useVendedores`, `useTiposCaminhao`, `useProdutos`, `useClientes`. Pelas RLS atuais, todas permitem `faturamento`. Mas `useClientes` faz paginação até esvaziar — se um page der erro, o throw mata o componente inteiro. Vou:
-- Garantir que falha em queries auxiliares (vendedores/produtos/clientes/tipos) não derrube a página principal — basta tratar `error` e seguir com `[]`.
+Mais um `INSERT` em `audit_log` (action='fechada' + 'carregada') para registrar a operação manual.
 
-### 4. Após o deploy, pedir ao usuário para reproduzir
-Com o ErrorBoundary visível, o usuário consegue copiar o erro exato (ou aparecerá no replay/console). A partir daí faço o fix definitivo. Esse é o caminho mais rápido — tentar adivinhar a causa exata sem o erro real é chute.
+## Pontos importantes
 
-## Arquivos a alterar
-- `src/pages/Rupturas.tsx` — envolver export default com ErrorBoundary; defensivos.
-- **novo**: `src/components/RupturasErrorBoundary.tsx` — boundary local com fallback visível.
+- Não vou tocar em outros pedidos com cliente parecido (CEARA ALIMENTOS, SUPERSAFRA etc.) — apenas os IDs específicos identificados.
+- `etapa='logistica'` + `status='Carregado'` faz a carga aparecer como expedida no Consolidado/Expedição.
+- Não vou criar movimentação de portaria (entrada/saída) — só a carga em si fica como carregada. Se quiser que crie também o registro de entrada+saída na portaria, me avise.
 
-## O que NÃO vou fazer
-- Mexer em RLS (todas já permitem faturamento).
-- Refatorar `useCarregamentos` (é compartilhado pelo Painel, que funciona ok).
+Após aprovação, executo as 2 atualizações e confirmo.
