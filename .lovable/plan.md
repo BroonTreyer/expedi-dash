@@ -1,22 +1,31 @@
-## Bloquear motoristas duplicados
+## Plano
 
-### 1. Schema (migration)
-- Criar índice único parcial em `motoristas(cpf)` onde `cpf IS NOT NULL AND ativo = true`.
-- Criar índice único em `lower(btrim(nome_completo))` onde `ativo = true`.
+### 1) Correção pontual do registro
+UPDATE em `movimentacoes_portaria` id `60664836-74c2-4b45-a4ac-b4d86eb6d5ee` (DKO0H12 / FABRICIO, em rota desde 05/05):
+- `km_inicial`: 124.431 → **132.667**
 
-### 2. Limpeza dos duplicados existentes (antes dos índices)
-- **Alair Algusto do Vale** (CPF 841.878.081-91): manter o registro mais antigo, marcar o outro como `ativo=false`. Se houver `caminhoes.motorista_id` apontando para o duplicado, repontar para o mantido.
-- **NILSON RAIMUNDO DIAS** (CPF 586.239.571-72): mesma lógica.
-- Migration faz UPDATE de repointagem em `caminhoes` + UPDATE `ativo=false` no duplicado, depois cria os índices únicos.
+O trigger `validate_km_rodado` recalcula `km_rodado` automaticamente quando o `km_final` for preenchido na chegada.
 
-### 3. Validação no frontend (`src/pages/Motoristas.tsx` — `MotoristaFormDialog`)
-- Ao digitar CPF completo (11 dígitos) ou ao salvar, consultar `motoristas` ativos:
-  - Por `cpf` exato (se preenchido).
-  - Por `lower(btrim(nome_completo))` exato.
-- Se já existir e não for o registro em edição: mostrar alerta inline ("Já existe motorista X com este CPF/nome") + botão "Editar existente" que carrega o registro encontrado no formulário.
-- No `onError` das mutations, tratar código `23505` (unique violation) com toast: "Já existe motorista com este CPF" / "...com este nome".
+### 2) Novo componente `EditarKmDialog` (`src/components/portaria/EditarKmDialog.tsx`)
+- Inputs **KM Inicial** e **KM Final** (number, formato pt-BR).
+- Validações espelhando o trigger do banco:
+  - `km_final ≥ km_inicial`
+  - diferença ≤ 3.000 km
+- Usa o hook existente `useUpdateMovimentacao`.
+- Toast de sucesso/erro (sonner).
+
+### 3) Botão "Editar KM" no Pátio Atual / Carga Própria
+- Na página `/portaria/carga-propria`, adicionar botão (ícone lápis) em cada card de veículo nas etapas `chegou`, `em_rota`, `retornou`.
+- Visível para admin / logística / portaria (já coberto por RLS).
+- Abre o `EditarKmDialog`.
+
+### 4) Auditoria — migration
+Ampliar a função `audit_movimentacoes` para incluir no diff:
+- `km_inicial`, `km_final`, `km_rodado`
+
+Hoje essas mudanças não são logadas, e a edição de KM impacta o relatório de motoristas — precisa rastreabilidade.
 
 ### Arquivos
-- Nova migration SQL (cleanup + 2 índices únicos).
-- `src/pages/Motoristas.tsx` — adicionar checagem de duplicidade no dialog e tratamento de erro 23505.
-- `src/hooks/useMotoristas.ts` — melhorar mensagens de erro nas mutations create/update.
+- **Novo:** `src/components/portaria/EditarKmDialog.tsx`
+- **Editar:** `src/pages/PortariaCargaPropria.tsx` (ou subcomponente do card — confirmo na implementação)
+- **Migration:** atualizar trigger function `audit_movimentacoes` + UPDATE pontual no FABRICIO
