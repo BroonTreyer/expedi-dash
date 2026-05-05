@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 
@@ -68,10 +69,34 @@ const TOL = 0.01;
 
 export function useGastosVendedor(dataInicial: string, dataFinal: string) {
   const session = useSession();
+  const qc = useQueryClient();
+
+  // Realtime: invalida o cache quando carregamentos_dia ou ctes_dacte mudam.
+  // Debounce 1.5s (padrão do projeto) para evitar enxurrada de refetches durante edições em lote.
+  useEffect(() => {
+    if (!session) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const invalidate = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v5_tabelas"] });
+      }, 1500);
+    };
+    const channel = supabase
+      .channel("gastos-vendedor-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "carregamentos_dia" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "ctes_dacte" }, invalidate)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [session, qc]);
+
   return useQuery({
     queryKey: ["gastos_vendedor_v5_tabelas", dataInicial, dataFinal],
     enabled: !!session,
-    staleTime: 30_000,
+    staleTime: 5_000,
     queryFn: async (): Promise<GastosVendedorResult> => {
       const { data: items, error: iErr } = await supabase
         .from("carregamentos_dia")
