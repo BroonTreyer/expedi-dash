@@ -76,8 +76,8 @@ export default function MotoristasPainel() {
               <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="carga_propria">Frota Própria</SelectItem>
-                <SelectItem value="terceirizado">Terceirizado</SelectItem>
+                <SelectItem value="carga_propria">Varejo</SelectItem>
+                <SelectItem value="terceirizado">Distribuidores</SelectItem>
               </SelectContent>
             </Select>
           </div>

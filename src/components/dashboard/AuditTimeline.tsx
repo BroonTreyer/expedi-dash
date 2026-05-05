@@ -23,7 +23,7 @@ const fieldLabels: Record<string, string> = {
   tipo_caminhao: "Tipo Caminhão",
   horario_inicio: "Hora Início",
   horario_fim: "Hora Fim",
-  etapa_terceirizado: "Etapa Terceirizado",
+  etapa_terceirizado: "Etapa Distribuidores",
   numero_lacre: "Nº Lacre",
 };
 

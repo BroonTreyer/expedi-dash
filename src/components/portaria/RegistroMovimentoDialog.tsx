@@ -479,7 +479,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
     if (prefillEtapa === "saida_rota") return "Saída p/ Rota";
     if (prefillEtapa === "retorno") return "Registrar Retorno";
     if (prefillEtapa === "lacre") return "Saída Final — Lacre";
-    if (prefill && prefill.categoria === "terceirizado") return "Registrar Saída — Terceirizado";
+    if (prefill && prefill.categoria === "terceirizado") return "Registrar Saída — Distribuidores";
     return `Cadastro de ${categoriaLabel}`;
   };
 
@@ -513,7 +513,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                   <ArrowUpFromLine className="h-4 w-4" /> Saída
                 </Button>
               </div>
-              <p className="text-[11px] text-muted-foreground">Para Carga Própria, selecione a categoria abaixo — será registrado como Saída p/ Rota automaticamente.</p>
+              <p className="text-[11px] text-muted-foreground">Para Varejo, selecione a categoria abaixo — será registrado como Saída p/ Rota automaticamente.</p>
             </div>
 
             {/* Category cards */}

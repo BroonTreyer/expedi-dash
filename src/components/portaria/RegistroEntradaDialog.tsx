@@ -205,7 +205,7 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       // B5 — toast contextual por categoria
       if (isCargaPropria) {
         toast.success("Chegada registrada — veículo no pátio", {
-          description: "Carga Própria entra direto no pátio. Próximo passo: registrar saída p/ rota.",
+          description: "Varejo entra direto no pátio. Próximo passo: registrar saída p/ rota.",
           duration: 6000,
         });
       } else {
@@ -255,13 +255,13 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LogIn className="h-5 w-5 text-primary" />
-            {isVinculadoACarga ? "Registrar Chegada" : "Registrar Entrada"} — {grupo === "PRÓPRIA" ? "Frota Própria" : "Terceirizado"}
+            {isVinculadoACarga ? "Registrar Chegada" : "Registrar Entrada"} — {grupo === "PRÓPRIA" ? "Varejo" : "Distribuidores"}
           </DialogTitle>
           <DialogDescription>
             {isVinculadoACarga
               ? (grupo === "PRÓPRIA"
-                  ? "Registra a chegada do motorista da frota própria. O veículo entra direto no pátio."
-                  : "Registra a chegada do motorista terceirizado. O veículo entrará no pátio após a liberação no painel.")
+                  ? "Registra a chegada do motorista do Varejo. O veículo entra direto no pátio."
+                  : "Registra a chegada do motorista de Distribuidores. O veículo entrará no pátio após a liberação no painel.")
               : "Vincule motorista e veículo já cadastrados. O veículo ficará disponível para a Logística vincular ao fechar uma carga."}
           </DialogDescription>
         </DialogHeader>

@@ -38,15 +38,15 @@ interface PortariaProps {
 
 const CATEGORIA_META = {
   carga_propria: {
-    label: "Carga Própria",
-    title: "Portaria — Carga Própria",
-    subtitle: "Controle de entrada e saída da frota própria",
+    label: "Varejo",
+    title: "Portaria — Varejo",
+    subtitle: "Controle de entrada e saída do Varejo",
     grupoEsperado: "PRÓPRIA",
   },
   terceirizado: {
-    label: "Terceirizado",
-    title: "Portaria — Terceirizado",
-    subtitle: "Controle de entrada e saída de transportadoras terceirizadas",
+    label: "Distribuidores",
+    title: "Portaria — Distribuidores",
+    subtitle: "Controle de entrada e saída de Distribuidores",
     grupoEsperado: "TERCEIRIZADO",
   },
 } as const;

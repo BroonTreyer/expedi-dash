@@ -34,7 +34,7 @@ export default function RegistroEntrada() {
                 <Building2 className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg">Terceirizado</h3>
+                <h3 className="font-semibold text-lg">Distribuidores</h3>
                 <p className="text-xs text-muted-foreground mt-1">Registrar entrada de veículo de transportadora</p>
               </div>
             </CardContent>

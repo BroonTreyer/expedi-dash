@@ -67,7 +67,7 @@ function Section({ value, icon: Icon, title, children }: { value: string; icon: 
 
 export function ManualTab({ categoria }: ManualTabProps) {
   const isCarga = categoria === "carga_propria";
-  const tipoLabel = isCarga ? "Carga Própria" : "Terceirizado";
+  const tipoLabel = isCarga ? "Varejo" : "Distribuidores";
 
   return (
     <Card>
@@ -123,7 +123,7 @@ export function ManualTab({ categoria }: ManualTabProps) {
 
             {isCarga ? (
               <>
-                <p className="text-sm font-semibold mt-3 mb-2">🔄 Fluxo de Carga Própria — 4 etapas em 1 único registro:</p>
+                <p className="text-sm font-semibold mt-3 mb-2">🔄 Fluxo de Varejo — 4 etapas em 1 único registro:</p>
                 <pre className="bg-muted p-3 rounded text-xs overflow-x-auto whitespace-pre">
 {`🟠 Chegada  →  🔵 Saída p/ Rota  →  🟡 Retorno  →  🔒 Saída Final c/ Lacre`}
                 </pre>
@@ -154,7 +154,7 @@ export function ManualTab({ categoria }: ManualTabProps) {
               </>
             ) : (
               <>
-                <p className="text-sm font-semibold mt-3 mb-2">🔄 Fluxo de Terceirizado — 2 etapas:</p>
+                <p className="text-sm font-semibold mt-3 mb-2">🔄 Fluxo de Distribuidores — 2 etapas:</p>
                 <pre className="bg-muted p-3 rounded text-xs overflow-x-auto whitespace-pre">
 {`🟠 Entrada (com NF + doca)  →  🔒 Saída c/ Lacre`}
                 </pre>
@@ -229,7 +229,7 @@ export function ManualTab({ categoria }: ManualTabProps) {
             <What>Tela popup que mostra TUDO sobre uma movimentação: horários, fotos, observações, lacre.</What>
             <Step n={1}>Clique em qualquer registro no Histórico ou no Pátio para abrir.</Step>
             <Step n={2}>Veja a <strong>linha do tempo</strong> com cada etapa e horário exato.</Step>
-            {isCarga && <Step n={3}>Para Carga Própria você verá os 4 marcos: Chegada → Saída p/ Rota → Retorno → Saída Final.</Step>}
+            {isCarga && <Step n={3}>Para Varejo você verá os 4 marcos: Chegada → Saída p/ Rota → Retorno → Saída Final.</Step>}
             <Step n={isCarga ? 4 : 3}>Clique em qualquer foto (placa, painel, lacre, nota) para ampliar e baixar.</Step>
             <Step n={isCarga ? 5 : 4}>Admin/Logística pode <strong>editar</strong> dados via botão "Editar" no topo do diálogo.</Step>
             <Tip>Todas as fotos ficam guardadas em armazenamento privado e podem ser baixadas a qualquer momento para auditoria.</Tip>
@@ -285,7 +285,7 @@ export function ManualTab({ categoria }: ManualTabProps) {
             <ul className="text-sm list-disc pl-5 space-y-1">
               <li><strong>Foto da placa</strong> — obrigatória para todo veículo.</li>
               <li><strong>Foto do documento</strong> — RG, CNH ou similar (visitantes/motoristas).</li>
-              <li><strong>Foto do painel (KM)</strong> — odômetro nas etapas Saída p/ Rota e Retorno (Carga Própria).</li>
+              <li><strong>Foto do painel (KM)</strong> — odômetro nas etapas Saída p/ Rota e Retorno (Varejo).</li>
               <li><strong>Foto da nota fiscal</strong> — obrigatória em terceirizados; aceita <strong>PDF</strong> também.</li>
               <li><strong>Foto do lacre</strong> — obrigatória para finalizar.</li>
             </ul>
@@ -408,7 +408,7 @@ export function ManualTab({ categoria }: ManualTabProps) {
             <div className="space-y-3 text-sm">
               {isCarga && (
                 <div>
-                  <p className="font-semibold mb-1">Etapas (Carga Própria):</p>
+                  <p className="font-semibold mb-1">Etapas (Varejo):</p>
                   <div className="flex flex-wrap gap-2">
                     <Badge className="bg-orange-500">🟠 Chegou</Badge>
                     <Badge className="bg-blue-500">🔵 Em Rota</Badge>
@@ -419,7 +419,7 @@ export function ManualTab({ categoria }: ManualTabProps) {
               )}
               {!isCarga && (
                 <div>
-                  <p className="font-semibold mb-1">Etapas (Terceirizado):</p>
+                  <p className="font-semibold mb-1">Etapas (Distribuidores):</p>
                   <div className="flex flex-wrap gap-2">
                     <Badge className="bg-orange-500">🟠 Aguardando Saída</Badge>
                     <Badge className="bg-green-600">🔒 Finalizado</Badge>
@@ -452,8 +452,8 @@ export function ManualTab({ categoria }: ManualTabProps) {
               <div>
                 <p className="font-semibold mb-1">Categorias <Users className="h-3 w-3 inline" />:</p>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">Carga Própria</Badge>
-                  <Badge variant="outline">Terceirizado</Badge>
+                  <Badge variant="outline">Varejo</Badge>
+                  <Badge variant="outline">Distribuidores</Badge>
                   <Badge variant="outline">Fornecedor</Badge>
                   <Badge variant="outline">Visitante</Badge>
                   <Badge variant="outline">Prestador</Badge>
