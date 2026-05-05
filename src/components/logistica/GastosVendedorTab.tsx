@@ -145,7 +145,7 @@ export function GastosVendedorTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.length === 0 && (
+                {filtered.length === 0 && (
                   <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-6">
                     Nenhuma carga {filtroFrete === "cif" ? "CIF " : ""}fechada no período {soSemTarifa ? "com destinos sem tarifa" : ""}
                   </TableCell></TableRow>
