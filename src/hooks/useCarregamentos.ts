@@ -473,15 +473,16 @@ export function useCargasFechadasAguardando() {
       since.setDate(since.getDate() - 2);
       const sinceStr = since.toISOString().slice(0, 10);
 
-      const { data: cargas, error } = await supabase
-        .from("carregamentos_dia")
-        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data")
-        .eq("etapa", "logistica")
-        .not("carga_id", "is", null)
-        .gte("data", sinceStr);
-      if (error) throw error;
-
-      const cargasArr = (cargas ?? []) as any[];
+      const cargasArr = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from("carregamentos_dia")
+          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
+          .eq("etapa", "logistica")
+          .not("carga_id", "is", null)
+          .gte("data", sinceStr)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       if (cargasArr.length === 0) return [] as CargaFechadaAguardando[];
 
       const cargaIds = Array.from(new Set(cargasArr.map((c) => c.carga_id).filter(Boolean)));
@@ -619,14 +620,16 @@ export function useCargasFechadasParaVincular() {
       since.setDate(since.getDate() - 3);
       const sinceStr = since.toISOString().slice(0, 10);
 
-      const { data, error } = await supabase
-        .from("carregamentos_dia")
-        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data")
-        .eq("etapa", "logistica")
-        .not("carga_id", "is", null)
-        .gte("data", sinceStr);
-      if (error) throw error;
-      const arr = (data ?? []) as any[];
+      const arr = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from("carregamentos_dia")
+          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
+          .eq("etapa", "logistica")
+          .not("carga_id", "is", null)
+          .gte("data", sinceStr)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
 
       const grouped = new Map<string, CargaFechadaAguardando>();
       for (const c of arr) {
