@@ -129,27 +129,28 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
     enabled: !!session,
     queryFn: async () => {
       const todayStr = new Date().toISOString().split("T")[0];
-      let q = supabase
-        .from("carregamentos_dia")
-        .select("*, vendedores(nome_vendedor)");
-
       const isSingleDay = dateFrom === dateEnd;
-
-      if (isSingleDay && dateFrom === todayStr) {
-        // Today: also bring pending items from previous days
-        // Limit pending items to last 30 days
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
-        q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
-      } else if (isSingleDay) {
-        q = q.eq("data", dateFrom);
-      } else {
-        q = q.gte("data", dateFrom).lte("data", dateEnd);
-      }
-
-      const { data, error } = await q.order("created_at", { ascending: true });
-      if (error) throw error;
+      // Paginação completa para o painel principal não truncar quando há
+      // muitos itens no dia (1000+ linhas).
+      const data = await fetchAllPaginated<any>((from, to) => {
+        let q = supabase
+          .from("carregamentos_dia")
+          .select("*, vendedores(nome_vendedor)");
+        if (isSingleDay && dateFrom === todayStr) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
+          q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
+        } else if (isSingleDay) {
+          q = q.eq("data", dateFrom);
+        } else {
+          q = q.gte("data", dateFrom).lte("data", dateEnd);
+        }
+        return q
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to);
+      });
       // Esconde rascunhos e pedidos aguardando aprovação do faturamento
       // do painel operacional principal.
       const filtered = (data as Carregamento[]).filter(
