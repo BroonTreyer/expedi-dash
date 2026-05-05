@@ -228,7 +228,7 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
               <TableRow>
                 <TableHead className="w-32">Cód. cliente</TableHead>
                 <TableHead>Destino</TableHead>
-                <TableHead className="w-16">UF</TableHead>
+                <TableHead className="w-20 text-center">UF</TableHead>
                 <TableHead className="w-32">Bitruck (R$/kg)</TableHead>
                 <TableHead className="w-32">Carreta (R$/kg)</TableHead>
                 <TableHead className="w-10" />
@@ -245,7 +245,7 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
                     onChange={(e) => setNovo({ ...novo, destino_cidade: e.target.value })} />
                 </TableCell>
                 <TableCell>
-                  <Input placeholder="UF" maxLength={2} className="h-8" value={novo.destino_uf}
+                  <Input placeholder="UF" maxLength={2} className="h-8 px-2 text-center uppercase" value={novo.destino_uf}
                     onChange={(e) => setNovo({ ...novo, destino_uf: e.target.value.toUpperCase() })} />
                 </TableCell>
                 <TableCell>
@@ -282,7 +282,7 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
                       onBlur={(e) => { if (e.target.value.trim() !== i.destino_cidade) salvarLinha(i, { destino_cidade: e.target.value }); }} />
                   </TableCell>
                   <TableCell>
-                    <Input className="h-8" maxLength={2} defaultValue={i.destino_uf}
+                     <Input className="h-8 px-2 text-center uppercase" maxLength={2} defaultValue={i.destino_uf}
                       onBlur={(e) => { const v = e.target.value.toUpperCase(); if (v !== i.destino_uf) salvarLinha(i, { destino_uf: v }); }} />
                   </TableCell>
                   <TableCell>
