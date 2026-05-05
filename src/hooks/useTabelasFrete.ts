@@ -14,7 +14,7 @@ export type TabelaFreteItem = {
   id: string;
   tabela_id: string;
   codigo_cliente: string | null;
-  destino_cidade: string;
+  destino_cidade: string | null;
   destino_uf: string;
   valor_kg_bitruck: number;
   valor_kg_carreta: number;
@@ -51,7 +51,16 @@ export function useTabelaFreteItens(tabelaId: string | null) {
       const { data, error } = await (supabase as any)
         .from(TFI).select("*").eq("tabela_id", tabelaId).order("destino_uf").order("destino_cidade");
       if (error) throw error;
-      return (data ?? []) as TabelaFreteItem[];
+      const rows = (data ?? []) as TabelaFreteItem[];
+      // Linhas "UF inteira" (cidade null) ficam no topo de cada UF
+      return rows.slice().sort((a, b) => {
+        if (a.destino_uf !== b.destino_uf) return a.destino_uf.localeCompare(b.destino_uf);
+        const ac = a.destino_cidade ?? "";
+        const bc = b.destino_cidade ?? "";
+        if (!ac && bc) return -1;
+        if (ac && !bc) return 1;
+        return ac.localeCompare(bc);
+      });
     },
   });
 }
@@ -136,13 +145,15 @@ export function useUpsertItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (row: Partial<TabelaFreteItem> & {
-      tabela_id: string; destino_cidade: string; destino_uf: string;
+      tabela_id: string; destino_uf: string; destino_cidade?: string | null;
     }) => {
+      const cidadeRaw = (row.destino_cidade ?? "");
+      const cidade = (typeof cidadeRaw === "string" ? cidadeRaw.trim() : "") || null;
       const payload = {
         id: row.id,
         tabela_id: row.tabela_id,
         codigo_cliente: row.codigo_cliente?.trim() ? row.codigo_cliente.trim() : null,
-        destino_cidade: row.destino_cidade.trim(),
+        destino_cidade: cidade,
         destino_uf: row.destino_uf.trim().toUpperCase().slice(0, 2),
         valor_kg_bitruck: Number(row.valor_kg_bitruck) || 0,
         valor_kg_carreta: Number(row.valor_kg_carreta) || 0,

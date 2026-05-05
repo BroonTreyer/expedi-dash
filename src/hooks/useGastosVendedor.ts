@@ -114,23 +114,36 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
         vendTabelas.set(v.vendedor_id, arr);
       }
 
-      // tabela_id -> Map<destinoKey, { cli: Map<cod, item>, generic?: item }>
+      // tabela_id -> { byCidade: Map<cidade|UF, DestEntry>, byUF: Map<UF, DestEntry> }
       type ItemRow = { valor_kg_bitruck: number; valor_kg_carreta: number };
       type DestEntry = { generic?: ItemRow; porCliente: Map<string, ItemRow> };
-      const tabIndex = new Map<string, Map<string, DestEntry>>();
+      type TabIdx = { byCidade: Map<string, DestEntry>; byUF: Map<string, DestEntry> };
+      const tabIndex = new Map<string, TabIdx>();
       for (const i of (itensRes.data ?? []) as any[]) {
         if (i.ativo === false) continue;
-        const dkey = `${norm(i.destino_cidade)}|${(i.destino_uf ?? "").toUpperCase()}`;
+        const uf = (i.destino_uf ?? "").toUpperCase();
+        if (!uf) continue;
         let tm = tabIndex.get(i.tabela_id);
-        if (!tm) { tm = new Map(); tabIndex.set(i.tabela_id, tm); }
-        let de = tm.get(dkey);
-        if (!de) { de = { porCliente: new Map() }; tm.set(dkey, de); }
+        if (!tm) { tm = { byCidade: new Map(), byUF: new Map() }; tabIndex.set(i.tabela_id, tm); }
+        const cidadeNorm = norm(i.destino_cidade);
+        const target = cidadeNorm
+          ? (() => {
+              const k = `${cidadeNorm}|${uf}`;
+              let de = tm!.byCidade.get(k);
+              if (!de) { de = { porCliente: new Map() }; tm!.byCidade.set(k, de); }
+              return de;
+            })()
+          : (() => {
+              let de = tm!.byUF.get(uf);
+              if (!de) { de = { porCliente: new Map() }; tm!.byUF.set(uf, de); }
+              return de;
+            })();
         const row: ItemRow = {
           valor_kg_bitruck: Number(i.valor_kg_bitruck) || 0,
           valor_kg_carreta: Number(i.valor_kg_carreta) || 0,
         };
-        if (i.codigo_cliente) de.porCliente.set(String(i.codigo_cliente).trim(), row);
-        else de.generic = row;
+        if (i.codigo_cliente) target.porCliente.set(String(i.codigo_cliente).trim(), row);
+        else target.generic = row;
       }
 
       const vendMap = new Map<string, { nome: string; codigo: string }>(
@@ -146,32 +159,49 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
         });
       }
 
-      // Resolve a tarifa para um (vendedor, cliente, destino, tipoVeic) consultando todas as tabelas vinculadas.
-      // Retorna { valor_kg, conflito, divergentes[] } | null
+      // Precedência (mais específico vence): cliente+cidade+UF > cliente+UF > cidade+UF > UF.
+      // Conflito é avaliado SOMENTE entre tabelas que respondem no mesmo nível.
       const resolverTarifa = (
         vendedorId: string,
         codigoCliente: string | null,
-        destinoKey: string,
+        cidade: string,
+        uf: string,
         tipo: "bitruck" | "carreta",
       ): { valor_kg: number; conflito: boolean; divergentes: TabelaDivergente[] } | null => {
         const tabelas = vendTabelas.get(vendedorId);
         if (!tabelas || tabelas.length === 0) return null;
-        const respostas: TabelaDivergente[] = [];
+        const ufN = (uf ?? "").toUpperCase();
+        const ckey = `${norm(cidade)}|${ufN}`;
+        const cliente = codigoCliente?.trim() || null;
+
+        // Por nível: respostas[level] = TabelaDivergente[]
+        // 0 = cliente + cidade+UF, 1 = cliente + UF, 2 = cidade+UF (genérico), 3 = UF (genérico)
+        const niveis: TabelaDivergente[][] = [[], [], [], []];
         for (const tid of tabelas) {
-          const de = tabIndex.get(tid)?.get(destinoKey);
-          if (!de) continue;
-          let row: ItemRow | undefined;
-          if (codigoCliente) row = de.porCliente.get(codigoCliente.trim());
-          if (!row) row = de.generic;
-          if (!row) continue;
-          const v = tipo === "bitruck" ? row.valor_kg_bitruck : row.valor_kg_carreta;
-          respostas.push({ tabela_id: tid, nome: tabNome.get(tid) ?? "?", valor_kg: v });
+          const idx = tabIndex.get(tid);
+          if (!idx) continue;
+          const deCidade = idx.byCidade.get(ckey);
+          const deUF = idx.byUF.get(ufN);
+          const pick = (row: ItemRow | undefined, level: number) => {
+            if (!row) return;
+            const v = tipo === "bitruck" ? row.valor_kg_bitruck : row.valor_kg_carreta;
+            niveis[level].push({ tabela_id: tid, nome: tabNome.get(tid) ?? "?", valor_kg: v });
+          };
+          // Para esta tabela, usa apenas o nível mais específico que ela oferece
+          if (cliente && deCidade?.porCliente.get(cliente)) pick(deCidade.porCliente.get(cliente), 0);
+          else if (cliente && deUF?.porCliente.get(cliente)) pick(deUF.porCliente.get(cliente), 1);
+          else if (deCidade?.generic) pick(deCidade.generic, 2);
+          else if (deUF?.generic) pick(deUF.generic, 3);
         }
-        if (respostas.length === 0) return null;
-        const min = Math.min(...respostas.map((r) => r.valor_kg));
-        const max = Math.max(...respostas.map((r) => r.valor_kg));
-        if (max - min > TOL) return { valor_kg: 0, conflito: true, divergentes: respostas };
-        return { valor_kg: respostas[0].valor_kg, conflito: false, divergentes: respostas };
+        // Escolhe o nível mais específico com respostas
+        for (const respostas of niveis) {
+          if (respostas.length === 0) continue;
+          const min = Math.min(...respostas.map((r) => r.valor_kg));
+          const max = Math.max(...respostas.map((r) => r.valor_kg));
+          if (max - min > TOL) return { valor_kg: 0, conflito: true, divergentes: respostas };
+          return { valor_kg: respostas[0].valor_kg, conflito: false, divergentes: respostas };
+        }
+        return null;
       };
 
       // Agrupa pedidos por carga -> destino -> vendedor (mantendo codigo_cliente por vendedor/destino)
@@ -260,10 +290,10 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
         const vendsSet = new Set<string>();
         let previstoCarga = 0;
 
-        for (const [dkey, dd] of cd.destinos) {
+        for (const [, dd] of cd.destinos) {
           for (const [vid, vData] of dd.porVendedor) {
             vendsSet.add(vid);
-            const tarifa = resolverTarifa(vid, vData.codigo_cliente, dkey, cd.tipo_norm);
+            const tarifa = resolverTarifa(vid, vData.codigo_cliente, dd.cidade, dd.uf, cd.tipo_norm);
             const sem_tarifa = tarifa == null;
             const conflito = !!tarifa?.conflito;
             const valor_kg = tarifa && !conflito ? tarifa.valor_kg : 0;

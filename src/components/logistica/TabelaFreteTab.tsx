@@ -135,18 +135,18 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
     const term = q.trim().toLowerCase();
     if (!term) return itens;
     return itens.filter((i) =>
-      i.destino_cidade.toLowerCase().includes(term)
+      (i.destino_cidade ?? "").toLowerCase().includes(term)
       || i.destino_uf.toLowerCase().includes(term)
       || (i.codigo_cliente ?? "").toLowerCase().includes(term),
     );
   }, [itens, q]);
 
   const adicionar = () => {
-    if (!novo.destino_cidade.trim() || !novo.destino_uf.trim()) return toast.error("Preencha cidade e UF");
+    if (!novo.destino_uf.trim()) return toast.error("Informe a UF");
     upsert.mutate({
       tabela_id: tabelaId,
       codigo_cliente: novo.codigo_cliente,
-      destino_cidade: novo.destino_cidade,
+      destino_cidade: novo.destino_cidade,        // pode ser vazio → vira null no hook
       destino_uf: novo.destino_uf,
       valor_kg_bitruck: Number(novo.b) || 0,
       valor_kg_carreta: Number(novo.c) || 0,
@@ -241,7 +241,7 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
                     onChange={(e) => setNovo({ ...novo, codigo_cliente: e.target.value })} />
                 </TableCell>
                 <TableCell>
-                  <Input placeholder="Cidade" className="h-8" value={novo.destino_cidade}
+                  <Input placeholder="Cidade (opcional = UF inteira)" className="h-8" value={novo.destino_cidade}
                     onChange={(e) => setNovo({ ...novo, destino_cidade: e.target.value })} />
                 </TableCell>
                 <TableCell>
@@ -278,8 +278,17 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
                       }} />
                   </TableCell>
                   <TableCell>
-                    <Input className="h-8" defaultValue={i.destino_cidade}
-                      onBlur={(e) => { if (e.target.value.trim() !== i.destino_cidade) salvarLinha(i, { destino_cidade: e.target.value }); }} />
+                    <div className="flex items-center gap-2">
+                      <Input className="h-8" defaultValue={i.destino_cidade ?? ""}
+                        placeholder="(UF inteira)"
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v !== (i.destino_cidade ?? "")) salvarLinha(i, { destino_cidade: v || null } as any);
+                        }} />
+                      {!i.destino_cidade && (
+                        <Badge variant="outline" className="text-[10px] shrink-0">UF inteira</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                      <Input className="h-8 px-2 text-center uppercase" maxLength={2} defaultValue={i.destino_uf}
