@@ -8,7 +8,9 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `Você extrai dados estruturados de DACTE (Documento Auxiliar do Conhecimento de Transporte Eletrônico — CT-e modelo 57).
 
-Regras:
+IMPORTANTE: O PDF pode conter MÚLTIPLOS CT-es (um por página ou várias páginas por CT-e). Identifique cada CT-e distinto pelo seu cabeçalho (NÚMERO + SÉRIE + CHAVE DE ACESSO) e retorne UM objeto por CT-e no array "ctes". Não duplique CT-es que ocupem mais de uma página — agrupe pela chave de acesso ou pelo par NÚMERO/SÉRIE.
+
+Regras por CT-e:
 - "numero_cte": campo "NÚMERO" do cabeçalho (apenas dígitos, sem zeros à esquerda).
 - "serie": campo "SÉRIE" do cabeçalho.
 - "valor_frete": "VALOR TOTAL DO SERVIÇO" ou "VALOR TOTAL DA PRESTAÇÃO" (em reais, número decimal com ponto).
@@ -89,22 +91,32 @@ Deno.serve(async (req) => {
             type: "function",
             function: {
               name: "extract_dacte",
-              description: "Retorna os dados estruturados do CT-e.",
+              description: "Retorna a lista de CT-es encontrados no PDF.",
               parameters: {
                 type: "object",
                 properties: {
-                  numero_cte: { type: "string" },
-                  serie: { type: "string" },
-                  valor_frete: { type: "number" },
-                  transportadora: { type: "string" },
-                  placa: { type: "string" },
-                  destino_cidade: { type: "string" },
-                  destino_uf: { type: "string" },
-                  peso_total: { type: "number" },
-                  data_emissao: { type: "string" },
-                  notas_fiscais: { type: "array", items: { type: "string" } },
+                  ctes: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        numero_cte: { type: "string" },
+                        serie: { type: "string" },
+                        valor_frete: { type: "number" },
+                        transportadora: { type: "string" },
+                        placa: { type: "string" },
+                        destino_cidade: { type: "string" },
+                        destino_uf: { type: "string" },
+                        peso_total: { type: "number" },
+                        data_emissao: { type: "string" },
+                        notas_fiscais: { type: "array", items: { type: "string" } },
+                      },
+                      required: ["numero_cte", "valor_frete", "notas_fiscais"],
+                      additionalProperties: false,
+                    },
+                  },
                 },
-                required: ["numero_cte", "valor_frete", "notas_fiscais"],
+                required: ["ctes"],
                 additionalProperties: false,
               },
             },
@@ -156,7 +168,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ data: parsed, fileName }), {
+    const ctes = Array.isArray(parsed?.ctes) ? parsed.ctes : [];
+    return new Response(JSON.stringify({ ctes, fileName }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
