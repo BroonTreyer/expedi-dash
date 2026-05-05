@@ -1,45 +1,41 @@
-## Objetivo
+# Finalizar registros de portaria nas datas corretas
 
-Recriar via banco as 2 cargas que tinham sido canceladas/nunca fechadas, já marcando-as como **expedidas/carregadas** (sem precisar passar pelo fluxo manual de portaria).
+## Situação atual
 
-## Cargas a criar
+Ao consultar a tabela `movimentacoes_portaria`, encontrei **4 registros** para essas duas cargas:
 
-**Carga 1 — DICKSON J BATISTA** (pedidos 97 e 99, data 02/05/2026, JORGE BATISTA PI/MA)
-- carga_id: novo (gerado)
-- nome_carga: `DICKSON J BATISTA`
-- placa: `OZR0D10` · motorista: `LUCAS BORGES DA SILVA` · transportadora: `MOREIRA ALVORADA` · tipo: `Carreta`
-- 7 linhas do pedido 97 + 8 linhas do pedido 99 = 15 itens
+| ID | Placa | Motorista | Data | Etapa |
+|---|---|---|---|---|
+| f6177ed1 | OZR0D10 | LUCAS | **05/05 10:46** | chegada (sem entrada/saída) |
+| 65b4de50 | JBM8E58 | TONI | **05/05 10:46** | chegada (sem entrada/saída) |
+| ff9832b6 | OZR0D10 | LUCAS | **02/05** | finalizado (chegada + entrada + saída) |
+| abfe34bf | JBM8E58 | TONI | **04/05** | finalizado (chegada + entrada + saída) |
 
-**Carga 2 — CF DISTRIBUIDORA** (pedido 1, data 04/05/2026, CF DISTRIBUIDORA / CEARA FRANGOS)
-- carga_id: novo (gerado)
-- nome_carga: `CF DISTRIBUIDORA`
-- placa: `JBM8E58` · motorista: `TONI DA SILVA COSTA` · transportadora: `Moreira` · tipo: `Carreta`
-- todas as linhas do pedido 1 onde data=2026-05-04 e codigo_cliente=21405
+Os dois registros de **05/05** foram criados automaticamente pelo trigger quando reabri/fechei as cargas hoje. Eles aparecem no histórico de Terceirizados como "Entrada" recente (foto do print confirma — 10:46 hoje).
 
-## SQL (UPDATE em `carregamentos_dia` para cada grupo)
+Os dois registros **finalizados** em 02/05 e 04/05 (que criei retroativamente na resposta anterior) já estão corretos.
 
-Para cada carga:
+> Observação: você escreveu "02/04 e 04/04", mas pelo contexto entendo que se refere a **02/05 e 04/05** (sábado/segunda passados). Se for outra data, me avise.
+
+## Ação
+
+Criar uma migration que **apaga os 2 registros duplicados de hoje (05/05)**:
+
+- `f6177ed1-a5db-48d5-ba33-b6d40a49952b` (OZR0D10 / LUCAS)
+- `65b4de50-2087-498f-bcf6-c2a151c6ef62` (JBM8E58 / TONI)
+
+Isso vai:
+- Remover as duas linhas vermelhas "Entrada 10:46" do histórico de hoje
+- Manter intactos os registros finalizados em **02/05** (Lucas) e **04/05** (Toni), que continuarão aparecendo no histórico das datas corretas como expedidos
+
+## Detalhes técnicos
+
 ```sql
-UPDATE carregamentos_dia
-SET carga_id = '<novo_id>',
-    nome_carga = '<nome>',
-    placa = '<placa>',
-    motorista = '<motorista>',
-    transportadora = '<transp>',
-    tipo_caminhao = 'Carreta',
-    etapa = 'logistica',
-    status = 'Carregado',
-    horario_inicio = now(),
-    horario_fim = now()
-WHERE id IN (...);
+DELETE FROM public.movimentacoes_portaria
+WHERE id IN (
+  'f6177ed1-a5db-48d5-ba33-b6d40a49952b',
+  '65b4de50-2087-498f-bcf6-c2a151c6ef62'
+);
 ```
 
-Mais um `INSERT` em `audit_log` (action='fechada' + 'carregada') para registrar a operação manual.
-
-## Pontos importantes
-
-- Não vou tocar em outros pedidos com cliente parecido (CEARA ALIMENTOS, SUPERSAFRA etc.) — apenas os IDs específicos identificados.
-- `etapa='logistica'` + `status='Carregado'` faz a carga aparecer como expedida no Consolidado/Expedição.
-- Não vou criar movimentação de portaria (entrada/saída) — só a carga em si fica como carregada. Se quiser que crie também o registro de entrada+saída na portaria, me avise.
-
-Após aprovação, executo as 2 atualizações e confirmo.
+Migration: `supabase/migrations/20260505150000_remover_duplicatas_portaria.sql`
