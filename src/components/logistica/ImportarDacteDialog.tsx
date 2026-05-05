@@ -1,0 +1,234 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { autoVincularCarga, useInsertCteDacte } from "@/hooks/useCtesDacte";
+
+type Parsed = {
+  numero_cte: string;
+  serie?: string;
+  valor_frete: number;
+  transportadora?: string;
+  placa?: string;
+  destino_cidade?: string;
+  destino_uf?: string;
+  peso_total?: number;
+  data_emissao?: string;
+  notas_fiscais: string[];
+};
+
+type Item = {
+  fileId: string;
+  file: File;
+  fileName: string;
+  status: "loading" | "ok" | "error" | "saving" | "saved";
+  error?: string;
+  parsed?: Parsed;
+  carga_id?: string | null;
+  vinculo_status?: "pendente" | "vinculado" | "divergente";
+};
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const r = reader.result as string;
+      const idx = r.indexOf(",");
+      resolve(idx >= 0 ? r.slice(idx + 1) : r);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+interface Props {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}
+
+export function ImportarDacteDialog({ open, onOpenChange }: Props) {
+  const [items, setItems] = useState<Item[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const insertMut = useInsertCteDacte();
+
+  useEffect(() => {
+    if (!open) setItems([]);
+  }, [open]);
+
+  const handleFiles = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const arr = Array.from(files).filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+    if (!arr.length) return toast.error("Selecione PDFs");
+
+    const placeholders: Item[] = arr.map((f) => ({
+      fileId: `${f.name}-${f.size}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      file: f,
+      fileName: f.name,
+      status: "loading",
+    }));
+    setItems((prev) => [...prev, ...placeholders]);
+
+    await Promise.allSettled(arr.map(async (file, idx) => {
+      const ph = placeholders[idx];
+      try {
+        const b64 = await fileToBase64(file);
+        const { data, error } = await supabase.functions.invoke("parse-dacte-pdf", {
+          body: { fileBase64: b64, fileName: file.name },
+        });
+        if (error) throw error;
+        const parsed = (data as any)?.data as Parsed | undefined;
+        if (!parsed) throw new Error("Resposta vazia");
+        const vinc = await autoVincularCarga(parsed.notas_fiscais ?? []);
+        setItems((prev) => prev.map((p) => p.fileId === ph.fileId
+          ? { ...p, status: "ok", parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status }
+          : p));
+      } catch (e: any) {
+        setItems((prev) => prev.map((p) => p.fileId === ph.fileId
+          ? { ...p, status: "error", error: e?.message || "Falha" } : p));
+      }
+    }));
+    if (inputRef.current) inputRef.current.value = "";
+  }, []);
+
+  const updateParsed = (fileId: string, patch: Partial<Parsed>) => {
+    setItems((prev) => prev.map((p) => p.fileId === fileId && p.parsed ? { ...p, parsed: { ...p.parsed, ...patch } } : p));
+  };
+
+  const remove = (fileId: string) => setItems((prev) => prev.filter((p) => p.fileId !== fileId));
+
+  const handleSaveAll = async () => {
+    const ok = items.filter((i) => i.status === "ok" && i.parsed);
+    if (!ok.length) return;
+    for (const it of ok) {
+      try {
+        setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "saving" } : x));
+        // upload pdf
+        const path = `${new Date().getFullYear()}/${it.parsed!.numero_cte || "sem-numero"}-${it.fileId}.pdf`;
+        const { error: upErr } = await supabase.storage.from("dacte").upload(path, it.file, { upsert: true, contentType: "application/pdf" });
+        if (upErr) throw upErr;
+        await insertMut.mutateAsync({
+          numero_cte: it.parsed!.numero_cte,
+          serie: it.parsed!.serie || null,
+          valor_frete: Number(it.parsed!.valor_frete) || 0,
+          transportadora: it.parsed!.transportadora || null,
+          placa: it.parsed!.placa || null,
+          destino_cidade: it.parsed!.destino_cidade || null,
+          destino_uf: it.parsed!.destino_uf || null,
+          peso_total: it.parsed!.peso_total ?? null,
+          data_emissao: it.parsed!.data_emissao || null,
+          notas_fiscais: (it.parsed!.notas_fiscais ?? []) as any,
+          pdf_url: path,
+          raw_extracao: it.parsed as any,
+          carga_id: it.carga_id ?? null,
+          status: it.vinculo_status ?? "pendente",
+        });
+        setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "saved" } : x));
+      } catch (e: any) {
+        toast.error(`${it.fileName}: ${e.message ?? "erro"}`);
+        setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "error", error: e.message } : x));
+      }
+    }
+    toast.success("CT-es salvos");
+  };
+
+  const okCount = items.filter((i) => i.status === "ok").length;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Importar DACTE (PDF)</DialogTitle>
+          <DialogDescription>
+            Faça upload de um ou mais PDFs de DACTE/CT-e. A IA vai extrair número, valor do frete e notas fiscais. O sistema tenta vincular automaticamente à carga correspondente.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-muted/30">
+          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+          <p className="text-sm font-medium mb-1">Selecione um ou mais DACTEs em PDF</p>
+          <input ref={inputRef} type="file" accept="application/pdf,.pdf" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+          <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+            <FileText className="h-4 w-4 mr-1" /> Selecionar PDFs
+          </Button>
+        </div>
+
+        {items.length > 0 && (
+          <div className="space-y-3 mt-2">
+            {items.map((it) => (
+              <div key={it.fileId} className="border border-border rounded-lg p-3 bg-card space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-xs font-mono text-muted-foreground truncate">{it.fileName}</span>
+                    {it.status === "loading" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Lendo</Badge>}
+                    {it.status === "saving" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Salvando</Badge>}
+                    {it.status === "saved" && <Badge className="bg-emerald-600 text-white gap-1"><CheckCircle2 className="h-3 w-3" /> Salvo</Badge>}
+                    {it.status === "error" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> {it.error}</Badge>}
+                    {it.status === "ok" && it.vinculo_status === "vinculado" && <Badge className="bg-emerald-600 text-white">Vinculado à carga {it.carga_id}</Badge>}
+                    {it.status === "ok" && it.vinculo_status === "pendente" && <Badge variant="outline">Sem vínculo automático</Badge>}
+                    {it.status === "ok" && it.vinculo_status === "divergente" && <Badge className="bg-amber-500 text-white">Múltiplas cargas — revisar</Badge>}
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(it.fileId)}><X className="h-4 w-4" /></Button>
+                </div>
+
+                {it.status === "ok" && it.parsed && (
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Nº CT-e</Label>
+                      <Input value={it.parsed.numero_cte} onChange={(e) => updateParsed(it.fileId, { numero_cte: e.target.value })} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Série</Label>
+                      <Input value={it.parsed.serie ?? ""} onChange={(e) => updateParsed(it.fileId, { serie: e.target.value })} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Valor Frete (R$)</Label>
+                      <Input type="number" step="0.01" value={it.parsed.valor_frete} onChange={(e) => updateParsed(it.fileId, { valor_frete: Number(e.target.value) || 0 })} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Transportadora</Label>
+                      <Input value={it.parsed.transportadora ?? ""} onChange={(e) => updateParsed(it.fileId, { transportadora: e.target.value })} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Placa</Label>
+                      <Input value={it.parsed.placa ?? ""} onChange={(e) => updateParsed(it.fileId, { placa: e.target.value.toUpperCase() })} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Destino</Label>
+                      <Input value={it.parsed.destino_cidade ?? ""} onChange={(e) => updateParsed(it.fileId, { destino_cidade: e.target.value })} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">UF</Label>
+                      <Input value={it.parsed.destino_uf ?? ""} maxLength={2} onChange={(e) => updateParsed(it.fileId, { destino_uf: e.target.value.toUpperCase() })} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Peso (kg)</Label>
+                      <Input type="number" step="0.01" value={it.parsed.peso_total ?? 0} onChange={(e) => updateParsed(it.fileId, { peso_total: Number(e.target.value) || 0 })} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Notas Fiscais</Label>
+                      <Input value={(it.parsed.notas_fiscais ?? []).join(", ")} readOnly className="h-8 text-sm bg-muted/50" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Fechar</Button>
+          <Button onClick={handleSaveAll} disabled={okCount === 0 || insertMut.isPending}>
+            {insertMut.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+            Salvar {okCount > 0 ? `(${okCount})` : ""}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
