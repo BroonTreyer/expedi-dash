@@ -35,6 +35,7 @@ export type Carregamento = {
   ruptura: boolean;
   carga_id: string | null;
   nome_carga: string | null;
+  ordem_carga: string | null;
   ordem_entrega: number | null;
   peso_original: number | null;
   quantidade_original: number | null;

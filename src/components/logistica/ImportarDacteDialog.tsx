@@ -4,10 +4,79 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X, Search, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { autoVincularCarga, useInsertCteDacte } from "@/hooks/useCtesDacte";
+import { autoVincularCarga, useInsertCteDacte, buscarCargasPorOrdem, type CargaPorOrdemRow } from "@/hooks/useCtesDacte";
+
+function OrdemCargaPicker({ value, onChange, cargaIdAtual }: { value: string; onChange: (v: string, picked?: CargaPorOrdemRow | null) => void; cargaIdAtual: string | null }) {
+  const [results, setResults] = useState<CargaPorOrdemRow[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const q = value.trim();
+    if (!q) { setResults([]); return; }
+    setLoading(true);
+    const t = setTimeout(async () => {
+      const r = await buscarCargasPorOrdem(q);
+      setResults(r);
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  return (
+    <div className="space-y-1 relative">
+      <Label className="text-xs flex items-center gap-1.5">
+        <Link2 className="h-3.5 w-3.5" /> Ordem de Carga
+        {cargaIdAtual && <Badge className="bg-emerald-600 text-white text-[10px] h-5">Vinculado: {cargaIdAtual}</Badge>}
+      </Label>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          value={value}
+          onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="Digite a Ordem de Carga (ex: OC-1234)"
+          className="h-8 text-sm pl-8"
+        />
+      </div>
+      {open && value.trim() && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-md max-h-64 overflow-y-auto">
+          {loading ? (
+            <div className="p-2 text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Buscando...</div>
+          ) : results.length === 0 ? (
+            <div className="p-2 text-xs text-muted-foreground">Nenhuma carga encontrada com essa Ordem.</div>
+          ) : (
+            results.map((r) => (
+              <button
+                key={r.carga_id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { onChange(r.ordem_carga, r); setOpen(false); }}
+                className="w-full text-left px-2.5 py-1.5 hover:bg-muted text-xs border-b border-border last:border-b-0"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold">{r.ordem_carga}</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="truncate">{r.nome_carga || r.carga_id}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {r.placa && <span className="font-mono">{r.placa}</span>}
+                  {r.transportadora && <> · {r.transportadora}</>}
+                  {r.motorista && <> · {r.motorista}</>}
+                  {r.data && <> · {new Date(r.data).toLocaleDateString("pt-BR")}</>}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Parsed = {
   numero_cte: string;
@@ -32,6 +101,7 @@ type Item = {
   error?: string;
   parsed?: Parsed;
   carga_id?: string | null;
+  ordem_carga?: string;
   vinculo_status?: "pendente" | "vinculado" | "divergente";
 };
 
@@ -117,6 +187,18 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
     setItems((prev) => prev.map((p) => p.fileId === fileId && p.parsed ? { ...p, parsed: { ...p.parsed, ...patch } } : p));
   };
 
+  const updateOrdem = async (fileId: string, ordem: string, picked?: CargaPorOrdemRow | null) => {
+    setItems((prev) => prev.map((p) => p.fileId === fileId
+      ? {
+          ...p,
+          ordem_carga: ordem,
+          ...(picked
+            ? { carga_id: picked.carga_id, vinculo_status: "vinculado" as const }
+            : {}),
+        }
+      : p));
+  };
+
   const remove = (fileId: string) => setItems((prev) => prev.filter((p) => p.fileId !== fileId));
 
   const handleSaveAll = async () => {
@@ -143,6 +225,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
           pdf_url: path,
           raw_extracao: it.parsed as any,
           carga_id: it.carga_id ?? null,
+          ordem_carga: (it.ordem_carga ?? "").trim() || null,
           status: it.vinculo_status ?? "pendente",
         });
         setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "saved" } : x));
@@ -199,6 +282,13 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
                 {it.status === "ok" && it.parsed && (
                   <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                    <div className="col-span-2 sm:col-span-6">
+                      <OrdemCargaPicker
+                        value={it.ordem_carga ?? ""}
+                        onChange={(v, picked) => updateOrdem(it.fileId, v, picked)}
+                        cargaIdAtual={it.carga_id ?? null}
+                      />
+                    </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Nº CT-e</Label>
                       <Input value={it.parsed.numero_cte} onChange={(e) => updateParsed(it.fileId, { numero_cte: e.target.value })} className="h-8 text-sm" />

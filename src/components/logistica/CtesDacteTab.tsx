@@ -24,7 +24,7 @@ export function CtesDacteTab() {
     return data.filter((r) => {
       if (filterStatus !== "todos" && r.status !== filterStatus) return false;
       if (!term) return true;
-      return [r.numero_cte, r.transportadora, r.placa, r.destino_cidade, r.carga_id]
+      return [r.numero_cte, r.transportadora, r.placa, r.destino_cidade, r.carga_id, (r as any).ordem_carga]
         .some((v) => (v ?? "").toString().toLowerCase().includes(term));
     });
   }, [data, q, filterStatus]);
@@ -68,13 +68,14 @@ export function CtesDacteTab() {
                 <TableHead>Peso (kg)</TableHead>
                 <TableHead>Frete</TableHead>
                 <TableHead>Carga</TableHead>
+                <TableHead>Ordem</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
               )}
               {filtered.map((r) => (
                 <TableRow key={r.id}>
@@ -86,6 +87,7 @@ export function CtesDacteTab() {
                   <TableCell className="text-xs tabular-nums">{(r.peso_total ?? 0).toLocaleString("pt-BR")}</TableCell>
                   <TableCell className="text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
                   <TableCell className="text-xs">{r.carga_id ?? "—"}</TableCell>
+                  <TableCell className="text-xs font-mono">{(r as any).ordem_carga ?? "—"}</TableCell>
                   <TableCell>
                     <Badge variant={r.status === "vinculado" ? "default" : r.status === "divergente" ? "destructive" : "outline"}>
                       {r.status}

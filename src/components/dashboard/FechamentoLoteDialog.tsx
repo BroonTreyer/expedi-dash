@@ -27,7 +27,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   items: Carregamento[];
   tiposCaminhao: { nome_tipo: string }[];
-  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string; nome_carga?: string }[], meta: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string }) => void;
+  onSubmit: (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string; nome_carga?: string; ordem_carga?: string }[], meta: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string; ordemCarga?: string }) => void;
   onPrintReady?: (data: CargaPrintData) => void;
   selectedDate?: string;
   roteirizacao?: RoteirizacaoResult | null;
@@ -42,6 +42,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
+  const [ordemCarga, setOrdemCarga] = useState("");
   const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
   const [walkInVinculadoId, setWalkInVinculadoId] = useState<string | null>(null);
   const { user } = useAuth();
@@ -102,6 +103,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setTransportadora("");
       setHorarioPrevisto("");
       setNomeCarga("");
+      setOrdemCarga("");
       setVeiculoVinculado("manual");
       setWalkInVinculadoId(null);
       setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
@@ -124,7 +126,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const totalPedidos = useMemo(() => groups.reduce((s, g) => s + g.items.length, 0), [groups]);
   const ufsUnicas = useMemo(() => { const set = new Set<string>(); groups.forEach((g) => { if (g.uf) set.add(g.uf); }); return Array.from(set).sort(); }, [groups]);
 
-  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0;
+  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && ordemCarga.trim().length > 0 && totalPedidos > 0;
 
   // Submit guard: blocks double-clicks on "Fechar Carga" while the batch is in flight.
   // Without this, the user could trigger 2 simultaneous batch updates and create duplicate
@@ -162,6 +164,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         data: dataCarregamento,
         ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
         nome_carga: nomeCargaFinal,
+        ordem_carga: ordemCarga.trim(),
       }))
     );
     const destinos = groups.filter(g => g.cidade).map(g => `${g.cidade}/${g.uf}`).join(", ");
@@ -210,7 +213,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       }
     }
 
-    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos });
+    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos, ordemCarga: ordemCarga.trim() });
     onOpenChange(false);
 
     if (onPrintReady) {
@@ -386,6 +389,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             <div className="space-y-1.5">
               <Label className="text-xs">Nome da Carga</Label>
               <Input value={nomeCarga} onChange={(e) => setNomeCarga(e.target.value)} placeholder="Ex: Carga MG Norte (opcional)" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Ordem de Carga *</Label>
+              <Input
+                value={ordemCarga}
+                onChange={(e) => setOrdemCarga(e.target.value)}
+                placeholder="Ex: OC-1234"
+              />
+              <p className="text-[10px] text-muted-foreground">Usada para vincular o CT-e/DACTE a esta carga.</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Data do Carregamento *</Label>
