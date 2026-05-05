@@ -497,6 +497,7 @@ export default function Portaria({ categoria }: PortariaProps) {
             <VeiculosEsperadosPanel
               veiculos={veiculosEsperados}
               onRegistrar={openRegistroFromVeiculoEsperado}
+              pendingIds={registrandoIds}
               onClear={isPortaria ? undefined : () => {
                 const d = new Date(dateFromStr + "T00:00:00");
                 const di = new Date(d); di.setDate(di.getDate() - 3);
