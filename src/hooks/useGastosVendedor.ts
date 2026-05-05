@@ -18,6 +18,7 @@ export type GastoDetalhe = {
   data: string | null;
   tipo_caminhao: string | null;
   tipo_veiculo_normalizado: "bitruck" | "carreta";
+  tipo_frete_carga: "cif" | "fob" | "misto" | "nao_classificado";
   peso_vendedor_kg: number;
   peso_total_carga_kg: number;
   previsto: number;
@@ -43,6 +44,21 @@ export type GastoVendedor = {
   detalhes: GastoDetalhe[];
 };
 
+export type CoberturaTipoFrete = {
+  cif: number;
+  fob: number;
+  misto: number;
+  nao_classificado: number;
+  total: number;
+};
+
+export type GastosVendedorResult = {
+  vendedores: GastoVendedor[];
+  cobertura: CoberturaTipoFrete;
+};
+
+export type FiltroTipoFrete = "cif" | "todos" | "incluir_nao_classificado";
+
 function normalizeTipo(t: string | null | undefined): "bitruck" | "carreta" {
   const s = (t ?? "").toLowerCase();
   if (s.includes("carreta") || s.includes("truck") && s.includes("ca")) return "carreta";
@@ -51,24 +67,26 @@ function normalizeTipo(t: string | null | undefined): "bitruck" | "carreta" {
 }
 const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 
-export function useGastosVendedor(dataInicial: string, dataFinal: string) {
+export function useGastosVendedor(dataInicial: string, dataFinal: string, filtroTipoFrete: FiltroTipoFrete = "cif") {
   const session = useSession();
   return useQuery({
-    queryKey: ["gastos_vendedor_v2", dataInicial, dataFinal],
+    queryKey: ["gastos_vendedor_v3", dataInicial, dataFinal, filtroTipoFrete],
     enabled: !!session,
     staleTime: 30_000,
-    queryFn: async (): Promise<GastoVendedor[]> => {
+    queryFn: async (): Promise<GastosVendedorResult> => {
       // 1) Pedidos de cargas fechadas no período
       const { data: items, error: iErr } = await supabase
         .from("carregamentos_dia")
-        .select("carga_id, nome_carga, ordem_carga, data, tipo_caminhao, vendedor_id, peso, numero_pedido, cliente, cidade, uf")
+        .select("carga_id, nome_carga, ordem_carga, data, tipo_caminhao, tipo_frete, vendedor_id, peso, numero_pedido, cliente, cidade, uf")
         .eq("etapa", "logistica")
         .not("carga_id", "is", null)
         .gte("data", dataInicial)
         .lte("data", dataFinal)
         .limit(10000);
       if (iErr) throw iErr;
-      if (!items || items.length === 0) return [];
+      if (!items || items.length === 0) {
+        return { vendedores: [], cobertura: { cif: 0, fob: 0, misto: 0, nao_classificado: 0, total: 0 } };
+      }
 
       const cargaIds = Array.from(new Set(items.map((i: any) => i.carga_id).filter(Boolean))) as string[];
 
@@ -115,6 +133,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
         data: string | null;
         tipo_caminhao: string | null;
         tipo_norm: "bitruck" | "carreta";
+        tipos_frete: Set<string>;
         peso_total: number;
         destinos: Map<string, DestData>;
       };
@@ -131,11 +150,14 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
             data: it.data ?? null,
             tipo_caminhao: it.tipo_caminhao ?? null,
             tipo_norm: normalizeTipo(it.tipo_caminhao),
+            tipos_frete: new Set<string>(),
             peso_total: 0,
             destinos: new Map(),
           };
           cargas.set(cid, cd);
         }
+        const tf = (it.tipo_frete ?? "").toString().trim().toUpperCase();
+        if (tf === "CIF" || tf === "FOB") cd.tipos_frete.add(tf);
         if (!cd.nome_carga && it.nome_carga) cd.nome_carga = it.nome_carga;
         if (!cd.ordem_carga && it.ordem_carga) cd.ordem_carga = it.ordem_carga;
         if (!cd.tipo_caminhao && it.tipo_caminhao) {
@@ -175,8 +197,25 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
       const acc = new Map<string, GastoVendedor>();
       const cargasPorVend = new Map<string, Set<string>>();
       const cargasComCtePorVend = new Map<string, Set<string>>();
+      const cobertura: CoberturaTipoFrete = { cif: 0, fob: 0, misto: 0, nao_classificado: 0, total: 0 };
 
       for (const [cid, cd] of cargas) {
+        // Classifica tipo de frete da carga
+        let tipoFreteCarga: GastoDetalhe["tipo_frete_carga"];
+        if (cd.tipos_frete.size === 0) tipoFreteCarga = "nao_classificado";
+        else if (cd.tipos_frete.size > 1) tipoFreteCarga = "misto";
+        else if (cd.tipos_frete.has("CIF")) tipoFreteCarga = "cif";
+        else tipoFreteCarga = "fob";
+
+        cobertura.total += 1;
+        cobertura[tipoFreteCarga] += 1;
+
+        // Filtra
+        if (filtroTipoFrete === "cif" && tipoFreteCarga !== "cif") continue;
+        if (filtroTipoFrete === "incluir_nao_classificado"
+            && tipoFreteCarga !== "cif" && tipoFreteCarga !== "nao_classificado") continue;
+        // "todos" passa tudo
+
         const cte = cteMap.get(cid) ?? null;
         // Calcula previsto por destino
         const destinosArr: DestinoDetalhe[] = [];
@@ -257,6 +296,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
             data: cd.data,
             tipo_caminhao: cd.tipo_caminhao,
             tipo_veiculo_normalizado: cd.tipo_norm,
+            tipo_frete_carga: tipoFreteCarga,
             peso_vendedor_kg: peso_vend,
             peso_total_carga_kg: cd.peso_total,
             previsto: previsto_vend,
@@ -281,7 +321,8 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
         g.detalhes.sort((a, b) => (b.data ?? "").localeCompare(a.data ?? ""));
       }
 
-      return Array.from(acc.values()).sort((a, b) => b.frete_previsto - a.frete_previsto);
+      const vendedores = Array.from(acc.values()).sort((a, b) => b.frete_previsto - a.frete_previsto);
+      return { vendedores, cobertura };
     },
   });
 }

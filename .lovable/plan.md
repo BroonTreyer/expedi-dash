@@ -1,97 +1,46 @@
-## Objetivo
+## Separar CIF vs FOB em Gastos por Vendedor
 
-Trocar a base de cálculo de **Gastos por Vendedor** de "CT-es importados" para **Cargas Fechadas + Tabela de Frete**. CT-e passa a ser etapa de **conferência** (realizado vs previsto), não a fonte do gasto.
+Gasto de frete só faz sentido em cargas **CIF** (frete por conta do remetente). FOB é responsabilidade do cliente — não deve entrar no cálculo.
 
-## Lógica nova
+### Situação atual no banco
+Distribuição de `tipo_frete` em `carregamentos_dia` com etapa logística:
+- **CIF**: 58 linhas
+- **FOB**: 241 linhas
+- **NULL/sem informação**: 1177 linhas (maioria — pedidos antigos sem o campo preenchido)
 
-Para cada carga fechada (`etapa = 'logistica'`):
+Por isso precisamos tratar o "sem classificação" explicitamente, senão escondemos quase todos os dados.
 
-1. Agrupar pedidos por **destino** (`cidade` + `uf`).
-2. Para cada destino, buscar valor em `tabela_frete` por `(destino_cidade, destino_uf, tipo_veiculo)` da carga.
-3. **Frete previsto do destino** = `peso_total_destino × valor_kg`.
-4. **Rateio por vendedor** dentro do destino: `peso_vendedor_destino / peso_total_destino × frete_destino`.
-5. Soma por vendedor em todas as cargas do período = **gasto previsto**.
+### Mudanças no hook `useGastosVendedor.ts`
 
-Se a carga já tem CT-e vinculado (via `ordem_carga`), também mostra **realizado** (valor do CT-e) e **divergência %** ao lado do previsto. Se não tem, mostra só previsto.
+1. Incluir `tipo_frete` no SELECT de `carregamentos_dia`.
+2. **Determinar tipo da carga** (uma carga inteira é CIF ou FOB, não pedido a pedido):
+   - Se todos os itens com `tipo_frete` preenchido na carga forem CIF → carga CIF.
+   - Se todos forem FOB → carga FOB.
+   - Misto → marcar como `misto` (raríssimo, mas tratamos).
+   - Nenhum item classificado → `nao_classificado`.
+3. Aceitar parâmetro novo `filtroTipoFrete: "cif" | "todos" | "nao_classificado"` (default: `cif`).
+4. Filtrar cargas de acordo com o parâmetro antes de acumular previsto/realizado por vendedor.
+5. Anotar em cada `GastoDetalhe` o `tipo_frete_carga` para exibir badge.
+6. Calcular um resumo de cobertura: quantas cargas CIF, FOB, mistas, não classificadas no período (para mostrar no UI e alertar quando há muito "não classificado").
 
-## Mudanças
+### Mudanças na UI `GastosVendedorTab.tsx`
 
-### 1. Hook `useGastosVendedor.ts` (reescrita)
+1. **Toggle de tipo de frete** ao lado dos filtros: `Apenas CIF` (padrão) | `Não classificado` | `Todos`.
+2. **Card de cobertura** no topo: "X cargas CIF · Y FOB · Z não classificadas — considere preencher Tipo de Frete nos pedidos para precisão".
+3. **Badge** na linha de cada carga expandida: `CIF` (verde), `FOB` (cinza), `MISTO` (amarelo), `?` (slate) quando não classificado.
+4. KPIs de Previsto/Realizado/Divergência refletem só as cargas filtradas.
 
-Trocar consulta principal:
+### Onde o `tipo_frete` é definido
+O campo já existe em `carregamentos_dia` e é editável pelo formulário de pedidos. Não precisa migração. Como melhoria adicional opcional (NÃO incluída agora), podemos adicionar default por cliente (campo `tipo_frete_padrao` em `clientes`) — pergunta no final.
 
-- **Antes:** parte de `ctes_dacte`.
-- **Depois:** parte de `carregamentos_dia` onde `etapa = 'logistica'` e `data BETWEEN di AND df`, agrupando por `carga_id`.
+### Arquivos a editar
+- `src/hooks/useGastosVendedor.ts` — adicionar lógica de classificação + filtro.
+- `src/components/logistica/GastosVendedorTab.tsx` — toggle, card cobertura, badge.
 
-Algoritmo:
+### Pergunta antes de implementar
+Cargas **não classificadas** (sem `tipo_frete` em nenhum item) — o que fazer no padrão?
+- (A) Tratar como CIF (incluir nos gastos) — risco de inflar números.
+- (B) Esconder por padrão, mostrar com toggle "Incluir não classificadas" — mais conservador, sugiro este.
+- (C) Tratar como FOB (excluir totalmente).
 
-```text
-Para cada carga:
-  carga_meta = { tipo_caminhao, transportadora, ordem_carga, nome_carga, data }
-  destinos = group_by(pedidos, cidade+uf)
-  para cada destino:
-    valor_kg = lookup tabela_frete(cidade, uf, tipo_caminhao_normalizado)
-    frete_destino = peso_total_destino * valor_kg
-    para cada vendedor no destino:
-      share = peso_vend / peso_total_destino
-      rateio = share * frete_destino
-      acumula em vendedor
-  cte = ctes_dacte where carga_id = carga.id (opcional)
-  carga.realizado = sum(cte.valor_frete) se houver
-```
-
-Normalização `tipo_caminhao` → `tipo_veiculo` da tabela: `bitruck`, `carreta` (regex/lookup; default `bitruck` se não bater).
-
-Detalhe por carga passa a mostrar:
-- `previsto` (calculado), `realizado` (CT-e se existir), `divergencia` em R$ e %.
-- Quebra por destino com `valor_kg`, `peso`, `frete`.
-- Aviso se algum destino não tem tarifa cadastrada (frete = 0, badge laranja).
-
-### 2. Tipos
-
-`GastoDetalhe` ganha:
-- `previsto: number`, `realizado: number | null`, `divergencia_pct: number | null`
-- `destinos: Array<{ cidade, uf, peso, valor_kg, frete, sem_tarifa }>`
-
-`GastoVendedor` ganha:
-- `frete_previsto: number`, `frete_realizado: number`, `cobertura_cte_pct: number` (% das cargas com CT-e).
-
-### 3. UI `GastosVendedorTab.tsx`
-
-- KPIs no topo: **Previsto**, **Realizado**, **Divergência** (R$ e %), **Peso total**.
-- Tabela: coluna "Frete rateado" vira **"Previsto"**; nova coluna **"Realizado"** + **"Divergência"** (verde se realizado ≤ previsto, vermelho se >).
-- Linha expandida por carga mostra:
-  - `Tipo: Bitruck/Carreta · OC: ABC123 · Status CT-e: vinculado/sem CT-e`
-  - Tabela de destinos: cidade/UF · peso · R$/kg · frete · ⚠ se sem tarifa
-  - Pedidos do vendedor (mantém atual).
-- Filtro extra: **"Apenas cargas sem tarifa"** (destaca lacunas na `tabela_frete`).
-
-### 4. Edge case — sem `tabela_frete`
-
-Se nenhuma tarifa bater para um destino, `previsto` daquela parcela = 0 e a UI mostra um alerta com link "Cadastrar tarifa" (vai para aba `Tabela de Frete` já filtrada por aquele destino).
-
-### 5. Sem migração de schema
-
-Não precisa mexer no banco — toda lógica é client-side baseada em tabelas existentes (`carregamentos_dia`, `tabela_frete`, `ctes_dacte`).
-
-## Comportamento esperado
-
-```text
-Carga MG-Norte (Bitruck, OC-1234)
-├── Uberlândia/MG  600kg × R$0,45 = R$ 270,00
-│   ├─ Vendedor A  400kg → R$ 180,00
-│   └─ Vendedor B  200kg → R$  90,00
-└── Patos/MG       400kg × R$0,60 = R$ 240,00
-    └─ Vendedor A  400kg → R$ 240,00
-
-Total previsto: R$ 510,00
-CT-e vinculado: R$ 530,00
-Divergência: +R$ 20,00 (+3,9%)
-```
-
-Vendedor A acumula R$ 420 previsto nessa carga; B acumula R$ 90.
-
-## Fora de escopo
-
-- Editar `ordem_carga` retroativa em cargas antigas (tema separado).
-- Regras especiais por forma de pagamento ou cliente.
+Sugiro **(B)**: mostrar só CIF de fato + alerta de cobertura para o usuário ir classificando os pedidos. Confirmar antes de codar?
