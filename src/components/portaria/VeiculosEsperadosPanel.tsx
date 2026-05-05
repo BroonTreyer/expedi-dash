@@ -151,7 +151,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
               </CardTitle>
               <Badge variant="secondary" className="text-[10px] h-5">
                 <CheckCircle2 className="h-3 w-3 mr-0.5" />
-                {totalConferidos}/{veiculos.length} conferidos
+                {totalConferidos}/{totalDoDia} conferidos
               </Badge>
             </div>
             {!readOnly && onClear && (
@@ -180,7 +180,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
             </CardTitle>
             <div className="flex flex-wrap gap-1">
               <Badge variant="secondary" className="text-[10px] h-5">
-                {totalConferidos}/{veiculos.length} conferidos
+                {totalConferidos}/{totalDoDia} conferidos
               </Badge>
               {pendentes > 0 && (
                 <Badge variant="outline" className="text-[10px] h-5 border-amber-300 text-amber-700 dark:text-amber-400">
