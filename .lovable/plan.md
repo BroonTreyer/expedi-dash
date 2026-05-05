@@ -1,49 +1,32 @@
+Diagnóstico confirmado:
 
-## Tarifa por UF (cidade opcional)
+- No banco, o pedido SENDAS FEIRA DE SANTANA de 30/04, nº 104, está correto: 4 linhas somando 29.000 kg.
+- O problema não é mais cache do navegador: a requisição da tela estava buscando linhas individuais de `carregamentos_dia`, e a visualização/listagem consegue exibir itens parciais do mesmo pedido/carga, dando a impressão de 9k quando deveria consolidar o pedido inteiro.
+- A correção deve ser na lógica de consolidação da aba “Gastos por Vendedor”, não com botão manual.
 
-Hoje toda linha da tabela exige `destino_cidade` + `destino_uf`. A proposta torna a cidade opcional: se ficar em branco, a linha vale como **tarifa padrão da UF** e cobre qualquer cidade daquele estado que não tenha linha específica.
+Plano de correção:
 
-### Regra de resolução (precedência)
+1. Ajustar `src/hooks/useGastosVendedor.ts`
+   - Antes de montar os detalhes por carga/destino/vendedor, consolidar os registros por chave lógica de pedido/produto:
+     - prioridade: `operation_id` quando existir;
+     - fallback: `data + numero_pedido + vendedor_id + codigo_cliente + carga_id`.
+   - Nos detalhes “Pedidos consolidados deste vendedor na carga”, mostrar cada pedido uma única vez com o peso total somado.
+   - Manter os cálculos de destino/carga/vendedor usando a soma real dos itens, sem duplicar e sem pegar apenas uma linha parcial.
 
-Para cada `(cliente, cidade, UF, veículo)` o sistema escolhe **a linha mais específica** dentre as tabelas vinculadas ao vendedor:
+2. Proteger contra dados afetados por edições antigas
+   - Garantir que a consolidação some todas as linhas do mesmo pedido, inclusive pedidos multi-item antigos que não tenham `operation_id`.
+   - Preservar os campos necessários para tarifa (`cidade`, `uf`, `codigo_cliente`, `tipo_frete`, `vendedor_id`) usando os dados do grupo consolidado.
 
-```
-1. cliente + cidade + UF        (mais específico)
-2. cliente + UF (sem cidade)
-3. cidade + UF (sem cliente)
-4. UF (sem cliente, sem cidade) (coringa)
-```
+3. Reduzir risco de cache velho nessa aba
+   - Trocar a query key de `gastos_vendedor_v5_tabelas` para uma nova versão, por exemplo `gastos_vendedor_v6_consolidado`, forçando o React Query a descartar o resultado antigo.
+   - Atualizar também a invalidação realtime para a nova key.
 
-A detecção de **conflito** continua igual: se duas tabelas vinculadas ao mesmo vendedor produzirem valores diferentes **no mesmo nível de precedência**, marca `conflito: true` e zera o previsto, mostrando os valores divergentes na linha expandida. Uma linha mais específica em outra tabela sempre vence uma menos específica — isso não é conflito.
+4. Corrigir aviso de React no componente `Kpi`
+   - O console mostra “Function components cannot be given refs” em `GastosVendedorTab`.
+   - Vou revisar o uso do `Kpi` e ajustar a estrutura para remover esse warning sem alterar a UI.
 
-### Mudanças
+5. Validação
+   - Verificar que o detalhe do pedido SENDAS nº 104 passa a aparecer como 29.000 kg.
+   - Conferir que os totais por vendedor/carga continuam coerentes e que FOB/misto continuam sendo filtrados como hoje.
 
-**Banco** (`tabelas_frete_itens`)
-- Tornar `destino_cidade` **NULLABLE** (hoje é NOT NULL).
-- Manter `destino_uf` obrigatório.
-- Sem migração de dados (linhas atuais continuam com cidade preenchida).
-
-**UI — Tabela de Frete** (`TabelaFreteTab.tsx`)
-- Campo "Destino" (cidade) passa a ser opcional, com placeholder "(todas as cidades da UF)".
-- Linhas sem cidade aparecem com badge "UF inteira" para ficar visualmente claro.
-- Validação: se cidade vazia, exigir UF; permitir salvar.
-- Busca por destino também encontra as linhas "UF inteira".
-
-**Hook** (`useTabelasFrete.ts`)
-- `useUpsertItem`: deixar de fazer `.trim()` obrigatório em cidade — salvar `null` quando vazio.
-- Ordenação da listagem: linhas "UF inteira" no topo do grupo de cada UF.
-
-**Resolução de tarifas** (`useGastosVendedor.ts`)
-- Reescrever o lookup para tentar as 4 chaves em ordem de precedência e parar na primeira que casar.
-- Conflito só é avaliado entre linhas do mesmo nível.
-
-### Detalhes técnicos
-
-- Migração: `ALTER TABLE tabelas_frete_itens ALTER COLUMN destino_cidade DROP NOT NULL;`
-- Normalização: `codigo_cliente`/`destino_cidade` armazenados como `null` quando vazio (já é o padrão para `codigo_cliente`).
-- Sem alteração em RLS, índices ou hooks de auditoria.
-- A migração da tabela "Padrão" criada anteriormente continua válida — você pode optar por reduzir cidades a uma única linha "UF inteira" depois, manualmente.
-
-### Pós-aprovação
-
-Implemento migração + ajustes de UI + nova lógica de resolução em uma única passada.
+Não vou adicionar nenhum botão novo.

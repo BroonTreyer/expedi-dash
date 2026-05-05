@@ -79,7 +79,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
     const invalidate = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v5_tabelas"] });
+        qc.invalidateQueries({ queryKey: ["gastos_vendedor_v6_consolidado"] });
       }, 1500);
     };
     const channel = supabase
@@ -94,7 +94,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
   }, [session, qc]);
 
   return useQuery({
-    queryKey: ["gastos_vendedor_v5_tabelas", dataInicial, dataFinal],
+    queryKey: ["gastos_vendedor_v6_consolidado", dataInicial, dataFinal],
     enabled: !!session,
     staleTime: 5_000,
     queryFn: async (): Promise<GastosVendedorResult> => {
