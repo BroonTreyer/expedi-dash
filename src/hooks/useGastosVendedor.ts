@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 
 export type TabelaDivergente = { tabela_id: string; nome: string; valor_kg: number };
 
@@ -94,36 +95,29 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
   }, [session, qc]);
 
   return useQuery({
-    queryKey: ["gastos_vendedor_v7_paginado", dataInicial, dataFinal],
+    queryKey: ["gastos_vendedor_v8_paginado", dataInicial, dataFinal],
     enabled: !!session,
     staleTime: 5_000,
     queryFn: async (): Promise<GastosVendedorResult> => {
-      // Paginação manual: o PostgREST aplica um teto por requisição (1000 linhas
-      // por padrão), então buscamos em páginas até esgotar. Sem isso, períodos
-      // grandes ficam com pedidos truncados — ex.: SENDAS aparecia com 9.000 kg
-      // em vez de 29.000 kg porque parte das linhas do mesmo pedido caíam fora
-      // da primeira página.
-      const PAGE = 1000;
-      let from = 0;
-      const items: any[] = [];
-      while (true) {
-        const { data: page, error: iErr } = await supabase
+      // Paginação completa: o PostgREST aplica um teto de 1.000 linhas por
+      // requisição. A ordenação termina em `id` (chave única) para que páginas
+      // consecutivas nunca repitam ou pulem linhas quando há empate em data,
+      // carga e número de pedido. Sem isso, pedidos com várias linhas
+      // (ex.: SENDAS #104) somavam parcialmente — 9.000 em vez de 29.000 kg.
+      const items = await fetchAllPaginated<any>((from, to) =>
+        supabase
           .from("carregamentos_dia")
-          .select("carga_id, nome_carga, ordem_carga, data, tipo_caminhao, tipo_frete, vendedor_id, peso, numero_pedido, cliente, codigo_cliente, cidade, uf")
+          .select("id, carga_id, nome_carga, ordem_carga, data, tipo_caminhao, tipo_frete, vendedor_id, peso, numero_pedido, cliente, codigo_cliente, cidade, uf")
           .eq("etapa", "logistica")
           .not("carga_id", "is", null)
           .gte("data", dataInicial)
           .lte("data", dataFinal)
           .order("data", { ascending: true })
           .order("carga_id", { ascending: true })
-          .order("numero_pedido", { ascending: true })
-          .range(from, from + PAGE - 1);
-        if (iErr) throw iErr;
-        if (!page || page.length === 0) break;
-        items.push(...page);
-        if (page.length < PAGE) break;
-        from += page.length;
-      }
+          .order("numero_pedido", { ascending: true, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       if (!items || items.length === 0) {
         return { vendedores: [], cobertura: { cif: 0, fob: 0, misto: 0, nao_classificado: 0, total: 0 } };
       }
