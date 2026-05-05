@@ -1,48 +1,97 @@
 ## Objetivo
 
-Adicionar campo **Ordem de Carga** no Fechar Carga. Esse número fica gravado em todos os pedidos da carga e, ao importar um DACTE, o usuário digita a Ordem de Carga e o sistema sugere/vincula a carga correspondente automaticamente (busca nas cargas disponíveis).
+Trocar a base de cálculo de **Gastos por Vendedor** de "CT-es importados" para **Cargas Fechadas + Tabela de Frete**. CT-e passa a ser etapa de **conferência** (realizado vs previsto), não a fonte do gasto.
+
+## Lógica nova
+
+Para cada carga fechada (`etapa = 'logistica'`):
+
+1. Agrupar pedidos por **destino** (`cidade` + `uf`).
+2. Para cada destino, buscar valor em `tabela_frete` por `(destino_cidade, destino_uf, tipo_veiculo)` da carga.
+3. **Frete previsto do destino** = `peso_total_destino × valor_kg`.
+4. **Rateio por vendedor** dentro do destino: `peso_vendedor_destino / peso_total_destino × frete_destino`.
+5. Soma por vendedor em todas as cargas do período = **gasto previsto**.
+
+Se a carga já tem CT-e vinculado (via `ordem_carga`), também mostra **realizado** (valor do CT-e) e **divergência %** ao lado do previsto. Se não tem, mostra só previsto.
 
 ## Mudanças
 
-### 1. Migration (schema)
-- `ALTER TABLE carregamentos_dia ADD COLUMN ordem_carga text` + índice.
-- `ALTER TABLE ctes_dacte ADD COLUMN ordem_carga text` + índice.
+### 1. Hook `useGastosVendedor.ts` (reescrita)
 
-### 2. Fechar Carga — `src/components/dashboard/FechamentoLoteDialog.tsx`
-- Novo state `ordemCarga` + `<Input>` "Ordem de Carga *" no bloco "Dados de Transporte" (ao lado de "Nome da Carga").
-- Obrigatório (entra em `canSubmit`).
-- Inclui `ordem_carga` em cada update do batch e atualiza tipo do `onSubmit`.
-- Reset no `useEffect(open)`.
+Trocar consulta principal:
 
-### 3. Tipos / hook
-- `src/hooks/useCarregamentos.ts`: adicionar `ordem_carga?: string | null` ao tipo `Carregamento`.
-- `src/hooks/useCtesDacte.ts`: adicionar `ordem_carga` ao tipo `CteDacteRow`.
+- **Antes:** parte de `ctes_dacte`.
+- **Depois:** parte de `carregamentos_dia` onde `etapa = 'logistica'` e `data BETWEEN di AND df`, agrupando por `carga_id`.
 
-### 4. Vinculação por Ordem de Carga — `useCtesDacte.ts`
-- Nova função `buscarCargaPorOrdem(ordem: string)` → consulta `carregamentos_dia` distinct `(carga_id, nome_carga, placa, transportadora, motorista, data)` onde `ordem_carga ilike %ordem%` e `etapa = 'logistica'`. Retorna lista para autocomplete.
-- `autoVincularCarga` aceita `ordemCarga?`: se informado e match único, retorna `vinculado`. Fallback NF mantido.
-
-### 5. Importar DACTE — `src/components/logistica/ImportarDacteDialog.tsx`
-- Campo manual **Ordem de Carga** com autocomplete (Command/Popover):
-  - Usuário digita → debounce 300ms → busca cargas disponíveis (via `buscarCargaPorOrdem`).
-  - Mostra lista: `Ordem · Nome da carga · Placa · Transp.` Selecionar preenche `carga_id` e `ordem_carga` no registro.
-  - Se nada selecionado mas valor digitado, ainda salva o texto em `ordem_carga` e tenta auto-vincular no insert.
-- Passa `ordem_carga` para `useInsertCteDacte`.
-
-### 6. Tabela de CT-es — `src/components/logistica/CtesDacteTab.tsx`
-- Nova coluna **Ordem** entre "Carga" e "Status".
-- Inclui `ordem_carga` no filtro de busca textual.
-
-## Comportamento
+Algoritmo:
 
 ```text
-Fechar Carga (digita "OC-1234")
-        ↓
-Todos pedidos da carga gravam ordem_carga = "OC-1234"
-        ↓
-Importar DACTE → usuário digita "OC-12" → autocomplete sugere "OC-1234 · Carga MG Norte · ABC1234"
-        ↓
-Selecionado → CT-e fica vinculado àquela carga (status 'vinculado')
+Para cada carga:
+  carga_meta = { tipo_caminhao, transportadora, ordem_carga, nome_carga, data }
+  destinos = group_by(pedidos, cidade+uf)
+  para cada destino:
+    valor_kg = lookup tabela_frete(cidade, uf, tipo_caminhao_normalizado)
+    frete_destino = peso_total_destino * valor_kg
+    para cada vendedor no destino:
+      share = peso_vend / peso_total_destino
+      rateio = share * frete_destino
+      acumula em vendedor
+  cte = ctes_dacte where carga_id = carga.id (opcional)
+  carga.realizado = sum(cte.valor_frete) se houver
 ```
 
-Cargas antigas sem `ordem_carga` continuam usando o fallback por NFs.
+Normalização `tipo_caminhao` → `tipo_veiculo` da tabela: `bitruck`, `carreta` (regex/lookup; default `bitruck` se não bater).
+
+Detalhe por carga passa a mostrar:
+- `previsto` (calculado), `realizado` (CT-e se existir), `divergencia` em R$ e %.
+- Quebra por destino com `valor_kg`, `peso`, `frete`.
+- Aviso se algum destino não tem tarifa cadastrada (frete = 0, badge laranja).
+
+### 2. Tipos
+
+`GastoDetalhe` ganha:
+- `previsto: number`, `realizado: number | null`, `divergencia_pct: number | null`
+- `destinos: Array<{ cidade, uf, peso, valor_kg, frete, sem_tarifa }>`
+
+`GastoVendedor` ganha:
+- `frete_previsto: number`, `frete_realizado: number`, `cobertura_cte_pct: number` (% das cargas com CT-e).
+
+### 3. UI `GastosVendedorTab.tsx`
+
+- KPIs no topo: **Previsto**, **Realizado**, **Divergência** (R$ e %), **Peso total**.
+- Tabela: coluna "Frete rateado" vira **"Previsto"**; nova coluna **"Realizado"** + **"Divergência"** (verde se realizado ≤ previsto, vermelho se >).
+- Linha expandida por carga mostra:
+  - `Tipo: Bitruck/Carreta · OC: ABC123 · Status CT-e: vinculado/sem CT-e`
+  - Tabela de destinos: cidade/UF · peso · R$/kg · frete · ⚠ se sem tarifa
+  - Pedidos do vendedor (mantém atual).
+- Filtro extra: **"Apenas cargas sem tarifa"** (destaca lacunas na `tabela_frete`).
+
+### 4. Edge case — sem `tabela_frete`
+
+Se nenhuma tarifa bater para um destino, `previsto` daquela parcela = 0 e a UI mostra um alerta com link "Cadastrar tarifa" (vai para aba `Tabela de Frete` já filtrada por aquele destino).
+
+### 5. Sem migração de schema
+
+Não precisa mexer no banco — toda lógica é client-side baseada em tabelas existentes (`carregamentos_dia`, `tabela_frete`, `ctes_dacte`).
+
+## Comportamento esperado
+
+```text
+Carga MG-Norte (Bitruck, OC-1234)
+├── Uberlândia/MG  600kg × R$0,45 = R$ 270,00
+│   ├─ Vendedor A  400kg → R$ 180,00
+│   └─ Vendedor B  200kg → R$  90,00
+└── Patos/MG       400kg × R$0,60 = R$ 240,00
+    └─ Vendedor A  400kg → R$ 240,00
+
+Total previsto: R$ 510,00
+CT-e vinculado: R$ 530,00
+Divergência: +R$ 20,00 (+3,9%)
+```
+
+Vendedor A acumula R$ 420 previsto nessa carga; B acumula R$ 90.
+
+## Fora de escopo
+
+- Editar `ordem_carga` retroativa em cargas antigas (tema separado).
+- Regras especiais por forma de pagamento ou cliente.
