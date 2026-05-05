@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,8 +95,8 @@ export function GastosVendedorTab() {
               {data.map((r) => {
                 const open = expanded.has(r.vendedor_id);
                 return (
-                  <>
-                    <TableRow key={r.vendedor_id} className="cursor-pointer hover:bg-muted/40" onClick={() => toggle(r.vendedor_id)}>
+                  <Fragment key={r.vendedor_id}>
+                    <TableRow className="cursor-pointer hover:bg-muted/40" onClick={() => toggle(r.vendedor_id)}>
                       <TableCell>
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); toggle(r.vendedor_id); }}>
                           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -111,7 +111,7 @@ export function GastosVendedorTab() {
                       <TableCell className="text-right tabular-nums">{fmtBRL(r.peso_kg > 0 ? r.frete_rateado / r.peso_kg : 0)}</TableCell>
                     </TableRow>
                     {open && (
-                      <TableRow key={r.vendedor_id + "-det"} className="bg-muted/20 hover:bg-muted/20">
+                      <TableRow className="bg-muted/20 hover:bg-muted/20">
                         <TableCell></TableCell>
                         <TableCell colSpan={7} className="p-0">
                           <div className="p-3 space-y-3">
@@ -153,7 +153,7 @@ export function GastosVendedorTab() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
