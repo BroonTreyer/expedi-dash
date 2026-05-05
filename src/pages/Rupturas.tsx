@@ -730,7 +730,7 @@ function HistoricoMes() {
 /*                              MAIN PAGE                               */
 /* =================================================================== */
 
-export default function Rupturas() {
+function RupturasInner() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
   const isLogistica = role === "logistica";
@@ -818,5 +818,13 @@ export default function Rupturas() {
         onConfirm={handleDeleteConfirm}
       />
     </Layout>
+  );
+}
+
+export default function Rupturas() {
+  return (
+    <RupturasErrorBoundary>
+      <RupturasInner />
+    </RupturasErrorBoundary>
   );
 }
