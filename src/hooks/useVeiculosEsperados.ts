@@ -547,20 +547,30 @@ export function useMarcarConferido() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ placa, dataReferencia }: { placa: string; dataReferencia: string }) => {
-      const { error } = await supabase
+    mutationFn: async (
+      input:
+        | { id: string }
+        | { placa: string; dataReferencia: string }
+    ) => {
+      let q = supabase
         .from("veiculos_esperados" as any)
         .update({
           conferido: true,
           conferido_por: user?.id ?? null,
           conferido_em: new Date().toISOString(),
-        } as any)
-        .eq("data_referencia", dataReferencia)
-        .eq("placa", placa);
+        } as any);
+      if ("id" in input) {
+        q = q.eq("id", input.id);
+      } else {
+        q = q.eq("data_referencia", input.dataReferencia).eq("placa", input.placa);
+      }
+      const { error } = await q;
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria_ativas_patio"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
     },
   });
 }
