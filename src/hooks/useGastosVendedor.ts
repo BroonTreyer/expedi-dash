@@ -67,10 +67,10 @@ function normalizeTipo(t: string | null | undefined): "bitruck" | "carreta" {
 }
 const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 
-export function useGastosVendedor(dataInicial: string, dataFinal: string, filtroTipoFrete: FiltroTipoFrete = "cif") {
+export function useGastosVendedor(dataInicial: string, dataFinal: string) {
   const session = useSession();
   return useQuery({
-    queryKey: ["gastos_vendedor_v3", dataInicial, dataFinal, filtroTipoFrete],
+    queryKey: ["gastos_vendedor_v4_cif_only", dataInicial, dataFinal],
     enabled: !!session,
     staleTime: 30_000,
     queryFn: async (): Promise<GastosVendedorResult> => {
@@ -210,11 +210,8 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string, filtro
         cobertura.total += 1;
         cobertura[tipoFreteCarga] += 1;
 
-        // Filtra
-        if (filtroTipoFrete === "cif" && tipoFreteCarga !== "cif") continue;
-        if (filtroTipoFrete === "incluir_nao_classificado"
-            && tipoFreteCarga !== "cif" && tipoFreteCarga !== "nao_classificado") continue;
-        // "todos" passa tudo
+        // Sempre exclui FOB e misto (que contém FOB).
+        if (tipoFreteCarga === "fob" || tipoFreteCarga === "misto") continue;
 
         const cte = cteMap.get(cid) ?? null;
         // Calcula previsto por destino
