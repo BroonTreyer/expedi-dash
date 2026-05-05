@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { pesoEfetivo } from "@/lib/peso-utils";
+import { fetchAllPaginated } from "@/lib/supabase-paginate";
 
 /**
  * Retorna um Map<`${carga_id}::${data}`, peso_efetivo_total> agregado de
@@ -31,12 +32,15 @@ export function usePesoPorCarga(refs: { carga_id: string; data: string }[]) {
     enabled: !!session && pairs.length > 0,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("carregamentos_dia" as any)
-        .select("carga_id, data, peso, ruptura")
-        .in("carga_id", ids)
-        .in("data", datas);
-      if (error) throw error;
+      const data = await fetchAllPaginated<any>((from, to) =>
+        (supabase as any)
+          .from("carregamentos_dia")
+          .select("carga_id, data, peso, ruptura, id")
+          .in("carga_id", ids)
+          .in("data", datas)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       const map = new Map<string, number>();
       const allowed = new Set(pairs);
       for (const row of (data ?? []) as any[]) {
