@@ -138,7 +138,7 @@ export function PainelChegou({ movimentacoes, now }: Props) {
                 <div className="flex items-center gap-2 shrink-0">
                   <div className={`text-sm font-bold whitespace-nowrap rounded-full px-3 py-1.5 inline-flex items-center gap-1 ${longaEspera ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-black"}`}>
                     <Hourglass className="h-4 w-4" />
-                    {format(ref, "HH:mm")} · {formatTempo(min)}
+                    {format(ref, "dd/MM HH:mm")} · {formatTempo(min)}
                   </div>
                   {canDescartar && (
                     <AlertDialog>
@@ -161,7 +161,7 @@ export function PainelChegou({ movimentacoes, now }: Props) {
                             (o motorista já entrou no pátio por outro registro).
                             <br />
                             <span className="font-medium text-foreground">
-                              Placa {m.placa} · {m.motorista || "sem motorista"} · chegou {format(ref, "HH:mm")}
+                              Placa {m.placa} · {m.motorista || "sem motorista"} · chegou {format(ref, "dd/MM HH:mm")}
                             </span>
                           </AlertDialogDescription>
                         </AlertDialogHeader>

@@ -55,16 +55,21 @@ export default function Expedicao() {
   const refsCargaMov = useMemo(() => {
     const seen = new Set<string>();
     const out: { carga_id: string; data: string }[] = [];
+    const push = (carga_id: string, d: string) => {
+      const k = `${carga_id}::${d}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push({ carga_id, data: d });
+    };
     for (const m of movimentacoes) {
       if (!m.carga_id || !m.data_hora) continue;
       const d = format(new Date(m.data_hora), "yyyy-MM-dd");
-      const k = `${m.carga_id}::${d}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      out.push({ carga_id: m.carga_id, data: d });
+      push(m.carga_id, d);
+      // Também tenta a data selecionada (ex.: chegada em D-1, carga cadastrada em D)
+      push(m.carga_id, dateStr);
     }
     return out;
-  }, [movimentacoes]);
+  }, [movimentacoes, dateStr]);
   const { data: pesoPorCarga } = usePesoPorCarga(refsCargaMov);
 
   // Movimentações enriquecidas com peso vindo da carga (já que m.peso é nulo)
@@ -72,13 +77,17 @@ export default function Expedicao() {
     () =>
       movimentacoes.map((m) => {
         const d = m.data_hora ? format(new Date(m.data_hora), "yyyy-MM-dd") : null;
-        const lookup = m.carga_id && d ? pesoPorCarga?.get(`${m.carga_id}::${d}`) : null;
+        let lookup: number | null | undefined = null;
+        if (m.carga_id && pesoPorCarga) {
+          if (d) lookup = pesoPorCarga.get(`${m.carga_id}::${d}`);
+          if (lookup == null) lookup = pesoPorCarga.get(`${m.carga_id}::${dateStr}`);
+        }
         return {
           ...m,
           peso: m.peso != null ? m.peso : (lookup ?? null),
         };
       }),
-    [movimentacoes, pesoPorCarga]
+    [movimentacoes, pesoPorCarga, dateStr]
   );
   const veiculosEsperados = useMemo(
     () => veiculosEsperadosAll.filter((v) => v.grupo === "TERCEIRIZADO"),
