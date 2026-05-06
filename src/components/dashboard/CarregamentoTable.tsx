@@ -116,7 +116,9 @@ function buildGroups(data: Carregamento[]): Group[] {
       // Unidade visual do pedido = (data + código do cliente).
       // Todos os produtos do mesmo cliente no mesmo dia ficam dentro do
       // mesmo bloco expansível — não tiramos produto de dentro do pedido.
-      const key = `${c.data}__${c.codigo_cliente}`;
+      // Inclui numero_pedido na chave para que pedidos distintos do mesmo
+      // cliente no mesmo dia apareçam como cards/linhas separados.
+      const key = `${c.data}__${c.codigo_cliente}__${c.numero_pedido ?? "sn"}`;
       if (map.has(key)) {
         map.get(key)!.items.push(c);
       } else {
