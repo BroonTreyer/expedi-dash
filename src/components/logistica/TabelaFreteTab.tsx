@@ -315,6 +315,14 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
                         const v = e.target.value.trim();
                         if ((i.codigo_cliente ?? "") !== v) salvarLinha(i, { codigo_cliente: v || null });
                       }} />
+                    {i.codigo_cliente && (() => {
+                      const c = clientesByCodigo.get(i.codigo_cliente.trim());
+                      return c ? (
+                        <div className="text-[11px] text-muted-foreground truncate mt-0.5" title={c.nome}>{c.nome}</div>
+                      ) : (
+                        <div className="text-[11px] text-destructive mt-0.5">Não cadastrado</div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
