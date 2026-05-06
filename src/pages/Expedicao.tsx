@@ -43,7 +43,7 @@ export default function Expedicao() {
         const mDate = m.data_hora ? format(new Date(m.data_hora), "yyyy-MM-dd") : null;
         if (mDate === dateStr) return true;
         // Movimentos de dias anteriores: só se ainda em aberto (não finalizado / sem saída)
-        const aberto = m.etapa_terceirizado !== "finalizado" && !m.horario_saida;
+        const aberto = m.etapa_terceirizado !== "finalizado" && !m.horario_saida_final;
         return aberto;
       }),
     [movimentacoesAll, dateStr]
