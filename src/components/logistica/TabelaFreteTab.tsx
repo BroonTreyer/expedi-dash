@@ -15,6 +15,7 @@ import {
   type TabelaFreteItem,
 } from "@/hooks/useTabelasFrete";
 import { useVendedores } from "@/hooks/useVendedores";
+import { useClientes } from "@/hooks/useClientes";
 import { toast } from "sonner";
 
 export function TabelaFreteTab() {
