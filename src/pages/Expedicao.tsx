@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -27,14 +27,26 @@ export default function Expedicao() {
   const dateStr = format(date, "yyyy-MM-dd");
   const hojeStr = format(today, "yyyy-MM-dd");
 
-  const movimentacoesQ = useMovimentacoes(dateStr, dateStr);
+  // Janela alargada: incluir chegadas em aberto dos últimos 2 dias para que
+  // motoristas que chegaram ontem (sem terem saído) apareçam corretamente
+  // em "Chegou — aguardando liberação" / "No Pátio".
+  const dateFromStr = format(subDays(date, 2), "yyyy-MM-dd");
+  const movimentacoesQ = useMovimentacoes(dateFromStr, dateStr);
   const veiculosEsperadosQ = useVeiculosEsperados(dateStr);
   const movimentacoesAll = movimentacoesQ.data ?? [];
   const veiculosEsperadosAll = veiculosEsperadosQ.data ?? [];
 
   const movimentacoes = useMemo(
-    () => movimentacoesAll.filter((m) => m.categoria === "terceirizado"),
-    [movimentacoesAll]
+    () =>
+      movimentacoesAll.filter((m) => {
+        if (m.categoria !== "terceirizado") return false;
+        const mDate = m.data_hora ? format(new Date(m.data_hora), "yyyy-MM-dd") : null;
+        if (mDate === dateStr) return true;
+        // Movimentos de dias anteriores: só se ainda em aberto (não finalizado / sem saída)
+        const aberto = m.etapa_terceirizado !== "finalizado" && !m.horario_saida;
+        return aberto;
+      }),
+    [movimentacoesAll, dateStr]
   );
 
   // Buscar peso real (somatório de carregamentos_dia) para cada (carga, data)
