@@ -1,21 +1,34 @@
 ## Problema
 
-O Eliseu (QTU3E84) sumiu da tela porque o `PainelChegou` tem um filtro extra que esconde qualquer chegada com mais de **6 horas** sem `horario_entrada` (constante `MAX_AGUARDANDO_MINUTOS = 6 * 60` em `src/components/expedicao/PainelChegou.tsx`).
+No dashboard (print enviado), o bloco "11978 — CEARA ALIMENTOS (SANTA INÊS) · 3 produtos · Pedido 21" agrupa todos os itens do cliente no mesmo dia em um único card. Se o vendedor lançar um **novo pedido** para o mesmo cliente hoje, ele será absorvido nesse mesmo bloco — virando "4 produtos · 2 pedidos" — em vez de aparecer como um pedido independente.
 
-Como o Eliseu chegou ontem às 16:54 e agora são 11:18 do dia seguinte (~18h depois), ele cai fora desse limite e o painel mostra "Ninguém aguardando entrada", mesmo o registro existindo no banco e estando em aberto.
+A causa está em `src/components/dashboard/CarregamentoTable.tsx`, função `buildGroups` (linha ~111):
 
-Esse filtro foi pensado para esconder registros órfãos esquecidos pela portaria, mas agora está mascarando casos reais de motorista que pernoitou aguardando liberação.
+```ts
+const key = `${c.data}__${c.codigo_cliente}`;  // <- ignora numero_pedido
+```
+
+A chave de agrupamento usa apenas `data + codigo_cliente`, então pedidos distintos do mesmo cliente no mesmo dia colapsam num único card.
+
+Outros lugares já tratam pedidos separadamente:
+- `Aprovações` (`src/pages/Aprovacoes.tsx`): chave inclui `numero_pedido` ✅
+- `Meus pedidos` (vendedor): chave inclui `numero_pedido` ✅
+- `Consolidado`: agrupa por `carga_id` (outra dimensão, ok) ✅
+
+Apenas o dashboard principal está colapsando indevidamente.
 
 ## Correção
 
-**Arquivo:** `src/components/expedicao/PainelChegou.tsx`
+**Arquivo:** `src/components/dashboard/CarregamentoTable.tsx`
 
-1. **Remover o filtro de 6 horas** (`MAX_AGUARDANDO_MINUTOS`). A janela de movimentações já está corretamente limitada em `Expedicao.tsx` (D-2 a D, somente em aberto), então não há mais risco de sujeira antiga aparecer.
-2. **Manter o badge de tempo aguardando** — quando passar de algumas horas, exibir em tom mais forte (ex.: vermelho a partir de 6h) para sinalizar visualmente o caso anômalo, mas sem esconder o card.
-3. O botão "Descartar chegada" continua disponível para o caso de registros realmente órfãos.
+1. Alterar a chave em `buildGroups` para incluir `numero_pedido`:
+   ```ts
+   const key = `${c.data}__${c.codigo_cliente}__${c.numero_pedido ?? "sn"}`;
+   ```
+2. Itens sem `numero_pedido` (legado/manual) continuam tratados pelo ramo `singles`, então não há regressão.
 
 ## Resultado esperado
 
-- Eliseu volta a aparecer em "Chegou — aguardando liberação" com badge "16:54 · 18h 24min" destacado em vermelho.
-- KPIs voltam a contar 1 em "Chegou — aguardando..." e 1 em "A carregar" (já estava ok).
-- Marcelo continua exibido normalmente.
+- O pedido atual do CEARÁ ALIMENTOS continua como "Pedido 21 · 3 produtos".
+- Ao lançar um novo pedido hoje para o mesmo cliente, aparece um **segundo card separado** ("Pedido 22 · N produtos"), permitindo edição, status e exclusão independentes.
+- Telas de Aprovações, Meus Pedidos e Consolidado permanecem inalteradas.
