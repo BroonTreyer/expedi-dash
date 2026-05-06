@@ -153,14 +153,32 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
       // tabela_id -> { byCidade: Map<cidade|UF, DestEntry>, byUF: Map<UF, DestEntry> }
       type ItemRow = { valor_kg_bitruck: number; valor_kg_carreta: number };
       type DestEntry = { generic?: ItemRow; porCliente: Map<string, ItemRow> };
-      type TabIdx = { byCidade: Map<string, DestEntry>; byUF: Map<string, DestEntry> };
+      type TabIdx = {
+        byCidade: Map<string, DestEntry>;
+        byUF: Map<string, DestEntry>;
+        // cliente sem destino: vale para qualquer UF/cidade
+        byClienteGlobal: Map<string, ItemRow>;
+      };
       const tabIndex = new Map<string, TabIdx>();
       for (const i of (itensRes.data ?? []) as any[]) {
         if (i.ativo === false) continue;
         const uf = (i.destino_uf ?? "").toUpperCase();
-        if (!uf) continue;
+        const codCliente = i.codigo_cliente ? String(i.codigo_cliente).trim() : "";
+        // Item sem UF e sem cliente é inválido — descarta.
+        if (!uf && !codCliente) continue;
         let tm = tabIndex.get(i.tabela_id);
-        if (!tm) { tm = { byCidade: new Map(), byUF: new Map() }; tabIndex.set(i.tabela_id, tm); }
+        if (!tm) {
+          tm = { byCidade: new Map(), byUF: new Map(), byClienteGlobal: new Map() };
+          tabIndex.set(i.tabela_id, tm);
+        }
+        // Cliente cadastrado sem destino → vale globalmente para esse código
+        if (!uf && codCliente) {
+          tm.byClienteGlobal.set(codCliente, {
+            valor_kg_bitruck: Number(i.valor_kg_bitruck) || 0,
+            valor_kg_carreta: Number(i.valor_kg_carreta) || 0,
+          });
+          continue;
+        }
         const cidadeNorm = norm(i.destino_cidade);
         const target = cidadeNorm
           ? (() => {
@@ -212,7 +230,7 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
 
         // Por nível: respostas[level] = TabelaDivergente[]
         // 0 = cliente + cidade+UF, 1 = cliente + UF, 2 = cidade+UF (genérico), 3 = UF (genérico)
-        const niveis: TabelaDivergente[][] = [[], [], [], []];
+        const niveis: TabelaDivergente[][] = [[], [], [], [], []];
         for (const tid of tabelas) {
           const idx = tabIndex.get(tid);
           if (!idx) continue;
@@ -223,11 +241,13 @@ export function useGastosVendedor(dataInicial: string, dataFinal: string) {
             const v = tipo === "bitruck" ? row.valor_kg_bitruck : row.valor_kg_carreta;
             niveis[level].push({ tabela_id: tid, nome: tabNome.get(tid) ?? "?", valor_kg: v });
           };
-          // Para esta tabela, usa apenas o nível mais específico que ela oferece
+          // Para esta tabela, usa apenas o nível mais específico que ela oferece.
+          // Níveis: 0=cli+cid+UF, 1=cli+UF, 2=cli global, 3=cid+UF, 4=UF
           if (cliente && deCidade?.porCliente.get(cliente)) pick(deCidade.porCliente.get(cliente), 0);
           else if (cliente && deUF?.porCliente.get(cliente)) pick(deUF.porCliente.get(cliente), 1);
-          else if (deCidade?.generic) pick(deCidade.generic, 2);
-          else if (deUF?.generic) pick(deUF.generic, 3);
+          else if (cliente && idx.byClienteGlobal.get(cliente)) pick(idx.byClienteGlobal.get(cliente), 2);
+          else if (deCidade?.generic) pick(deCidade.generic, 3);
+          else if (deUF?.generic) pick(deUF.generic, 4);
         }
         // Escolhe o nível mais específico com respostas
         for (const respostas of niveis) {
