@@ -490,6 +490,24 @@ export function useCargasFechadasAguardando() {
         .from("movimentacoes_portaria")
         .select("id, carga_id, tipo_movimento, horario_entrada, horario_chegada, data_hora, etapa_terceirizado, etapa_carga_propria, horario_real_saida, horario_saida_final, placa")
         .in("carga_id", cargaIds);
+      // Defesa em profundidade: também busca chegadas órfãs (carga_id IS NULL)
+      // por placa, para o caso do trigger não ter propagado o carga_id.
+      const placasCargas = Array.from(new Set(
+        cargasArr.map((c) => (c.placa || "").trim().toUpperCase()).filter(Boolean)
+      ));
+      let movsOrfaos: any[] = [];
+      if (placasCargas.length > 0) {
+        const { data: orfaos } = await supabase
+          .from("movimentacoes_portaria")
+          .select("id, carga_id, tipo_movimento, horario_entrada, horario_chegada, data_hora, etapa_terceirizado, etapa_carga_propria, horario_real_saida, horario_saida_final, placa")
+          .in("placa", placasCargas)
+          .eq("tipo_movimento", "entrada")
+          .is("carga_id", null)
+          .is("horario_entrada", null)
+          .gte("data_hora", new Date(Date.now() - 7 * 86400_000).toISOString());
+        movsOrfaos = orfaos ?? [];
+      }
+      const movsAll = [...((movs ?? []) as any[]), ...movsOrfaos];
       // A presença/ausência da carga neste painel é controlada exclusivamente
       // pelas movimentações reais (`entrada.horario_entrada`). Não usamos mais
       // `veiculos_esperados.conferido` aqui porque agora ele é marcado já no
@@ -533,14 +551,26 @@ export function useCargasFechadasAguardando() {
 
       const entradaPorKey = new Map<string, { id: string; horario_entrada: string | null; horario_chegada: string | null; data_hora: string | null }>();
       const finalizadaKey = new Set<string>();
-      for (const m of ((movs ?? []) as any[])) {
-        if (!m.carga_id) continue;
-        const candidateKeys = keysByCargaId.get(m.carga_id);
+      // Index keys also por placa, para casar movimentos órfãos.
+      const keysByPlaca = new Map<string, Set<string>>();
+      for (const [k, placa] of cargaPlacaByKey.entries()) {
+        const set = keysByPlaca.get(placa) ?? new Set<string>();
+        set.add(k);
+        keysByPlaca.set(placa, set);
+      }
+      for (const m of (movsAll as any[])) {
+        const placaMov = norm(m.placa);
+        let candidateKeys: Set<string> | undefined;
+        if (m.carga_id) {
+          candidateKeys = keysByCargaId.get(m.carga_id);
+        } else if (placaMov) {
+          // Movimento órfão (carga_id null) — casa por placa.
+          candidateKeys = keysByPlaca.get(placaMov);
+        }
         if (!candidateKeys) continue;
         // Resolve qual viagem (key) este movimento pertence, casando placa
         // (quando o movimento traz placa) e janela de data ao redor de cada
         // viagem candidata. Se não há placa no movimento, casa pela janela.
-        const placaMov = norm(m.placa);
         let matchedKey: string | null = null;
         for (const k of candidateKeys) {
           const dCarga = cargaDataByKey.get(k);
@@ -697,7 +727,7 @@ export function useVincularWalkInACarga() {
         .update({ carga_id: input.cargaId } as any)
         .ilike("placa", placaNorm)
         .eq("tipo_movimento", "entrada")
-        .eq("etapa_terceirizado", "chegada")
+        .is("horario_entrada", null)
         .is("carga_id", null);
     },
     onSuccess: () => {
