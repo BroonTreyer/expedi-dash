@@ -60,6 +60,11 @@ export function useEditarPedidoAprovacao() {
             quantidade: it.quantidade,
             peso: it.peso,
             peso_manual: true,
+            // Rebase de baseline: ao editar em Aprovações, o pedido novo é a referência
+            // de demanda. Sem isso, peso_original/quantidade_original ficam com o valor
+            // antigo e a tela "Faltando agora" mostra ruptura maior do que o pedido real.
+            peso_original: it.peso,
+            quantidade_original: it.quantidade,
             preco_unitario: it.preco_unitario || null,
             preco_total: it.preco_total || null,
             motivo_ruptura: it.motivo_ruptura || null,
