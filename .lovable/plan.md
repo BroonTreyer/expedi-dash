@@ -1,28 +1,56 @@
-Plano para corrigir todas as ocorrências do mesmo problema:
+## O que está acontecendo
 
-1. Tornar a busca de `carregamentos_dia` realmente completa e estável
-   - Criar um utilitário reutilizável de paginação para consultas grandes, buscando em páginas de 1.000 linhas até terminar.
-   - Garantir ordenação determinística incluindo uma coluna única (`id`) no final da ordenação. Isso evita perder/duplicar linhas quando vários itens têm a mesma data, carga e número de pedido.
+Quando o motorista chega na empresa **antes** da carga estar pronta, a Portaria registra a chegada (cria um movimento de entrada com `horario_chegada` preenchido e `carga_id = NULL`). Em seguida a Logística vincula a carga.
 
-2. Corrigir `Gastos por Vendedor`
-   - Atualizar `useGastosVendedor.ts` para selecionar também o `id` e ordenar por `data`, `carga_id`, `numero_pedido` e `id`.
-   - Trocar a chave de cache para uma nova versão, forçando atualização limpa no navegador.
-   - Consolidar pedidos usando uma chave mais segura: pedido + código/cliente + cidade/UF, somando todos os itens do mesmo pedido.
-   - Separar cargas por uma chave operacional composta, não apenas por `carga_id`, para evitar misturar cargas com o mesmo nome em dias diferentes.
-   - Manter o cálculo de `Peso vendedor`, `Peso total carga`, destinos e lista de pedidos usando o total consolidado completo.
+O esperado é o card **verde** "Liberar entrada no pátio" (motorista já chegou, só falta liberar). O que aparece é o card azul "Registrar chegada do veículo" como se ele ainda não tivesse chegado.
 
-3. Aplicar a mesma proteção nas outras telas que somam peso/pedidos
-   Vou ajustar consultas que hoje podem truncar dados por limite padrão ou por `.limit(...)` grande demais:
-   - `useRelatorios.ts` — exportações de resumo, rupturas e performance por vendedor.
-   - `useAnalytics.ts` — dashboard analítico período atual e período anterior.
-   - `useCarregamentos.ts` — painel principal e listas de cargas fechadas/aguardando.
-   - `Consolidado.tsx` — visão consolidada e extras de carry-over.
-   - `useCargasDiaExpedicao.ts` e `usePesoPorCarga.ts` — KPIs/pesos da expedição.
-   - `VendedoresPainel.tsx` e `useAprovacoes.ts` — contagens/listagens que dependem de todos os itens.
+## Causa
 
-4. Validação
-   - Conferir no banco que pedidos multi-item, incluindo SENDAS #104, somam todas as linhas.
-   - Abrir `Gastos por Vendedor`, expandir vendedores/cargas e confirmar que os pedidos consolidados exibem o total correto, não apenas uma parte como 9.000 kg.
-   - Verificar que a aba não volta a apresentar erro de React/ref e que as consultas usam paginação completa.
+O hook `useCargasFechadasAguardando` casa o movimento de chegada com a carga **filtrando por `carga_id` no movimento**. Mas quando a carga é vinculada automaticamente pelos gatilhos do banco (`on_carga_fechada`, `vincular_veiculo_esperado_tardio`), eles atualizam só `veiculos_esperados.carga_id` — nunca propagam o `carga_id` para a `movimentacoes_portaria` da chegada já registrada.
 
-Não há alteração de banco necessária; será correção de busca, cache e agrupamento no frontend.
+Resultado: o movimento da chegada fica órfão (`carga_id IS NULL`) e o painel não consegue parear → cai no card azul.
+
+Hoje no banco há 4 chegadas órfãs assim (MACAN/QTU3E84, TREVINHO/MXE9B40, CARLOS MARABA/TWD5I87, ELIAS ROTA/PBV1F92).
+
+A função `useVincularWalkInACarga` (botão manual) já faz esse update, mas só ela. O fluxo automático via trigger não.
+
+## Correção
+
+### 1. Migration SQL — corrigir os gatilhos automáticos
+
+Atualizar as funções `on_carga_fechada()` e `vincular_veiculo_esperado_tardio()` para que, sempre que vincularem uma carga a um walk-in pela placa, também propaguem o `carga_id` para a chegada órfã correspondente:
+
+```sql
+UPDATE movimentacoes_portaria
+SET carga_id = NEW.carga_id
+WHERE upper(trim(placa)) = upper(trim(NEW.placa))
+  AND tipo_movimento = 'entrada'
+  AND horario_entrada IS NULL
+  AND carga_id IS NULL
+  AND data_hora > now() - interval '7 days';
+```
+
+### 2. Migration SQL — backfill dos órfãos
+
+Mesma migration corrige os 4 registros já quebrados, casando placa + carga em etapa `logistica` + janela operacional.
+
+### 3. Defesa em profundidade no frontend
+
+Em `src/hooks/useCarregamentos.ts`, no `useCargasFechadasAguardando`, ampliar o match: quando o movimento tem `carga_id IS NULL` mas a placa bate com a placa da carga e está dentro da janela operacional (-12h / +48h da data da carga), também é considerado a chegada daquela carga.
+
+Assim, mesmo que algo escape do trigger no futuro, o painel não cai mais para o card azul errado.
+
+### 4. Reforço no `useVincularWalkInACarga`
+
+Já faz o update certo, mas hoje só atualiza movimento com `etapa_terceirizado='chegada'`. Vou remover essa restrição e exigir só `tipo_movimento='entrada'` + `horario_entrada IS NULL` + `placa` + `carga_id IS NULL`, para cobrir variações (carga própria também).
+
+## Resultado esperado
+
+- Walk-in chega → card vermelho "Aguardando vínculo" no Pátio Atual.
+- Logística vincula carga → carga sai do vermelho e aparece no painel "Cargas fechadas aguardando veículo" já no estado **âmbar com botão verde "Liberar entrada no pátio"**, mostrando há quanto tempo ele está esperando.
+- Os 4 casos órfãos atuais (MACAN, TREVINHO, CARLOS MARABA, ELIAS ROTA) entram no estado correto imediatamente após a migration.
+
+## Arquivos afetados
+
+- Nova migration SQL (gatilhos + backfill)
+- `src/hooks/useCarregamentos.ts` (match defensivo + reforço do vínculo manual)
