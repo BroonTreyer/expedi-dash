@@ -269,6 +269,15 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
                 <TableCell>
                   <Input placeholder="(qualquer)" className="h-8" value={novo.codigo_cliente}
                     onChange={(e) => setNovo({ ...novo, codigo_cliente: e.target.value })} />
+                  {novoClienteInfo && novoClienteInfo !== "missing" && (
+                    <div className="text-[11px] text-muted-foreground truncate mt-0.5" title={novoClienteInfo.nome}>
+                      {novoClienteInfo.nome}
+                      {novoClienteInfo.cidade ? ` · ${novoClienteInfo.cidade}/${novoClienteInfo.uf ?? ""}` : ""}
+                    </div>
+                  )}
+                  {novoClienteInfo === "missing" && (
+                    <div className="text-[11px] text-destructive mt-0.5">Cliente não cadastrado</div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Input placeholder="Cidade (opcional = UF inteira)" className="h-8" value={novo.destino_cidade}
