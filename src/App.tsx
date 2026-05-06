@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -7,18 +7,21 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuthState, AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
-import { Loader2 } from "lucide-react";
 
 // Auth is kept eager since it's the landing page (LCP)
 import Auth from "./pages/Auth";
 
 // Retry helper for dynamic imports — recovers from stale chunks after deploy/HMR
+const routeFactories: Record<string, () => Promise<{ default: ComponentType<unknown> }>> = {};
+
 const lazyWithRetry = <T extends ComponentType<unknown>>(
+  name: string,
   factory: () => Promise<{ default: T }>,
   retries = 2,
   delay = 400,
-) =>
-  lazy(async () => {
+) => {
+  routeFactories[name] = factory as () => Promise<{ default: ComponentType<unknown> }>;
+  return lazy(async () => {
     let lastErr: unknown;
     for (let i = 0; i <= retries; i++) {
       try {
@@ -34,44 +37,52 @@ const lazyWithRetry = <T extends ComponentType<unknown>>(
     }
     throw lastErr;
   });
+};
+
+/** Pré-carrega o chunk de uma rota (idempotente — o browser cacheia o módulo). */
+export function prefetchRoute(name: string) {
+  const f = routeFactories[name];
+  if (f) f().catch(() => {});
+}
 
 // Lazy-loaded routes
-const Index = lazyWithRetry(() => import("./pages/Index"));
-const Produtos = lazyWithRetry(() => import("./pages/Produtos"));
-const Vendedores = lazyWithRetry(() => import("./pages/Vendedores"));
-const TiposCaminhao = lazyWithRetry(() => import("./pages/TiposCaminhao"));
-const Usuarios = lazyWithRetry(() => import("./pages/Usuarios"));
-const Rupturas = lazyWithRetry(() => import("./pages/Rupturas"));
-const Clientes = lazyWithRetry(() => import("./pages/Clientes"));
-const Consolidado = lazyWithRetry(() => import("./pages/Consolidado"));
-const PortariaCargaPropria = lazyWithRetry(() => import("./pages/PortariaCargaPropria"));
-const PortariaTerceirizado = lazyWithRetry(() => import("./pages/PortariaTerceirizado"));
-const PortariaManual = lazyWithRetry(() => import("./pages/PortariaManual"));
-const PortariaAdmin = lazyWithRetry(() => import("./pages/PortariaAdmin"));
-const Expedicao = lazyWithRetry(() => import("./pages/Expedicao"));
-const RegistroEntrada = lazyWithRetry(() => import("./pages/RegistroEntrada"));
-const Motoristas = lazyWithRetry(() => import("./pages/Motoristas"));
-const MotoristasPainel = lazyWithRetry(() => import("./pages/MotoristasPainel"));
-const Caminhoes = lazyWithRetry(() => import("./pages/Caminhoes"));
-const Cadastros = lazyWithRetry(() => import("./pages/Cadastros"));
-const Analytics = lazyWithRetry(() => import("./pages/Analytics"));
-const Backups = lazyWithRetry(() => import("./pages/Backups"));
-const Relatorios = lazyWithRetry(() => import("./pages/Relatorios"));
-const Logs = lazyWithRetry(() => import("./pages/Logs"));
-const Lixeira = lazyWithRetry(() => import("./pages/Lixeira"));
-const PortalMotorista = lazyWithRetry(() => import("./pages/PortalMotorista"));
-const TemplatesRota = lazyWithRetry(() => import("./pages/TemplatesRota"));
-const Ocorrencias = lazyWithRetry(() => import("./pages/Ocorrencias"));
-const Logistica = lazyWithRetry(() => import("./pages/Logistica"));
-const ManualTecnico = lazyWithRetry(() => import("./pages/ManualTecnico"));
-const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
-const MeuPainel = lazyWithRetry(() => import("./pages/MeuPainel"));
-const VendedoresPainel = lazy(() => import("./pages/VendedoresPainel"));
-const Aprovacoes = lazy(() => import("./pages/Aprovacoes"));
+const Index = lazyWithRetry("/", () => import("./pages/Index"));
+const Produtos = lazyWithRetry("/produtos", () => import("./pages/Produtos"));
+const Vendedores = lazyWithRetry("/vendedores", () => import("./pages/Vendedores"));
+const TiposCaminhao = lazyWithRetry("/tipos-caminhao", () => import("./pages/TiposCaminhao"));
+const Usuarios = lazyWithRetry("/usuarios", () => import("./pages/Usuarios"));
+const Rupturas = lazyWithRetry("/rupturas", () => import("./pages/Rupturas"));
+const Clientes = lazyWithRetry("/clientes", () => import("./pages/Clientes"));
+const Consolidado = lazyWithRetry("/consolidado", () => import("./pages/Consolidado"));
+const PortariaCargaPropria = lazyWithRetry("/portaria", () => import("./pages/PortariaCargaPropria"));
+const PortariaTerceirizado = lazyWithRetry("/portaria/terceirizado", () => import("./pages/PortariaTerceirizado"));
+const PortariaManual = lazyWithRetry("/portaria/manual", () => import("./pages/PortariaManual"));
+const PortariaAdmin = lazyWithRetry("/portaria/admin", () => import("./pages/PortariaAdmin"));
+const Expedicao = lazyWithRetry("/expedicao", () => import("./pages/Expedicao"));
+const RegistroEntrada = lazyWithRetry("/portaria/registro-entrada", () => import("./pages/RegistroEntrada"));
+const Motoristas = lazyWithRetry("/motoristas", () => import("./pages/Motoristas"));
+const MotoristasPainel = lazyWithRetry("/motoristas-painel", () => import("./pages/MotoristasPainel"));
+const Caminhoes = lazyWithRetry("/caminhoes", () => import("./pages/Caminhoes"));
+const Cadastros = lazyWithRetry("/cadastros", () => import("./pages/Cadastros"));
+const Analytics = lazyWithRetry("/analytics", () => import("./pages/Analytics"));
+const Backups = lazyWithRetry("/backups", () => import("./pages/Backups"));
+const Relatorios = lazyWithRetry("/relatorios", () => import("./pages/Relatorios"));
+const Logs = lazyWithRetry("/logs", () => import("./pages/Logs"));
+const Lixeira = lazyWithRetry("/lixeira", () => import("./pages/Lixeira"));
+const PortalMotorista = lazyWithRetry("/portal", () => import("./pages/PortalMotorista"));
+const TemplatesRota = lazyWithRetry("/templates-rota", () => import("./pages/TemplatesRota"));
+const Ocorrencias = lazyWithRetry("/ocorrencias", () => import("./pages/Ocorrencias"));
+const Logistica = lazyWithRetry("/logistica", () => import("./pages/Logistica"));
+const ManualTecnico = lazyWithRetry("/manual-tecnico", () => import("./pages/ManualTecnico"));
+const NotFound = lazyWithRetry("/404", () => import("./pages/NotFound"));
+const MeuPainel = lazyWithRetry("/meu-painel", () => import("./pages/MeuPainel"));
+const VendedoresPainel = lazyWithRetry("/vendedores-painel", () => import("./pages/VendedoresPainel"));
+const Aprovacoes = lazyWithRetry("/aprovacoes", () => import("./pages/Aprovacoes"));
 
+/** Barra de progresso fina no topo (não bloqueia o layout). */
 const PageFallback = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  <div className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-primary/20 overflow-hidden">
+    <div className="h-full w-1/3 bg-primary animate-[loading_1s_ease-in-out_infinite]" />
   </div>
 );
 
@@ -97,6 +108,20 @@ const queryClient = new QueryClient({
 
 function AppRoutes() {
   const auth = useAuthState();
+
+  // Pré-carrega rotas mais usadas após login, em idle, para tornar a navegação instantânea.
+  useEffect(() => {
+    if (!auth?.session) return;
+    const idle = (cb: () => void) => {
+      const ric = (window as any).requestIdleCallback;
+      if (ric) ric(cb, { timeout: 2000 });
+      else setTimeout(cb, 800);
+    };
+    idle(() => {
+      ["/", "/rupturas", "/clientes", "/consolidado", "/logistica", "/expedicao", "/meu-painel", "/portaria", "/analytics", "/relatorios"]
+        .forEach((r) => prefetchRoute(r));
+    });
+  }, [auth?.session]);
 
   return (
     <AuthProvider value={auth}>
