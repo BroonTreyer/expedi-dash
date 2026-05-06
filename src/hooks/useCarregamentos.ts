@@ -727,7 +727,7 @@ export function useVincularWalkInACarga() {
         .update({ carga_id: input.cargaId } as any)
         .ilike("placa", placaNorm)
         .eq("tipo_movimento", "entrada")
-        .eq("etapa_terceirizado", "chegada")
+        .is("horario_entrada", null)
         .is("carga_id", null);
     },
     onSuccess: () => {
