@@ -161,12 +161,23 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
   }, [itens, q]);
 
   const adicionar = () => {
-    if (!novo.destino_uf.trim()) return toast.error("Informe a UF");
+    // Auto-preenche cidade/UF a partir do cliente se vazios
+    let cidade = novo.destino_cidade;
+    let uf = novo.destino_uf;
+    const code = novo.codigo_cliente.trim();
+    if (code) {
+      const c = clientesByCodigo.get(code);
+      if (c) {
+        if (!cidade.trim() && c.cidade) cidade = c.cidade;
+        if (!uf.trim() && c.uf) uf = c.uf;
+      }
+    }
+    if (!uf.trim()) return toast.error("Informe a UF");
     upsert.mutate({
       tabela_id: tabelaId,
       codigo_cliente: novo.codigo_cliente,
-      destino_cidade: novo.destino_cidade,        // pode ser vazio → vira null no hook
-      destino_uf: novo.destino_uf,
+      destino_cidade: cidade,        // pode ser vazio → vira null no hook
+      destino_uf: uf,
       valor_kg_bitruck: Number(novo.b) || 0,
       valor_kg_carreta: Number(novo.c) || 0,
     } as any);
