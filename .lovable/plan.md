@@ -1,44 +1,21 @@
-## Diagnóstico
+## Problema
 
-A lentidão entre telas tem 3 causas reais:
+O Eliseu (QTU3E84) sumiu da tela porque o `PainelChegou` tem um filtro extra que esconde qualquer chegada com mais de **6 horas** sem `horario_entrada` (constante `MAX_AGUARDANDO_MINUTOS = 6 * 60` em `src/components/expedicao/PainelChegou.tsx`).
 
-### 1. Cada página é "lazy" (carregada só quando você clica)
-Toda rota usa `lazyWithRetry` (Index, Rupturas, Clientes, etc.). Quando você muda de tela pela 1ª vez, o navegador precisa **baixar + parsear o JS daquela página** antes de mostrar qualquer coisa. Em conexões fora do escritório isso vira segundos de tela em branco com o spinner.
+Como o Eliseu chegou ontem às 16:54 e agora são 11:18 do dia seguinte (~18h depois), ele cai fora desse limite e o painel mostra "Ninguém aguardando entrada", mesmo o registro existindo no banco e estando em aberto.
 
-### 2. `useClientes` re-baixa **32 mil clientes em loop de páginas de 1.000** toda vez que você abre uma tela que usa clientes (Clientes, Rupturas, Tabela de Frete)
-No `src/hooks/useClientes.ts` está marcado `refetchOnMount: "always"`. Isso anula o cache de 2 minutos: ao entrar na tela, faz ~32 round-trips ao Supabase em sequência antes de renderizar a lista.
+Esse filtro foi pensado para esconder registros órfãos esquecidos pela portaria, mas agora está mascarando casos reais de motorista que pernoitou aguardando liberação.
 
-### 3. Suspense fallback ocupa a tela inteira em branco
-O componente `PageFallback` mostra só um spinner centralizado, dando a sensação de "travou".
+## Correção
 
-## O que vou fazer
+**Arquivo:** `src/components/expedicao/PainelChegou.tsx`
 
-### Correção 1 — Pré-carregar páginas em segundo plano
-Após o login, em `requestIdleCallback`, disparar o `import()` das rotas mais usadas (Index, Rupturas, Clientes, Consolidado, Logística, MeuPainel, Expedição, Portaria). O usuário não percebe — o chunk já estará pronto quando ele clicar.
+1. **Remover o filtro de 6 horas** (`MAX_AGUARDANDO_MINUTOS`). A janela de movimentações já está corretamente limitada em `Expedicao.tsx` (D-2 a D, somente em aberto), então não há mais risco de sujeira antiga aparecer.
+2. **Manter o badge de tempo aguardando** — quando passar de algumas horas, exibir em tom mais forte (ex.: vermelho a partir de 6h) para sinalizar visualmente o caso anômalo, mas sem esconder o card.
+3. O botão "Descartar chegada" continua disponível para o caso de registros realmente órfãos.
 
-### Correção 2 — Pré-carregar a página ao passar o mouse no menu
-No `AppSidebar`, adicionar `onMouseEnter` em cada link que dispara o `import()` da rota correspondente. Em desktop é instantâneo; em mobile (touch), o `onTouchStart` faz a mesma coisa.
+## Resultado esperado
 
-### Correção 3 — Corrigir o cache de Clientes (maior ganho)
-Em `useClientes`:
-- Remover `refetchOnMount: "always"`.
-- Subir `staleTime` de 2min para 10min (clientes mudam pouco).
-- Manter invalidação por mutation (criar/editar/excluir cliente) para garantir frescor quando algo muda.
-
-Resultado: a 1ª visita continua igual, mas Rupturas/Clientes/Tabela de Frete abrem **instantaneamente** nas próximas trocas de tela.
-
-### Correção 4 — Fallback menos "vazio"
-Trocar o `PageFallback` por uma barra fina no topo (estilo Vercel/YouTube), mantendo o layout/sidebar visível em vez de tela em branco. Sensação de transição muito mais rápida.
-
-## Onde vou mexer
-
-- `src/App.tsx` — extrair os `import()` das rotas para uma função `prefetchRoute(name)`, exportar para o Sidebar; trocar `PageFallback` por barra superior.
-- `src/components/AppSidebar.tsx` — adicionar `onMouseEnter` / `onTouchStart` em cada item chamando `prefetchRoute`.
-- `src/hooks/useAuth.ts` (ou um efeito em `App.tsx`) — após sessão pronta, agendar `requestIdleCallback` para pré-carregar as rotas top.
-- `src/hooks/useClientes.ts` — remover `refetchOnMount: "always"` e ajustar `staleTime`.
-
-## O que NÃO vou mexer
-
-- Banco de dados (já está tudo indexado e leve, conforme diagnóstico anterior).
-- Realtime / lógica de negócio.
-- Não vou eliminar o `lazy()` (não vale carregar tudo no boot — só pré-aquecer as mais usadas).
+- Eliseu volta a aparecer em "Chegou — aguardando liberação" com badge "16:54 · 18h 24min" destacado em vermelho.
+- KPIs voltam a contar 1 em "Chegou — aguardando..." e 1 em "A carregar" (já estava ok).
+- Marcelo continua exibido normalmente.
