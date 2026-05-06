@@ -53,6 +53,20 @@ export function PainelChegou({ movimentacoes, now }: Props) {
         !m.horario_entrada &&
         (m.etapa_terceirizado === "chegada" || !!m.horario_chegada),
     )
+    .filter((m) => {
+      // Esconde chegada órfã se já existe outro movimento posterior da mesma
+      // placa (motorista voltou e cumpriu novo ciclo de carga).
+      const placa = (m.placa || "").trim().toUpperCase();
+      if (!placa) return true;
+      const t = new Date(m.horario_chegada || m.data_hora).getTime();
+      const temPosterior = movimentacoes.some(
+        (x) =>
+          x.id !== m.id &&
+          (x.placa || "").trim().toUpperCase() === placa &&
+          new Date(x.data_hora).getTime() > t,
+      );
+      return !temPosterior;
+    })
     .sort(
       (a, b) =>
         new Date(a.horario_chegada || a.data_hora).getTime() -
