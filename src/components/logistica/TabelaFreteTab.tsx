@@ -134,15 +134,15 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
     return m;
   }, [clientes]);
 
-  const novoClienteInfo = useMemo(() => {
-    const code = novo.codigo_cliente.trim();
-    if (!code) return null;
-    return clientesByCodigo.get(code) ?? "missing" as const;
-  }, [novo.codigo_cliente, clientesByCodigo]);
-
   const [q, setQ] = useState("");
   const [novo, setNovo] = useState({ codigo_cliente: "", destino_cidade: "", destino_uf: "", b: "0", c: "0" });
   const [vendOpen, setVendOpen] = useState(false);
+
+  const novoClienteInfo = useMemo(() => {
+    const code = novo.codigo_cliente.trim();
+    if (!code) return null;
+    return clientesByCodigo.get(code) ?? ("missing" as const);
+  }, [novo.codigo_cliente, clientesByCodigo]);
 
   const vinculadosIds = useMemo(() => new Set(vinc.map((v) => v.vendedor_id)), [vinc]);
   const vendedoresVinculados = useMemo(
