@@ -36,8 +36,8 @@ function formatTempo(min: number) {
 const fmtKg = (n: number | null | undefined) =>
   n != null ? `${Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg` : null;
 
-/** Acima desse limite, uma chegada sem entrada é quase certamente "lixo" — não mostramos */
-const MAX_AGUARDANDO_MINUTOS = 6 * 60;
+/** Acima desse limite, destacamos visualmente a espera (mas não escondemos). */
+const ALERTA_AGUARDANDO_MINUTOS = 6 * 60;
 
 export function PainelChegou({ movimentacoes, now }: Props) {
   const { role } = useAuth();
@@ -53,12 +53,6 @@ export function PainelChegou({ movimentacoes, now }: Props) {
         !m.horario_entrada &&
         (m.etapa_terceirizado === "chegada" || !!m.horario_chegada),
     )
-    .filter((m) => {
-      // Esconde chegadas mais antigas que 6h sem entrada — quase sempre são
-      // registros órfãos esquecidos pela portaria.
-      const ref = new Date(m.horario_chegada || m.data_hora);
-      return differenceInMinutes(now, ref) <= MAX_AGUARDANDO_MINUTOS;
-    })
     .sort(
       (a, b) =>
         new Date(a.horario_chegada || a.data_hora).getTime() -
