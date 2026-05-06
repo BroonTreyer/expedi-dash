@@ -141,6 +141,8 @@ function NavNodeRenderer({ node, collapsed, depth, pathname, search, onNavigate 
       <RefLink
         to={{ pathname: pathPart, search: searchPart ? `?${searchPart}` : "" }}
         onClick={onNavigate}
+        onMouseEnter={() => prefetchRoute(pathPart)}
+        onTouchStart={() => prefetchRoute(pathPart)}
         className={cn(
           "relative flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
           collapsed ? "justify-center px-0 py-2.5" : `${padLeft} py-2.5`,
