@@ -88,8 +88,8 @@ export function PainelNoPatio({ movimentacoes, now }: Props) {
                     {m.tipo_caminhao && <span>Tipo: <span className="text-foreground">{m.tipo_caminhao}</span></span>}
                   </div>
                   <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
-                    <span>Chegada: <strong className="text-foreground">{format(new Date(m.horario_chegada || m.data_hora), "HH:mm")}</strong></span>
-                    {m.horario_entrada && <span>Entrada: <strong className="text-foreground">{format(new Date(m.horario_entrada), "HH:mm")}</strong></span>}
+                    <span>Chegada: <strong className="text-foreground">{format(new Date(m.horario_chegada || m.data_hora), "dd/MM HH:mm")}</strong></span>
+                    {m.horario_entrada && <span>Entrada: <strong className="text-foreground">{format(new Date(m.horario_entrada), "dd/MM HH:mm")}</strong></span>}
                   </div>
                 </div>
                 <div className={`text-sm font-bold whitespace-nowrap rounded-full px-3 py-1.5 inline-flex items-center gap-1 ${tempoPill(min)}`}>
