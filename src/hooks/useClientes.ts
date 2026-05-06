@@ -26,8 +26,8 @@ export function useClientes() {
       }
       return allData;
     },
-    staleTime: 2 * 60 * 1000,
-    refetchOnMount: "always",
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
