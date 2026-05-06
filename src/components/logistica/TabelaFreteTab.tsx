@@ -121,6 +121,24 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
   const upsert = useUpsertItem();
   const excluir = useExcluirItem();
   const vincular = useVincularVendedores();
+  const { data: clientes = [] } = useClientes();
+  const clientesByCodigo = useMemo(() => {
+    const m = new Map<string, { nome: string; cidade: string | null; uf: string | null }>();
+    for (const c of clientes as any[]) {
+      m.set(String(c.codigo_cliente).trim(), {
+        nome: c.nome_cliente,
+        cidade: c.cidade ?? null,
+        uf: c.uf ?? null,
+      });
+    }
+    return m;
+  }, [clientes]);
+
+  const novoClienteInfo = useMemo(() => {
+    const code = novo.codigo_cliente.trim();
+    if (!code) return null;
+    return clientesByCodigo.get(code) ?? "missing" as const;
+  }, [novo.codigo_cliente, clientesByCodigo]);
 
   const [q, setQ] = useState("");
   const [novo, setNovo] = useState({ codigo_cliente: "", destino_cidade: "", destino_uf: "", b: "0", c: "0" });
