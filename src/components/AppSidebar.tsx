@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { prefetchRoute } from "@/App";
 import { forwardRef, useState, useEffect, type ReactNode } from "react";
 import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn, BookOpen, History, Trash2, ShieldCheck, User, Inbox, AlertOctagon, Monitor } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
