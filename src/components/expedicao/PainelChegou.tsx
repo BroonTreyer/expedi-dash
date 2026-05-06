@@ -97,11 +97,12 @@ export function PainelChegou({ movimentacoes, now }: Props) {
           lista.map((m, idx) => {
             const ref = new Date(m.horario_chegada || m.data_hora);
             const min = differenceInMinutes(now, ref);
+            const longaEspera = min >= ALERTA_AGUARDANDO_MINUTOS;
             const kg = fmtKg(m.peso);
             return (
               <div
                 key={m.id}
-                className={`rounded-md border border-l-4 border-l-amber-500 ${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} p-3 flex flex-col sm:flex-row sm:items-center gap-2`}
+                className={`rounded-md border border-l-4 ${longaEspera ? "border-l-destructive" : "border-l-amber-500"} ${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} p-3 flex flex-col sm:flex-row sm:items-center gap-2`}
               >
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
@@ -121,7 +122,7 @@ export function PainelChegou({ movimentacoes, now }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="text-sm font-bold whitespace-nowrap rounded-full px-3 py-1.5 inline-flex items-center gap-1 bg-amber-500 text-black">
+                  <div className={`text-sm font-bold whitespace-nowrap rounded-full px-3 py-1.5 inline-flex items-center gap-1 ${longaEspera ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-black"}`}>
                     <Hourglass className="h-4 w-4" />
                     {format(ref, "HH:mm")} · {formatTempo(min)}
                   </div>
