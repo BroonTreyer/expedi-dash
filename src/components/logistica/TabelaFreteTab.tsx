@@ -15,6 +15,7 @@ import {
   type TabelaFreteItem,
 } from "@/hooks/useTabelasFrete";
 import { useVendedores } from "@/hooks/useVendedores";
+import { useClientes } from "@/hooks/useClientes";
 import { toast } from "sonner";
 
 export function TabelaFreteTab() {
@@ -120,10 +121,28 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
   const upsert = useUpsertItem();
   const excluir = useExcluirItem();
   const vincular = useVincularVendedores();
+  const { data: clientes = [] } = useClientes();
+  const clientesByCodigo = useMemo(() => {
+    const m = new Map<string, { nome: string; cidade: string | null; uf: string | null }>();
+    for (const c of clientes as any[]) {
+      m.set(String(c.codigo_cliente).trim(), {
+        nome: c.nome_cliente,
+        cidade: c.cidade ?? null,
+        uf: c.uf ?? null,
+      });
+    }
+    return m;
+  }, [clientes]);
 
   const [q, setQ] = useState("");
   const [novo, setNovo] = useState({ codigo_cliente: "", destino_cidade: "", destino_uf: "", b: "0", c: "0" });
   const [vendOpen, setVendOpen] = useState(false);
+
+  const novoClienteInfo = useMemo(() => {
+    const code = novo.codigo_cliente.trim();
+    if (!code) return null;
+    return clientesByCodigo.get(code) ?? ("missing" as const);
+  }, [novo.codigo_cliente, clientesByCodigo]);
 
   const vinculadosIds = useMemo(() => new Set(vinc.map((v) => v.vendedor_id)), [vinc]);
   const vendedoresVinculados = useMemo(
@@ -142,12 +161,23 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
   }, [itens, q]);
 
   const adicionar = () => {
-    if (!novo.destino_uf.trim()) return toast.error("Informe a UF");
+    // Auto-preenche cidade/UF a partir do cliente se vazios
+    let cidade = novo.destino_cidade;
+    let uf = novo.destino_uf;
+    const code = novo.codigo_cliente.trim();
+    if (code) {
+      const c = clientesByCodigo.get(code);
+      if (c) {
+        if (!cidade.trim() && c.cidade) cidade = c.cidade;
+        if (!uf.trim() && c.uf) uf = c.uf;
+      }
+    }
+    if (!uf.trim()) return toast.error("Informe a UF");
     upsert.mutate({
       tabela_id: tabelaId,
       codigo_cliente: novo.codigo_cliente,
-      destino_cidade: novo.destino_cidade,        // pode ser vazio → vira null no hook
-      destino_uf: novo.destino_uf,
+      destino_cidade: cidade,        // pode ser vazio → vira null no hook
+      destino_uf: uf,
       valor_kg_bitruck: Number(novo.b) || 0,
       valor_kg_carreta: Number(novo.c) || 0,
     } as any);
@@ -239,6 +269,15 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
                 <TableCell>
                   <Input placeholder="(qualquer)" className="h-8" value={novo.codigo_cliente}
                     onChange={(e) => setNovo({ ...novo, codigo_cliente: e.target.value })} />
+                  {novoClienteInfo && novoClienteInfo !== "missing" && (
+                    <div className="text-[11px] text-muted-foreground truncate mt-0.5" title={novoClienteInfo.nome}>
+                      {novoClienteInfo.nome}
+                      {novoClienteInfo.cidade ? ` · ${novoClienteInfo.cidade}/${novoClienteInfo.uf ?? ""}` : ""}
+                    </div>
+                  )}
+                  {novoClienteInfo === "missing" && (
+                    <div className="text-[11px] text-destructive mt-0.5">Cliente não cadastrado</div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Input placeholder="Cidade (opcional = UF inteira)" className="h-8" value={novo.destino_cidade}
@@ -276,6 +315,14 @@ function TabelaDetalhe({ tabelaId, nome, onExcluir }: { tabelaId: string; nome: 
                         const v = e.target.value.trim();
                         if ((i.codigo_cliente ?? "") !== v) salvarLinha(i, { codigo_cliente: v || null });
                       }} />
+                    {i.codigo_cliente && (() => {
+                      const c = clientesByCodigo.get(i.codigo_cliente.trim());
+                      return c ? (
+                        <div className="text-[11px] text-muted-foreground truncate mt-0.5" title={c.nome}>{c.nome}</div>
+                      ) : (
+                        <div className="text-[11px] text-destructive mt-0.5">Não cadastrado</div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
