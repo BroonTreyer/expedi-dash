@@ -234,6 +234,31 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos, ordemCarga: ordemCarga.trim() });
     onOpenChange(false);
 
+    // Salva snapshot da rota planejada (km, custo, duração, ordem) para o histórico
+    if (roteirizacao?.distanciaTotal && roteirizacao.distanciaTotal > 0) {
+      try {
+        await upsertRotaExec.mutateAsync({
+          carga_id: cargaId,
+          data_referencia: dataCarregamento,
+          km_planejado: roteirizacao.distanciaTotal,
+          custo_planejado: roteirizacao.custoCombustivel ?? null,
+          duracao_planejada_min: roteirizacao.tempoTotalMin ?? null,
+          tipo_caminhao: roteirizacao.tipoCaminhao ?? tipoCaminhao,
+          origem: "Goiânia/GO",
+          provider: "ors",
+          ordem_planejada: groups.map((g) => ({
+            ordem: g.ordem,
+            cliente: g.nomeCliente,
+            cidade: g.cidade,
+            uf: g.uf,
+            peso: g.pesoTotal,
+          })) as any,
+        });
+      } catch (e) {
+        console.error("Falha ao salvar histórico de rota:", e);
+      }
+    }
+
     if (onPrintReady) {
       const tipoFreteSet = new Set(items.map((i) => i.tipo_frete).filter(Boolean) as string[]);
       const tipoFreteStr = Array.from(tipoFreteSet).join("/") || undefined;
