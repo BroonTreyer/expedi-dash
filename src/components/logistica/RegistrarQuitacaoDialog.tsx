@@ -1,0 +1,122 @@
+import { useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Copy, CheckCircle2, Printer } from "lucide-react";
+import { toast } from "sonner";
+import { useRegistrarQuitacao, type Adiantamento } from "@/hooks/useAdiantamentos";
+import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+
+const fmtBRL = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
+
+interface Props {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  adiantamentos: Adiantamento[]; // todos da MESMA transportadora
+}
+
+export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: Props) {
+  const { data: transp = [] } = useTransportadorasFinanceiro();
+  const reg = useRegistrarQuitacao();
+  const [obs, setObs] = useState("");
+
+  const transpNome = adiantamentos[0]?.transportadora ?? "";
+  const info = transp.find((t) => t.nome === transpNome) ?? null;
+
+  const totalSaldo = useMemo(
+    () => adiantamentos.reduce((s, a) => s + Number(a.valor_saldo || 0), 0),
+    [adiantamentos],
+  );
+
+  const texto = useMemo(() => {
+    if (adiantamentos.length === 0) return "";
+    const linhas: string[] = [
+      "QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.",
+      "",
+      "VALOR EM ABERTO  | COD   | TRANSPORTADORA | OC",
+    ];
+    for (const a of adiantamentos) {
+      linhas.push(
+        `${fmtBRL(a.valor_saldo).padEnd(15)} | ${(info?.codigo ?? "—").padEnd(5)} | ${a.transportadora.padEnd(14)} | ${a.ordem_carga ?? "—"}`,
+      );
+    }
+    linhas.push("", `*Valor a Pagar: ${fmtBRL(totalSaldo)}*`, "");
+    linhas.push(`Valor Saldo ${fmtBRL(totalSaldo)}`);
+    if (info?.codigo) linhas.push(`Código ${info.codigo} – ${info.nome}`);
+    if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
+    return linhas.join("\n");
+  }, [adiantamentos, info, totalSaldo]);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(texto);
+    toast.success("Texto copiado");
+  };
+
+  if (adiantamentos.length === 0) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Registrar Quitação — {transpNome}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-emerald-700 text-white">
+                <tr>
+                  <th className="px-3 py-2 text-left">Valor em aberto</th>
+                  <th className="px-3 py-2 text-left">COD</th>
+                  <th className="px-3 py-2 text-left">Transportadora</th>
+                  <th className="px-3 py-2 text-left">OC / Lote</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adiantamentos.map((a) => (
+                  <tr key={a.id} className="bg-sky-50/60 border-t">
+                    <td className="px-3 py-2 font-semibold">{fmtBRL(a.valor_saldo)}</td>
+                    <td className="px-3 py-2">{info?.codigo ?? "—"}</td>
+                    <td className="px-3 py-2">{a.transportadora}</td>
+                    <td className="px-3 py-2">{a.ordem_carga ?? a.numero}</td>
+                  </tr>
+                ))}
+                <tr className="bg-foreground text-background font-bold">
+                  <td className="px-3 py-2">{fmtBRL(totalSaldo)}</td>
+                  <td className="px-3 py-2" colSpan={3}>Valor a Pagar</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="text-sm space-y-1 border-t pt-2">
+            <div><strong>Valor Saldo:</strong> {fmtBRL(totalSaldo)}</div>
+            {info?.codigo && <div>Código {info.codigo} – {info.nome}</div>}
+            {info?.pix_chave && <div>Pix: {info.pix_chave}</div>}
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Observações</label>
+            <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} placeholder="Opcional — data da TED, comprovante, etc." />
+          </div>
+        </div>
+
+        <DialogFooter className="flex-wrap gap-2">
+          <Button variant="outline" onClick={copy}><Copy className="h-4 w-4 mr-1" /> Copiar texto</Button>
+          <Button variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4 mr-1" /> Imprimir</Button>
+          <Button
+            onClick={async () => {
+              await reg.mutateAsync({ ids: adiantamentos.map((a) => a.id), observacoes: obs.trim() || undefined });
+              onOpenChange(false);
+              setObs("");
+            }}
+            disabled={reg.isPending}
+          >
+            <CheckCircle2 className="h-4 w-4 mr-1" /> Confirmar Quitação
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
