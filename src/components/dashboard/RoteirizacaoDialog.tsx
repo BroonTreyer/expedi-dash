@@ -206,6 +206,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       setRouteGeometry(undefined);
       setDistanciaTotal(undefined);
       setTrechos(undefined);
+      setBaseline(null);
       setShouldAutoRoute(true);
     }
   }, [open, items]);
