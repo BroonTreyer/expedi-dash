@@ -863,14 +863,13 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               tempoTotalMin={tempoTotalMin}
               horarioRetorno={horarioRetorno}
               onReorder={handleReorderFromMap}
-              pedagios={pedagiosAtual}
+              pedagios={mostrarPedagios ? pedagiosAtual : []}
             />
           </Suspense>
         </div>
 
         {/* Toggle Rápida x Econômica */}
-        {(rotaRapida || rotaEconomica) && (
-          <div className="flex flex-wrap items-center gap-2 -mt-2 px-1">
+        <div className="flex flex-wrap items-center gap-2 -mt-2 px-1">
             <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Trajeto:</span>
             <Button
               type="button"
@@ -881,7 +880,11 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               disabled={!rotaRapida}
             >
               ⚡ Mais Rápida
-              {rotaRapida && <span className="ml-1.5 opacity-80">{rotaRapida.distanciaTotal.toLocaleString("pt-BR")} km · {rotaRapida.duracaoMin} min · {rotaRapida.pedagios.length} ped.</span>}
+              {rotaRapida ? (
+                <span className="ml-1.5 opacity-80">{rotaRapida.distanciaTotal.toLocaleString("pt-BR")} km · {rotaRapida.duracaoMin} min · {rotaRapida.pedagios.length} ped.</span>
+              ) : (
+                <span className="ml-1.5 opacity-60">{isRouting ? "calculando..." : "indisponível"}</span>
+              )}
             </Button>
             <Button
               type="button"
@@ -892,10 +895,17 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               disabled={!rotaEconomica}
             >
               💰 Mais Econômica
-              {rotaEconomica && <span className="ml-1.5 opacity-80">{rotaEconomica.distanciaTotal.toLocaleString("pt-BR")} km · {rotaEconomica.duracaoMin} min · {rotaEconomica.pedagios.length} ped.</span>}
+              {rotaEconomica ? (
+                <span className="ml-1.5 opacity-80">{rotaEconomica.distanciaTotal.toLocaleString("pt-BR")} km · {rotaEconomica.duracaoMin} min · {rotaEconomica.pedagios.length} ped.</span>
+              ) : (
+                <span className="ml-1.5 opacity-60">{isRouting ? "calculando..." : "indisponível"}</span>
+              )}
             </Button>
-          </div>
-        )}
+            <div className="ml-auto flex items-center gap-2">
+              <Label htmlFor="toggle-pedagios-rot" className="text-[11px] uppercase tracking-wide text-muted-foreground cursor-pointer">Pedágios</Label>
+              <Switch id="toggle-pedagios-rot" checked={mostrarPedagios} onCheckedChange={setMostrarPedagios} />
+            </div>
+        </div>
 
         {/* Destination cards with DnD */}
         <div className="border-t border-border pt-3">
