@@ -187,6 +187,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [rotaRapida, setRotaRapida] = useState<RotaVariante | null>(null);
   const [rotaEconomica, setRotaEconomica] = useState<RotaVariante | null>(null);
   const [modoRota, setModoRota] = useState<"rapida" | "economica">("rapida");
+  const [mostrarPedagios, setMostrarPedagios] = useState<boolean>(true);
   // Baseline para comparação Manual vs Otimizada (snapshot da rota anterior)
   const [baseline, setBaseline] = useState<{ km: number; min: number | null; custo: number | null } | null>(null);
 
