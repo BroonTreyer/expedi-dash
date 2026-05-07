@@ -24,6 +24,7 @@ import {
 import { useAnalytics, type AnalyticsFilters } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useRotasExecutadas } from "@/hooks/useRotasExecutadas";
 
 // ── Period options ──
 const PERIOD_OPTIONS = [
