@@ -19,6 +19,7 @@ import { ptBR } from "date-fns/locale";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
 import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
+import { useUpsertRotaExecutada } from "@/hooks/useRotasExecutadas";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
@@ -47,6 +48,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [walkInVinculadoId, setWalkInVinculadoId] = useState<string | null>(null);
   const { user } = useAuth();
   const { data: veiculosNoPatio = [] } = useVeiculosAguardandoVinculo();
+  const upsertRotaExec = useUpsertRotaExecutada();
 
   // Fetch caminhões cadastrados
   const { data: caminhoesCadastrados = [] } = useCaminhoes();
@@ -75,7 +77,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   };
 
   // Use groups from roteirizacao if available, otherwise build from items
-  const groups: RotaGroup[] = useMemo(() => {
+  const initialGroups: RotaGroup[] = useMemo(() => {
     if (roteirizacao?.groups && roteirizacao.groups.length > 0) {
       return roteirizacao.groups;
     }
@@ -94,6 +96,22 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     });
     return Array.from(map.values()).map((g, idx) => ({ ...g, ordem: idx + 1 }));
   }, [roteirizacao, items]);
+
+  // Local mutable copy so user can reorder before fechar
+  const [groups, setGroups] = useState<RotaGroup[]>(initialGroups);
+  useEffect(() => { setGroups(initialGroups); }, [initialGroups]);
+
+  const handleReorder = useCallback((ordemAtual: number, dir: "up" | "down") => {
+    setGroups((prev) => {
+      const idx = prev.findIndex((g) => g.ordem === ordemAtual);
+      if (idx < 0) return prev;
+      const target = dir === "up" ? idx - 1 : idx + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next.map((g, i) => ({ ...g, ordem: i + 1 }));
+    });
+  }, []);
 
   useEffect(() => {
     if (open) {
