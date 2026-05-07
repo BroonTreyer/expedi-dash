@@ -833,7 +833,7 @@ Deno.serve(async (req) => {
         distanciaTotal,
         trechos,
         pedagios,
-        rotas: wantBoth ? {
+        rotas: {
           rapida: vFast ? {
             ordemOtimizada,
             geometria: vFast.geometry,
@@ -850,7 +850,7 @@ Deno.serve(async (req) => {
             trechos: vEcon.trechos,
             pedagios: vEcon.pedagios,
           } : null,
-        } : undefined,
+        },
         estimado,
         origemLat: origemCoords?.lat ?? null,
         origemLng: origemCoords?.lng ?? null,
