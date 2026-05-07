@@ -44,6 +44,12 @@ export interface RoteirizacaoResult {
   trechos?: TrechoInfo[];
   /** BUG 7 FIX: Pre-geocoded coords from edge function to avoid duplicate Nominatim calls */
   coordsCache?: Map<string, { lat: number; lng: number }>;
+  /** Custo de combustível estimado (R$) */
+  custoCombustivel?: number | null;
+  /** Tipo de caminhão usado para o cálculo */
+  tipoCaminhao?: string | null;
+  /** Tempo total estimado em minutos */
+  tempoTotalMin?: number | null;
 }
 
 export interface RotaGroup {
