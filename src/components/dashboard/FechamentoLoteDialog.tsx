@@ -5,7 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package, Link2, LogIn, Clock } from "lucide-react";
+import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical } from "lucide-react";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { MotoristaAutocomplete } from "@/components/portaria/MotoristaAutocomplete";
 import { CaminhaoAutocomplete } from "@/components/portaria/CaminhaoAutocomplete";
 import { cn } from "@/lib/utils";
@@ -22,6 +25,32 @@ import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
 import { useUpsertRotaExecutada } from "@/hooks/useRotasExecutadas";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
+
+/* ─── Sortable destination row ─── */
+function SortableDestRow({ id, group, idx, total, colorClass }: {
+  id: string; group: RotaGroup; idx: number; total: number; colorClass: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-2 px-2 py-1 rounded bg-muted/20 text-xs",
+        isDragging && "z-50 shadow-lg ring-2 ring-primary/30 opacity-90"
+      )}
+    >
+      <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none p-0.5 text-muted-foreground hover:text-foreground" tabIndex={-1}>
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <span className={cn("font-bold w-5 text-center", colorClass)}>{group.ordem}</span>
+      <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+      <span className="truncate flex-1">{group.nomeCliente ?? "Sem cliente"} – {group.cidade}{group.uf ? `/${group.uf}` : ""}</span>
+      <span className="font-mono text-muted-foreground">{group.pesoTotal.toLocaleString("pt-BR")} kg</span>
+    </div>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -112,6 +141,24 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       return next.map((g, i) => ({ ...g, ordem: i + 1 }));
     });
   }, []);
+
+  // DnD setup
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  const dndKey = useCallback((g: RotaGroup) => g.codigoCliente ?? `__sem__${g.ordem}`, []);
+  const sortableIds = useMemo(() => groups.map(dndKey), [groups, dndKey]);
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setGroups((prev) => {
+      const oldIdx = prev.findIndex((g) => dndKey(g) === active.id);
+      const newIdx = prev.findIndex((g) => dndKey(g) === over.id);
+      if (oldIdx < 0 || newIdx < 0) return prev;
+      return arrayMove(prev, oldIdx, newIdx).map((g, i) => ({ ...g, ordem: i + 1 }));
+    });
+  }, [dndKey]);
 
   useEffect(() => {
     if (open) {
@@ -331,19 +378,21 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           </div>
         </div>
 
-        {/* Destinations summary (compact) */}
-        <div className="space-y-1">
-          {groups.map((g, idx) => {
-            const type = idx === 0 ? "text-green-600" : idx === groups.length - 1 ? "text-red-500" : "text-primary";
-            return (
-              <div key={g.codigoCliente ?? idx} className="flex items-center gap-2 px-2 py-1 rounded bg-muted/20 text-xs">
-                <span className={cn("font-bold w-5 text-center", type)}>{g.ordem}</span>
-                <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                <span className="truncate flex-1">{g.nomeCliente ?? "Sem cliente"} – {g.cidade}{g.uf ? `/${g.uf}` : ""}</span>
-                <span className="font-mono text-muted-foreground">{g.pesoTotal.toLocaleString("pt-BR")} kg</span>
+        {/* Destinations summary — drag para reordenar (atualiza ordem_entrega ao fechar) */}
+        <div>
+          <p className="text-[11px] text-muted-foreground mb-1 px-1">Arraste para reordenar — a ordem será gravada ao fechar a carga.</p>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {groups.map((g, idx) => {
+                  const colorClass = idx === 0 ? "text-green-600" : idx === groups.length - 1 ? "text-red-500" : "text-primary";
+                  return (
+                    <SortableDestRow key={dndKey(g)} id={dndKey(g)} group={g} idx={idx} total={groups.length} colorClass={colorClass} />
+                  );
+                })}
               </div>
-            );
-          })}
+            </SortableContext>
+          </DndContext>
         </div>
 
         {/* BUG 7 FIX: Pass coordsCache from roteirizacao to avoid redundant geocoding */}

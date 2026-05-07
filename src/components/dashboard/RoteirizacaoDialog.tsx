@@ -168,6 +168,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   // Coordenadas retornadas pela edge function para pré-popular o geocodeCache do RotaMap
   const [coordsCache, setCoordsCache] = useState<Map<string, { lat: number; lng: number }> | undefined>();
   const [estimado, setEstimado] = useState(false);
+  // Baseline para comparação Manual vs Otimizada (snapshot da rota anterior)
+  const [baseline, setBaseline] = useState<{ km: number; min: number | null; custo: number | null } | null>(null);
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
   const [tipoCaminhaoCusto, setTipoCaminhaoCusto] = useState<string>("");
@@ -204,6 +206,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       setRouteGeometry(undefined);
       setDistanciaTotal(undefined);
       setTrechos(undefined);
+      setBaseline(null);
       setShouldAutoRoute(true);
     }
   }, [open, items]);
@@ -301,6 +304,12 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
 
     setIsRouting(true);
     try {
+      // Salva snapshot atual como baseline (rota manual) antes de otimizar
+      if (distanciaTotal != null && distanciaTotal > 0) {
+        const dirigindo = (trechos ?? []).reduce((s, t) => s + (t.duracao || 0), 0);
+        const minBase = trechos && trechos.length > 0 ? dirigindo + activeGroups.length * 30 : null;
+        setBaseline({ km: distanciaTotal, min: minBase, custo: null });
+      }
       const { data, error } = await supabase.functions.invoke("roteirizar", {
         body: { destinos: destinosParaRoteirizar, origemCidade: "Goiânia", origemUf: "GO" },
       });
@@ -727,6 +736,32 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
             </span>
           )}
         </div>
+
+        {/* Banner: Comparação Manual vs Otimizada */}
+        {baseline && distanciaTotal != null && distanciaTotal > 0 && (() => {
+          const dKm = baseline.km - distanciaTotal;
+          const dMin = baseline.min != null && tempoTotalMin != null ? baseline.min - tempoTotalMin : null;
+          const dCusto = baseline.custo != null && custoCombustivel != null ? baseline.custo - custoCombustivel : null;
+          const economizou = dKm > 0.5;
+          return (
+            <div className={cn(
+              "flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border text-xs",
+              economizou ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                         : "bg-muted/40 border-border text-muted-foreground"
+            )}>
+              <span className="font-semibold">{economizou ? "✓ Otimização economizou:" : "Otimização não reduziu a distância"}</span>
+              {economizou && (
+                <>
+                  <span>{dKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km</span>
+                  {dCusto != null && dCusto > 0 && <span>· R$ {dCusto.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
+                  {dMin != null && dMin > 0 && <span>· {dMin >= 60 ? `${Math.floor(dMin / 60)}h ${dMin % 60}min` : `${dMin} min`}</span>}
+                </>
+              )}
+              <span className="ml-auto opacity-70">Manual: {baseline.km.toLocaleString("pt-BR")} km → Otimizada: {distanciaTotal.toLocaleString("pt-BR")} km</span>
+              <Button variant="ghost" size="sm" className="h-6 text-[11px]" onClick={() => setBaseline(null)}>Dispensar</Button>
+            </div>
+          );
+        })()}
 
         {/* Map */}
         {/* BUG 18 FIX: Suspense fallback height matches RotaMap's h-[320px] (was h-[350px]) */}
