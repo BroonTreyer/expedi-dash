@@ -359,6 +359,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               trechos={roteirizacao?.trechos}
               loading={false}
               coordsCache={roteirizacao?.coordsCache}
+              custoCombustivel={roteirizacao?.custoCombustivel ?? null}
+              tipoCaminhaoLabel={roteirizacao?.tipoCaminhao ?? null}
+              tempoTotalMin={roteirizacao?.tempoTotalMin ?? null}
+              onReorder={handleReorder}
             />
           </Suspense>
         )}
