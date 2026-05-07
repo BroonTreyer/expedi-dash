@@ -1,0 +1,2 @@
+DELETE FROM public.movimentacoes_portaria WHERE id='f9543015-f1de-4552-8015-c0820b4d658e' AND horario_entrada IS NULL;
+DELETE FROM public.veiculos_esperados WHERE id='c284bc3d-c76f-46cb-a627-1fda272ae227';
