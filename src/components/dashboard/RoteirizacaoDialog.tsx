@@ -706,6 +706,28 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
           </Button>
         </div>
 
+        {/* Seletor de tipo de caminhão para custo de combustível */}
+        <div className="flex flex-wrap items-center gap-2 -mt-1">
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Custo de combustível:</span>
+          <Select value={tipoCaminhaoCusto} onValueChange={setTipoCaminhaoCusto}>
+            <SelectTrigger className="h-7 w-auto min-w-[180px] text-xs">
+              <SelectValue placeholder="Selecione o tipo de caminhão..." />
+            </SelectTrigger>
+            <SelectContent>
+              {tiposCaminhao.map((t: any) => (
+                <SelectItem key={t.nome_tipo} value={t.nome_tipo}>
+                  {t.nome_tipo}{t.consumo_km_litro ? ` (${t.consumo_km_litro} km/l)` : " — sem consumo"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {precoCombustivel?.valor_litro && (
+            <span className="text-[11px] text-muted-foreground">
+              Diesel S10: R$ {precoCombustivel.valor_litro.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/L
+            </span>
+          )}
+        </div>
+
         {/* Map */}
         {/* BUG 18 FIX: Suspense fallback height matches RotaMap's h-[320px] (was h-[350px]) */}
         <div>
@@ -719,6 +741,11 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               loading={isRouting}
               coordsCache={coordsCache}
               estimado={estimado}
+              custoCombustivel={custoCombustivel}
+              tipoCaminhaoLabel={tipoCaminhaoCusto || null}
+              tempoTotalMin={tempoTotalMin}
+              horarioRetorno={horarioRetorno}
+              onReorder={handleReorderFromMap}
             />
           </Suspense>
         </div>
