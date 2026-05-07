@@ -34,6 +34,7 @@ import type { Carregamento } from "@/hooks/useCarregamentos";
 import { useCombustivelPreco, calcularCustoCombustivel } from "@/hooks/useCombustivelPreco";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
@@ -50,6 +51,21 @@ export interface RoteirizacaoResult {
   tipoCaminhao?: string | null;
   /** Tempo total estimado em minutos */
   tempoTotalMin?: number | null;
+  /** Variantes de rota retornadas pela edge function */
+  rotas?: {
+    rapida?: RotaVariante | null;
+    economica?: RotaVariante | null;
+  };
+  /** Modo selecionado pelo usuário ("rapida" | "economica") */
+  modoRotaEscolhido?: "rapida" | "economica";
+}
+
+export interface RotaVariante {
+  geometria: [number, number][];
+  distanciaTotal: number;
+  duracaoMin: number;
+  trechos: TrechoInfo[];
+  pedagios: [number, number][];
 }
 
 export interface RotaGroup {
