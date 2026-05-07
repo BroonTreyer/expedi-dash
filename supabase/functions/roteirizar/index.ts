@@ -648,10 +648,61 @@ Deno.serve(async (req) => {
     const wantFast = mode === "both" || mode === "fastest" || !mode;
     const wantEcon = mode === "both" || mode === "cheapest";
 
-    const [vFast, vEcon] = await Promise.all([
+    let [vFast, vEcon] = await Promise.all([
       wantFast ? callOrs("fastest") : Promise.resolve(null),
       wantEcon ? callOrs("shortest") : Promise.resolve(null),
     ]);
+
+    // ── OSRM alternatives fallback ──────────────────────────────────────────
+    // Quando o ORS recusa as duas variantes (ex.: rota > 6.000 km — código 2004),
+    // pedimos ao OSRM público até 3 rotas alternativas e usamos a mais rápida e a
+    // mais curta para preencher os botões "Mais Rápida" / "Mais Econômica".
+    if (wantBoth && !vFast && !vEcon) {
+      try {
+        const coordsStr = allPoints.map((p) => `${p.lng},${p.lat}`).join(";");
+        const osrmAltUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson&steps=false&alternatives=2`;
+        console.log(`[roteirizar] Tentando OSRM alternativas (${allPoints.length} waypoints)`);
+        const osrmAltRes = await fetch(osrmAltUrl, { signal: AbortSignal.timeout(10000) });
+        if (!osrmAltRes.ok) throw new Error(`OSRM alt HTTP ${osrmAltRes.status}`);
+        const osrmAltData = await osrmAltRes.json();
+        const routes: Array<{ geometry: { coordinates: [number, number][] }; distance: number; duration: number; legs: { distance: number; duration: number }[] }> = osrmAltData?.routes ?? [];
+        if (routes.length > 0) {
+          const buildVariant = (route: typeof routes[0]): Variant => {
+            const geometry = (route.geometry.coordinates).map(
+              ([lng, lat]) => [lat, lng] as [number, number]
+            );
+            const distanciaTotalV = Math.round((route.distance / 1000) * 10) / 10;
+            const duracaoMin = Math.round((route.duration ?? 0) / 60);
+            const trechosV: { de: string; para: string; km: number; duracao: number }[] = [];
+            const legs = route.legs || [];
+            for (let i = 0; i < legs.length; i++) {
+              const fromIdx = i - (hasOrigin ? 1 : 0);
+              const toIdx = fromIdx + 1;
+              trechosV.push({
+                de: fromIdx < 0 ? oCidade : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade,
+                para: toIdx >= 0 && toIdx < orderedGroups.length
+                  ? orderedGroups[toIdx]?.members[0]?.cidade ?? ""
+                  : "",
+                km: Math.round((legs[i].distance / 1000) * 10) / 10,
+                duracao: Math.round(legs[i].duration / 60),
+              });
+            }
+            return { geometry, distanciaTotal: distanciaTotalV, duracaoMin, trechos: trechosV, pedagios: [], usedOrs: true };
+          };
+          // Mais Rápida = menor duração; Mais Econômica = menor distância
+          const fastest = [...routes].sort((a, b) => (a.duration ?? 0) - (b.duration ?? 0))[0];
+          const shortest = [...routes].sort((a, b) => a.distance - b.distance)[0];
+          vFast = buildVariant(fastest);
+          // Só preenche econômica se for de fato uma rota diferente da rápida
+          vEcon = shortest === fastest ? null : buildVariant(shortest);
+          console.log(`[roteirizar] OSRM alternativas: ${routes.length} rotas (rápida=${vFast.distanciaTotal}km/${vFast.duracaoMin}min, econômica=${vEcon ? `${vEcon.distanciaTotal}km/${vEcon.duracaoMin}min` : "N/A"})`);
+        } else {
+          console.warn(`[roteirizar] OSRM alternatives sem rotas`);
+        }
+      } catch (e) {
+        console.warn(`[roteirizar] OSRM alternatives falhou: ${(e as Error).message}`);
+      }
+    }
 
     let geometry: [number, number][] = [];
     let distanciaTotal = 0;
