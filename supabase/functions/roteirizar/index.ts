@@ -290,13 +290,21 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function buildCacheKey(origemCidade: string, origemUf: string, destinos: Destino[]): Promise<string> {
+async function buildCacheKey(
+  origemCidade: string,
+  origemUf: string,
+  destinos: Destino[],
+  preserveOrder: boolean,
+): Promise<string> {
   const oNorm = `${normalizarCidade(origemCidade)},${origemUf.toUpperCase().trim()}`;
-  const dNorm = destinos
-    .map((d) => `${normalizarCidade(d.cidade)},${d.uf.toUpperCase().trim()}`)
-    .sort()
-    .join("|");
-  return await sha256Hex(`${oNorm}>>${dNorm}`);
+  const pairs = destinos.map(
+    (d) => `${normalizarCidade(d.cidade)},${d.uf.toUpperCase().trim()}`,
+  );
+  // When preserveOrder is true, the order is meaningful → keep it in the key.
+  // Otherwise we may sort to maximize cache hits (since optimization output is order-invariant).
+  const dNorm = preserveOrder ? pairs.join("|") : [...pairs].sort().join("|");
+  const tag = preserveOrder ? "ORD" : "OPT";
+  return await sha256Hex(`${tag}>>${oNorm}>>${dNorm}`);
 }
 
 async function readRouteCache(cacheKey: string, maxAgeDays = 30): Promise<any | null> {
@@ -386,6 +394,7 @@ Deno.serve(async (req) => {
     const destinos = body?.destinos as Destino[] | undefined;
     const origemCidade = body?.origemCidade as string | undefined;
     const origemUf = body?.origemUf as string | undefined;
+    const preserveOrder = body?.preserveOrder === true;
 
     if (!destinos || destinos.length === 0) {
       return new Response(
@@ -402,7 +411,7 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
 
     // ── CACHE LOOKUP ───────────────────────────────────────────────────────
-    const cacheKey = await buildCacheKey(oCidade, oUf, destinos);
+    const cacheKey = await buildCacheKey(oCidade, oUf, destinos, preserveOrder);
     const cached = await readRouteCache(cacheKey);
     if (cached) {
       console.log(`[roteirizar] Cache hit (${cached.provider}) in ${Date.now() - t0}ms`);
@@ -474,15 +483,23 @@ Deno.serve(async (req) => {
       `[roteirizar] ${geocoded.length} destinations → ${cityGroups.length} unique cities`
     );
 
-    // ── GREEDY + 2-OPT on city groups ─────────────────────────────────────
+    // ── ORDER: preserve user order OR optimize ─────────────────────────────
     const originFallback = origemCoords ?? { lat: -16.6869, lng: -49.2648 };
-    const greedySorted = greedySort(originFallback, [...cityGroups]);
-    const optimizedGroups = twoOptImprove(originFallback, greedySorted);
-
+    let optimizedGroups: typeof cityGroups;
+    if (preserveOrder) {
+      optimizedGroups = cityGroups;
+      console.log(
+        `[roteirizar] preserveOrder=true → keeping user order (${cityGroups.length} cities): ${cityGroups.map((g) => g.cityKey).join(" → ")}`,
+      );
+    } else {
+      const greedySorted = greedySort(originFallback, [...cityGroups]);
+      optimizedGroups = twoOptImprove(originFallback, greedySorted);
+      const twoOptDist = routeDistance(originFallback, optimizedGroups);
+      console.log(
+        `[roteirizar] 2-opt order (${optimizedGroups.length} cities, ${twoOptDist.toFixed(0)}km): ${optimizedGroups.map((g) => g.cityKey).join(" → ")}`,
+      );
+    }
     const twoOptDist = routeDistance(originFallback, optimizedGroups);
-    console.log(
-      `[roteirizar] 2-opt order (${optimizedGroups.length} cities, ${twoOptDist.toFixed(0)}km): ${optimizedGroups.map((g) => g.cityKey).join(" → ")}`
-    );
 
     // Points for ORS: origin + one unique coord per city
     const hasOrigin = !!origemCoords;
@@ -682,7 +699,8 @@ Deno.serve(async (req) => {
       if (body?.destinos?.length) {
         const oCidade = body.origemCidade || "Goiânia";
         const oUf = body.origemUf || "GO";
-        const cacheKey = await buildCacheKey(oCidade, oUf, body.destinos);
+        const preserveOrder = body?.preserveOrder === true;
+        const cacheKey = await buildCacheKey(oCidade, oUf, body.destinos, preserveOrder);
         const stale = await readRouteCacheStale(cacheKey);
         if (stale) {
           console.log(`[roteirizar] Returning STALE cache after error`);
