@@ -27,6 +27,7 @@ import { useTabelasFrete, useTabelaFreteItens } from "@/hooks/useTabelasFrete";
 import { calcularFreteTabela } from "@/lib/calcularFreteTabela";
 import type { RotaVariante } from "./RoteirizacaoDialog";
 import { FreteTabelaCard } from "./FreteTabelaCard";
+import { Switch } from "@/components/ui/switch";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
@@ -150,6 +151,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [rotaRapida, setRotaRapida] = useState<RotaVariante | null>(roteirizacao?.rotas?.rapida ?? null);
   const [rotaEconomica, setRotaEconomica] = useState<RotaVariante | null>(roteirizacao?.rotas?.economica ?? null);
   const [modoRota, setModoRota] = useState<"rapida" | "economica">(roteirizacao?.modoRotaEscolhido ?? "rapida");
+  const [mostrarPedagios, setMostrarPedagios] = useState<boolean>(true);
 
   // Reset quando o dialog reabre com nova roteirização
   useEffect(() => {
@@ -531,26 +533,36 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               tipoCaminhaoLabel={roteirizacao?.tipoCaminhao ?? null}
               tempoTotalMin={tempoTotalLocal ?? null}
               onReorder={handleReorder}
-              pedagios={pedagiosAtual}
+              pedagios={mostrarPedagios ? pedagiosAtual : []}
             />
           </Suspense>
         )}
 
-        {(rotaRapida || rotaEconomica) && (
-          <div className="flex flex-wrap items-center gap-2 px-1">
+        <div className="flex flex-wrap items-center gap-2 px-1">
             <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Trajeto:</span>
             <Button type="button" size="sm" variant={modoRota === "rapida" ? "default" : "outline"}
               className="h-7 text-xs" onClick={() => setModoRota("rapida")} disabled={!rotaRapida}>
               ⚡ Mais Rápida
-              {rotaRapida && <span className="ml-1.5 opacity-80">{rotaRapida.distanciaTotal.toLocaleString("pt-BR")} km · {rotaRapida.duracaoMin} min · {rotaRapida.pedagios.length} ped.</span>}
+              {rotaRapida ? (
+                <span className="ml-1.5 opacity-80">{rotaRapida.distanciaTotal.toLocaleString("pt-BR")} km · {rotaRapida.duracaoMin} min · {rotaRapida.pedagios.length} ped.</span>
+              ) : (
+                <span className="ml-1.5 opacity-60">{isReroteirizando ? "calculando..." : "indisponível"}</span>
+              )}
             </Button>
             <Button type="button" size="sm" variant={modoRota === "economica" ? "default" : "outline"}
               className="h-7 text-xs" onClick={() => setModoRota("economica")} disabled={!rotaEconomica}>
               💰 Mais Econômica
-              {rotaEconomica && <span className="ml-1.5 opacity-80">{rotaEconomica.distanciaTotal.toLocaleString("pt-BR")} km · {rotaEconomica.duracaoMin} min · {rotaEconomica.pedagios.length} ped.</span>}
+              {rotaEconomica ? (
+                <span className="ml-1.5 opacity-80">{rotaEconomica.distanciaTotal.toLocaleString("pt-BR")} km · {rotaEconomica.duracaoMin} min · {rotaEconomica.pedagios.length} ped.</span>
+              ) : (
+                <span className="ml-1.5 opacity-60">{isReroteirizando ? "calculando..." : "indisponível"}</span>
+              )}
             </Button>
-          </div>
-        )}
+            <div className="ml-auto flex items-center gap-2">
+              <Label htmlFor="toggle-pedagios-fech" className="text-[11px] uppercase tracking-wide text-muted-foreground cursor-pointer">Pedágios</Label>
+              <Switch id="toggle-pedagios-fech" checked={mostrarPedagios} onCheckedChange={setMostrarPedagios} />
+            </div>
+        </div>
 
         <FreteTabelaCard groups={groups} tipoCaminhao={tipoCaminhao} />
 
