@@ -1,46 +1,61 @@
-## Problema
+## Objetivo
 
-No `EditarCargaDialog` (Editar Carga), os controles de **ordem de entrega** (badge `#N`, setas ↑/↓ e input numérico) só aparecem quando `podeReordenar` é true, e essa condição exige que **pelo menos um cliente já tenha `ordem_entrega` salvo no banco** (`clienteGroups.some(g => g.ordemAtual !== 9999)`).
+1. Renomear, em Logística → Gastos por Vendedor, os rótulos **"Previsto"** → **"Tabela"** e **"Realizado (CT-e)"** → **"Valor do CT-e"**, com explicação clara da diferença.
+2. Na aba **CT-es / DACTE**, agrupar os CT-es importados em lote por **Ordem de Carga**, mostrando um resumo por OC (em vez de uma linha por CT-e).
 
-Resultado: em cargas que ainda **não foram roteirizadas**, nenhum item tem `ordem_entrega`, então:
-- todos os clientes ficam com `ordemAtual = 9999`,
-- `podeReordenar = false`,
-- a UI esconde os botões e só mostra o aviso pequeno "(roteirize a carga para habilitar reordenação manual)".
+---
 
-Por isso o usuário diz que "não aparece em lugar nenhum".
+## 1) Renomear "Previsto" / "Realizado" e adicionar legenda
 
-## Solução
+Arquivo: `src/components/logistica/GastosVendedorTab.tsx`
 
-Permitir editar a ordem manualmente **sempre que houver 2+ paradas**, independente de roteirização prévia. Quando a carga ainda não tem ordem, atribuímos uma ordem inicial (1, 2, 3…) seguindo a sequência atual (alfabética/inserção) assim que o usuário começa a interagir, e ele pode reorganizar livremente.
+- KPIs (linhas 102–109):
+  - "Previsto" → **"Tabela"**
+  - "Realizado (CT-e)" → **"Valor do CT-e"**
+  - "Divergência" mantém, mas o `sub` passa a ser `"Valor CT-e − Tabela"`.
+- Cabeçalhos da tabela (linhas 128–129): "Previsto" → "Tabela"; "Realizado" → "Valor do CT-e".
+- Detalhes expandidos (linhas 207, 209): mesmos rótulos.
+- Adicionar abaixo dos KPIs um pequeno bloco explicativo (ícone `Info`):
+  > **Tabela**: valor calculado pela tabela de frete cadastrada (R$/kg × peso por destino, conforme tipo de caminhão).
+  > **Valor do CT-e**: valor efetivamente cobrado pela transportadora, lido dos DACTEs importados.
+  > **Divergência**: `Valor do CT-e − Tabela` (positivo = cobrado a mais que a tabela).
 
-## Mudanças
+Os mesmos rótulos no card "Pedidos consolidados deste vendedor na carga" (Cargas em Andamento do Vendedor — imagem enviada) também serão atualizados onde aparecerem "Previsto/Realizado" referindo-se a frete. Vou checar `CargasAndamentoVendedor.tsx` e ajustar lá também caso use os mesmos rótulos.
 
-### `src/components/dashboard/EditarCargaDialog.tsx`
+## 2) Agrupar CT-es por Ordem de Carga na aba CT-es / DACTE
 
-1. **Trocar a condição de `podeReordenar`** para depender apenas do número de paradas:
-   ```ts
-   const podeReordenar = totalParadas >= 2;
-   ```
+Arquivo: `src/components/logistica/CtesDacteTab.tsx`
 
-2. **Atribuir ordem padrão** quando nenhum cliente tem ordem ainda. No cálculo de `clienteGroups`, se `ordemPorCliente[k]` for indefinido **e nenhum cliente do grupo tem ordem salva**, usar a posição sequencial (1..N) na ordem atual da lista (que já vem ordenada por `ordem_entrega` ou pela ordem natural dos itens).
-   - Manter `ordemAtual: ordemPorCliente[k] ?? <fallbackPos>` no objeto.
-   - O fallback é só visual — só vira update no banco se o usuário **reordenar** (clica nas setas / muda input). Para isso, adicionar um estado `dirty: boolean` que vira true ao chamar `reorderTo`.
+Hoje a aba lista **uma linha por CT-e**. Quando se sobe um lote (ex.: OC 129206 com 8+ CT-es), fica poluído.
 
-3. **Persistir somente quando dirty**: em `handleSave`, montar `ordemUpdates` com **todas** as paradas (1..N) se `dirty === true`, mesmo as que tinham `ordem_entrega = null`. Caso contrário, não enviar `ordemUpdates` (preserva comportamento atual).
+Nova estrutura:
 
-4. **Remover/atualizar o aviso** "(roteirize a carga…)" — substituir por um texto curto: "Use ↑/↓ ou digite a posição para reordenar as paradas".
+- Adicionar **toggle** no topo: `[ Por Ordem de Carga ] [ Lista (CT-e a CT-e) ]` (default = Por OC).
+- No modo **Por OC**, agrupar `data` por `ordem_carga` (CT-es sem OC vão para um grupo "Sem ordem"):
+  - Linha-resumo por OC mostrando:
+    - `OC <numero>` + nome da carga (se disponível via `carga_id` join — usaremos o que já vem em `ordem_carga` direto, e buscaremos `nome_carga` via lookup quando `carga_id` existir).
+    - Transportadora (consolidada; se >1 mostra "vários").
+    - Placa (idem).
+    - Destinos (lista única "BARREIRAS/BA, CORRENTE/PI").
+    - Qtd de CT-es.
+    - **Peso total (kg)**.
+    - **Frete total (R$)**.
+    - Status agregado: `vinculado` se todos vinculados; `divergente` se algum divergente; senão `pendente`.
+  - Linha expansível (▶) revela a tabela atual com todos os CT-es daquela OC (mesmo conteúdo de hoje), para auditoria, com botões de PDF e excluir individuais.
+  - **Excluir OC inteira**: botão na linha-resumo que apaga em lote todos os CT-es daquela OC (com `confirm`).
+- No modo **Lista**, mantém o comportamento atual.
 
-5. **Badge "—" some**: como toda parada agora terá uma posição visível (real ou inicial), exibir sempre `#N` no cabeçalho de cada cliente.
+Implementação:
+- `useMemo` para criar `Map<ordemCarga, { ctes: CteDacteRow[], peso, frete, transportadoras: Set, placas: Set, destinos: Set, status }>` a partir de `filtered`.
+- Estado `viewMode: "ordem" | "lista"` e `expanded: Set<string>`.
+- Mutação adicional `useDeleteCtesByOrdem` (ou reutilizar `useDeleteCteDacte` em loop) para apagar em lote — preferir um único `delete().in('id', ids)` para ser uma chamada só. Adicionar isso em `useCtesDacte.ts`.
+- Filtro de busca continua funcionando: o agrupamento é feito **depois** do `filtered`, então buscar por OC/CT-e/destino reduz os grupos automaticamente.
 
-### Sem outras mudanças
+## Resumo das alterações de arquivos
 
-- `Consolidado.tsx` já aceita `ordemUpdates` no `editCargaMut` e grava em `carregamentos_dia.ordem_entrega` — não precisa mexer.
-- Sem migração de banco: o campo `ordem_entrega` já existe e aceita inteiros.
-- Sem mudança em `Index.tsx` ou outras telas.
+- `src/components/logistica/GastosVendedorTab.tsx` — renomear rótulos + bloco explicativo.
+- `src/components/vendedor/CargasAndamentoVendedor.tsx` — renomear rótulos equivalentes (se existirem).
+- `src/components/logistica/CtesDacteTab.tsx` — toggle de visualização + agrupamento por OC + exclusão em lote.
+- `src/hooks/useCtesDacte.ts` — adicionar `useDeleteCtesByIds(ids[])` para excluir um grupo de CT-es.
 
-## Resultado esperado
-
-Ao abrir **Editar Carga** em qualquer carga com 2+ clientes, o usuário verá imediatamente:
-- Cada parada com badge `#1`, `#2`, `#3`…
-- Setas ↑/↓ e input numérico ativos para reordenar.
-- Ao salvar, a nova ordem é gravada em `ordem_entrega` de todos os itens daquele cliente.
+Sem mudanças de banco, sem migrations.

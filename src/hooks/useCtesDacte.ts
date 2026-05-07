@@ -153,3 +153,20 @@ export function useDeleteCteDacte() {
     onError: (e: any) => toast.error(e.message ?? "Erro"),
   });
 }
+
+export function useDeleteCtesByIds() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return 0;
+      const { error } = await (supabase as any).from("ctes_dacte").delete().in("id", ids);
+      if (error) throw error;
+      return ids.length;
+    },
+    onSuccess: (n) => {
+      qc.invalidateQueries({ queryKey: ["ctes_dacte"] });
+      toast.success(`${n} CT-e(s) removido(s)`);
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro"),
+  });
+}
