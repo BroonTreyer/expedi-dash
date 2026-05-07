@@ -1,61 +1,139 @@
-## Objetivo
 
-1. Renomear, em Logística → Gastos por Vendedor, os rótulos **"Previsto"** → **"Tabela"** e **"Realizado (CT-e)"** → **"Valor do CT-e"**, com explicação clara da diferença.
-2. Na aba **CT-es / DACTE**, agrupar os CT-es importados em lote por **Ordem de Carga**, mostrando um resumo por OC (em vez de uma linha por CT-e).
+## Fluxo de Adiantamento de Frete
 
----
+Replica o que hoje é feito manualmente no WhatsApp: agrupar CT-es por transportadora, calcular adiantamento (% editável), gerar comprovante para o financeiro transferir e, depois, dar baixa na quitação do saldo.
 
-## 1) Renomear "Previsto" / "Realizado" e adicionar legenda
+### 1. Cadastro de Transportadoras (novo)
 
-Arquivo: `src/components/logistica/GastosVendedorTab.tsx`
+Nova tabela `transportadoras_financeiro` com:
+- `nome` (único, normalizado UPPER)
+- `codigo` (ex: "27308")
+- `cnpj`, `pix_chave`, `pix_tipo` (cpf/cnpj/email/telefone/aleatoria)
+- `banco`, `agencia`, `conta` (opcionais)
+- `percentual_adiantamento_padrao` (default 50)
+- `ativo`
 
-- KPIs (linhas 102–109):
-  - "Previsto" → **"Tabela"**
-  - "Realizado (CT-e)" → **"Valor do CT-e"**
-  - "Divergência" mantém, mas o `sub` passa a ser `"Valor CT-e − Tabela"`.
-- Cabeçalhos da tabela (linhas 128–129): "Previsto" → "Tabela"; "Realizado" → "Valor do CT-e".
-- Detalhes expandidos (linhas 207, 209): mesmos rótulos.
-- Adicionar abaixo dos KPIs um pequeno bloco explicativo (ícone `Info`):
-  > **Tabela**: valor calculado pela tabela de frete cadastrada (R$/kg × peso por destino, conforme tipo de caminhão).
-  > **Valor do CT-e**: valor efetivamente cobrado pela transportadora, lido dos DACTEs importados.
-  > **Divergência**: `Valor do CT-e − Tabela` (positivo = cobrado a mais que a tabela).
+Página nova **Cadastros → Transportadoras** (lista + dialog editar). Acesso: admin/logistica.
 
-Os mesmos rótulos no card "Pedidos consolidados deste vendedor na carga" (Cargas em Andamento do Vendedor — imagem enviada) também serão atualizados onde aparecerem "Previsto/Realizado" referindo-se a frete. Vou checar `CargasAndamentoVendedor.tsx` e ajustar lá também caso use os mesmos rótulos.
+### 2. Tabelas de Adiantamento e Quitação (novas)
 
-## 2) Agrupar CT-es por Ordem de Carga na aba CT-es / DACTE
+**`adiantamentos_frete`** — um registro por lote enviado ao financeiro:
+- `id`, `numero` (sequencial diário tipo `ADT-YYYYMMDD-001`)
+- `transportadora`, `transportadora_id` (FK lógica)
+- `tipo_agrupamento` ('ordem' | 'lote')
+- `ordem_carga` (quando agrupamento por OC)
+- `valor_total_ctes` (soma dos CT-es)
+- `percentual` (editável por lote)
+- `valor_adiantamento` (= total × %)
+- `valor_saldo` (= total − adiantamento)
+- `status` ('pendente' | 'pago' | 'quitado' | 'cancelado')
+- `pago_em`, `pago_por`, `comprovante_pagamento_url` (opcional)
+- `quitado_em`, `quitado_por`, `comprovante_quitacao_url`
+- `observacoes`, `created_at`, `created_by`
 
-Arquivo: `src/components/logistica/CtesDacteTab.tsx`
+**`adiantamentos_frete_ctes`** — n:n entre adiantamento e CT-es:
+- `adiantamento_id`, `cte_id` (UNIQUE pra impedir o mesmo CT-e em 2 lotes abertos)
 
-Hoje a aba lista **uma linha por CT-e**. Quando se sobe um lote (ex.: OC 129206 com 8+ CT-es), fica poluído.
+RLS: admin/logistica fazem tudo; faturamento lê e marca como pago/quitado.
 
-Nova estrutura:
+### 3. UI — Nova aba "Adiantamentos" em `/logistica`
 
-- Adicionar **toggle** no topo: `[ Por Ordem de Carga ] [ Lista (CT-e a CT-e) ]` (default = Por OC).
-- No modo **Por OC**, agrupar `data` por `ordem_carga` (CT-es sem OC vão para um grupo "Sem ordem"):
-  - Linha-resumo por OC mostrando:
-    - `OC <numero>` + nome da carga (se disponível via `carga_id` join — usaremos o que já vem em `ordem_carga` direto, e buscaremos `nome_carga` via lookup quando `carga_id` existir).
-    - Transportadora (consolidada; se >1 mostra "vários").
-    - Placa (idem).
-    - Destinos (lista única "BARREIRAS/BA, CORRENTE/PI").
-    - Qtd de CT-es.
-    - **Peso total (kg)**.
-    - **Frete total (R$)**.
-    - Status agregado: `vinculado` se todos vinculados; `divergente` se algum divergente; senão `pendente`.
-  - Linha expansível (▶) revela a tabela atual com todos os CT-es daquela OC (mesmo conteúdo de hoje), para auditoria, com botões de PDF e excluir individuais.
-  - **Excluir OC inteira**: botão na linha-resumo que apaga em lote todos os CT-es daquela OC (com `confirm`).
-- No modo **Lista**, mantém o comportamento atual.
+Adicionar aba ao lado de "CT-es", "Tabela de Frete", "Gastos por Vendedor".
 
-Implementação:
-- `useMemo` para criar `Map<ordemCarga, { ctes: CteDacteRow[], peso, frete, transportadoras: Set, placas: Set, destinos: Set, status }>` a partir de `filtered`.
-- Estado `viewMode: "ordem" | "lista"` e `expanded: Set<string>`.
-- Mutação adicional `useDeleteCtesByOrdem` (ou reutilizar `useDeleteCteDacte` em loop) para apagar em lote — preferir um único `delete().in('id', ids)` para ser uma chamada só. Adicionar isso em `useCtesDacte.ts`.
-- Filtro de busca continua funcionando: o agrupamento é feito **depois** do `filtered`, então buscar por OC/CT-e/destino reduz os grupos automaticamente.
+**Tela principal** com 3 sub-abas:
 
-## Resumo das alterações de arquivos
+```text
+[ A Pagar ]   [ Pagos / Aguardando Quitação ]   [ Quitados ]
+```
 
-- `src/components/logistica/GastosVendedorTab.tsx` — renomear rótulos + bloco explicativo.
-- `src/components/vendedor/CargasAndamentoVendedor.tsx` — renomear rótulos equivalentes (se existirem).
-- `src/components/logistica/CtesDacteTab.tsx` — toggle de visualização + agrupamento por OC + exclusão em lote.
-- `src/hooks/useCtesDacte.ts` — adicionar `useDeleteCtesByIds(ids[])` para excluir um grupo de CT-es.
+#### A Pagar (montagem do lote)
+- Filtro por transportadora (obrigatório pra montar lote).
+- Lista de CT-es **sem adiantamento ainda**, agrupados por OC (mesma lógica da aba CT-es).
+- Checkbox por CT-e e por OC inteira ("selecionar OC").
+- Painel lateral fixo "Resumo do Lote":
+  - Transportadora, Qtd CT-es, Valor total
+  - Input `% Adiantamento` (default vem do cadastro da transportadora)
+  - Mostra `Valor adiantamento` e `Saldo`
+  - Botão **"Gerar Adiantamento"** → cria registro + abre dialog de comprovante
+- Tabela embaixo: lotes já criados pendentes de pagamento.
 
-Sem mudanças de banco, sem migrations.
+#### Pagos / Aguardando Quitação
+- Lotes com status `pago`. Botão **"Registrar Quitação"** abre dialog: data, observação, upload opcional do comprovante. Marca como `quitado`.
+
+#### Quitados
+- Histórico, filtro por período/transportadora, link pro PDF.
+
+### 4. Dialog "Comprovante de Adiantamento" (estilo WhatsApp)
+
+Modal imprimível (reusa padrão do `CargaPrintDialog`) com layout idêntico ao print enviado:
+
+```text
+ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.
+
+1. <Transportadora> (<peso_total> Kg) CTE
+   <numero1>/<numero2>/<numero3>...
+   *VLR R$ <valor_total>*
+
+   *Valor Total do Frete R$ <valor_total>*
+
+<percentual>% de Adiantamento
+
+*R$ <valor_adiantamento>*
+
+Código <codigo> – <nome>
+Pix: <pix_chave>
+```
+
+Botões: **Copiar texto** (clipboard, formatação WhatsApp `*negrito*`), **Imprimir/PDF**, **Marcar como Pago** (passa para sub-aba "Pagos").
+
+### 5. Dialog "Quitação"
+
+Layout do segundo print:
+
+```text
+QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.
+
+| VALOR EM ABERTO | COD   | TRANSPORTADORA | OC   |
+| R$ 7.733,34     | 27308 | DOMINIO        | 2207 |
+| R$ 6.161,31     | 27308 | DOMINIO        | 2214 |
+                  Valor a Pagar
+R$ 13.894,65
+
+Valor Saldo R$ 13.894,65
+Código <codigo> – <nome>
+Pix: <pix_chave>
+```
+
+Pode agregar múltiplos lotes da mesma transportadora numa quitação só (toggle "Agrupar saldos pendentes desta transportadora").
+
+### 6. Hooks novos
+- `useTransportadorasFinanceiro` (CRUD)
+- `useAdiantamentos` (lista, com filtros de status)
+- `useCriarAdiantamento` (transação: cria header + insere ctes na pivot)
+- `useMarcarPago`, `useRegistrarQuitacao`, `useCancelarAdiantamento`
+
+### 7. Integração com aba CT-es existente
+- Coluna nova "Adiantamento" mostrando badge: `—` / `ADT-...` (link) / `Pago` / `Quitado`.
+- Bloquear delete de CT-e que já está em adiantamento `pago`/`quitado`.
+
+### Arquivos
+**Novos**
+- `src/components/logistica/AdiantamentosTab.tsx`
+- `src/components/logistica/MontarAdiantamentoPanel.tsx`
+- `src/components/logistica/ComprovanteAdiantamentoDialog.tsx`
+- `src/components/logistica/RegistrarQuitacaoDialog.tsx`
+- `src/components/cadastros/TransportadorasFinanceiroTab.tsx` (ou página dedicada)
+- `src/hooks/useAdiantamentos.ts`
+- `src/hooks/useTransportadorasFinanceiro.ts`
+
+**Editados**
+- `src/pages/Logistica.tsx` — adiciona aba "Adiantamentos"
+- `src/pages/Cadastros.tsx` — adiciona aba "Transportadoras"
+- `src/components/logistica/CtesDacteTab.tsx` — coluna "Adiantamento" + bloqueio de delete
+
+### Migrations
+1. `create table transportadoras_financeiro` + RLS admin/logistica.
+2. `create table adiantamentos_frete` + sequence/numeração + RLS.
+3. `create table adiantamentos_frete_ctes` + UNIQUE(cte_id) parcial (status ≠ cancelado).
+
+Sem alteração em `ctes_dacte` — vínculo é inferido pela pivot.
