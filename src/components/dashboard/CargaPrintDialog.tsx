@@ -7,6 +7,8 @@ import fricoLogo from "@/assets/frico-logo-optimized.webp";
 interface ClienteGroup {
   codigoCliente: string | null;
   nomeCliente: string | null;
+  cidade?: string | null;
+  uf?: string | null;
   formaPagamento?: string | null;
   items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean; pesoOriginal?: number | null }[];
   pesoTotal: number;
