@@ -23,6 +23,9 @@ import type { Carregamento } from "@/hooks/useCarregamentos";
 import type { CargaPrintData } from "./CargaPrintDialog";
 import type { RoteirizacaoResult, RotaGroup } from "./RoteirizacaoDialog";
 import { useUpsertRotaExecutada } from "@/hooks/useRotasExecutadas";
+import { useTabelasFrete, useTabelaFreteItens } from "@/hooks/useTabelasFrete";
+import { calcularFreteTabela } from "@/lib/calcularFreteTabela";
+import type { RotaVariante } from "./RoteirizacaoDialog";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
@@ -142,6 +145,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const reqIdRef = useRef(0);
   const lastOrderKeyRef = useRef<string>("");
   const rerouteTimerRef = useRef<number | null>(null);
+  // Variantes Rápida x Econômica
+  const [rotaRapida, setRotaRapida] = useState<RotaVariante | null>(roteirizacao?.rotas?.rapida ?? null);
+  const [rotaEconomica, setRotaEconomica] = useState<RotaVariante | null>(roteirizacao?.rotas?.economica ?? null);
+  const [modoRota, setModoRota] = useState<"rapida" | "economica">(roteirizacao?.modoRotaEscolhido ?? "rapida");
 
   // Reset quando o dialog reabre com nova roteirização
   useEffect(() => {
@@ -151,8 +158,24 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     setCoordsCacheLocal(roteirizacao?.coordsCache);
     setTempoTotalLocal(roteirizacao?.tempoTotalMin);
     setCustoCombustivelLocal(roteirizacao?.custoCombustivel);
+    setRotaRapida(roteirizacao?.rotas?.rapida ?? null);
+    setRotaEconomica(roteirizacao?.rotas?.economica ?? null);
+    setModoRota(roteirizacao?.modoRotaEscolhido ?? "rapida");
     lastOrderKeyRef.current = "";
   }, [roteirizacao]);
+
+  // Sincroniza geometria atual com a variante selecionada
+  useEffect(() => {
+    const sel = modoRota === "economica" ? rotaEconomica : rotaRapida;
+    if (!sel) return;
+    setRouteGeometry(sel.geometria);
+    setDistanciaTotalLocal(sel.distanciaTotal);
+    setTrechosLocal(sel.trechos as any);
+  }, [modoRota, rotaRapida, rotaEconomica]);
+  const pedagiosAtual = useMemo(
+    () => (modoRota === "economica" ? rotaEconomica?.pedagios : rotaRapida?.pedagios) ?? [],
+    [modoRota, rotaRapida, rotaEconomica],
+  );
 
   // Recalcula trajeto preservando a ordem atual dos destinos, sem apagar a
   // linha azul anterior — só substitui quando a nova resposta chega.
@@ -165,7 +188,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     setIsReroteirizando(true);
     try {
       const { data, error } = await supabase.functions.invoke("roteirizar", {
-        body: { destinos, origemCidade: "Goiânia", origemUf: "GO", preserveOrder: true },
+        body: { destinos, origemCidade: "Goiânia", origemUf: "GO", preserveOrder: true, mode: "both" },
       });
       if (error) throw error;
       if (reqId !== reqIdRef.current) return;
@@ -175,6 +198,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         setTrechosLocal(data.trechos);
         const dirigindo = (data.trechos as any[]).reduce((s: number, t: any) => s + (t.duracao || 0), 0);
         setTempoTotalLocal(dirigindo + destinos.length * 30);
+      }
+      if (data.rotas) {
+        setRotaRapida(data.rotas.rapida ?? null);
+        setRotaEconomica(data.rotas.economica ?? null);
       }
       if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
         const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
