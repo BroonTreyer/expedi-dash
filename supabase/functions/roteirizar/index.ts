@@ -754,6 +754,20 @@ Deno.serve(async (req) => {
           usedOrs = true; // marca como rota real (não estimada)
           estimado = false;
           console.log(`[roteirizar] OSRM aceito: ${distanciaTotal}km, ${geometry.length} pontos, ${trechos.length} trechos`);
+          // Popula variantes a partir do OSRM single-route quando o fallback de
+          // alternativas não conseguiu (ou não foi disparado). Garante que os
+          // botões "Mais Rápida" / "Mais Econômica" tenham conteúdo.
+          const duracaoMinSingle = trechos.reduce((s, t) => s + (t.duracao || 0), 0);
+          const variantSingle: Variant = {
+            geometry,
+            distanciaTotal,
+            duracaoMin: duracaoMinSingle,
+            trechos,
+            pedagios: [],
+            usedOrs: true,
+          };
+          if (wantFast && !vFast) vFast = variantSingle;
+          if (wantEcon && !vEcon) vEcon = variantSingle;
         } else {
           throw new Error("OSRM sem rotas");
         }
