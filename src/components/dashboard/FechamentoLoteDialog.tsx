@@ -130,6 +130,96 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [groups, setGroups] = useState<RotaGroup[]>(initialGroups);
   useEffect(() => { setGroups(initialGroups); }, [initialGroups]);
 
+  // ── Estado local da rota — começa com o que veio da Roteirização e é
+  // recalculado automaticamente sempre que o usuário reordena os destinos.
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][] | undefined>(roteirizacao?.routeGeometry);
+  const [distanciaTotalLocal, setDistanciaTotalLocal] = useState<number | undefined>(roteirizacao?.distanciaTotal);
+  const [trechosLocal, setTrechosLocal] = useState<any[] | undefined>(roteirizacao?.trechos as any);
+  const [coordsCacheLocal, setCoordsCacheLocal] = useState<Map<string, { lat: number; lng: number }> | undefined>(roteirizacao?.coordsCache);
+  const [tempoTotalLocal, setTempoTotalLocal] = useState<number | null | undefined>(roteirizacao?.tempoTotalMin);
+  const [custoCombustivelLocal, setCustoCombustivelLocal] = useState<number | null | undefined>(roteirizacao?.custoCombustivel);
+  const [isReroteirizando, setIsReroteirizando] = useState(false);
+  const reqIdRef = useRef(0);
+  const lastOrderKeyRef = useRef<string>("");
+  const rerouteTimerRef = useRef<number | null>(null);
+
+  // Reset quando o dialog reabre com nova roteirização
+  useEffect(() => {
+    setRouteGeometry(roteirizacao?.routeGeometry);
+    setDistanciaTotalLocal(roteirizacao?.distanciaTotal);
+    setTrechosLocal(roteirizacao?.trechos as any);
+    setCoordsCacheLocal(roteirizacao?.coordsCache);
+    setTempoTotalLocal(roteirizacao?.tempoTotalMin);
+    setCustoCombustivelLocal(roteirizacao?.custoCombustivel);
+    lastOrderKeyRef.current = "";
+  }, [roteirizacao]);
+
+  // Recalcula trajeto preservando a ordem atual dos destinos, sem apagar a
+  // linha azul anterior — só substitui quando a nova resposta chega.
+  const recalcRota = useCallback(async (silent = true) => {
+    const destinos = groups
+      .filter((g) => g.cidade && g.uf)
+      .map((g) => ({ cidade: g.cidade!, uf: g.uf!, cliente: g.nomeCliente ?? "Sem cliente" }));
+    if (destinos.length < 2) return;
+    const reqId = ++reqIdRef.current;
+    setIsReroteirizando(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("roteirizar", {
+        body: { destinos, origemCidade: "Goiânia", origemUf: "GO", preserveOrder: true },
+      });
+      if (error) throw error;
+      if (reqId !== reqIdRef.current) return;
+      if (data.geometria && data.geometria.length > 0) setRouteGeometry(data.geometria);
+      if (data.distanciaTotal != null) setDistanciaTotalLocal(data.distanciaTotal);
+      if (data.trechos && data.trechos.length > 0) {
+        setTrechosLocal(data.trechos);
+        const dirigindo = (data.trechos as any[]).reduce((s: number, t: any) => s + (t.duracao || 0), 0);
+        setTempoTotalLocal(dirigindo + destinos.length * 30);
+      }
+      if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
+        const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+        const c = new Map<string, { lat: number; lng: number }>();
+        for (const opt of data.ordemOtimizada) {
+          if (opt.lat != null && opt.lng != null && opt.cidade && opt.uf) {
+            c.set(`${norm(opt.cidade as string)},${(opt.uf as string).toUpperCase().trim()}`, { lat: opt.lat, lng: opt.lng });
+          }
+        }
+        if (data.origemLat != null && data.origemLng != null && data.origemCidadeNorm && data.origemUfNorm) {
+          c.set(`${data.origemCidadeNorm},${data.origemUfNorm}`, { lat: data.origemLat, lng: data.origemLng });
+        }
+        if (c.size > 0) setCoordsCacheLocal(c);
+      }
+    } catch (e) {
+      if (!silent) console.error("Falha ao recalcular trajeto", e);
+    } finally {
+      if (reqId === reqIdRef.current) setIsReroteirizando(false);
+    }
+  }, [groups]);
+
+  // Auto-recalcular ao reordenar
+  const orderKey = useMemo(
+    () => groups.filter((g) => g.cidade && g.uf).map((g) => `${g.cidade}|${g.uf}|${g.codigoCliente ?? ""}`).join(">>"),
+    [groups],
+  );
+  useEffect(() => {
+    if (!open) return;
+    if (!orderKey) return;
+    // Primeira passagem: marca a ordem inicial como já roteirizada (veio da tela anterior)
+    if (!lastOrderKeyRef.current) {
+      lastOrderKeyRef.current = orderKey;
+      return;
+    }
+    if (lastOrderKeyRef.current === orderKey) return;
+    if (rerouteTimerRef.current) window.clearTimeout(rerouteTimerRef.current);
+    rerouteTimerRef.current = window.setTimeout(() => {
+      lastOrderKeyRef.current = orderKey;
+      recalcRota(true);
+    }, 350);
+    return () => {
+      if (rerouteTimerRef.current) window.clearTimeout(rerouteTimerRef.current);
+    };
+  }, [orderKey, open, recalcRota]);
+
   const handleReorder = useCallback((ordemAtual: number, dir: "up" | "down") => {
     setGroups((prev) => {
       const idx = prev.findIndex((g) => g.ordem === ordemAtual);
@@ -403,14 +493,14 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             <RotaMap
               destinos={rotaDestinos}
               origem={origemEstavel}
-              routeGeometry={roteirizacao?.routeGeometry}
-              distanciaTotal={roteirizacao?.distanciaTotal}
-              trechos={roteirizacao?.trechos}
-              loading={false}
-              coordsCache={roteirizacao?.coordsCache}
-              custoCombustivel={roteirizacao?.custoCombustivel ?? null}
+              routeGeometry={routeGeometry}
+              distanciaTotal={distanciaTotalLocal}
+              trechos={trechosLocal as any}
+              loading={isReroteirizando}
+              coordsCache={coordsCacheLocal}
+              custoCombustivel={custoCombustivelLocal ?? null}
               tipoCaminhaoLabel={roteirizacao?.tipoCaminhao ?? null}
-              tempoTotalMin={roteirizacao?.tempoTotalMin ?? null}
+              tempoTotalMin={tempoTotalLocal ?? null}
               onReorder={handleReorder}
             />
           </Suspense>
