@@ -295,6 +295,7 @@ async function buildCacheKey(
   origemUf: string,
   destinos: Destino[],
   preserveOrder: boolean,
+  pref: "fastest" | "shortest" = "fastest",
 ): Promise<string> {
   const oNorm = `${normalizarCidade(origemCidade)},${origemUf.toUpperCase().trim()}`;
   const pairs = destinos.map(
@@ -304,7 +305,8 @@ async function buildCacheKey(
   // Otherwise we may sort to maximize cache hits (since optimization output is order-invariant).
   const dNorm = preserveOrder ? pairs.join("|") : [...pairs].sort().join("|");
   const tag = preserveOrder ? "ORD" : "OPT";
-  return await sha256Hex(`${tag}>>${oNorm}>>${dNorm}`);
+  const prefTag = pref === "shortest" ? "ECON" : "FAST";
+  return await sha256Hex(`${tag}:${prefTag}>>${oNorm}>>${dNorm}`);
 }
 
 async function readRouteCache(cacheKey: string, maxAgeDays = 30): Promise<any | null> {
@@ -344,7 +346,8 @@ async function writeRouteCache(
   duracao: number,
   geometry: [number, number][],
   ordemOtimizada: any[],
-  provider: string
+  provider: string,
+  pedagios: [number, number][] = [],
 ): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("route_cache").upsert(
@@ -357,6 +360,7 @@ async function writeRouteCache(
       geometry: geometry as any,
       ordem_otimizada: ordemOtimizada as any,
       provider,
+      pedagios: pedagios as any,
       last_used_at: new Date().toISOString(),
     },
     { onConflict: "cache_key" }
