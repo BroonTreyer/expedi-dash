@@ -183,6 +183,10 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   // Coordenadas retornadas pela edge function para pré-popular o geocodeCache do RotaMap
   const [coordsCache, setCoordsCache] = useState<Map<string, { lat: number; lng: number }> | undefined>();
   const [estimado, setEstimado] = useState(false);
+  // Variantes Rápida x Econômica
+  const [rotaRapida, setRotaRapida] = useState<RotaVariante | null>(null);
+  const [rotaEconomica, setRotaEconomica] = useState<RotaVariante | null>(null);
+  const [modoRota, setModoRota] = useState<"rapida" | "economica">("rapida");
   // Baseline para comparação Manual vs Otimizada (snapshot da rota anterior)
   const [baseline, setBaseline] = useState<{ km: number; min: number | null; custo: number | null } | null>(null);
 
@@ -337,6 +341,15 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
       if (data.trechos && data.trechos.length > 0) setTrechos(data.trechos);
       setEstimado(!!data.estimado);
+      // Capturar variantes (apenas quando otimizando, edge fn retorna rotas={})
+      if (data.rotas) {
+        setRotaRapida(data.rotas.rapida ?? null);
+        setRotaEconomica(data.rotas.economica ?? null);
+      } else if (mode === "preserve") {
+        // Reordenação manual → mantemos só uma rota; o toggle fica desabilitado
+        setRotaRapida(null);
+        setRotaEconomica(null);
+      }
 
       // FIX: Pré-popular geocodeCache do RotaMap com coordenadas já geocodadas pela edge fn.
       // Isso elimina o segundo geocoding via Nominatim no front-end (que falha com rate-limit).
