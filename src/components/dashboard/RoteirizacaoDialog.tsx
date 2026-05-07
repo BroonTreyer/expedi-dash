@@ -344,14 +344,28 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
       if (data.trechos && data.trechos.length > 0) setTrechos(data.trechos);
       setEstimado(!!data.estimado);
-      // Capturar variantes (apenas quando otimizando, edge fn retorna rotas={})
+      // Capturar variantes. Em "preserve" só atualizamos a rápida (recálculo
+      // da ordem manual) e mantemos a econômica anterior se a edge function
+      // não tiver enviado uma nova.
       if (data.rotas) {
-        setRotaRapida(data.rotas.rapida ?? null);
-        setRotaEconomica(data.rotas.economica ?? null);
-      } else if (mode === "preserve") {
-        // Reordenação manual → mantemos só uma rota; o toggle fica desabilitado
-        setRotaRapida(null);
-        setRotaEconomica(null);
+        if (data.rotas.rapida !== undefined) {
+          setRotaRapida(data.rotas.rapida ?? null);
+        }
+        if (mode === "optimize" || data.rotas.economica !== undefined) {
+          setRotaEconomica(data.rotas.economica ?? null);
+        }
+      } else if (data.geometria && data.geometria.length > 0) {
+        // Fallback: edge function não retornou rotas mas devolveu geometria —
+        // construímos um variant local para manter o botão Rápida habilitado.
+        const dur = (data.trechos ?? []).reduce((s: number, t: any) => s + (t.duracao || 0), 0);
+        setRotaRapida({
+          geometria: data.geometria,
+          distanciaTotal: data.distanciaTotal ?? 0,
+          duracaoMin: dur,
+          trechos: data.trechos ?? [],
+          pedagios: data.pedagios ?? [],
+        } as any);
+        if (mode === "optimize") setRotaEconomica(null);
       }
 
       // FIX: Pré-popular geocodeCache do RotaMap com coordenadas já geocodadas pela edge fn.
