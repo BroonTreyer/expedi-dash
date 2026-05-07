@@ -14,6 +14,131 @@ export type Database = {
   }
   public: {
     Tables: {
+      adiantamentos_frete: {
+        Row: {
+          comprovante_pagamento_url: string | null
+          comprovante_quitacao_url: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          numero: string
+          observacoes: string | null
+          ordem_carga: string | null
+          pago_em: string | null
+          pago_por: string | null
+          percentual: number
+          peso_total: number
+          qtd_ctes: number
+          quitado_em: string | null
+          quitado_por: string | null
+          status: string
+          tipo_agrupamento: string
+          transportadora: string
+          transportadora_id: string | null
+          updated_at: string
+          valor_adiantamento: number
+          valor_saldo: number
+          valor_total_ctes: number
+        }
+        Insert: {
+          comprovante_pagamento_url?: string | null
+          comprovante_quitacao_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          numero: string
+          observacoes?: string | null
+          ordem_carga?: string | null
+          pago_em?: string | null
+          pago_por?: string | null
+          percentual?: number
+          peso_total?: number
+          qtd_ctes?: number
+          quitado_em?: string | null
+          quitado_por?: string | null
+          status?: string
+          tipo_agrupamento?: string
+          transportadora: string
+          transportadora_id?: string | null
+          updated_at?: string
+          valor_adiantamento?: number
+          valor_saldo?: number
+          valor_total_ctes?: number
+        }
+        Update: {
+          comprovante_pagamento_url?: string | null
+          comprovante_quitacao_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          numero?: string
+          observacoes?: string | null
+          ordem_carga?: string | null
+          pago_em?: string | null
+          pago_por?: string | null
+          percentual?: number
+          peso_total?: number
+          qtd_ctes?: number
+          quitado_em?: string | null
+          quitado_por?: string | null
+          status?: string
+          tipo_agrupamento?: string
+          transportadora?: string
+          transportadora_id?: string | null
+          updated_at?: string
+          valor_adiantamento?: number
+          valor_saldo?: number
+          valor_total_ctes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adiantamentos_frete_transportadora_id_fkey"
+            columns: ["transportadora_id"]
+            isOneToOne: false
+            referencedRelation: "transportadoras_financeiro"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adiantamentos_frete_ctes: {
+        Row: {
+          adiantamento_id: string
+          created_at: string
+          cte_id: string
+          id: string
+          valor_frete: number
+        }
+        Insert: {
+          adiantamento_id: string
+          created_at?: string
+          cte_id: string
+          id?: string
+          valor_frete?: number
+        }
+        Update: {
+          adiantamento_id?: string
+          created_at?: string
+          cte_id?: string
+          id?: string
+          valor_frete?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adiantamentos_frete_ctes_adiantamento_id_fkey"
+            columns: ["adiantamento_id"]
+            isOneToOne: false
+            referencedRelation: "adiantamentos_frete"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adiantamentos_frete_ctes_cte_id_fkey"
+            columns: ["cte_id"]
+            isOneToOne: false
+            referencedRelation: "ctes_dacte"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           key: string
@@ -1197,6 +1322,60 @@ export type Database = {
         }
         Relationships: []
       }
+      transportadoras_financeiro: {
+        Row: {
+          agencia: string | null
+          ativo: boolean
+          banco: string | null
+          cnpj: string | null
+          codigo: string | null
+          conta: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          percentual_adiantamento_padrao: number
+          pix_chave: string | null
+          pix_tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          agencia?: string | null
+          ativo?: boolean
+          banco?: string | null
+          cnpj?: string | null
+          codigo?: string | null
+          conta?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          percentual_adiantamento_padrao?: number
+          pix_chave?: string | null
+          pix_tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agencia?: string | null
+          ativo?: boolean
+          banco?: string | null
+          cnpj?: string | null
+          codigo?: string | null
+          conta?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          percentual_adiantamento_padrao?: number
+          pix_chave?: string | null
+          pix_tipo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1423,6 +1602,7 @@ export type Database = {
             }
             Returns: undefined
           }
+      next_adiantamento_numero: { Args: never; Returns: string }
       next_numero_pedido: { Args: { _data: string }; Returns: number }
       notify_role: {
         Args: {
