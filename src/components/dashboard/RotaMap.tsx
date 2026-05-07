@@ -187,8 +187,8 @@ function createOrigemIcon(label: string) {
 }
 
 /** BUG 27 FIX: Wrap in forwardRef to silence react-leaflet ref warning */
-const FitBounds = forwardRef<unknown, { points: Coords[] }>(
-  function FitBounds({ points }, _ref) {
+const FitBounds = forwardRef<unknown, { points: Coords[]; trigger?: number }>(
+  function FitBounds({ points, trigger }, _ref) {
     const map = useMap();
     // BUG 10 FIX: Use real centroid coords (no offsets) for bounds calculation
     useEffect(() => {
@@ -197,9 +197,9 @@ const FitBounds = forwardRef<unknown, { points: Coords[] }>(
         map.setView([points[0].lat, points[0].lng], 8);
       } else {
         const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
-        map.fitBounds(bounds, { padding: [40, 40] });
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });
       }
-    }, [points, map]);
+    }, [points, map, trigger]);
     return null;
   }
 );
