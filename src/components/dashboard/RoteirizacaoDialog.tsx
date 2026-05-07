@@ -543,6 +543,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       custoCombustivel,
       tipoCaminhao: tipoCaminhaoCusto || null,
       tempoTotalMin,
+      rotas: { rapida: rotaRapida, economica: rotaEconomica },
+      modoRotaEscolhido: modoRota,
     });
     onOpenChange(false);
   };
