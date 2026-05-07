@@ -47,6 +47,8 @@ interface Props {
   horarioRetorno?: string | null;
   /** Callback opcional: reordenar destinos pelo popup do marcador. */
   onReorder?: (ordemAtual: number, direcao: "up" | "down") => void;
+  /** Pontos de pedágio ao longo do trajeto (lat,lng). */
+  pedagios?: [number, number][];
 }
 
 interface Coords {
@@ -226,6 +228,7 @@ export function RotaMap({
   tempoTotalMin,
   horarioRetorno,
   onReorder,
+  pedagios,
 }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
@@ -565,6 +568,18 @@ export function RotaMap({
               />
             </>
           )}
+
+          {pedagios && pedagios.length > 0 && pedagios.map((p, i) => (
+            <Marker
+              key={`pedagio-${i}-${p[0].toFixed(3)}-${p[1].toFixed(3)}`}
+              position={[p[0], p[1]]}
+              icon={pedagioIcon}
+            >
+              <Popup>
+                <div className="text-xs"><strong>Pedágio</strong></div>
+              </Popup>
+            </Marker>
+          ))}
         </MapContainer>
       </div>
 
