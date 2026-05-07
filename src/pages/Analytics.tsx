@@ -532,6 +532,7 @@ export default function Analytics() {
               <TabsTrigger value="vendedores" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><Users className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Vendedores</span><span className="sm:hidden">Vend.</span></TabsTrigger>
               <TabsTrigger value="rupturas" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><AlertTriangle className="h-3.5 w-3.5" /> Rupturas</TabsTrigger>
               <TabsTrigger value="geografia" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><MapPin className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Geografia</span><span className="sm:hidden">Geo.</span></TabsTrigger>
+              <TabsTrigger value="rotas" className="gap-1.5 text-xs data-[state=active]:shadow-sm whitespace-nowrap"><Truck className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Histórico de Rotas</span><span className="sm:hidden">Rotas</span></TabsTrigger>
             </TabsList>
           </div>
 
