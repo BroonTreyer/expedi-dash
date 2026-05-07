@@ -7,6 +7,8 @@ import fricoLogo from "@/assets/frico-logo-optimized.webp";
 interface ClienteGroup {
   codigoCliente: string | null;
   nomeCliente: string | null;
+  cidade?: string | null;
+  uf?: string | null;
   formaPagamento?: string | null;
   items: { id: string; nomeProduto: string | null; peso: number; ruptura?: boolean; pesoOriginal?: number | null }[];
   pesoTotal: number;
@@ -192,6 +194,11 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                       <span className="px-1.5 py-0.5 rounded bg-foreground/10">C:{total - group.ordem + 1}</span>
                     </span>
                     <span>{group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}</span>
+                    {(group.cidade || group.uf) && (
+                      <span className="text-xs font-medium text-muted-foreground">
+                        · {group.cidade ?? ""}{group.uf ? `/${group.uf}` : ""}
+                      </span>
+                    )}
                   </h3>
                   <span className="text-xs font-semibold text-muted-foreground">
                     {group.pesoTotal.toLocaleString("pt-BR")} kg
