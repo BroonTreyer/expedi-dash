@@ -2,10 +2,11 @@ import { useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Truck, FileText, DollarSign, BarChart3 } from "lucide-react";
+import { Truck, FileText, DollarSign, BarChart3, Wallet } from "lucide-react";
 import { TabelaFreteTab } from "@/components/logistica/TabelaFreteTab";
 import { CtesDacteTab } from "@/components/logistica/CtesDacteTab";
 import { GastosVendedorTab } from "@/components/logistica/GastosVendedorTab";
+import { AdiantamentosTab } from "@/components/logistica/AdiantamentosTab";
 import { useCtesDacte } from "@/hooks/useCtesDacte";
 
 function VisaoGeralTab() {
@@ -86,11 +87,13 @@ export default function Logistica() {
             <TabsTrigger value="visao"><BarChart3 className="h-4 w-4 mr-2" />Visão Geral</TabsTrigger>
             <TabsTrigger value="tabela"><Truck className="h-4 w-4 mr-2" />Tabela de Frete</TabsTrigger>
             <TabsTrigger value="ctes"><FileText className="h-4 w-4 mr-2" />CT-es / DACTE</TabsTrigger>
+            <TabsTrigger value="adiantamentos"><Wallet className="h-4 w-4 mr-2" />Adiantamentos</TabsTrigger>
             <TabsTrigger value="gastos"><DollarSign className="h-4 w-4 mr-2" />Gastos por Vendedor</TabsTrigger>
           </TabsList>
           <TabsContent value="visao"><VisaoGeralTab /></TabsContent>
           <TabsContent value="tabela"><TabelaFreteTab /></TabsContent>
           <TabsContent value="ctes"><CtesDacteTab /></TabsContent>
+          <TabsContent value="adiantamentos"><AdiantamentosTab /></TabsContent>
           <TabsContent value="gastos"><GastosVendedorTab /></TabsContent>
         </Tabs>
       </main>
