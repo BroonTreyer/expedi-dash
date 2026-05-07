@@ -524,6 +524,16 @@ export function RotaMap({
                     </strong>
                     <br />
                     {p.cidade} – {p.uf}
+                    {onReorder && (
+                      <div className="flex gap-1 mt-2 pt-2 border-t border-border">
+                        <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px] gap-1" disabled={idx === 0} onClick={() => onReorder(p.ordem, "up")}>
+                          <ArrowUp className="h-3 w-3" /> Subir
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px] gap-1" disabled={idx === sortedPoints.length - 1} onClick={() => onReorder(p.ordem, "down")}>
+                          <ArrowDown className="h-3 w-3" /> Descer
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Popup>
               </Marker>
