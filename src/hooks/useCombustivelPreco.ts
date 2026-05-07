@@ -14,20 +14,12 @@ export function useCombustivelPreco(uf: string = "GO", tipo: string = "diesel_s1
   return useQuery({
     queryKey: ["combustivel_preco", uf, tipo],
     queryFn: async (): Promise<PrecoCombustivel | null> => {
-      const { data, error } = await supabase.functions.invoke("combustivel-preco", {
-        method: "GET" as any,
-        // edge function lê via query string
-      } as any);
-      // Como invoke não passa querystring, usamos fetch direto
-      if (error || !data) {
-        const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/combustivel-preco?uf=${encodeURIComponent(uf)}&tipo=${encodeURIComponent(tipo)}`;
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${(import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        });
-        if (!res.ok) return null;
-        return (await res.json()) as PrecoCombustivel;
-      }
-      return data as PrecoCombustivel;
+      const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/combustivel-preco?uf=${encodeURIComponent(uf)}&tipo=${encodeURIComponent(tipo)}`;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, apikey: (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY } });
+      if (!res.ok) return null;
+      return (await res.json()) as PrecoCombustivel;
     },
     staleTime: 1000 * 60 * 60 * 6, // 6h
     enabled: !!uf,
