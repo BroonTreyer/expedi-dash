@@ -399,6 +399,8 @@ Deno.serve(async (req) => {
     const origemCidade = body?.origemCidade as string | undefined;
     const origemUf = body?.origemUf as string | undefined;
     const preserveOrder = body?.preserveOrder === true;
+    // mode: "fastest" | "cheapest" | "both" (default both)
+    const mode = (body?.mode as string | undefined) ?? "both";
 
     if (!destinos || destinos.length === 0) {
       return new Response(
@@ -414,24 +416,65 @@ Deno.serve(async (req) => {
 
     const t0 = Date.now();
 
-    // ── CACHE LOOKUP ───────────────────────────────────────────────────────
-    const cacheKey = await buildCacheKey(oCidade, oUf, destinos, preserveOrder);
-    const cached = await readRouteCache(cacheKey);
-    if (cached) {
-      console.log(`[roteirizar] Cache hit (${cached.provider}) in ${Date.now() - t0}ms`);
-      return new Response(
-        JSON.stringify({
-          ordemOtimizada: cached.ordem_otimizada || [],
-          geometria: cached.geometry || [],
-          distanciaTotal: cached.km_total ?? 0,
-          trechos: [],
-          estimado: cached.provider === "haversine",
-          fromCache: true,
-          origemCidadeNorm: oCidadeNorm,
-          origemUfNorm: oUfNorm,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // ── CACHE LOOKUP (fast variant only — used as legacy single-route response) ─
+    const cacheKeyFast = await buildCacheKey(oCidade, oUf, destinos, preserveOrder, "fastest");
+    const cacheKeyEcon = await buildCacheKey(oCidade, oUf, destinos, preserveOrder, "shortest");
+    if (mode !== "both") {
+      const cached = await readRouteCache(mode === "cheapest" ? cacheKeyEcon : cacheKeyFast);
+      if (cached) {
+        return new Response(
+          JSON.stringify({
+            ordemOtimizada: cached.ordem_otimizada || [],
+            geometria: cached.geometry || [],
+            distanciaTotal: cached.km_total ?? 0,
+            trechos: [],
+            pedagios: cached.pedagios || [],
+            estimado: cached.provider === "haversine",
+            fromCache: true,
+            origemCidadeNorm: oCidadeNorm,
+            origemUfNorm: oUfNorm,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      const [cF, cE] = await Promise.all([readRouteCache(cacheKeyFast), readRouteCache(cacheKeyEcon)]);
+      if (cF && cE) {
+        console.log(`[roteirizar] Cache hit (both)`);
+        return new Response(
+          JSON.stringify({
+            // Legacy fields point to fastest
+            ordemOtimizada: cF.ordem_otimizada || [],
+            geometria: cF.geometry || [],
+            distanciaTotal: cF.km_total ?? 0,
+            trechos: [],
+            pedagios: cF.pedagios || [],
+            estimado: cF.provider === "haversine",
+            rotas: {
+              rapida: {
+                ordemOtimizada: cF.ordem_otimizada || [],
+                geometria: cF.geometry || [],
+                distanciaTotal: cF.km_total ?? 0,
+                duracaoMin: cF.duracao_min ?? null,
+                trechos: [],
+                pedagios: cF.pedagios || [],
+              },
+              economica: {
+                ordemOtimizada: cE.ordem_otimizada || [],
+                geometria: cE.geometry || [],
+                distanciaTotal: cE.km_total ?? 0,
+                duracaoMin: cE.duracao_min ?? null,
+                trechos: [],
+                pedagios: cE.pedagios || [],
+              },
+            },
+            fromCache: true,
+            origemCidadeNorm: oCidadeNorm,
+            origemUfNorm: oUfNorm,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // ── BATCH GEOCODE ──────────────────────────────────────────────────────
@@ -512,21 +555,23 @@ Deno.serve(async (req) => {
       : optimizedGroups.map((g) => ({ lat: g.lat, lng: g.lng }));
 
     let orderedGroups: CityGroup[] = optimizedGroups; // default to 2-opt result
-    let geometry: [number, number][] = [];
-    let distanciaTotal = 0;
-    let trechos: { de: string; para: string; km: number; duracao: number }[] = [];
 
     // ── OpenRouteService API (real road routing) ──────────────────────────
     const ORS_API_KEY = Deno.env.get("ORS_API_KEY");
-    let estimado = false;
-    let usedOrs = false;
 
-    if (ORS_API_KEY) {
+    type Variant = {
+      geometry: [number, number][];
+      distanciaTotal: number;
+      duracaoMin: number;
+      trechos: { de: string; para: string; km: number; duracao: number }[];
+      pedagios: [number, number][];
+      usedOrs: boolean;
+    };
+
+    async function callOrs(pref: "fastest" | "shortest"): Promise<Variant | null> {
+      if (!ORS_API_KEY) return null;
       try {
-        // ORS expects [lng, lat] pairs
         const orsCoordinates = allPoints.map((p) => [p.lng, p.lat]);
-        console.log(`[roteirizar] Calling ORS with ${orsCoordinates.length} waypoints`);
-
         const orsRes = await fetch(
           "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
           {
@@ -540,54 +585,89 @@ Deno.serve(async (req) => {
               coordinates: orsCoordinates,
               instructions: false,
               geometry_simplify: false,
-              preference: "recommended",
+              preference: pref,
+              extra_info: ["tollways"],
               radiuses: orsCoordinates.map(() => 5000),
             }),
             signal: AbortSignal.timeout(8000),
           }
         );
-
         if (!orsRes.ok) {
           const errText = await orsRes.text();
           throw new Error(`ORS HTTP ${orsRes.status}: ${errText}`);
         }
-
         const orsData = await orsRes.json();
         const feature = orsData?.features?.[0];
         const props = feature?.properties;
+        if (!feature || !props) throw new Error("ORS response missing features");
 
-        if (feature && props) {
-          // GeoJSON coordinates are [lng, lat] — convert to [lat, lng] for Leaflet
-          geometry = (feature.geometry.coordinates as [number, number][]).map(
-            ([lng, lat]) => [lat, lng] as [number, number]
-          );
-          distanciaTotal = Math.round((props.summary.distance / 1000) * 10) / 10;
-
-          // Build trechos from ORS segments
-          const segments: { distance: number; duration: number }[] = props.segments || [];
-          for (let i = 0; i < segments.length; i++) {
-            const fromIdx = i - (hasOrigin ? 1 : 0);
-            const toIdx = fromIdx + 1;
-            trechos.push({
-              de: fromIdx < 0 ? oCidade : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade,
-              para: toIdx >= 0 && toIdx < orderedGroups.length
-                ? orderedGroups[toIdx]?.members[0]?.cidade ?? ""
-                : "",
-              km: Math.round((segments[i].distance / 1000) * 10) / 10,
-              duracao: Math.round(segments[i].duration / 60),
-            });
-          }
-
-          usedOrs = true;
-          console.log(`[roteirizar] ORS accepted: ${distanciaTotal}km, ${geometry.length} points, ${trechos.length} trechos in ${Date.now() - t0}ms`);
-        } else {
-          throw new Error("ORS response missing features");
+        const geometry = (feature.geometry.coordinates as [number, number][]).map(
+          ([lng, lat]) => [lat, lng] as [number, number]
+        );
+        const distanciaTotal = Math.round((props.summary.distance / 1000) * 10) / 10;
+        const duracaoMin = Math.round((props.summary.duration ?? 0) / 60);
+        const trechos: { de: string; para: string; km: number; duracao: number }[] = [];
+        const segments: { distance: number; duration: number }[] = props.segments || [];
+        for (let i = 0; i < segments.length; i++) {
+          const fromIdx = i - (hasOrigin ? 1 : 0);
+          const toIdx = fromIdx + 1;
+          trechos.push({
+            de: fromIdx < 0 ? oCidade : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade,
+            para: toIdx >= 0 && toIdx < orderedGroups.length
+              ? orderedGroups[toIdx]?.members[0]?.cidade ?? ""
+              : "",
+            km: Math.round((segments[i].distance / 1000) * 10) / 10,
+            duracao: Math.round(segments[i].duration / 60),
+          });
         }
-      } catch (orsErr) {
-        console.warn(`[roteirizar] ORS failed: ${(orsErr as Error).message} — using haversine fallback`);
+        // Extract pedagio markers from extras.tollways.values
+        const pedagios: [number, number][] = [];
+        const tollVals: [number, number, number][] | undefined = props.extras?.tollways?.values;
+        if (Array.isArray(tollVals)) {
+          const seen = new Set<string>();
+          for (const [startIdx, , value] of tollVals) {
+            if (value === 1 && geometry[startIdx]) {
+              const pt = geometry[startIdx];
+              const k = `${pt[0].toFixed(3)},${pt[1].toFixed(3)}`;
+              if (!seen.has(k)) {
+                seen.add(k);
+                pedagios.push([pt[0], pt[1]]);
+              }
+            }
+          }
+        }
+        return { geometry, distanciaTotal, duracaoMin, trechos, pedagios, usedOrs: true };
+      } catch (e) {
+        console.warn(`[roteirizar] ORS ${pref} failed: ${(e as Error).message}`);
+        return null;
       }
-    } else {
-      console.warn("[roteirizar] ORS_API_KEY not configured — using haversine fallback");
+    }
+
+    // Run both variants in parallel when needed
+    const wantBoth = mode === "both";
+    const wantFast = mode === "both" || mode === "fastest" || !mode;
+    const wantEcon = mode === "both" || mode === "cheapest";
+
+    const [vFast, vEcon] = await Promise.all([
+      wantFast ? callOrs("fastest") : Promise.resolve(null),
+      wantEcon ? callOrs("shortest") : Promise.resolve(null),
+    ]);
+
+    let geometry: [number, number][] = [];
+    let distanciaTotal = 0;
+    let trechos: { de: string; para: string; km: number; duracao: number }[] = [];
+    let pedagios: [number, number][] = [];
+    let estimado = false;
+    let usedOrs = false;
+
+    // Pick primary variant for legacy single-route response
+    const primary = vFast ?? vEcon;
+    if (primary) {
+      geometry = primary.geometry;
+      distanciaTotal = primary.distanciaTotal;
+      trechos = primary.trechos;
+      pedagios = primary.pedagios;
+      usedOrs = true;
     }
 
     // ── Haversine fallback — when ORS is unavailable ───────────────────────
@@ -670,16 +750,16 @@ Deno.serve(async (req) => {
     console.log(`[roteirizar] Total time: ${Date.now() - t0}ms`);
 
     // ── PERSIST CACHE (fire-and-forget) ───────────────────────────────────
-    writeRouteCache(
-      cacheKey,
-      `${oCidade},${oUf}`,
-      destinos,
-      distanciaTotal,
-      trechos.reduce((acc, t) => acc + (t.duracao || 0), 0),
-      geometry,
-      ordemOtimizada,
-      usedOrs ? "ors" : "haversine"
-    ).catch((e) => console.warn(`[roteirizar] cache write failed: ${e?.message}`));
+    if (vFast) {
+      writeRouteCache(cacheKeyFast, `${oCidade},${oUf}`, destinos, vFast.distanciaTotal,
+        vFast.duracaoMin, vFast.geometry, ordemOtimizada, "ors", vFast.pedagios)
+        .catch((e) => console.warn(`[roteirizar] cache write FAST failed: ${e?.message}`));
+    }
+    if (vEcon) {
+      writeRouteCache(cacheKeyEcon, `${oCidade},${oUf}`, destinos, vEcon.distanciaTotal,
+        vEcon.duracaoMin, vEcon.geometry, ordemOtimizada, "ors", vEcon.pedagios)
+        .catch((e) => console.warn(`[roteirizar] cache write ECON failed: ${e?.message}`));
+    }
 
     return new Response(
       JSON.stringify({
@@ -687,6 +767,25 @@ Deno.serve(async (req) => {
         geometria: geometry,
         distanciaTotal,
         trechos,
+        pedagios,
+        rotas: wantBoth ? {
+          rapida: vFast ? {
+            ordemOtimizada,
+            geometria: vFast.geometry,
+            distanciaTotal: vFast.distanciaTotal,
+            duracaoMin: vFast.duracaoMin,
+            trechos: vFast.trechos,
+            pedagios: vFast.pedagios,
+          } : null,
+          economica: vEcon ? {
+            ordemOtimizada,
+            geometria: vEcon.geometry,
+            distanciaTotal: vEcon.distanciaTotal,
+            duracaoMin: vEcon.duracaoMin,
+            trechos: vEcon.trechos,
+            pedagios: vEcon.pedagios,
+          } : null,
+        } : undefined,
         estimado,
         origemLat: origemCoords?.lat ?? null,
         origemLng: origemCoords?.lng ?? null,
@@ -704,7 +803,7 @@ Deno.serve(async (req) => {
         const oCidade = body.origemCidade || "Goiânia";
         const oUf = body.origemUf || "GO";
         const preserveOrder = body?.preserveOrder === true;
-        const cacheKey = await buildCacheKey(oCidade, oUf, body.destinos, preserveOrder);
+        const cacheKey = await buildCacheKey(oCidade, oUf, body.destinos, preserveOrder, "fastest");
         const stale = await readRouteCacheStale(cacheKey);
         if (stale) {
           console.log(`[roteirizar] Returning STALE cache after error`);
