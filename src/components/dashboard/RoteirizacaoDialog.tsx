@@ -34,7 +34,6 @@ import type { Carregamento } from "@/hooks/useCarregamentos";
 import { useCombustivelPreco, calcularCustoCombustivel } from "@/hooks/useCombustivelPreco";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
