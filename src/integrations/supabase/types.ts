@@ -985,6 +985,7 @@ export type Database = {
           created_at: string
           destinos: Json
           duracao_min: number | null
+          duracao_min_real: number | null
           geometry: Json | null
           hit_count: number
           id: string
@@ -992,6 +993,7 @@ export type Database = {
           last_used_at: string
           ordem_otimizada: Json | null
           origem: string
+          pedagios: Json | null
           provider: string | null
         }
         Insert: {
@@ -999,6 +1001,7 @@ export type Database = {
           created_at?: string
           destinos?: Json
           duracao_min?: number | null
+          duracao_min_real?: number | null
           geometry?: Json | null
           hit_count?: number
           id?: string
@@ -1006,6 +1009,7 @@ export type Database = {
           last_used_at?: string
           ordem_otimizada?: Json | null
           origem: string
+          pedagios?: Json | null
           provider?: string | null
         }
         Update: {
@@ -1013,6 +1017,7 @@ export type Database = {
           created_at?: string
           destinos?: Json
           duracao_min?: number | null
+          duracao_min_real?: number | null
           geometry?: Json | null
           hit_count?: number
           id?: string
@@ -1020,6 +1025,7 @@ export type Database = {
           last_used_at?: string
           ordem_otimizada?: Json | null
           origem?: string
+          pedagios?: Json | null
           provider?: string | null
         }
         Relationships: []

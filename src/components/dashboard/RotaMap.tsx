@@ -47,6 +47,8 @@ interface Props {
   horarioRetorno?: string | null;
   /** Callback opcional: reordenar destinos pelo popup do marcador. */
   onReorder?: (ordemAtual: number, direcao: "up" | "down") => void;
+  /** Pontos de pedágio ao longo do trajeto (lat,lng). */
+  pedagios?: [number, number][];
 }
 
 interface Coords {
@@ -186,6 +188,27 @@ function createOrigemIcon(label: string) {
   });
 }
 
+const pedagioIcon = L.divIcon({
+  className: "custom-marker-pedagio",
+  html: `<div style="
+    background: hsl(38, 92%, 50%);
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 12px;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    pointer-events: auto;
+  ">$</div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
 /** BUG 27 FIX: Wrap in forwardRef to silence react-leaflet ref warning */
 const FitBounds = forwardRef<unknown, { points: Coords[]; trigger?: number }>(
   function FitBounds({ points, trigger }, _ref) {
@@ -226,6 +249,7 @@ export function RotaMap({
   tempoTotalMin,
   horarioRetorno,
   onReorder,
+  pedagios,
 }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
@@ -565,6 +589,18 @@ export function RotaMap({
               />
             </>
           )}
+
+          {pedagios && pedagios.length > 0 && pedagios.map((p, i) => (
+            <Marker
+              key={`pedagio-${i}-${p[0].toFixed(3)}-${p[1].toFixed(3)}`}
+              position={[p[0], p[1]]}
+              icon={pedagioIcon}
+            >
+              <Popup>
+                <div className="text-xs"><strong>Pedágio</strong></div>
+              </Popup>
+            </Marker>
+          ))}
         </MapContainer>
       </div>
 

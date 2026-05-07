@@ -50,6 +50,21 @@ export interface RoteirizacaoResult {
   tipoCaminhao?: string | null;
   /** Tempo total estimado em minutos */
   tempoTotalMin?: number | null;
+  /** Variantes de rota retornadas pela edge function */
+  rotas?: {
+    rapida?: RotaVariante | null;
+    economica?: RotaVariante | null;
+  };
+  /** Modo selecionado pelo usuário ("rapida" | "economica") */
+  modoRotaEscolhido?: "rapida" | "economica";
+}
+
+export interface RotaVariante {
+  geometria: [number, number][];
+  distanciaTotal: number;
+  duracaoMin: number;
+  trechos: TrechoInfo[];
+  pedagios: [number, number][];
 }
 
 export interface RotaGroup {
@@ -168,6 +183,10 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   // Coordenadas retornadas pela edge function para pré-popular o geocodeCache do RotaMap
   const [coordsCache, setCoordsCache] = useState<Map<string, { lat: number; lng: number }> | undefined>();
   const [estimado, setEstimado] = useState(false);
+  // Variantes Rápida x Econômica
+  const [rotaRapida, setRotaRapida] = useState<RotaVariante | null>(null);
+  const [rotaEconomica, setRotaEconomica] = useState<RotaVariante | null>(null);
+  const [modoRota, setModoRota] = useState<"rapida" | "economica">("rapida");
   // Baseline para comparação Manual vs Otimizada (snapshot da rota anterior)
   const [baseline, setBaseline] = useState<{ km: number; min: number | null; custo: number | null } | null>(null);
 
@@ -312,6 +331,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
           origemCidade: "Goiânia",
           origemUf: "GO",
           preserveOrder: mode === "preserve",
+          mode: mode === "preserve" ? "fastest" : "both",
         },
       });
       if (error) throw error;
@@ -322,6 +342,15 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
       if (data.trechos && data.trechos.length > 0) setTrechos(data.trechos);
       setEstimado(!!data.estimado);
+      // Capturar variantes (apenas quando otimizando, edge fn retorna rotas={})
+      if (data.rotas) {
+        setRotaRapida(data.rotas.rapida ?? null);
+        setRotaEconomica(data.rotas.economica ?? null);
+      } else if (mode === "preserve") {
+        // Reordenação manual → mantemos só uma rota; o toggle fica desabilitado
+        setRotaRapida(null);
+        setRotaEconomica(null);
+      }
 
       // FIX: Pré-popular geocodeCache do RotaMap com coordenadas já geocodadas pela edge fn.
       // Isso elimina o segundo geocoding via Nominatim no front-end (que falha com rate-limit).
@@ -461,6 +490,20 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     };
   }, [orderKey, activeGroups, runRoteirizar]);
 
+  // Quando ambas variantes existem, sincroniza geometria/km/trechos com a selecionada.
+  useEffect(() => {
+    const sel = modoRota === "economica" ? rotaEconomica : rotaRapida;
+    if (!sel) return;
+    setRouteGeometry(sel.geometria);
+    setDistanciaTotal(sel.distanciaTotal);
+    setTrechos(sel.trechos);
+  }, [modoRota, rotaRapida, rotaEconomica]);
+
+  const pedagiosAtual = useMemo(() => {
+    const sel = modoRota === "economica" ? rotaEconomica : rotaRapida;
+    return sel?.pedagios ?? [];
+  }, [modoRota, rotaRapida, rotaEconomica]);
+
   const handleExportExcel = useCallback(() => {
     const header = ["#", "CÓDIGO", "NOME", "CIDADE", "UF", "PESO", "VENDEDOR"];
     const rows: (string | number | null)[][] = [header];
@@ -514,6 +557,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       custoCombustivel,
       tipoCaminhao: tipoCaminhaoCusto || null,
       tempoTotalMin,
+      rotas: { rapida: rotaRapida, economica: rotaEconomica },
+      modoRotaEscolhido: modoRota,
     });
     onOpenChange(false);
   };
@@ -816,9 +861,39 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               tempoTotalMin={tempoTotalMin}
               horarioRetorno={horarioRetorno}
               onReorder={handleReorderFromMap}
+              pedagios={pedagiosAtual}
             />
           </Suspense>
         </div>
+
+        {/* Toggle Rápida x Econômica */}
+        {(rotaRapida || rotaEconomica) && (
+          <div className="flex flex-wrap items-center gap-2 -mt-2 px-1">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Trajeto:</span>
+            <Button
+              type="button"
+              size="sm"
+              variant={modoRota === "rapida" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setModoRota("rapida")}
+              disabled={!rotaRapida}
+            >
+              ⚡ Mais Rápida
+              {rotaRapida && <span className="ml-1.5 opacity-80">{rotaRapida.distanciaTotal.toLocaleString("pt-BR")} km · {rotaRapida.duracaoMin} min · {rotaRapida.pedagios.length} ped.</span>}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={modoRota === "economica" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setModoRota("economica")}
+              disabled={!rotaEconomica}
+            >
+              💰 Mais Econômica
+              {rotaEconomica && <span className="ml-1.5 opacity-80">{rotaEconomica.distanciaTotal.toLocaleString("pt-BR")} km · {rotaEconomica.duracaoMin} min · {rotaEconomica.pedagios.length} ped.</span>}
+            </Button>
+          </div>
+        )}
 
         {/* Destination cards with DnD */}
         <div className="border-t border-border pt-3">
