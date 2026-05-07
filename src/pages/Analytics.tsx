@@ -1145,4 +1145,56 @@ export default function Analytics() {
   );
 }
 
+// ─── Histórico de Rotas (inline component) ───
+function RotasExecutadasPanel() {
+  const { data: rotas = [], isLoading } = useRotasExecutadas(200);
+  if (isLoading) return <Skeleton className="h-64 w-full" />;
+  if (rotas.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+        Nenhuma rota executada registrada ainda. Feche uma carga com roteirização para começar a registrar histórico.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Data</TableHead>
+            <TableHead>Carga</TableHead>
+            <TableHead className="text-right">KM Plan.</TableHead>
+            <TableHead className="text-right">KM Real</TableHead>
+            <TableHead className="text-right">Δ KM</TableHead>
+            <TableHead className="text-right">Custo Plan. (R$)</TableHead>
+            <TableHead className="text-right">Tempo Plan.</TableHead>
+            <TableHead>Caminhão</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rotas.map((r) => {
+            const delta = r.km_real != null && r.km_planejado != null ? r.km_real - r.km_planejado : null;
+            const dur = r.duracao_planejada_min;
+            const durFmt = dur != null ? (dur >= 60 ? `${Math.floor(dur / 60)}h ${dur % 60}min` : `${dur}min`) : "—";
+            return (
+              <TableRow key={r.id}>
+                <TableCell className="text-xs whitespace-nowrap">{format(new Date(r.data_referencia + "T12:00:00"), "dd/MM/yy", { locale: ptBR })}</TableCell>
+                <TableCell className="text-xs font-mono">{r.carga_id}</TableCell>
+                <TableCell className="text-right text-xs font-mono">{r.km_planejado?.toLocaleString("pt-BR") ?? "—"}</TableCell>
+                <TableCell className="text-right text-xs font-mono">{r.km_real?.toLocaleString("pt-BR") ?? "—"}</TableCell>
+                <TableCell className={cn("text-right text-xs font-mono", delta != null && delta > 0 && "text-amber-600", delta != null && delta < 0 && "text-emerald-600")}>
+                  {delta != null ? (delta > 0 ? "+" : "") + delta.toLocaleString("pt-BR") : "—"}
+                </TableCell>
+                <TableCell className="text-right text-xs font-mono">{r.custo_planejado != null ? r.custo_planejado.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "—"}</TableCell>
+                <TableCell className="text-right text-xs">{durFmt}</TableCell>
+                <TableCell className="text-xs">{r.tipo_caminhao ?? "—"}</TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 // (HeatmapGrid removido — funcionalidade duplicava o gráfico de Taxa Diária)
