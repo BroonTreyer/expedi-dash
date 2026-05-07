@@ -26,6 +26,7 @@ import { useUpsertRotaExecutada } from "@/hooks/useRotasExecutadas";
 import { useTabelasFrete, useTabelaFreteItens } from "@/hooks/useTabelasFrete";
 import { calcularFreteTabela } from "@/lib/calcularFreteTabela";
 import type { RotaVariante } from "./RoteirizacaoDialog";
+import { FreteTabelaCard } from "./FreteTabelaCard";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
