@@ -1,9 +1,11 @@
 import { forwardRef, useEffect, useState, useRef, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap, LayersControl, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import { Maximize2, Minimize2, Crosshair, ArrowUp, ArrowDown } from "lucide-react";
 
 interface DestinoRota {
   ordem: number;
@@ -39,6 +41,12 @@ interface Props {
   custoCombustivel?: number | null;
   /** Tipo de caminhão usado para o cálculo (apenas exibição). */
   tipoCaminhaoLabel?: string | null;
+  /** Tempo total estimado em minutos (incluindo descargas, calculado externamente). */
+  tempoTotalMin?: number | null;
+  /** Horário previsto de retorno (HH:mm), exibido se fornecido. */
+  horarioRetorno?: string | null;
+  /** Callback opcional: reordenar destinos pelo popup do marcador. */
+  onReorder?: (ordemAtual: number, direcao: "up" | "down") => void;
 }
 
 interface Coords {
