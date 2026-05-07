@@ -1,47 +1,103 @@
-Hipótese nova: a linha azul some porque a UI apaga `routeGeometry` ao reordenar, mas não recalcula automaticamente; além disso, o cache da função `roteirizar` usa uma chave que ordena os destinos alfabeticamente, então uma rota reordenada manualmente pode receber geometria antiga ou vazia do cache. O erro “Failed to get database function names” é de metadados internos do Lovable Cloud/editor, não da rota em si — confirmei que uma query simples no banco respondeu e que a função `roteirizar` está executando, mas precisamos evitar depender dessa leitura de metadados enquanto corrigimos.
+## Objetivo
 
-Plano de correção:
+1. Oferecer **rotas alternativas** (Mais Rápida × Mais Econômica) na tela de **Roteirizar** e **Fechar Carga**, com seleção pelo usuário.
+2. Marcar **pedágios** ao longo do trajeto no mapa.
+3. Mostrar o **preço do frete** em "Fechar Carga", calculado pela tabela de frete cadastrada (por cidade/UF/cliente e tipo de caminhão).
 
-1. Corrigir a função de roteirização para recalcular por ordem atual
-   - Alterar `supabase/functions/roteirizar/index.ts` para que a chave de cache preserve a sequência dos destinos recebidos, em vez de ordenar cidades antes de montar o `cache_key`.
-   - Isso evita que uma rota manualmente reordenada reutilize o traçado da ordem antiga.
-   - Manter o cache seguro e estável, mas sensível à ordem: mesma lista em ordem diferente = geometria diferente.
+> Observação honesta: **balanças (postos de pesagem)** não são fornecidos por nenhuma API gratuita usada hoje (ORS/OSRM). Vou marcar **apenas pedágios** (que o ORS retorna em `extra_info=tollways`). Se quiser balanças no futuro, precisaríamos de uma fonte paga (TollGuru/HERE) — posso planejar depois.
 
-2. Garantir linha azul sempre presente na tela de Roteirização
-   - Em `RoteirizacaoDialog.tsx`, remover a lógica que simplesmente limpa `routeGeometry` ao arrastar, subir/descer, digitar ordem ou aplicar template.
-   - Substituir por uma rotina de “recalcular rota manual” que:
-     - mantém a última linha azul visível enquanto a nova rota é calculada;
-     - chama a função `roteirizar` com a ordem atual;
-     - atualiza `routeGeometry`, `distanciaTotal`, `trechos`, `coordsCache` e indicadores assim que a resposta chegar;
-     - ignora respostas antigas se o usuário reordenar várias vezes rapidamente.
-   - Debounce curto para não chamar a função em excesso durante alterações rápidas.
+---
 
-3. Corrigir a tela de Fechar Carga
-   - Em `FechamentoLoteDialog.tsx`, criar estado local para geometria, distância, trechos e cache de coordenadas, inicializado com a roteirização recebida.
-   - Ao reordenar destinos no fechamento, recalcular automaticamente a rota com a nova ordem.
-   - Passar a geometria local recalculada para `RotaMap`, não apenas `roteirizacao?.routeGeometry`, para que a linha azul acompanhe a ordem final antes de gravar a carga.
-   - Ao salvar histórico da rota executada, usar a distância/custo/duração recalculados localmente quando houver reordenação na tela de fechamento.
+## 1. Edge function `roteirizar` — alternativas + pedágios
 
-4. Melhorar fallback visual do mapa
-   - Em `RotaMap.tsx`, quando a geometria real ainda estiver carregando ou vier vazia, desenhar temporariamente uma linha conectando origem + destinos geocodados em ordem.
-   - Assim o mapa nunca fica sem percurso: usa traçado real quando disponível; usa linha provisória/estimada apenas enquanto recalcula ou se o provedor externo falhar.
-   - Exibir estado claro de “Recalculando trajeto...” sem remover o traçado anterior.
+Hoje retornamos uma única rota ORS `preference: "recommended"`. Vou alterar para:
 
-5. Tratar o erro interno recorrente sem pedir ação manual
-   - Não depender da listagem de funções do banco para esta correção.
-   - Usar leitura direta do banco e logs da função para validar funcionamento.
-   - Se a ferramenta de metadados do Lovable Cloud continuar falhando, a correção de rota será feita via arquivos e deploy direto da função `roteirizar`, sem exigir que você abra painel externo ou rode SQL.
+- Aceitar novo parâmetro `mode: "fastest" | "cheapest" | "both"` (default `"both"`).
+- Quando `both`, executar **duas chamadas ORS em paralelo**:
+  - `preference: "fastest"` → rota Mais Rápida
+  - `preference: "shortest"` → rota Mais Econômica (menos km = menos combustível/pedágio)
+- Em cada chamada ORS, adicionar `extra_info: ["tollways"]` para receber os trechos com pedágio.
+- A geometria dos pedágios é extraída do `extras.tollways.values` (índices de waypoints da geometria onde `value=1`). Convertemos isso em **lista de pontos `[lat,lng]` de pedágio** para o frontend desenhar marcadores.
+- Resposta passa a conter:
+  ```ts
+  {
+    rotas: {
+      rapida:    { geometria, distanciaTotal, duracaoMin, trechos, pedagios: [[lat,lng], ...], ordemOtimizada },
+      economica: { geometria, distanciaTotal, duracaoMin, trechos, pedagios: [...],            ordemOtimizada },
+    },
+    estimado, origemLat, origemLng, ...
+  }
+  ```
+- Cache (`route_cache`): adicionar coluna `mode` na cache_key para não conflitar; armazenar JSON com ambas variantes ou criar 2 entradas (`...:FAST` e `...:ECON`). Vou usar 2 entradas — mais simples e mantém schema atual.
+- OSRM/Haversine fallbacks continuam (uma rota só); nesses casos `rotas.economica = rotas.rapida`.
 
-6. Validação após implementar
-   - Testar a função `roteirizar` com duas ordens diferentes dos mesmos destinos e confirmar que retorna geometrias/trechos coerentes para cada ordem.
-   - Abrir a tela de Roteirização, mudar ordem por botões/drag/input/template e confirmar que a linha azul permanece ou recalcula.
-   - Avançar para Fechar Carga, reordenar novamente e confirmar que a linha azul também permanece/recalcula nessa etapa.
-   - Conferir console e rede para garantir que não há erro 500/loop de chamadas.
+## 2. `RotaMap.tsx` — alternativas e marcadores de pedágio
 
-<lov-actions>
-  <lov-open-history>View History</lov-open-history>
-</lov-actions>
+- Aceitar nova prop `pedagios?: [number, number][]`.
+- Renderizar marcadores de pedágio com ícone próprio (Leaflet `divIcon` com símbolo "$" / cor laranja) e tooltip "Pedágio".
+- Continuar suportando uma única `geometry` por vez (a selecionada).
 
-<lov-actions>
-<lov-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</lov-link>
-</lov-actions>
+## 3. `RoteirizacaoDialog.tsx` — toggle Rápida × Econômica
+
+- Após chamar `roteirizar`, guardar `rotas.rapida` e `rotas.economica` em estado.
+- Adicionar um **Toggle/SegmentedControl** no topo do mapa: "Mais Rápida" (default) | "Mais Econômica".
+- Mostrar resumo lado a lado:
+  - Rápida: `XX km · YY min · N pedágios`
+  - Econômica: `XX km · YY min · N pedágios`
+- Ao trocar, atualizar a geometria + pedágios passados ao `RotaMap`.
+- Quando o usuário reordena manualmente, manter o comportamento atual (recalcular preservando ordem) — neste caso retorna apenas 1 rota (a do usuário) e o toggle fica desabilitado.
+
+## 4. `FechamentoLoteDialog.tsx` — alternativas + frete
+
+### 4a. Toggle de alternativas
+- Mesma UX de toggle Rápida × Econômica usada no Roteirizar.
+- O `tipo_caminhao` da carga influencia preço (não a rota — ORS não diferencia).
+
+### 4b. Preço do frete pela tabela
+- Buscar `tabelas_frete_itens` (já existe em `useTabelasFrete`) e indexar por `(uf, cidade, codigo_cliente?)`.
+- Para cada destino da carga (do `roteirizacao.ordemOtimizada` ou da lista de pedidos), aplicar a regra cascata existente em `useGastosVendedor`:
+  1. match por cliente + cidade + UF
+  2. match por cidade + UF
+  3. match por UF (cidade null)
+- Selecionar coluna `valor_kg_bitruck` ou `valor_kg_carreta` conforme `tipo_caminhao` da carga (`bitruck` → bitruck; demais → carreta — manter compatível com `useGastosVendedor`).
+- `frete_destino = peso_destino × valor_kg`
+- `frete_total = soma de todos destinos`
+- Exibir abaixo do resumo de KM/Custo Combustível um novo card:
+  - **Frete Tabela:** R$ X.XXX,XX
+  - Detalhe expandível por destino (cidade, peso, R$/kg, subtotal)
+  - Aviso visual quando algum destino estiver **sem tarifa** ou em **conflito** entre tabelas (mesmo padrão do hook existente).
+
+> Não vou persistir o frete em `rotas_executadas` agora — só exibir. Se quiser salvar, peço confirmação depois.
+
+---
+
+## Detalhes técnicos
+
+**ORS `extra_info` para pedágios:** o endpoint `directions/driving-car/geojson` aceita `extra_info: ["tollways"]`. Retorna `properties.extras.tollways.values = [[startIdx, endIdx, value], ...]` referenciando índices da `geometry.coordinates`. Convertemos cada `startIdx` (onde `value === 1`) em `[lat, lng]` da geometria → marcador.
+
+**Rate limit ORS:** 2 chamadas em paralelo por roteirização. Plano free do ORS aceita 40/min, então OK. Mantemos `AbortSignal.timeout(8000)`.
+
+**Cache:** `cache_key` ganha sufixo `:FAST` ou `:ECON`. Funções `readRouteCache`/`writeRouteCache` aceitam o sufixo. Geometria de pedágio entra como coluna nova `pedagios jsonb` em `route_cache` (migration).
+
+**Migration necessária:**
+```sql
+alter table public.route_cache
+  add column if not exists pedagios jsonb default '[]'::jsonb,
+  add column if not exists duracao_min_real numeric;
+```
+
+**Frete (frontend):** novo helper `src/lib/calcularFreteTabela.ts` que recebe `{ destinos: [{cidade, uf, peso, codigo_cliente}], tipo_caminhao, itensTabela }` e devolve `{ total, detalhes, semTarifa, conflitos }`. Reuso da lógica de cascata do `useGastosVendedor` extraída para função pura.
+
+**Compatibilidade:** mantenho `geometria/distanciaTotal/trechos/ordemOtimizada` no nível raiz da resposta (apontando para `rotas.rapida`) para não quebrar consumidores antigos enquanto a UI migra.
+
+---
+
+## Arquivos alterados
+
+- `supabase/functions/roteirizar/index.ts` — alternativas, pedágios, cache.
+- nova migration — colunas `pedagios`, `duracao_min_real` em `route_cache`.
+- `src/components/dashboard/RotaMap.tsx` — prop `pedagios`, marcadores.
+- `src/components/dashboard/RoteirizacaoDialog.tsx` — toggle + estado das duas rotas.
+- `src/components/dashboard/FechamentoLoteDialog.tsx` — toggle + card de frete.
+- `src/lib/calcularFreteTabela.ts` — novo (helper puro).
+- `src/hooks/useGastosVendedor.ts` — refator mínimo: extrair função de cascata para o helper acima (sem mudar comportamento).
