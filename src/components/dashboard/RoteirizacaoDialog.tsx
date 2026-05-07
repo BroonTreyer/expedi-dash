@@ -31,6 +31,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { pesoEfetivo } from "@/lib/peso-utils";
 import type { Carregamento } from "@/hooks/useCarregamentos";
+import { useCombustivelPreco, calcularCustoCombustivel } from "@/hooks/useCombustivelPreco";
+import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
@@ -161,6 +164,10 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [estimado, setEstimado] = useState(false);
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
+  const [tipoCaminhaoCusto, setTipoCaminhaoCusto] = useState<string>("");
+  const { data: tiposCaminhao = [] } = useTiposCaminhao();
+  // UF da origem (Goiânia/GO por enquanto)
+  const { data: precoCombustivel } = useCombustivelPreco("GO", "diesel_s10");
 
   // Templates
   const { data: templates = [] } = useRouteTemplates();
@@ -365,6 +372,29 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       setIsRouting(false);
     }
   }, [activeGroups, isRouting]);
+
+  // Cálculo de custo de combustível
+  const tipoSelecionado = tiposCaminhao.find((t: any) => t.nome_tipo === tipoCaminhaoCusto);
+  const consumo = (tipoSelecionado as any)?.consumo_km_litro ?? null;
+  const custoCombustivel = useMemo(
+    () => calcularCustoCombustivel(distanciaTotal ?? 0, consumo ?? 0, precoCombustivel?.valor_litro ?? 0),
+    [distanciaTotal, consumo, precoCombustivel]
+  );
+
+  // Tempo total estimado (soma trechos + 30 min descarga por destino)
+  const tempoTotalMin = useMemo(() => {
+    if (!trechos || trechos.length === 0) return null;
+    const dirigindo = trechos.reduce((s, t) => s + (t.duracao || 0), 0);
+    const descarga = activeGroups.length * 30;
+    return dirigindo + descarga;
+  }, [trechos, activeGroups.length]);
+
+  // Reorder pelo mapa
+  const handleReorderFromMap = useCallback((ordemAtual: number, dir: "up" | "down") => {
+    const idx = ordemAtual - 1;
+    if (dir === "up" && idx > 0) moveUp(idx);
+    if (dir === "down") moveDown(idx);
+  }, []);
 
   // Auto-route on open — only fires once per dialog open
   useEffect(() => {

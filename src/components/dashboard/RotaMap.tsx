@@ -1,9 +1,11 @@
 import { forwardRef, useEffect, useState, useRef, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap, LayersControl, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import { Maximize2, Minimize2, Crosshair, ArrowUp, ArrowDown } from "lucide-react";
 
 interface DestinoRota {
   ordem: number;
@@ -39,6 +41,12 @@ interface Props {
   custoCombustivel?: number | null;
   /** Tipo de caminhão usado para o cálculo (apenas exibição). */
   tipoCaminhaoLabel?: string | null;
+  /** Tempo total estimado em minutos (incluindo descargas, calculado externamente). */
+  tempoTotalMin?: number | null;
+  /** Horário previsto de retorno (HH:mm), exibido se fornecido. */
+  horarioRetorno?: string | null;
+  /** Callback opcional: reordenar destinos pelo popup do marcador. */
+  onReorder?: (ordemAtual: number, direcao: "up" | "down") => void;
 }
 
 interface Coords {
@@ -179,8 +187,8 @@ function createOrigemIcon(label: string) {
 }
 
 /** BUG 27 FIX: Wrap in forwardRef to silence react-leaflet ref warning */
-const FitBounds = forwardRef<unknown, { points: Coords[] }>(
-  function FitBounds({ points }, _ref) {
+const FitBounds = forwardRef<unknown, { points: Coords[]; trigger?: number }>(
+  function FitBounds({ points, trigger }, _ref) {
     const map = useMap();
     // BUG 10 FIX: Use real centroid coords (no offsets) for bounds calculation
     useEffect(() => {
@@ -189,9 +197,9 @@ const FitBounds = forwardRef<unknown, { points: Coords[] }>(
         map.setView([points[0].lat, points[0].lng], 8);
       } else {
         const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
-        map.fitBounds(bounds, { padding: [40, 40] });
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });
       }
-    }, [points, map]);
+    }, [points, map, trigger]);
     return null;
   }
 );
@@ -215,12 +223,17 @@ export function RotaMap({
   estimado,
   custoCombustivel,
   tipoCaminhaoLabel,
+  tempoTotalMin,
+  horarioRetorno,
+  onReorder,
 }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
   const [localLoading, setLocalLoading] = useState(false);
   const abortRef = useRef(0);
   const isMobile = useIsMobile();
+  const [fullscreen, setFullscreen] = useState(false);
+  const [recenterTick, setRecenterTick] = useState(0);
 
   const isLoading = externalLoading || localLoading;
 
@@ -409,25 +422,21 @@ export function RotaMap({
               {tipoCaminhaoLabel ? <span className="ml-1 font-normal opacity-80">({tipoCaminhaoLabel})</span> : null}
             </span>
           )}
+          {tempoTotalMin != null && tempoTotalMin > 0 && (
+            <span className="inline-flex items-center rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-xs font-semibold">
+              ⏱ {formatDuracao(tempoTotalMin)}
+              {horarioRetorno ? <span className="ml-1 font-normal opacity-80">→ retorno {horarioRetorno}</span> : null}
+            </span>
+          )}
           {estimado && (
             <span className="inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-600 dark:text-yellow-400">
               Distância estimada
             </span>
           )}
-          {trechos && trechos.length > 0 && (
-            <span className="text-muted-foreground text-xs">
-              {trechos.map((t, i) => (
-                <span key={i}>
-                  {i > 0 && " → "}
-                  {t.km.toLocaleString("pt-BR")} km
-                </span>
-              ))}
-            </span>
-          )}
         </div>
       )}
 
-      <div className="relative rounded-lg overflow-hidden border border-border">
+      <div className={`relative rounded-lg overflow-hidden border border-border ${fullscreen ? "fixed inset-2 z-[1100] bg-background shadow-2xl" : ""}`}>
         {isLoading && (
           <div className="absolute inset-0 z-[1000] bg-background/60 flex items-center justify-center">
             <span className="text-sm text-muted-foreground animate-pulse">
@@ -435,19 +444,51 @@ export function RotaMap({
             </span>
           </div>
         )}
-        {/* BUG 18 FIX: Unified height h-[320px] — same as the Suspense fallback */}
+        <div className="absolute top-2 right-2 z-[500] flex flex-col gap-1">
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8 shadow"
+            onClick={() => setFullscreen((v) => !v)}
+            title={fullscreen ? "Sair de tela cheia" : "Tela cheia"}
+          >
+            {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8 shadow"
+            onClick={() => setRecenterTick((t) => t + 1)}
+            title="Centralizar rota"
+          >
+            <Crosshair className="h-4 w-4" />
+          </Button>
+        </div>
         <MapContainer
           key={mapKey}
           center={[-15.78, -47.93]}
           zoom={4}
-          className="h-[320px] w-full z-0"
-          scrollWheelZoom={false}
-          // BUG 25 FIX: Disable dragging on mobile to allow page scroll
-          dragging={!isMobile}
+          className={`${fullscreen ? "h-full" : "h-[360px]"} w-full z-0`}
+          scrollWheelZoom={true}
+          dragging={true}
+          zoomControl={false}
           attributionControl={false}
         >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <FitBounds points={allBoundsPoints} />
+          <ZoomControl position="bottomright" />
+          <LayersControl position="topleft">
+            <LayersControl.BaseLayer checked name="Mapa">
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            </LayersControl.BaseLayer>
+            <LayersControl.BaseLayer name="Satélite">
+              <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+            </LayersControl.BaseLayer>
+            <LayersControl.BaseLayer name="Claro">
+              <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png" />
+            </LayersControl.BaseLayer>
+          </LayersControl>
+          <FitBounds points={allBoundsPoints} trigger={recenterTick} />
 
           {origemCoords && origem && (
             <Marker
@@ -483,6 +524,16 @@ export function RotaMap({
                     </strong>
                     <br />
                     {p.cidade} – {p.uf}
+                    {onReorder && (
+                      <div className="flex gap-1 mt-2 pt-2 border-t border-border">
+                        <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px] gap-1" disabled={idx === 0} onClick={() => onReorder(p.ordem, "up")}>
+                          <ArrowUp className="h-3 w-3" /> Subir
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px] gap-1" disabled={idx === sortedPoints.length - 1} onClick={() => onReorder(p.ordem, "down")}>
+                          <ArrowDown className="h-3 w-3" /> Descer
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Popup>
               </Marker>

@@ -1,46 +1,135 @@
-## Problema
+## Visão geral
 
-No card "22191 — CIA ATACADISTA · Pedido 13" o item 2600 (LING SUINA FINA APIMENTADA) está como **ruptura total** com `peso = 7992 kg` e `quantidade = 444`. Porém o `peso_original` no banco continua **12006 kg** (e `quantidade_original = 600`) porque o pedido foi **editado em Aprovações** depois — reduzindo o pedido — sem que o baseline fosse atualizado.
+Refatoração completa do fluxo de Fechar Carga (Roteirização → Fechamento → Mapa) corrigindo bugs conhecidos e adicionando 4 funcionalidades pedidas: **custo de combustível automático (API ANP)**, **tempo total + horário previsto de retorno**, **comparação rota manual vs otimizada** e **histórico de rotas executadas (km real vs planejado)**, além do mapa dinâmico com zoom no scroll.
 
-Resultado:
-- Tela "Faltando agora" usa `pesoNaoCarregado(c)` → como `ruptura = true`, retorna `peso_original = 12006` → mostra **12.006 kg faltando**.
-- O usuário (que editou o pedido para 444 unid / 7992 kg) espera ver **7.992 kg faltando**, pois esse é o tamanho atual do pedido.
+---
 
-Confirmado via consulta no banco:
+## 1. Correções de bugs
+
+### 1.1 Reordenação não salva — dois pontos
+
+**A) Dentro do diálogo Roteirização:** ao reordenar manualmente (drag, setas, input), depois clicar em **Roteirizar**, a otimização sobrescreve a ordem do usuário. Solução: detectar reordenação manual e:
+- Marcar grupo como "ordem manual" → botão Roteirizar passa a se chamar **"Otimizar do zero"** com confirmação.
+- Adicionar botão extra **"Recalcular trajeto (manter ordem)"** que chama o backend só para gerar geometria/km/tempo da ordem atual sem reotimizar.
+
+**B) Após "Avançar para Fechar Carga":** `ordem_entrega` é enviada por grupo, mas todos os itens de um mesmo cliente recebem a mesma `ordem`. Bug real: quando o usuário reordena dentro de Fechamento (não há UI hoje, mas a ordem vinda do roteirizacao não é persistida no estado se o dialog re-renderiza). Vou:
+- Garantir que `groups` no `FechamentoLoteDialog` venha sempre de `roteirizacao.groups` (já vem) e mostrar a ordem visualmente.
+- Adicionar reordenação por arrastar também dentro de Fechar Carga (mesma UX).
+- Confirmar via log do `batchUpdateMut` que `ordem_entrega` está chegando ao banco com valor correto por linha.
+
+### 1.2 Mapa não mostra trajeto
+
+Quando a edge function retorna `geometria` mas o frontend filtra `[0,0]` e fica vazio, ou quando o `routeGeometry` é resetado por mudança de `citySetKey` durante o loading. Corrigir:
+- Não resetar `routeGeometry` quando o usuário só altera filtros de exibição (apenas em reordenação real).
+- Adicionar fallback de polyline reta entre cidades quando não houver geometria detalhada.
+- Log claro no toast quando ORS falha (`estimado=true`) para o usuário entender por que o trajeto está como linha reta.
+
+### 1.3 Bugs visuais
+
+- Markers do mapa cortados nas bordas → aumentar `padding` do `fitBounds` (40 → 60) e adicionar `maxZoom: 12`.
+- Popup do trecho passando do limite no mobile.
+- Trecho card mostra "→ km · tempo até próximo" mesmo no último destino → esconder no último.
+- Badge de "Distância estimada" colidindo com KPIs no mobile → quebra de linha.
+- Loading overlay do mapa cobre a legenda → mover overlay para apenas a área `<MapContainer>`.
+
+### 1.4 Mapa dinâmico
+
+- `scrollWheelZoom={true}` (hoje está `false`) — zoom com scroll.
+- Adicionar controles de zoom (`+/-`) e botão **"Centralizar rota"**.
+- Modo **fullscreen** (botão expande para `h-[80vh]`).
+- Tile layer alternativo selecionável: padrão (OSM), satélite (Esri).
+
+---
+
+## 2. Custo de combustível (API ANP)
+
+**Edge function nova: `combustivel-preco`**
+- Busca preço médio de Diesel S10 no estado da origem via API pública: `https://app4.anp.gov.br/api/sistema-levantamento-precos/v1/precos-medios-municipais` (gratuita, atualiza semanal).
+- Cacheia em nova tabela `combustivel_precos` (uf, tipo, valor_litro, atualizado_em) por 7 dias.
+- Frontend chama na abertura da Roteirização e exibe o preço usado.
+
+**Cálculo no frontend:**
+- `custo = (km_total / consumo_km_litro) × valor_litro`
+- `consumo_km_litro` vem de `tipos_caminhao.consumo_km_litro` (já existe).
+- Mostrado no badge ⛽ (já há suporte no `RotaMap`, só preciso popular).
+- Selector de tipo de caminhão dentro da Roteirização para o usuário trocar e ver o impacto.
+
+---
+
+## 3. Tempo total + horário previsto de retorno
+
+- Soma de `trechos[].duracao` + tempo médio de descarga por parada (configurável via `app_settings`, default 30 min).
+- Campo "Horário previsto de saída" + cálculo automático de horário de retorno.
+- Exibido no header do `RotaMap` ao lado de km e custo.
+
+---
+
+## 4. Comparação manual vs otimizada
+
+- Ao apertar **Otimizar**, salvar snapshot da ordem/km/custo "antes".
+- Banner verde com **"Economia: −47 km · −R$ 38,20 · −1h12min"** se a otimização melhorou.
+- Botão **"Desfazer otimização"** restaura a ordem manual anterior.
+
+---
+
+## 5. Reordenar pelo mapa
+
+- Popup do marcador ganha botões **↑ Subir** / **↓ Descer** (clique reordena imediatamente).
+- Sincroniza com a lista de cards e zera `routeGeometry` (precisa reroteirizar).
+
+---
+
+## 6. Histórico de rotas executadas
+
+**Migration:** nova tabela `rotas_executadas`
 ```
-codigo_produto: 2600   peso: 7992   peso_original: 12006
-quantidade: 444   quantidade_original: 600
-ruptura: true   ruptura_sinalizada: true
+id, carga_id, data_referencia,
+km_planejado, km_real, custo_planejado, custo_real,
+duracao_planejada_min, duracao_real_min,
+ordem_planejada (jsonb), provider, criado_em
 ```
+- INSERT no momento de fechar carga (snapshot do planejado).
+- UPDATE quando a movimentação de portaria registra `km_rodado` final.
+- Aba nova **"Histórico de rotas"** em `/analytics` com tabela: carga, km plan vs real, % desvio, custo, ranking de desvios.
 
-## Causa
+---
 
-`src/hooks/useEditarPedidoAprovacao.ts` (UPDATE em itens existentes) envia `peso` e `quantidade` novos, mas **nunca envia `peso_original` nem `quantidade_original`**. As triggers do banco preservam o baseline antigo, então qualquer cálculo de ruptura continua referenciando o pedido original (não o pedido editado).
+## 7. Arquitetura técnica
 
-O `CarregamentoDialog` já trata esse caso com o helper `rupturaFieldsForItem` (envia `peso_original = peso` quando o usuário confirma redução / aumento). O fluxo de edição em Aprovações precisa do mesmo tratamento.
+### Arquivos editados
+- `src/components/dashboard/RotaMap.tsx` — scrollWheelZoom, fullscreen, tile selector, popup com reorder, fitBounds padding.
+- `src/components/dashboard/RoteirizacaoDialog.tsx` — combustível, comparação, "Recalcular trajeto", tempo total, horário retorno.
+- `src/components/dashboard/FechamentoLoteDialog.tsx` — DnD interno, mostrar custo/tempo, INSERT em `rotas_executadas`.
+- `supabase/functions/roteirizar/index.ts` — flag `manterOrdem` para não otimizar; retornar `tempoTotal` agregado.
+- `src/pages/Index.tsx` — passar callbacks de reorder.
 
-## Correção
+### Arquivos novos
+- `supabase/functions/combustivel-preco/index.ts` — wrapper ANP + cache.
+- `src/hooks/useCombustivelPreco.ts`
+- `src/hooks/useRotasExecutadas.ts`
+- `src/components/analytics/HistoricoRotasTab.tsx`
 
-**Arquivo:** `src/hooks/useEditarPedidoAprovacao.ts`
+### Migrations
+1. `combustivel_precos` (uf, tipo, valor_litro, atualizado_em) — RLS: select authenticated, insert/update admin/system.
+2. `rotas_executadas` — RLS: select admin/logistica/faturamento; insert/update admin/logistica.
+3. `app_settings` key `rota_tempo_descarga_min` (default 30).
 
-No bloco `// 2) UPDATE existentes`, incluir no payload:
-```ts
-peso_original: it.peso,
-quantidade_original: it.quantidade,
-```
+### Memórias atualizadas
+- `mem/tech/geocoding/infrastructure.md` → adicionar nota sobre custo de combustível.
+- Novo `mem/features/route-cost-calculation.md`.
+- Novo `mem/features/route-history-tracking.md`.
 
-Justificativa: ao editar um pedido em Aprovações, o pedido **é** o novo baseline — o usuário/vendedor está redefinindo a demanda. Replica o mesmo princípio do `CarregamentoDialog` (rebase de baseline em edição direta).
+---
 
-Adicionalmente, para o registro afetado (id `61d06850-…`), ajustar manualmente via migration de dados:
-```sql
-UPDATE carregamentos_dia
-SET peso_original = peso, quantidade_original = quantidade
-WHERE id = '61d06850-af2f-457e-834d-4b0d5caf0b94';
-```
-para que o card já apareça correto (7.992 kg) sem precisar reabrir o pedido.
+## 8. Plano de execução (ordem)
 
-## Resultado esperado
+1. Migrations (combustivel_precos, rotas_executadas, app_settings key).
+2. Edge function `combustivel-preco` + deploy.
+3. Atualizar `roteirizar` (manterOrdem flag, tempo total).
+4. `RotaMap` — zoom scroll, fullscreen, tile selector, popup reorder, bug visuais.
+5. `RoteirizacaoDialog` — custo, comparação manual×otimizada, recalcular sem reotimizar, tempo+horário retorno.
+6. `FechamentoLoteDialog` — DnD, custo/tempo, INSERT `rotas_executadas`.
+7. Aba "Histórico de rotas" em Analytics.
+8. UPDATE de km real via portaria (já registra km_rodado, basta sincronizar para `rotas_executadas`).
 
-- Edições em Aprovações passam a redefinir baseline (peso/quantidade originais = novos valores).
-- O item 2600 do Pedido 13 mostra **7.992 kg faltando** em "Faltando agora", batendo com o pedido editado.
-- Não afeta rupturas parciais registradas pelo `CarregamentoDialog` (que continua com sua própria lógica de baseline).
+Tudo será validado preview antes de finalizar.

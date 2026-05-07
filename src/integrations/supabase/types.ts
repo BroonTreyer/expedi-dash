@@ -323,6 +323,33 @@ export type Database = {
         }
         Relationships: []
       }
+      combustivel_precos: {
+        Row: {
+          atualizado_em: string
+          fonte: string | null
+          id: string
+          tipo: string
+          uf: string
+          valor_litro: number
+        }
+        Insert: {
+          atualizado_em?: string
+          fonte?: string | null
+          id?: string
+          tipo?: string
+          uf: string
+          valor_litro: number
+        }
+        Update: {
+          atualizado_em?: string
+          fonte?: string | null
+          id?: string
+          tipo?: string
+          uf?: string
+          valor_litro?: number
+        }
+        Relationships: []
+      }
       ctes_dacte: {
         Row: {
           carga_id: string | null
@@ -892,6 +919,63 @@ export type Database = {
           texto_placa_lido?: string | null
           tipo_registro?: string
           usuario_id?: string | null
+        }
+        Relationships: []
+      }
+      rotas_executadas: {
+        Row: {
+          atualizado_em: string
+          carga_id: string
+          criado_em: string
+          criado_por: string | null
+          custo_planejado: number | null
+          custo_real: number | null
+          data_referencia: string
+          duracao_planejada_min: number | null
+          duracao_real_min: number | null
+          id: string
+          km_planejado: number | null
+          km_real: number | null
+          ordem_planejada: Json | null
+          origem: string | null
+          provider: string | null
+          tipo_caminhao: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          carga_id: string
+          criado_em?: string
+          criado_por?: string | null
+          custo_planejado?: number | null
+          custo_real?: number | null
+          data_referencia?: string
+          duracao_planejada_min?: number | null
+          duracao_real_min?: number | null
+          id?: string
+          km_planejado?: number | null
+          km_real?: number | null
+          ordem_planejada?: Json | null
+          origem?: string | null
+          provider?: string | null
+          tipo_caminhao?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          carga_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          custo_planejado?: number | null
+          custo_real?: number | null
+          data_referencia?: string
+          duracao_planejada_min?: number | null
+          duracao_real_min?: number | null
+          id?: string
+          km_planejado?: number | null
+          km_real?: number | null
+          ordem_planejada?: Json | null
+          origem?: string | null
+          provider?: string | null
+          tipo_caminhao?: string | null
         }
         Relationships: []
       }
