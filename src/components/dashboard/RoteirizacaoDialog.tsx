@@ -305,11 +305,9 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     try {
       // Salva snapshot atual como baseline (rota manual) antes de otimizar
       if (distanciaTotal != null && distanciaTotal > 0) {
-        setBaseline({
-          km: distanciaTotal,
-          min: tempoTotalMin,
-          custo: custoCombustivel,
-        });
+        const dirigindo = (trechos ?? []).reduce((s, t) => s + (t.duracao || 0), 0);
+        const minBase = trechos && trechos.length > 0 ? dirigindo + activeGroups.length * 30 : null;
+        setBaseline({ km: distanciaTotal, min: minBase, custo: null });
       }
       const { data, error } = await supabase.functions.invoke("roteirizar", {
         body: { destinos: destinosParaRoteirizar, origemCidade: "Goiânia", origemUf: "GO" },
