@@ -99,15 +99,21 @@ export function GastosVendedorTab() {
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Kpi label="Previsto" value={fmtBRL(totalPrevisto)} />
-          <Kpi label="Realizado (CT-e)" value={fmtBRL(totalRealizado)} sub={totalRealizado === 0 ? "sem CT-es" : undefined} />
+          <Kpi label="Tabela" value={fmtBRL(totalPrevisto)} />
+          <Kpi label="Valor do CT-e" value={fmtBRL(totalRealizado)} sub={totalRealizado === 0 ? "sem CT-es" : undefined} />
           <Kpi
             label="Divergência"
             value={fmtPct(divPct)}
-            sub={fmtBRL(totalRealizado - totalPrevisto)}
+            sub={`${fmtBRL(totalRealizado - totalPrevisto)} · CT-e − Tabela`}
             tone={divPct == null ? "muted" : divPct > 2 ? "warn" : divPct < -2 ? "good" : "muted"}
           />
           <Kpi label="Peso total" value={`${fmtKg(totalPeso)} kg`} />
+        </div>
+
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
+          <div className="flex items-start gap-2"><Info className="h-3.5 w-3.5 mt-0.5 shrink-0" /><span><strong className="text-foreground">Tabela</strong>: valor calculado pela tabela de frete cadastrada (R$/kg × peso por destino, conforme tipo de caminhão).</span></div>
+          <div className="pl-5"><strong className="text-foreground">Valor do CT-e</strong>: valor efetivamente cobrado pela transportadora, lido dos DACTEs importados.</div>
+          <div className="pl-5"><strong className="text-foreground">Divergência</strong>: <code>Valor do CT-e − Tabela</code>. Positivo = transportadora cobrou acima da tabela.</div>
         </div>
       </Card>
 
@@ -125,8 +131,8 @@ export function GastosVendedorTab() {
                   <TableHead className="text-right">Peso (kg)</TableHead>
                   <TableHead className="text-right">Cargas</TableHead>
                   <TableHead className="text-right">Cobertura CT-e</TableHead>
-                  <TableHead className="text-right">Previsto</TableHead>
-                  <TableHead className="text-right">Realizado</TableHead>
+                  <TableHead className="text-right">Tabela</TableHead>
+                  <TableHead className="text-right">Valor do CT-e</TableHead>
                   <TableHead className="text-right">R$/kg</TableHead>
                 </TableRow>
               </TableHeader>
@@ -204,9 +210,9 @@ export function GastosVendedorTab() {
                                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                                     <div><span className="text-muted-foreground">Peso vendedor:</span> <strong>{fmtKg(d.peso_vendedor_kg)} kg</strong></div>
                                     <div><span className="text-muted-foreground">Peso total carga:</span> {fmtKg(d.peso_total_carga_kg)} kg</div>
-                                    <div><span className="text-muted-foreground">Previsto:</span> <strong>{fmtBRL(d.previsto)}</strong></div>
+                                    <div><span className="text-muted-foreground">Tabela:</span> <strong>{fmtBRL(d.previsto)}</strong></div>
                                     <div>
-                                      <span className="text-muted-foreground">Realizado:</span>{" "}
+                                      <span className="text-muted-foreground">Valor do CT-e:</span>{" "}
                                       {d.realizado != null ? (
                                         <>
                                           <strong>{fmtBRL(d.realizado)}</strong>{" "}
