@@ -372,15 +372,16 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     onOpenChange(false);
 
     // Salva snapshot da rota planejada (km, custo, duração, ordem) para o histórico
-    if (roteirizacao?.distanciaTotal && roteirizacao.distanciaTotal > 0) {
+    const kmFinal = distanciaTotalLocal ?? roteirizacao?.distanciaTotal;
+    if (kmFinal && kmFinal > 0) {
       try {
         await upsertRotaExec.mutateAsync({
           carga_id: cargaId,
           data_referencia: dataCarregamento,
-          km_planejado: roteirizacao.distanciaTotal,
-          custo_planejado: roteirizacao.custoCombustivel ?? null,
-          duracao_planejada_min: roteirizacao.tempoTotalMin ?? null,
-          tipo_caminhao: roteirizacao.tipoCaminhao ?? tipoCaminhao,
+          km_planejado: kmFinal,
+          custo_planejado: (custoCombustivelLocal ?? roteirizacao?.custoCombustivel) ?? null,
+          duracao_planejada_min: (tempoTotalLocal ?? roteirizacao?.tempoTotalMin) ?? null,
+          tipo_caminhao: roteirizacao?.tipoCaminhao ?? tipoCaminhao,
           origem: "Goiânia/GO",
           provider: "ors",
           ordem_planejada: groups.map((g) => ({
