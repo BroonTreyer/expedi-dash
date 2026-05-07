@@ -657,7 +657,7 @@ Deno.serve(async (req) => {
     // Quando o ORS recusa as duas variantes (ex.: rota > 6.000 km — código 2004),
     // pedimos ao OSRM público até 3 rotas alternativas e usamos a mais rápida e a
     // mais curta para preencher os botões "Mais Rápida" / "Mais Econômica".
-    if (wantBoth && !vFast && !vEcon) {
+    if (!vFast && !vEcon && (wantFast || wantEcon)) {
       try {
         const coordsStr = allPoints.map((p) => `${p.lng},${p.lat}`).join(";");
         const osrmAltUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson&steps=false&alternatives=2`;
@@ -754,6 +754,20 @@ Deno.serve(async (req) => {
           usedOrs = true; // marca como rota real (não estimada)
           estimado = false;
           console.log(`[roteirizar] OSRM aceito: ${distanciaTotal}km, ${geometry.length} pontos, ${trechos.length} trechos`);
+          // Popula variantes a partir do OSRM single-route quando o fallback de
+          // alternativas não conseguiu (ou não foi disparado). Garante que os
+          // botões "Mais Rápida" / "Mais Econômica" tenham conteúdo.
+          const duracaoMinSingle = trechos.reduce((s, t) => s + (t.duracao || 0), 0);
+          const variantSingle: Variant = {
+            geometry,
+            distanciaTotal,
+            duracaoMin: duracaoMinSingle,
+            trechos,
+            pedagios: [],
+            usedOrs: true,
+          };
+          if (wantFast && !vFast) vFast = variantSingle;
+          if (wantEcon && !vEcon) vEcon = variantSingle;
         } else {
           throw new Error("OSRM sem rotas");
         }
@@ -819,7 +833,7 @@ Deno.serve(async (req) => {
         distanciaTotal,
         trechos,
         pedagios,
-        rotas: wantBoth ? {
+        rotas: {
           rapida: vFast ? {
             ordemOtimizada,
             geometria: vFast.geometry,
@@ -836,7 +850,7 @@ Deno.serve(async (req) => {
             trechos: vEcon.trechos,
             pedagios: vEcon.pedagios,
           } : null,
-        } : undefined,
+        },
         estimado,
         origemLat: origemCoords?.lat ?? null,
         origemLng: origemCoords?.lng ?? null,
