@@ -223,12 +223,17 @@ export function RotaMap({
   estimado,
   custoCombustivel,
   tipoCaminhaoLabel,
+  tempoTotalMin,
+  horarioRetorno,
+  onReorder,
 }: Props) {
   const [geocodedCoords, setGeocodedCoords] = useState<Map<string, Coords>>(new Map());
   const [origemCoords, setOrigemCoords] = useState<Coords | null>(null);
   const [localLoading, setLocalLoading] = useState(false);
   const abortRef = useRef(0);
   const isMobile = useIsMobile();
+  const [fullscreen, setFullscreen] = useState(false);
+  const [recenterTick, setRecenterTick] = useState(0);
 
   const isLoading = externalLoading || localLoading;
 
