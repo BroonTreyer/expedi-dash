@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import {
   DndContext,
   closestCenter,
@@ -172,6 +172,12 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const [baseline, setBaseline] = useState<{ km: number; min: number | null; custo: number | null } | null>(null);
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
+  // Sequência da requisição corrente — descarta respostas atrasadas
+  const routeReqIdRef = useRef(0);
+  // Hash da última ordem efetivamente roteirizada — evita rechamadas redundantes
+  const lastRoutedKeyRef = useRef<string>("");
+  // Timer de debounce para reroteirização automática após reordenar
+  const rerouteTimerRef = useRef<number | null>(null);
   const [tipoCaminhaoCusto, setTipoCaminhaoCusto] = useState<string>("");
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   // UF da origem (Goiânia/GO por enquanto)
@@ -244,25 +250,21 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
 
   const renumber = (arr: RotaGroup[]) => arr.map((g, i) => ({ ...g, ordem: i + 1 }));
 
-  // Clear stale route geometry whenever the user manually reorders destinations
+  // Mantemos a linha azul anterior visível enquanto recalcula. Não limpamos mais
+  // nada aqui; quem decide se a rota precisa ser recalculada é o efeito abaixo.
   const clearRouteGeometry = useCallback(() => {
-    setRouteGeometry(undefined);
-    setDistanciaTotal(undefined);
-    setTrechos(undefined);
+    /* noop — mantido por compatibilidade com chamadas legadas */
   }, []);
 
   const moveUp = (idx: number) => {
     if (idx === 0) return;
-    clearRouteGeometry();
     setGroups((prev) => { const next = [...prev]; [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]; return renumber(next); });
   };
   const moveDown = (idx: number) => {
     if (idx >= groups.length - 1) return;
-    clearRouteGeometry();
     setGroups((prev) => { const next = [...prev]; [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]; return renumber(next); });
   };
   const moveToPosition = (fromIdx: number, toPosition: number) => {
-    clearRouteGeometry();
     setGroups((prev) => { const next = [...prev]; const [item] = next.splice(fromIdx, 1); next.splice(toPosition - 1, 0, item); return renumber(next); });
   };
 
@@ -275,45 +277,46 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    clearRouteGeometry();
     setGroups((prev) => {
       const oldIdx = prev.findIndex((g) => groupKey(g) === active.id);
       const newIdx = prev.findIndex((g) => groupKey(g) === over.id);
       return renumber(arrayMove(prev, oldIdx, newIdx));
     });
-  }, [clearRouteGeometry]);
+  }, []);
 
-  const handleRoteirizar = useCallback(async () => {
-    // Guard: prevent double calls
-    if (isRouting) return;
-
+  // Núcleo unificado de chamada à edge function.
+  // mode="optimize" → reordena destinos com 2-opt (botão Roteirizar)
+  // mode="preserve" → mantém ordem atual (auto-recalcular após reordenar)
+  const runRoteirizar = useCallback(async (mode: "optimize" | "preserve", silent = false) => {
     const destinosParaRoteirizar = activeGroups
       .filter((g) => g.cidade && g.uf)
       .map((g) => ({ cidade: g.cidade!, uf: g.uf!, cliente: g.nomeCliente ?? "Sem cliente" }));
 
-    // Always clear stale geometry before any routing attempt
-    setRouteGeometry(undefined);
-    setDistanciaTotal(undefined);
-    setTrechos(undefined);
-    setEstimado(false);
-
     if (destinosParaRoteirizar.length < 2) {
-      toast.info("Necessário ao menos 2 destinos com cidade/UF para roteirizar");
+      if (!silent) toast.info("Necessário ao menos 2 destinos com cidade/UF para roteirizar");
       return;
     }
 
+    const reqId = ++routeReqIdRef.current;
     setIsRouting(true);
     try {
       // Salva snapshot atual como baseline (rota manual) antes de otimizar
-      if (distanciaTotal != null && distanciaTotal > 0) {
+      if (mode === "optimize" && distanciaTotal != null && distanciaTotal > 0) {
         const dirigindo = (trechos ?? []).reduce((s, t) => s + (t.duracao || 0), 0);
         const minBase = trechos && trechos.length > 0 ? dirigindo + activeGroups.length * 30 : null;
         setBaseline({ km: distanciaTotal, min: minBase, custo: null });
       }
       const { data, error } = await supabase.functions.invoke("roteirizar", {
-        body: { destinos: destinosParaRoteirizar, origemCidade: "Goiânia", origemUf: "GO" },
+        body: {
+          destinos: destinosParaRoteirizar,
+          origemCidade: "Goiânia",
+          origemUf: "GO",
+          preserveOrder: mode === "preserve",
+        },
       });
       if (error) throw error;
+      // Resposta atrasada — descartar
+      if (reqId !== routeReqIdRef.current) return;
 
       if (data.geometria && data.geometria.length > 0) setRouteGeometry(data.geometria);
       if (data.distanciaTotal != null) setDistanciaTotal(data.distanciaTotal);
@@ -340,7 +343,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         if (newCoordsCache.size > 0) setCoordsCache(newCoordsCache);
       }
 
-      if (data.ordemOtimizada && data.ordemOtimizada.length > 0) {
+      if (mode === "optimize" && data.ordemOtimizada && data.ordemOtimizada.length > 0) {
         // Normalize city name: remove accents, uppercase, trim — matches coordsCache key format
         const normCity = (s: string) =>
           s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
@@ -379,14 +382,22 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
           return renumber(newOrder);
         });
       }
-      // BUG 11 FIX: Format distance with locale separator
-      toast.success(`Rota otimizada: ${Number(data.distanciaTotal).toLocaleString("pt-BR")} km`);
+      if (!silent) {
+        toast.success(
+          `${mode === "optimize" ? "Rota otimizada" : "Trajeto recalculado"}: ${Number(data.distanciaTotal).toLocaleString("pt-BR")} km`,
+        );
+      }
     } catch (err: any) {
-      toast.error("Erro ao roteirizar: " + (err.message ?? "Tente novamente"));
+      if (!silent) toast.error("Erro ao roteirizar: " + (err.message ?? "Tente novamente"));
     } finally {
-      setIsRouting(false);
+      if (reqId === routeReqIdRef.current) setIsRouting(false);
     }
-  }, [activeGroups, isRouting]);
+  }, [activeGroups, distanciaTotal, trechos]);
+
+  const handleRoteirizar = useCallback(async () => {
+    if (isRouting) return;
+    await runRoteirizar("optimize", false);
+  }, [isRouting, runRoteirizar]);
 
   // Cálculo de custo de combustível
   const tipoSelecionado = tiposCaminhao.find((t: any) => t.nome_tipo === tipoCaminhaoCusto);
@@ -425,6 +436,30 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       handleRoteirizar();
     }
   }, [shouldAutoRoute, isRouting, groups.length, handleRoteirizar]);
+
+  // Auto-recalcular o traçado real (preservando ordem) sempre que o usuário
+  // reordena destinos ou altera a seleção. Mantém a linha azul anterior
+  // visível enquanto o novo trajeto é calculado.
+  const orderKey = useMemo(
+    () => activeGroups
+      .filter((g) => g.cidade && g.uf)
+      .map((g) => `${g.cidade}|${g.uf}|${g.codigoCliente ?? ""}`)
+      .join(">>"),
+    [activeGroups],
+  );
+  useEffect(() => {
+    if (!orderKey) return;
+    if (activeGroups.filter((g) => g.cidade && g.uf).length < 2) return;
+    if (lastRoutedKeyRef.current === orderKey) return;
+    if (rerouteTimerRef.current) window.clearTimeout(rerouteTimerRef.current);
+    rerouteTimerRef.current = window.setTimeout(() => {
+      lastRoutedKeyRef.current = orderKey;
+      runRoteirizar("preserve", true);
+    }, 350);
+    return () => {
+      if (rerouteTimerRef.current) window.clearTimeout(rerouteTimerRef.current);
+    };
+  }, [orderKey, activeGroups, runRoteirizar]);
 
   const handleExportExcel = useCallback(() => {
     const header = ["#", "CÓDIGO", "NOME", "CIDADE", "UF", "PESO", "VENDEDOR"];
