@@ -331,6 +331,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
           origemCidade: "Goiânia",
           origemUf: "GO",
           preserveOrder: mode === "preserve",
+          mode: mode === "preserve" ? "fastest" : "both",
         },
       });
       if (error) throw error;
