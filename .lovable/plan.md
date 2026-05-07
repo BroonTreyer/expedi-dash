@@ -1,36 +1,46 @@
-## Objetivo
-1. Os botões **Mais Rápida** e **Mais Econômica** devem aparecer **SEMPRE** nas telas de Roteirizar e Fechar Carga (mesmo antes de calcular ou se uma das variantes falhar).
-2. Os marcadores de **pedágio** no mapa precisam aparecer **sempre que existirem** na rota atual.
-3. Adicionar uma opção de **mostrar/ocultar pedágios** no mapa.
+## Voltar Fagno ao card vermelho (Cargas fechadas aguardando veículo)
 
-## O que será alterado
+Vou rodar uma migration que faz 3 coisas, sem mexer em código:
 
-### `src/components/dashboard/RoteirizacaoDialog.tsx`
-- Remover a condição `{(rotaRapida || rotaEconomica) && ...}` ao redor do toggle. A barra passa a renderizar sempre que houver destinos calculáveis (≥1 grupo com cidade/uf).
-- Quando uma variante ainda não foi calculada, mostrar o botão com label "calculando..." (loader spin) em vez de esconder. Botões ficam `disabled` se a variante correspondente não existir, mas continuam visíveis.
-- Adicionar estado `mostrarPedagios` (default `true`) e um terceiro controle ao lado do toggle: um `Switch` (shadcn) com label "Pedágios" — alterna a renderização dos marcadores no mapa.
-- Passar prop `pedagios={mostrarPedagios ? pedagiosAtual : []}` para `RotaMap`.
-
-### `src/components/dashboard/FechamentoLoteDialog.tsx`
-- Mesma mudança: toggle Rápida/Econômica visível sempre que houver `groups` com cidade/uf (não depender mais de `rotaRapida || rotaEconomica`).
-- Mesmo `Switch` de "Pedágios" e mesma lógica de `pedagios={mostrarPedagios ? pedagiosAtual : []}`.
-
-### `src/components/dashboard/RotaMap.tsx`
-- Nenhuma mudança lógica necessária — já renderiza marcadores quando `pedagios.length > 0`. A visibilidade passa a ser controlada via prop pelo pai (passar `[]` esconde).
-- Pequeno ajuste no `pedagioIcon`: garantir z-index acima da polilinha (já é `divIcon`, basta `className` com `z-[1000]`) para sempre aparecer por cima do trajeto azul.
-
-### Layout do controle (uma linha, mobile-friendly)
-```text
-Trajeto: [⚡ Mais Rápida 320 km · 4h12 · 3 ped.] [💰 Mais Econômica 298 km · 4h45 · 1 ped.]   [Pedágios ●━━]
+### 1. Refecha a carga JR MIX (31 pedidos da JR DISTRIBUIDORA — pedido #9 de 07/05)
+```sql
+UPDATE carregamentos_dia
+SET etapa='logistica',
+    carga_id='CARGA-20260507-JRMIX',
+    nome_carga='JR MIX',
+    placa='QWE1B20',
+    motorista='FAGNO PEREIRA ALMEIDA',
+    transportadora='JR TRANSPORTES',
+    tipo_caminhao='Carreta',
+    horario_inicio=now()
+WHERE data='2026-05-07' AND etapa='vendas'
+  AND codigo_cliente='10219' AND numero_pedido=9;
 ```
 
-## Comportamento esperado
-- Abriu a tela → os 2 botões aparecem imediatamente (cinza/disabled enquanto calcula).
-- Cálculo pronto → botões ficam ativos, mostrando km/min/nº de pedágios.
-- Se ORS retornar só 1 variante (fallback OSRM/Haversine), o outro botão fica desabilitado mas visível, com texto "indisponível".
-- Marcadores `$` de pedágio aparecem no mapa por padrão e somem ao desligar o switch.
-- Estado do switch é mantido apenas durante a sessão do diálogo (sem persistência por enquanto).
+### 2. Recria o veículo esperado autorizado
+```sql
+INSERT INTO veiculos_esperados
+  (data_referencia, grupo, placa, motorista, transportadora, tipo_veiculo,
+   carga_id, status_autorizacao, walk_in, autorizado_em)
+VALUES
+  ('2026-05-07','TERCEIRIZADO','QWE1B20','FAGNO PEREIRA ALMEIDA','JR TRANSPORTES',
+   'Carreta','CARGA-20260507-JRMIX','autorizado',false,now());
+```
 
-## Fora do escopo
-- Custo real de pedágio (depende de API paga — TollGuru/Qualp).
-- Persistir preferência do switch por usuário.
+### 3. Recria a chegada na portaria às 14:06 (sem entrada → card vermelho)
+```sql
+INSERT INTO movimentacoes_portaria
+  (tipo_movimento, categoria, placa, motorista, empresa, tipo_caminhao,
+   carga_id, etapa_terceirizado, horario_chegada, data_hora)
+VALUES
+  ('entrada','terceirizado','QWE1B20','FAGNO PEREIRA ALMEIDA','JR TRANSPORTES','Carreta',
+   'CARGA-20260507-JRMIX','chegada',
+   '2026-05-07 14:06:06+00','2026-05-07 14:06:06+00');
+```
+
+### Resultado
+- Os 31 pedidos voltam para a aba Logística.
+- A carga **JR MIX** reaparece no painel "Cargas fechadas aguardando veículo" — Fagno volta no **card vermelho** (chegou mas não entrou).
+- A portaria pode liberar a entrada normalmente daí.
+
+**Aprova?**
