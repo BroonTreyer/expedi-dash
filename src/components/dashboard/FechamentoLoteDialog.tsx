@@ -378,19 +378,21 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           </div>
         </div>
 
-        {/* Destinations summary (compact) */}
-        <div className="space-y-1">
-          {groups.map((g, idx) => {
-            const type = idx === 0 ? "text-green-600" : idx === groups.length - 1 ? "text-red-500" : "text-primary";
-            return (
-              <div key={g.codigoCliente ?? idx} className="flex items-center gap-2 px-2 py-1 rounded bg-muted/20 text-xs">
-                <span className={cn("font-bold w-5 text-center", type)}>{g.ordem}</span>
-                <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                <span className="truncate flex-1">{g.nomeCliente ?? "Sem cliente"} – {g.cidade}{g.uf ? `/${g.uf}` : ""}</span>
-                <span className="font-mono text-muted-foreground">{g.pesoTotal.toLocaleString("pt-BR")} kg</span>
+        {/* Destinations summary — drag para reordenar (atualiza ordem_entrega ao fechar) */}
+        <div>
+          <p className="text-[11px] text-muted-foreground mb-1 px-1">Arraste para reordenar — a ordem será gravada ao fechar a carga.</p>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {groups.map((g, idx) => {
+                  const colorClass = idx === 0 ? "text-green-600" : idx === groups.length - 1 ? "text-red-500" : "text-primary";
+                  return (
+                    <SortableDestRow key={dndKey(g)} id={dndKey(g)} group={g} idx={idx} total={groups.length} colorClass={colorClass} />
+                  );
+                })}
               </div>
-            );
-          })}
+            </SortableContext>
+          </DndContext>
         </div>
 
         {/* BUG 7 FIX: Pass coordsCache from roteirizacao to avoid redundant geocoding */}
