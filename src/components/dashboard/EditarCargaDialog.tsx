@@ -47,6 +47,8 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; motivo_ruptura?: string | null }>>({});
   // Ordem manual por chave de cliente (codigo_cliente || nome). Inicializa do banco.
   const [ordemPorCliente, setOrdemPorCliente] = useState<Record<string, number>>({});
+  // Marca true assim que o usuário reordena manualmente (passa a persistir 1..N para todas as paradas)
+  const [ordemDirty, setOrdemDirty] = useState(false);
 
   useEffect(() => {
     if (group && open) {
@@ -67,6 +69,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
         }
       }
       setOrdemPorCliente(map);
+      setOrdemDirty(false);
       setLookupStatus("idle");
       setLookupInfo("");
     }
@@ -148,11 +151,17 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       }
       g.itens.push(it);
     }
-    return Array.from(map.values()).sort((a, b) => a.ordemAtual - b.ordemAtual);
+    const arr = Array.from(map.values()).sort((a, b) => a.ordemAtual - b.ordemAtual);
+    // Atribui posição sequencial (1..N) para paradas sem ordem definida — apenas visual,
+    // só vira persistência se o usuário reordenar (ordemDirty).
+    arr.forEach((g, i) => {
+      if (g.ordemAtual === 9999) g.ordemAtual = i + 1;
+    });
+    return arr;
   })();
 
   const totalParadas = clienteGroups.length;
-  const podeReordenar = clienteGroups.some((g) => g.ordemAtual !== 9999) && totalParadas >= 2;
+  const podeReordenar = totalParadas >= 2;
 
   const reorderTo = (key: string, novaPos: number) => {
     if (novaPos < 1) novaPos = 1;
@@ -166,26 +175,28 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
     const next: Record<string, number> = {};
     lista.forEach((k, i) => { next[k] = i + 1; });
     setOrdemPorCliente(next);
+    setOrdemDirty(true);
   };
 
   const moveBy = (key: string, delta: number) => {
-    const atual = ordemPorCliente[key];
-    if (atual == null || atual === 9999) return;
-    reorderTo(key, atual + delta);
+    const grupo = clienteGroups.find((g) => g.key === key);
+    if (!grupo) return;
+    reorderTo(key, grupo.ordemAtual + delta);
   };
 
   const handleSave = () => {
     const ids = visibleItems.map((i) => i.id);
-    // Monta ordemUpdates: cada item recebe a ordem do seu cliente
+    // Monta ordemUpdates apenas se o usuário reordenou manualmente — então grava 1..N
+    // para todos os itens (mesmo os que ainda não tinham ordem_entrega no banco).
     let ordemUpdates: Record<string, number> | undefined;
-    if (podeReordenar) {
+    if (ordemDirty && podeReordenar) {
+      const ordemPorKey: Record<string, number> = {};
+      clienteGroups.forEach((g) => { ordemPorKey[g.key] = g.ordemAtual; });
       ordemUpdates = {};
       for (const it of visibleItems) {
         const k = clienteKey(it);
-        const ord = ordemPorCliente[k];
-        if (ord != null && ord !== 9999) {
-          ordemUpdates[it.id] = ord;
-        }
+        const ord = ordemPorKey[k];
+        if (ord != null) ordemUpdates[it.id] = ord;
       }
       if (Object.keys(ordemUpdates).length === 0) ordemUpdates = undefined;
     }
@@ -246,8 +257,8 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
             <div className="space-y-1.5">
               <Label>
                 Pedidos na carga ({visibleItems.length}) — {totalParadas} parada{totalParadas !== 1 ? "s" : ""}
-                {!podeReordenar && totalParadas >= 2 && (
-                  <span className="ml-2 text-[10px] font-normal text-muted-foreground">(roteirize a carga para habilitar reordenação manual)</span>
+                {podeReordenar && (
+                  <span className="ml-2 text-[10px] font-normal text-muted-foreground">— use ↑/↓ ou digite a posição para reordenar</span>
                 )}
               </Label>
               <div className="border rounded-md divide-y max-h-[55vh] overflow-y-auto">
@@ -255,26 +266,21 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                   <p className="text-xs text-muted-foreground p-3 text-center">Nenhum pedido restante</p>
                 ) : (
                   clienteGroups.map((cg) => {
-                    const ordAtual = ordemPorCliente[cg.key];
-                    const temOrdem = ordAtual != null && ordAtual !== 9999;
+                    const ordAtual = cg.ordemAtual;
                     return (
                       <div key={cg.key} className="bg-background">
                         {/* Cabeçalho da parada (cliente) */}
                         <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-muted/40 border-b">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
-                            {temOrdem ? (
-                              <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md bg-primary/15 text-primary text-[11px] font-bold">
-                                #{ordAtual}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md bg-muted text-muted-foreground text-[11px] font-bold">—</span>
-                            )}
+                            <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md bg-primary/15 text-primary text-[11px] font-bold">
+                              #{ordAtual}
+                            </span>
                             <div className="min-w-0">
                               <div className="text-xs font-semibold truncate">{cg.nome}</div>
                               <div className="text-[10px] text-muted-foreground truncate">{cg.cidade} • {cg.itens.length} item{cg.itens.length !== 1 ? "ns" : ""}</div>
                             </div>
                           </div>
-                          {podeReordenar && temOrdem && (
+                          {podeReordenar && (
                             <div className="flex items-center gap-1 shrink-0">
                               <Button
                                 type="button"
