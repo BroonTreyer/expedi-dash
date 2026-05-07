@@ -861,9 +861,39 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
               tempoTotalMin={tempoTotalMin}
               horarioRetorno={horarioRetorno}
               onReorder={handleReorderFromMap}
+              pedagios={pedagiosAtual}
             />
           </Suspense>
         </div>
+
+        {/* Toggle Rápida x Econômica */}
+        {(rotaRapida || rotaEconomica) && (
+          <div className="flex flex-wrap items-center gap-2 -mt-2 px-1">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Trajeto:</span>
+            <Button
+              type="button"
+              size="sm"
+              variant={modoRota === "rapida" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setModoRota("rapida")}
+              disabled={!rotaRapida}
+            >
+              ⚡ Mais Rápida
+              {rotaRapida && <span className="ml-1.5 opacity-80">{rotaRapida.distanciaTotal.toLocaleString("pt-BR")} km · {rotaRapida.duracaoMin} min · {rotaRapida.pedagios.length} ped.</span>}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={modoRota === "economica" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setModoRota("economica")}
+              disabled={!rotaEconomica}
+            >
+              💰 Mais Econômica
+              {rotaEconomica && <span className="ml-1.5 opacity-80">{rotaEconomica.distanciaTotal.toLocaleString("pt-BR")} km · {rotaEconomica.duracaoMin} min · {rotaEconomica.pedagios.length} ped.</span>}
+            </Button>
+          </div>
+        )}
 
         {/* Destination cards with DnD */}
         <div className="border-t border-border pt-3">
