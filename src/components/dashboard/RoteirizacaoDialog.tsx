@@ -395,6 +395,13 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     return dirigindo + descarga;
   }, [trechos, activeGroups.length]);
 
+  // Horário previsto de retorno baseado em "agora" + duração total
+  const horarioRetorno = useMemo(() => {
+    if (!tempoTotalMin || tempoTotalMin <= 0) return null;
+    const ret = new Date(Date.now() + tempoTotalMin * 60_000);
+    return ret.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  }, [tempoTotalMin]);
+
   // Reorder pelo mapa
   const handleReorderFromMap = useCallback((ordemAtual: number, dir: "up" | "down") => {
     const idx = ordemAtual - 1;
@@ -460,6 +467,9 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
       trechos,
       // BUG 7 FIX: Include coordsCache so FechamentoLoteDialog can pass it to RotaMap
       coordsCache,
+      custoCombustivel,
+      tipoCaminhao: tipoCaminhaoCusto || null,
+      tempoTotalMin,
     });
     onOpenChange(false);
   };
