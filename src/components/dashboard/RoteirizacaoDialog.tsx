@@ -490,6 +490,20 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
     };
   }, [orderKey, activeGroups, runRoteirizar]);
 
+  // Quando ambas variantes existem, sincroniza geometria/km/trechos com a selecionada.
+  useEffect(() => {
+    const sel = modoRota === "economica" ? rotaEconomica : rotaRapida;
+    if (!sel) return;
+    setRouteGeometry(sel.geometria);
+    setDistanciaTotal(sel.distanciaTotal);
+    setTrechos(sel.trechos);
+  }, [modoRota, rotaRapida, rotaEconomica]);
+
+  const pedagiosAtual = useMemo(() => {
+    const sel = modoRota === "economica" ? rotaEconomica : rotaRapida;
+    return sel?.pedagios ?? [];
+  }, [modoRota, rotaRapida, rotaEconomica]);
+
   const handleExportExcel = useCallback(() => {
     const header = ["#", "CÓDIGO", "NOME", "CIDADE", "UF", "PESO", "VENDEDOR"];
     const rows: (string | number | null)[][] = [header];
