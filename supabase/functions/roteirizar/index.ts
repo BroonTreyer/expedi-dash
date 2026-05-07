@@ -545,6 +545,85 @@ Deno.serve(async (req) => {
       console.log(
         `[roteirizar] 2-opt order (${optimizedGroups.length} cities, ${twoOptDist.toFixed(0)}km): ${optimizedGroups.map((g) => g.cityKey).join(" → ")}`,
       );
+
+      // ── Refinamento via ORS Matrix (durations reais) ────────────────────
+      // Para 4..25 cidades, pede a matriz de durações ao ORS e refina o 2-opt
+      // usando custos rodoviários reais (em vez de Haversine). Isso evita
+      // zig-zags em rotas continentais. Falha silenciosamente se ORS recusar.
+      const ORS_KEY_FOR_MATRIX = Deno.env.get("ORS_API_KEY");
+      if (ORS_KEY_FOR_MATRIX && cityGroups.length >= 4 && cityGroups.length <= 25) {
+        try {
+          const matrixPoints = [
+            { lat: originFallback.lat, lng: originFallback.lng },
+            ...optimizedGroups.map((g) => ({ lat: g.lat, lng: g.lng })),
+          ];
+          const matrixRes = await fetch(
+            "https://api.openrouteservice.org/v2/matrix/driving-car",
+            {
+              method: "POST",
+              headers: {
+                "Authorization": ORS_KEY_FOR_MATRIX,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+              },
+              body: JSON.stringify({
+                locations: matrixPoints.map((p) => [p.lng, p.lat]),
+                metrics: ["duration"],
+              }),
+              signal: AbortSignal.timeout(8000),
+            },
+          );
+          if (matrixRes.ok) {
+            const md = await matrixRes.json();
+            const dur: number[][] = md?.durations ?? [];
+            if (dur.length === matrixPoints.length) {
+              // 2-opt sobre matriz real. Índice 0 = origem, 1..N = optimizedGroups.
+              const N = optimizedGroups.length;
+              const order = Array.from({ length: N }, (_, i) => i + 1);
+              const routeCost = (ord: number[]): number => {
+                let total = dur[0][ord[0]] ?? 0;
+                for (let i = 0; i < ord.length - 1; i++) {
+                  total += dur[ord[i]][ord[i + 1]] ?? 0;
+                }
+                return total;
+              };
+              let best = [...order];
+              let bestCost = routeCost(best);
+              let improved = true;
+              let iter = 0;
+              const maxIter = Math.max(300, N * N);
+              while (improved && iter < maxIter) {
+                improved = false;
+                iter++;
+                for (let i = 0; i < best.length - 1 && !improved; i++) {
+                  for (let k = i + 1; k < best.length; k++) {
+                    const cand = [
+                      ...best.slice(0, i),
+                      ...best.slice(i, k + 1).reverse(),
+                      ...best.slice(k + 1),
+                    ];
+                    const c = routeCost(cand);
+                    if (c < bestCost - 1) {
+                      best = cand;
+                      bestCost = c;
+                      improved = true;
+                      break;
+                    }
+                  }
+                }
+              }
+              optimizedGroups = best.map((idx) => optimizedGroups[idx - 1]);
+              console.log(
+                `[roteirizar] ORS Matrix 2-opt (${iter} it, ${(bestCost / 60).toFixed(0)}min): ${optimizedGroups.map((g) => g.cityKey).join(" → ")}`,
+              );
+            }
+          } else {
+            console.warn(`[roteirizar] ORS Matrix HTTP ${matrixRes.status} — usando ordem Haversine`);
+          }
+        } catch (e) {
+          console.warn(`[roteirizar] ORS Matrix falhou: ${(e as Error).message} — usando ordem Haversine`);
+        }
+      }
     }
     const twoOptDist = routeDistance(originFallback, optimizedGroups);
 
