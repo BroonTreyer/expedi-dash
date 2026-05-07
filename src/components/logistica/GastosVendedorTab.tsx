@@ -207,22 +207,25 @@ export function GastosVendedorTab() {
                                     )}
                                   </div>
 
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                                     <div><span className="text-muted-foreground">Peso vendedor:</span> <strong>{fmtKg(d.peso_vendedor_kg)} kg</strong></div>
                                     <div><span className="text-muted-foreground">Peso total carga:</span> {fmtKg(d.peso_total_carga_kg)} kg</div>
                                     <div><span className="text-muted-foreground">Tabela:</span> <strong>{fmtBRL(d.previsto)}</strong></div>
                                     <div>
                                       <span className="text-muted-foreground">Valor do CT-e:</span>{" "}
-                                      {d.realizado != null ? (
-                                        <>
-                                          <strong>{fmtBRL(d.realizado)}</strong>{" "}
-                                          {d.divergencia_pct != null && (
-                                            <span className={d.divergencia_pct > 2 ? "text-destructive" : d.divergencia_pct < -2 ? "text-emerald-600" : "text-muted-foreground"}>
-                                              ({fmtPct(d.divergencia_pct)})
-                                            </span>
-                                          )}
-                                        </>
-                                      ) : <span className="text-muted-foreground">—</span>}
+                                      {d.realizado != null ? <strong>{fmtBRL(d.realizado)}</strong> : <span className="text-muted-foreground">—</span>}
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Diferença:</span>{" "}
+                                      {d.realizado != null ? (() => {
+                                        const diff = d.realizado - d.previsto;
+                                        const tone = d.divergencia_pct != null && d.divergencia_pct > 2 ? "text-destructive" : d.divergencia_pct != null && d.divergencia_pct < -2 ? "text-emerald-600" : "text-muted-foreground";
+                                        return (
+                                          <strong className={tone}>
+                                            {diff >= 0 ? "+" : ""}{fmtBRL(diff)}{d.divergencia_pct != null && <span className="font-normal"> ({fmtPct(d.divergencia_pct)})</span>}
+                                          </strong>
+                                        );
+                                      })() : <span className="text-muted-foreground">—</span>}
                                     </div>
                                   </div>
 
