@@ -571,6 +571,46 @@ Deno.serve(async (req) => {
 
     // ── Haversine fallback — when ORS is unavailable ───────────────────────
     if (!usedOrs) {
+      // ── OSRM público (sem chave) — antes do haversine ─────────────────
+      try {
+        const coordsStr = allPoints.map((p) => `${p.lng},${p.lat}`).join(";");
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson&steps=false`;
+        console.log(`[roteirizar] Tentando OSRM público (${allPoints.length} waypoints)`);
+        const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(8000) });
+        if (!osrmRes.ok) throw new Error(`OSRM HTTP ${osrmRes.status}`);
+        const osrmData = await osrmRes.json();
+        const route = osrmData?.routes?.[0];
+        if (route && route.geometry?.coordinates?.length > 1) {
+          geometry = (route.geometry.coordinates as [number, number][]).map(
+            ([lng, lat]) => [lat, lng] as [number, number]
+          );
+          distanciaTotal = Math.round((route.distance / 1000) * 10) / 10;
+          trechos = [];
+          const legs: { distance: number; duration: number }[] = route.legs || [];
+          for (let i = 0; i < legs.length; i++) {
+            const fromIdx = i - (hasOrigin ? 1 : 0);
+            const toIdx = fromIdx + 1;
+            trechos.push({
+              de: fromIdx < 0 ? oCidade : orderedGroups[fromIdx]?.members[0]?.cidade ?? oCidade,
+              para: toIdx >= 0 && toIdx < orderedGroups.length
+                ? orderedGroups[toIdx]?.members[0]?.cidade ?? ""
+                : "",
+              km: Math.round((legs[i].distance / 1000) * 10) / 10,
+              duracao: Math.round(legs[i].duration / 60),
+            });
+          }
+          usedOrs = true; // marca como rota real (não estimada)
+          estimado = false;
+          console.log(`[roteirizar] OSRM aceito: ${distanciaTotal}km, ${geometry.length} pontos, ${trechos.length} trechos`);
+        } else {
+          throw new Error("OSRM sem rotas");
+        }
+      } catch (osrmErr) {
+        console.warn(`[roteirizar] OSRM falhou: ${(osrmErr as Error).message} — caindo no haversine`);
+      }
+    }
+
+    if (!usedOrs) {
       console.log(`[roteirizar] Haversine fallback activated`);
       distanciaTotal = Math.round(twoOptDist * 10) / 10;
       estimado = true;
