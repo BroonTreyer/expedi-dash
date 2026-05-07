@@ -393,8 +393,14 @@ export function RotaMap({
   const allBoundsPoints = useMemo(() => {
     const pts: Coords[] = sortedPoints.map((p) => ({ lat: p.realLat, lng: p.realLng }));
     if (origemCoords) pts.push(origemCoords);
+    // Inclui pontos do traçado real para que o fitBounds não corte curvas longas
+    if (routeGeometry && routeGeometry.length > 1) {
+      for (const [lat, lng] of routeGeometry) {
+        if (lat !== 0 || lng !== 0) pts.push({ lat, lng });
+      }
+    }
     return pts;
-  }, [sortedPoints, origemCoords]);
+  }, [sortedPoints, origemCoords, routeGeometry]);
 
   // BUG 17 FIX: Filter out invalid [0,0] coordinates from polyline
   const polylinePositions: [number, number][] = useMemo(() => {
@@ -541,14 +547,23 @@ export function RotaMap({
           })}
 
           {polylinePositions.length > 1 && (
-            <Polyline
-              positions={polylinePositions}
-              pathOptions={{
-                color: "hsl(217, 91%, 60%)",
-                weight: 4,
-                opacity: 0.85,
-              }}
-            />
+            <>
+              {/* Casca branca para destacar o traçado sobre o mapa */}
+              <Polyline
+                positions={polylinePositions}
+                pathOptions={{ color: "white", weight: 7, opacity: 0.9 }}
+              />
+              <Polyline
+                positions={polylinePositions}
+                pathOptions={{
+                  color: "hsl(217, 91%, 55%)",
+                  weight: 5,
+                  opacity: 0.95,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+            </>
           )}
         </MapContainer>
       </div>
