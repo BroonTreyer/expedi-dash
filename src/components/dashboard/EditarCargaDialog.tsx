@@ -13,6 +13,7 @@ import { toast } from "sonner";
 interface CargaGroup {
   cargaId: string;
   nomeCarga: string | null;
+  ordemCarga: string | null;
   placa: string | null;
   motorista: string | null;
   tipoCaminhao: string | null;
@@ -23,7 +24,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   group: CargaGroup | null;
-  onSave: (cargaId: string, fields: { nome_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[], itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }>, ordemUpdates?: Record<string, number>) => void;
+  onSave: (cargaId: string, fields: { nome_carga: string; ordem_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[], itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }>, ordemUpdates?: Record<string, number>) => void;
   onRemoveItem: (itemId: string) => void;
   onDeleteCarga?: (cargaId: string) => void;
   onInverterOrdem?: () => void;
@@ -34,6 +35,7 @@ interface Props {
 
 export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveItem, onDeleteCarga, onInverterOrdem, saving, deleting, inverting }: Props) {
   const [nomeCarga, setNomeCarga] = useState("");
+  const [ordemCarga, setOrdemCarga] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
   const [tipoCaminhao, setTipoCaminhao] = useState("");
@@ -53,6 +55,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   useEffect(() => {
     if (group && open) {
       setNomeCarga(group.nomeCarga ?? "");
+      setOrdemCarga(group.ordemCarga ?? "");
       setPlaca(group.placa ?? "");
       setMotorista(group.motorista ?? "");
       setTipoCaminhao(group.tipoCaminhao ?? "");
@@ -200,7 +203,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       }
       if (Object.keys(ordemUpdates).length === 0) ordemUpdates = undefined;
     }
-    onSave(group.cargaId, { nome_carga: nomeCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, itemEdits, ordemUpdates);
+    onSave(group.cargaId, { nome_carga: nomeCarga, ordem_carga: ordemCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, itemEdits, ordemUpdates);
   };
 
   const confirmRemove = () => {
@@ -219,9 +222,16 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="ec-nome">Nome da Carga</Label>
-              <Input id="ec-nome" value={nomeCarga} onChange={(e) => setNomeCarga(e.target.value)} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ec-nome">Nome da Carga</Label>
+                <Input id="ec-nome" value={nomeCarga} onChange={(e) => setNomeCarga(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ec-ordem-carga">Ordem de Carga</Label>
+                <Input id="ec-ordem-carga" value={ordemCarga} onChange={(e) => setOrdemCarga(e.target.value)} placeholder="Ex: OC-1234" />
+                <p className="text-[10px] text-muted-foreground">Usada para vincular o CT-e/DACTE a esta carga.</p>
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">

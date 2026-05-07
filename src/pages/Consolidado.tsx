@@ -140,6 +140,7 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
 interface CargaGroup {
   cargaId: string;
   nomeCarga: string | null;
+  ordemCarga: string | null;
   placa: string | null;
   motorista: string | null;
   tipoCaminhao: string | null;
@@ -170,6 +171,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
       g = {
         cargaId: item.carga_id,
         nomeCarga: item.nome_carga ?? null,
+        ordemCarga: (item as any).ordem_carga ?? null,
         placa: item.placa,
         motorista: item.motorista,
         tipoCaminhao: item.tipo_caminhao,
