@@ -142,6 +142,24 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     });
   }, []);
 
+  // DnD setup
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  const dndKey = useCallback((g: RotaGroup) => g.codigoCliente ?? `__sem__${g.ordem}`, []);
+  const sortableIds = useMemo(() => groups.map(dndKey), [groups, dndKey]);
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setGroups((prev) => {
+      const oldIdx = prev.findIndex((g) => dndKey(g) === active.id);
+      const newIdx = prev.findIndex((g) => dndKey(g) === over.id);
+      if (oldIdx < 0 || newIdx < 0) return prev;
+      return arrayMove(prev, oldIdx, newIdx).map((g, i) => ({ ...g, ordem: i + 1 }));
+    });
+  }, [dndKey]);
+
   useEffect(() => {
     if (open) {
       setTipoCaminhao("");
