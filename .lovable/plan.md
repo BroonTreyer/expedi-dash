@@ -1,41 +1,47 @@
-# Por que continua "indisponível"
+# Auditoria — bugs identificados
 
-Os logs mostram que **a chamada problemática NÃO é a otimização inicial**, e sim o **recálculo automático após reordenar manualmente** os destinos no diálogo:
+## 1. Recálculo após reordenar zera "Mais Econômica" e perde pedágios
 
-1. Ao reordenar (drag-and-drop), o front chama a edge function com `mode: "fastest"` (preserve order) — **não** `"both"`.
-2. Com `mode="fastest"`: `wantBoth=false`, então o **fallback OSRM-alternativas (que adicionei na rodada anterior) nunca dispara** — ele só roda dentro de `if (wantBoth && !vFast && !vEcon)`.
-3. ORS recusa a rota (`HTTP 400 código 2004`, > 6.000 km) → `vFast = null`.
-4. O fluxo cai no fallback OSRM "público single-route" (linha 726+), que popula `geometria`/`distanciaTotal` mas **NÃO seta `vFast`**.
-5. A resposta volta com `rotas: undefined` (porque `wantBoth=false`).
-6. No front (`RoteirizacaoDialog.tsx` linhas 348-355): como `data.rotas` é `undefined` e `mode==="preserve"`, executa `setRotaRapida(null); setRotaEconomica(null);` — **zera os botões** que antes estavam preenchidos.
+`src/components/dashboard/RoteirizacaoDialog.tsx` linha 336: o auto-recálculo após drag-and-drop chama a edge function com `mode: "fastest"`. Isso faz com que:
+- A resposta venha com `data.rotas.economica = null` → botão "Mais Econômica" vai para "indisponível".
+- Mesmo a "Mais Rápida" perde os pedágios em rotas >6.000 km, porque o fallback **OSRM público** (único que aceita rotas dessa magnitude) não retorna `tollways`.
 
-A confirmação está nos logs: aparece `"Tentando OSRM público"` (legacy single, linha 730), e **nunca** `"Tentando OSRM alternativas"` (linha 664).
+## 2. ORS não aceita >6.000 km — limitação real do provedor
 
-# Correção
+Os logs confirmam `ORS HTTP 400 código 2004`. Para rotas curtas (<6.000 km) o ORS responde normalmente com pedágios. Para rotas grandes, **só o OSRM público** funciona, e ele **não tem dados de pedágio** — limitação documentada do projeto OSRM, não há como inventar.
 
-Apenas `supabase/functions/roteirizar/index.ts` e um pequeno ajuste em `src/components/dashboard/RoteirizacaoDialog.tsx`.
+## 3. "Não reordena de forma inteligente"
 
-## 1. Edge function `roteirizar`
+A causa: depois do botão **Roteirizar** (que faz 2-opt), o `useEffect` em `orderKey` (linha 495) dispara `runRoteirizar("preserve")` toda vez que `activeGroups` muda — inclusive quando o próprio backend reordenou via 2-opt. O `lastRoutedKeyRef` deveria proteger, mas como o estado dos `groups` é atualizado **depois** da resposta, a nova `orderKey` é diferente e dispara um `preserve` em cima da ordem otimizada — sem efeito visual nocivo, mas mascara o trabalho do 2-opt nos logs e pode confundir.
 
-- **Disparar o fallback OSRM-alternativas também quando `mode="fastest"` ou `"cheapest"`**: trocar a condição `if (wantBoth && !vFast && !vEcon)` por `if (!vFast && !vEcon && (wantFast || wantEcon))`. Quando `mode="fastest"`, basta extrair a rota mais rápida; quando `"cheapest"`, a mais curta.
-- **Quando o OSRM single-route legacy (linha 726+) for o único provedor que respondeu**, construir um `Variant` a partir dele e atribuir a `vFast` (sempre) e `vEcon` (apenas se `wantEcon`, usando a mesma rota). Isso garante que a resposta sempre tenha `rotas.rapida` populada quando há geometria válida.
-- **Sempre retornar `rotas: { rapida, economica }` no JSON final** (não apenas quando `wantBoth`). Quando `mode="fastest"`, `economica` pode ser `null`; quando `mode="cheapest"`, `rapida` pode ser `null`. Isso simplifica o front e mantém compat.
+Mais importante: o **2-opt usa Haversine** (linha em reta). Para rotas continentais, a distância real OSRM/ORS pode divergir bastante e o "ótimo" Haversine não é o ótimo rodoviário. Para o caso `Goiânia → Dormentes-PE → João Pessoa-PB → Campina Grande-PB → Porto Seguro-BA → Guanambi-BA → Salvador → Belo Jardim-PE → Santa Inês-MA → Açailândia-PA → Dom Eliseu-PA → Aracaju-SE`, a sequência fica visivelmente caótica (zig-zag pelo NE).
 
-## 2. Front `RoteirizacaoDialog.tsx` (linhas 348-355)
+# Correções
 
-- Em `mode === "preserve"` (recálculo após reordenação manual), **não zerar `rotaRapida`/`rotaEconomica` se a edge function devolver `data.rotas.rapida`** — apenas atualizar com a nova variante recalculada.
-- Se `data.rotas?.rapida` vier `null` mas `data.geometria` vier preenchido, **construir um Variant local** a partir de `data` (geometria, distanciaTotal, soma de duracoes dos trechos, pedagios) e setar em `rotaRapida` para que o botão continue habilitado.
+## A. `src/components/dashboard/RoteirizacaoDialog.tsx`
 
-# Resultado esperado
+1. **Linha 336**: trocar `mode: mode === "preserve" ? "fastest" : "both"` por `mode: "both"`. Sempre pedir as duas variantes — mantém os botões "Mais Rápida"/"Mais Econômica" populados após reordenar e devolve pedágios sempre que o ORS conseguir responder.
+2. **Linhas 348-369** (lógica que constrói rota local quando `data.rotas` vem `undefined`): manter como está, mas garantir que `data.rotas.economica` `null` **não sobrescreva** uma `rotaEconomica` anterior em `mode === "preserve"`. Já implementei essa proteção parcial — vou reforçá-la para `null` explícito.
+3. **Linha 495-507** (`useEffect` de reroteirização automática): quando `mode === "optimize"` acaba de rodar, evitar disparar `preserve` em sequência. Solução: setar `lastRoutedKeyRef.current` para a `orderKey` esperada **antes** de aplicar `setGroups` com a ordem reordenada. Atualmente já faz isso, mas o `setGroups` muda a ordem e gera nova `orderKey` que difere.
+   - Fix: dentro do bloco `if (mode === "optimize" && data.ordemOtimizada)`, calcular a `orderKey` que resultará da nova ordem e atribuir a `lastRoutedKeyRef.current` **dentro** do `setGroups` (mesmo update), evitando o re-disparo.
 
-- Após reordenar a viagem de ~9.700 km:
-  - O botão **Mais Rápida** continua habilitado mostrando `9.700,0 km · ~Xh · 0 ped.` (OSRM não retorna pedágios).
-  - **Mais Econômica** mostra `indisponível` somente quando o OSRM público devolve uma única rota (limite real do provedor para rotas dessa magnitude) — comportamento esperado e documentado.
-- Em rotas normais (< 6.000 km), o ORS continua respondendo as duas variantes com pedágios — sem regressão.
+## B. `supabase/functions/roteirizar/index.ts` (qualidade da otimização)
+
+1. **Substituir o 2-opt baseado em Haversine por uma matriz real de distâncias** quando o ORS estiver disponível e a quantidade de cidades for ≤ 25:
+   - Chamar `https://api.openrouteservice.org/v2/matrix/driving-car` uma vez com todos os pontos para obter `durations` reais.
+   - Rodar 2-opt sobre essa matriz (mesmo algoritmo, só troca a função de custo).
+   - Com isso a ordem otimizada respeita estradas reais (ex.: agrupa MA/PA/TO antes de descer para BA/SE).
+   - Fallback: se a matriz falhar (rede, limite ORS), manter Haversine atual.
+2. **Não regredir** rotas pequenas: o `routeDistance` continua sendo usado no log e no fallback Haversine.
+3. **Custo do ORS Matrix**: 1 chamada extra (~500ms) só no `mode="optimize"` quando ORS está configurado e há ≥4 cidades. Cache de matriz pode entrar depois.
+
+## C. Limitação aceita (sem fix possível)
+
+Para rotas que excedem 6.000 km (limite ORS), o sistema continuará usando OSRM e **não exibirá pedágios** — limitação do provedor público. Mostrar um aviso discreto no toggle "Pedágios" quando a rota ativa não tiver dados (`pedagios.length === 0` E `distanciaTotal > 6000`): texto auxiliar `"sem dados nesta faixa"` em vez do número.
 
 # Arquivos afetados
 
-- `supabase/functions/roteirizar/index.ts`
-- `src/components/dashboard/RoteirizacaoDialog.tsx`
+- `src/components/dashboard/RoteirizacaoDialog.tsx` (linhas 336, 348-369, 391-428, 495-507, 904-906)
+- `supabase/functions/roteirizar/index.ts` (adicionar `callOrsMatrix()` e usar no bloco `else { greedySort + twoOpt }` da linha 541)
 
-Sem mudanças em DB, RLS, secrets ou config.
+Sem mudanças em DB, RLS, secrets.

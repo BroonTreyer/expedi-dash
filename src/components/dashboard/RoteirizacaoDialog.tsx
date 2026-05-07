@@ -333,7 +333,9 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
           origemCidade: "Goiânia",
           origemUf: "GO",
           preserveOrder: mode === "preserve",
-          mode: mode === "preserve" ? "fastest" : "both",
+          // Sempre pedimos as duas variantes para manter os botões "Mais Rápida"
+          // e "Mais Econômica" populados (com pedágios) também após reordenar.
+          mode: "both",
         },
       });
       if (error) throw error;
