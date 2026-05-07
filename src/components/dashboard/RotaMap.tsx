@@ -188,6 +188,27 @@ function createOrigemIcon(label: string) {
   });
 }
 
+const pedagioIcon = L.divIcon({
+  className: "custom-marker-pedagio",
+  html: `<div style="
+    background: hsl(38, 92%, 50%);
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 12px;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    pointer-events: auto;
+  ">$</div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
 /** BUG 27 FIX: Wrap in forwardRef to silence react-leaflet ref warning */
 const FitBounds = forwardRef<unknown, { points: Coords[]; trigger?: number }>(
   function FitBounds({ points, trigger }, _ref) {
