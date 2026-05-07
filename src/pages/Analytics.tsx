@@ -1139,6 +1139,11 @@ export default function Analytics() {
               </div>
             )}
           </TabsContent>
+
+          {/* ═══════ TAB: HISTÓRICO DE ROTAS ═══════ */}
+          <TabsContent value="rotas">
+            <RotasExecutadasPanel />
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
