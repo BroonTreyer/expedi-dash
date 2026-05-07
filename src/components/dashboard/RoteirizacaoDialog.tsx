@@ -168,6 +168,8 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   // Coordenadas retornadas pela edge function para pré-popular o geocodeCache do RotaMap
   const [coordsCache, setCoordsCache] = useState<Map<string, { lat: number; lng: number }> | undefined>();
   const [estimado, setEstimado] = useState(false);
+  // Baseline para comparação Manual vs Otimizada (snapshot da rota anterior)
+  const [baseline, setBaseline] = useState<{ km: number; min: number | null; custo: number | null } | null>(null);
 
   const [shouldAutoRoute, setShouldAutoRoute] = useState(false);
   const [tipoCaminhaoCusto, setTipoCaminhaoCusto] = useState<string>("");
@@ -301,6 +303,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
 
     setIsRouting(true);
     try {
+      // Salva snapshot atual como baseline (rota manual) antes de otimizar
+      if (distanciaTotal != null && distanciaTotal > 0) {
+        setBaseline({
+          km: distanciaTotal,
+          min: tempoTotalMin,
+          custo: custoCombustivel,
+        });
+      }
       const { data, error } = await supabase.functions.invoke("roteirizar", {
         body: { destinos: destinosParaRoteirizar, origemCidade: "Goiânia", origemUf: "GO" },
       });
