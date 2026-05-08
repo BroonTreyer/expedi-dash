@@ -379,6 +379,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
   };
 
   const okCount = items.filter((i) => i.status === "ok" && isFrico(i.parsed?.tomador)).length;
+  const rateLimitedCount = items.filter((i) => i.status === "rate_limited").length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -401,6 +402,17 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
         {items.length > 0 && (
           <div className="space-y-3 mt-2">
+            {rateLimitedCount > 0 && (
+              <div className="border border-amber-500/40 bg-amber-500/10 rounded-lg p-3 flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {rateLimitedCount} arquivo(s) atingiram o limite temporário da IA.
+                </div>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={retryRateLimited}>
+                  <RotateCw className="h-3.5 w-3.5" /> Tentar novamente todos
+                </Button>
+              </div>
+            )}
             {okCount >= 2 && (
               <div className="border border-dashed border-border rounded-lg p-3 bg-muted/30 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
