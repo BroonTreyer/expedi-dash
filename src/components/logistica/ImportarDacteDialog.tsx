@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X, Search, Link2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X, Search, Link2, Wand2, Eraser } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { autoVincularCarga, useInsertCteDacte, buscarCargasPorOrdem, type CargaPorOrdemRow } from "@/hooks/useCtesDacte";
@@ -127,9 +129,20 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
   const [items, setItems] = useState<Item[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const insertMut = useInsertCteDacte();
+  const [modoBulk, setModoBulk] = useState<"uma" | "varias">("uma");
+  const [bulkOrdem, setBulkOrdem] = useState("");
+  const [bulkLista, setBulkLista] = useState("");
+  const [sobrescrever, setSobrescrever] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
-    if (!open) setItems([]);
+    if (!open) {
+      setItems([]);
+      setBulkOrdem("");
+      setBulkLista("");
+      setSobrescrever(false);
+      setModoBulk("uma");
+    }
   }, [open]);
 
   const handleFiles = useCallback(async (files: FileList | null) => {
@@ -201,6 +214,68 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
   const remove = (fileId: string) => setItems((prev) => prev.filter((p) => p.fileId !== fileId));
 
+  const parseOcs = (s: string): string[] =>
+    s.split(/[\n,;\s]+/).map((x) => x.trim()).filter(Boolean);
+
+  const aplicarMesmaOc = async () => {
+    const oc = bulkOrdem.trim();
+    if (!oc) return toast.error("Digite a Ordem de Carga");
+    setBulkLoading(true);
+    try {
+      const r = await buscarCargasPorOrdem(oc);
+      const picked = r.length === 1 ? r[0] : null;
+      setItems((prev) => prev.map((p) => {
+        if (p.status !== "ok") return p;
+        if (!sobrescrever && (p.ordem_carga ?? "").trim()) return p;
+        return {
+          ...p,
+          ordem_carga: oc,
+          ...(picked ? { carga_id: picked.carga_id, vinculo_status: "vinculado" as const } : {}),
+        };
+      }));
+      toast.success(picked ? `OC aplicada e vinculada à carga ${picked.carga_id}` : "OC aplicada a todos os itens");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const distribuirOcs = async () => {
+    const ocs = parseOcs(bulkLista);
+    if (!ocs.length) return toast.error("Cole as Ordens de Carga (uma por linha ou separadas por vírgula)");
+    setBulkLoading(true);
+    try {
+      const okItems = items.filter((i) => i.status === "ok");
+      const alvos = sobrescrever ? okItems : okItems.filter((p) => !(p.ordem_carga ?? "").trim());
+      const n = Math.min(alvos.length, ocs.length);
+      const lookup = await Promise.all(ocs.slice(0, n).map(async (oc) => {
+        const r = await buscarCargasPorOrdem(oc);
+        return { oc, picked: r.length === 1 ? r[0] : null };
+      }));
+      const byId = new Map(alvos.slice(0, n).map((it, i) => [it.fileId, lookup[i]]));
+      setItems((prev) => prev.map((p) => {
+        const m = byId.get(p.fileId);
+        if (!m) return p;
+        return {
+          ...p,
+          ordem_carga: m.oc,
+          ...(m.picked ? { carga_id: m.picked.carga_id, vinculo_status: "vinculado" as const } : {}),
+        };
+      }));
+      const sobra = ocs.length - n;
+      const vincs = lookup.filter((l) => l.picked).length;
+      toast.success(`${n} OC(s) distribuída(s)${vincs ? `, ${vincs} vinculada(s)` : ""}${sobra > 0 ? ` · ${sobra} sobraram` : ""}`);
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const limparOcs = () => {
+    setItems((prev) => prev.map((p) => p.status === "ok"
+      ? { ...p, ordem_carga: "", carga_id: null, vinculo_status: "pendente" as const }
+      : p));
+    toast.success("OCs limpas");
+  };
+
   const handleSaveAll = async () => {
     const ok = items.filter((i) => i.status === "ok" && i.parsed);
     if (!ok.length) return;
@@ -260,6 +335,78 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
         {items.length > 0 && (
           <div className="space-y-3 mt-2">
+            {okCount >= 2 && (
+              <div className="border border-dashed border-border rounded-lg p-3 bg-muted/30 space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="text-xs font-semibold flex items-center gap-1.5">
+                    <Wand2 className="h-3.5 w-3.5" /> Preencher OCs em lote ({okCount} itens)
+                  </div>
+                  <div className="inline-flex rounded-md border p-0.5 bg-background">
+                    <Button type="button" variant={modoBulk === "uma" ? "default" : "ghost"} size="sm"
+                      className="h-6 px-2 text-[10px]" onClick={() => setModoBulk("uma")}>Mesma OC</Button>
+                    <Button type="button" variant={modoBulk === "varias" ? "default" : "ghost"} size="sm"
+                      className="h-6 px-2 text-[10px]" onClick={() => setModoBulk("varias")}>Múltiplas OCs</Button>
+                  </div>
+                </div>
+
+                {modoBulk === "uma" ? (
+                  <div className="flex items-end gap-2 flex-wrap">
+                    <div className="flex-1 min-w-[180px]">
+                      <Input
+                        value={bulkOrdem}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const detect = parseOcs(v);
+                          if (detect.length > 1) {
+                            setBulkLista(v);
+                            setModoBulk("varias");
+                            setBulkOrdem("");
+                            toast.message(`Detectamos ${detect.length} OCs — mude para "Múltiplas OCs" para distribuir.`);
+                          } else {
+                            setBulkOrdem(v);
+                          }
+                        }}
+                        placeholder="Ex: OC-1234"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <Button size="sm" className="h-8" onClick={aplicarMesmaOc} disabled={bulkLoading || !bulkOrdem.trim()}>
+                      {bulkLoading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1" />}
+                      Aplicar a todos
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={bulkLista}
+                      onChange={(e) => setBulkLista(e.target.value)}
+                      placeholder={"Cole as OCs (uma por linha, vírgula ou espaço)\nEx:\nOC-1234\nOC-1235\nOC-1236"}
+                      className="text-sm font-mono min-h-[72px]"
+                    />
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">
+                        {parseOcs(bulkLista).length} OCs detectadas · serão atribuídas em ordem aos itens.
+                      </span>
+                      <Button size="sm" className="h-8" onClick={distribuirOcs} disabled={bulkLoading || !bulkLista.trim()}>
+                        {bulkLoading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1" />}
+                        Distribuir
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-border">
+                  <label className="flex items-center gap-1.5 text-[11px] cursor-pointer">
+                    <Checkbox checked={sobrescrever} onCheckedChange={(v) => setSobrescrever(!!v)} />
+                    Sobrescrever OCs já preenchidas
+                  </label>
+                  <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={limparOcs}>
+                    <Eraser className="h-3.5 w-3.5 mr-1" /> Limpar todas
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {items.map((it) => (
               <div key={it.fileId} className="border border-border rounded-lg p-3 bg-card space-y-3">
                 <div className="flex items-start justify-between gap-2">
