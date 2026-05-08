@@ -1,60 +1,85 @@
-## Problemas identificados em `/cadastros` → aba **Transportadoras**
+## Ajuste necessário
 
-Olhando o screenshot e o código de `src/components/cadastros/TransportadorasTab.tsx`:
+Ao cancelar/desfazer uma carga, os produtos do mesmo pedido não podem voltar separados. Eles devem retornar para Vendas mantendo o **grupo original do pedido**.
 
-1. **Botão "Nova" desencaixado** — está flutuando na direita, muito longe do texto "Cadastro com código, PIX e % padrão de adiantamento.", parecendo solto. Deveria estar no topo do card como ação principal, não acima do card.
-2. **Cabeçalho "% Adt. padrão" quebra em duas linhas** desnecessariamente, porque o texto não tem `whitespace-nowrap` e a coluna fica sem largura mínima.
-3. **Ações (lápis/lixeira) com espaçamento ruim** — célula tem `text-right` mas os botões ficam grudados/centralizados de forma estranha; falta `flex justify-end gap-1`.
-4. **Colunas espalhadas demais em desktop** — a tabela ocupa toda a largura do `max-w-5xl` (1024px+) com pouquíssimo conteúdo, fazendo "Código", "CNPJ" etc. ficarem muito afastados. Falta dar `min-w` adequado às colunas longas (Nome, PIX) e deixar as curtas com largura natural.
-5. **Sem responsividade real em mobile** — `overflow-x-auto` resolve só o scroll, mas a tabela fica praticamente inutilizável no celular. Deveria virar **lista de cards** abaixo de `md` (padrão já adotado em outras telas — ver `mem://style/responsiveness-standard`).
-6. **Status "Ativa" em vermelho** — o `Badge variant="default"` herda a cor primária (vermelho da marca). Pelas regras do projeto (`mem://style/color-palette`), **vermelho é exclusivo de Rupturas**. Status deve ser verde/neutro.
-7. **Tabela sem hover** nas linhas (microconforto).
-8. **Padding interno do Card zero** (`p-0`) e o cabeçalho "Cadastro com código…" fica fora do card — visualmente o card parece "nu".
+## Causa provável
 
-## Plano de correção (apenas frontend, arquivo único)
+A tela agrupa os produtos por:
 
-**Arquivo:** `src/components/cadastros/TransportadorasTab.tsx`
+```text
+data + codigo_cliente + numero_pedido
+```
 
-1. **Reagrupar header da aba** dentro de um único bloco:
-   - Linha 1: título sutil "Transportadoras cadastradas" + descrição.
-   - Linha 2 (à direita, alinhada ao topo): botão **+ Nova**.
-   - Usar `flex items-center justify-between gap-3 flex-wrap` com a descrição à esquerda e o botão à direita — mas com gap visualmente coeso (não solto como hoje).
+No cancelamento atual, todos os itens da carga têm os campos logísticos limpos, mas o retorno não garante uma “rebase” consistente do grupo. Se os itens do mesmo pedido ficaram com `data`, `numero_pedido`, `codigo_cliente` ou ordenação efetiva divergente, a UI passa a renderizar linhas separadas.
 
-2. **Tabela (desktop, ≥ md):**
-   - Adicionar `whitespace-nowrap` em todos os `TableHead`.
-   - Definir larguras: `Nome` flexível (`min-w-[220px]`), `Código`/`CNPJ` `w-[120px]`, `PIX` `min-w-[200px]`, `% Adt.` `w-[110px] text-right`, `Status` `w-[100px]`, ações `w-[88px]`.
-   - Linhas com `hover:bg-muted/40`.
-   - Trocar célula de ações para `<div className="flex justify-end gap-1">` envolvendo os dois botões.
+## Plano de correção
 
-3. **Status verde, não vermelho:**
-   - Substituir `<Badge variant={t.ativo ? "default" : "outline"}>` por um badge customizado com tokens semânticos:
-     - Ativa: `bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300` (ou usar token `--success` se existir; caso não exista, manter as classes acima — sem usar vermelho).
-     - Inativa: `variant="outline"` em cinza.
+### 1. Corrigir o retorno da carga para Vendas
 
-4. **Mobile (< md):**
-   - Esconder a tabela (`hidden md:block`) e mostrar uma lista de cards (`md:hidden space-y-2`) com os mesmos campos:
-     - Linha 1: `Nome` (negrito) + Badge de status à direita.
-     - Linha 2: `Código · CNPJ`.
-     - Linha 3: `PIX` (truncate).
-     - Linha 4: `% Adt: 50%` + ações (lápis/lixeira) à direita.
+Alterar `src/components/portaria/CancelarCargaDialog.tsx` no trecho que atualiza `carregamentos_dia` ao cancelar a carga.
 
-5. **Diálogo de edição:**
-   - O `<input type="checkbox">` nativo está cru — trocar pelo `<Checkbox>` do shadcn (`@/components/ui/checkbox`) para coerência visual.
-   - Trocar o `<select>` nativo do "Tipo PIX" pelo `<Select>` do shadcn (já usado em outras partes do projeto), mantendo as mesmas opções.
-   - `DialogContent` com `max-w-xl` está OK, mas adicionar `max-h-[85vh] overflow-y-auto` para telas baixas.
+Além de limpar os campos de carga, o cancelamento deve:
 
-6. **Confirmação de exclusão:**
-   - Substituir `confirm(...)` nativo por `AlertDialog` do shadcn — alinha com `mem://features/data-safety` (deletions require user confirmation, não usar `window.confirm`).
+- manter `numero_pedido`, `codigo_cliente`, `cliente`, produtos, quantidades, pesos e valores intactos;
+- limpar resíduos logísticos:
+  - `carga_id`
+  - `nome_carga`
+  - `placa`
+  - `motorista`
+  - `transportadora`
+  - `tipo_caminhao`
+  - `ordem_entrega`
+  - `ordem_carga`
+  - `horario_inicio`
+  - `horario_fim`
+  - `horario_previsto`
+  - `tipo_frete`
+- definir `etapa = 'vendas'` e `status = 'Aguardando'` para todos os itens da carga;
+- atualizar `updated_at` para o momento do cancelamento.
 
-## Fora do escopo
+### 2. Preservar agrupamento do pedido
 
-- Não alterar a aba "Motorista / Caminhão" nem outras telas.
-- Não mexer em hooks (`useTransportadorasFinanceiro`) ou no banco.
-- Não mudar campos do cadastro (mesma estrutura).
+Antes do UPDATE, buscar os registros da carga cancelada e agrupar por:
+
+```text
+codigo_cliente + numero_pedido
+```
+
+Para cada grupo, aplicar uma normalização defensiva nos itens do mesmo pedido:
+
+- mesma `data` entre os itens do grupo;
+- mesmo `codigo_cliente`;
+- mesmo `numero_pedido`;
+- mesma `cliente` quando disponível.
+
+Assim, se algum item estiver inconsistente, ele volta junto do pedido original.
+
+### 3. Evitar que pedidos antigos fiquem “perdidos”
+
+Como o problema aconteceu ao cancelar uma carga de ontem, o retorno deve ter comportamento explícito:
+
+- os pedidos voltam para Vendas na data original do pedido, mas como “pendência operacional” já contemplada pela janela de 30 dias existente no dashboard;
+- não alterar `data` automaticamente para hoje, para não quebrar o agrupamento original nem misturar histórico de venda com operação.
+
+### 4. Melhorar a mensagem do diálogo
+
+Atualizar o texto do modal para deixar claro:
+
+```text
+Os pedidos voltarão para Vendas mantendo os produtos agrupados no pedido original.
+```
+
+### 5. Auditoria
+
+No `log_audit`, registrar também:
+
+- quantidade de linhas revertidas;
+- quantidade de pedidos/grupos afetados;
+- data(s) dos pedidos retornados.
 
 ## Validação
 
-- Visualizar `/cadastros` → aba Transportadoras em **desktop (1185px)**: header coeso, colunas com largura proporcional, "% Adt. padrão" em uma linha só, status em verde.
-- Reduzir para **mobile (≤ 414px)** via device toolbar: tabela some, lista de cards aparece, sem scroll horizontal.
-- Abrir diálogo "+ Nova" e "Editar": Select/Checkbox shadcn renderizam, scroll vertical funciona em viewport baixa.
-- Clicar lixeira: `AlertDialog` aparece pedindo confirmação.
+1. Cancelar uma carga com pedido contendo múltiplos produtos.
+2. Confirmar que todos os produtos voltam dentro do mesmo pedido/card/linha expansível em Vendas.
+3. Confirmar que `ordem_carga`, `ordem_entrega`, veículo, motorista e transportadora foram removidos.
+4. Confirmar que o pedido continua com seus dados comerciais originais.
