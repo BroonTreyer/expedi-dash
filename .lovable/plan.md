@@ -1,30 +1,36 @@
-## Problema
+## Adicionar aba "Transportadoras" em /cadastros
 
-Os CT-es da **LOS Transportes LTDA** estão sendo importados com `peso_total = 0` em quase todos os casos. O `raw_extracao->peso_total` também é `0`, ou seja, o modelo Gemini **não está conseguindo localizar/interpretar o peso** no DACTE para esta transportadora.
+Hoje a página `/cadastros` é um formulário único (Motorista + Caminhão + Tipo). Vamos reorganizá-la em **abas** e incluir uma aba dedicada a **Transportadoras**, reutilizando o CRUD que já existe na página `/transportadoras`.
 
-Possíveis causas no DACTE:
-- Quadro "QUANTIDADE / TIPO DE MEDIDA / TIPO" com peso em formato brasileiro (`5.490,000`) ou em toneladas.
-- Linha "PESO BRUTO" pode estar separada por outras unidades (M3, KG, UNID).
-- Uso de um prompt vago: hoje só pedimos `peso_total: peso bruto total da carga em kg`.
+### Estrutura nova de `/cadastros`
 
-## Correção
+Tabs (componente `Tabs` do shadcn):
+1. **Cadastro Unificado** — formulário atual (Motorista + Caminhão + Tipo), sem alterações de lógica.
+2. **Transportadoras** — lista + criar/editar/excluir transportadora financeira.
+3. O modo `?focus=buscar` continua funcionando: abre direto na aba "Cadastro Unificado" com o card de busca por cima (sem mudança de comportamento).
 
-### 1. `supabase/functions/parse-dacte-pdf/index.ts` — prompt mais robusto para peso
-Substituir a regra atual de `peso_total` por instruções explícitas:
+### Aba Transportadoras
 
-```
-- "peso_total": peso BRUTO total em QUILOGRAMAS (kg).
-  • Procure no quadro "QUANTIDADE / TIPO DE MEDIDA / TIPO" ou "INFORMAÇÕES DA CARGA / QTD. CARGA".
-  • Se houver várias linhas, some apenas as linhas cuja unidade seja KG / PESO BRUTO / PESO B. CALCULADO.
-  • Ignore linhas em UNID, M3, VOL, CUBAGEM.
-  • Se o número estiver no formato brasileiro (ex.: "5.490,500" ou "1.234,56"), interprete o "." como separador de milhar e a "," como decimal — converta para número com ponto decimal (5490.5, 1234.56).
-  • Se a unidade indicar TON ou TONELADAS, multiplique por 1000 para converter em kg.
-  • Se mesmo após inspeção não encontrar peso bruto em kg, devolva 0.
-```
+Reaproveita os hooks já existentes:
+- `useTransportadorasFinanceiro` (listar)
+- `useUpsertTransportadoraFin` (criar/editar)
+- `useDeleteTransportadoraFin` (excluir)
 
-Também acrescentar ao bloco de regras gerais um exemplo curto: `Ex.: "PESO BRUTO 5.490,000 KG" → peso_total = 5490` para ancorar a interpretação.
+UI igual à de `src/pages/Transportadoras.tsx`:
+- Tabela com Nome, Código, CNPJ, PIX, % Adt. padrão, Status, ações (editar/excluir).
+- Botão "Nova" abre `Dialog` com os mesmos campos (nome, código, CNPJ, PIX + tipo, banco/ag/conta, % adiantamento, ativa).
 
-### 2. Reprocessar os CT-es já importados com peso 0
-Adicionar um botão **"Reprocessar peso"** em CT-es zerados? Não — escopo do pedido é só o parser. Ficará disponível ao re-importar o PDF.
+### Refatoração
 
-Nada mais muda — sem alteração de schema, sem mudanças no frontend.
+Para evitar duplicação:
+- Extrair o conteúdo da página `Transportadoras.tsx` para um componente reutilizável **`src/components/cadastros/TransportadorasTab.tsx`**.
+- `src/pages/Transportadoras.tsx` passa a renderizar esse componente dentro do `Layout` (mantém a rota `/transportadoras` funcionando para quem acessa direto).
+- `src/pages/Cadastros.tsx` importa `TransportadorasTab` e renderiza dentro da nova aba.
+
+### Arquivos afetados
+
+- **Novo:** `src/components/cadastros/TransportadorasTab.tsx` (extração do CRUD atual de Transportadoras, sem `<Layout>` nem `<h1>`).
+- **Editado:** `src/pages/Cadastros.tsx` — envolver o conteúdo em `<Tabs>` com duas abas e incluir a nova aba.
+- **Editado:** `src/pages/Transportadoras.tsx` — passa a usar o novo componente extraído.
+
+Sem alterações de banco, RLS ou edge functions.
