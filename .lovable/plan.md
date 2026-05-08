@@ -1,46 +1,60 @@
-## Problema
+## Problemas identificados em `/cadastros` → aba **Transportadoras**
 
-De vez em quando a tela some e aparece "404 - Página não encontrada", mesmo estando em rotas válidas como `/expedicao`.
+Olhando o screenshot e o código de `src/components/cadastros/TransportadorasTab.tsx`:
 
-A causa raiz não é roteamento — é um erro JavaScript fatal que derruba o React:
+1. **Botão "Nova" desencaixado** — está flutuando na direita, muito longe do texto "Cadastro com código, PIX e % padrão de adiantamento.", parecendo solto. Deveria estar no topo do card como ação principal, não acima do card.
+2. **Cabeçalho "% Adt. padrão" quebra em duas linhas** desnecessariamente, porque o texto não tem `whitespace-nowrap` e a coluna fica sem largura mínima.
+3. **Ações (lápis/lixeira) com espaçamento ruim** — célula tem `text-right` mas os botões ficam grudados/centralizados de forma estranha; falta `flex justify-end gap-1`.
+4. **Colunas espalhadas demais em desktop** — a tabela ocupa toda a largura do `max-w-5xl` (1024px+) com pouquíssimo conteúdo, fazendo "Código", "CNPJ" etc. ficarem muito afastados. Falta dar `min-w` adequado às colunas longas (Nome, PIX) e deixar as curtas com largura natural.
+5. **Sem responsividade real em mobile** — `overflow-x-auto` resolve só o scroll, mas a tabela fica praticamente inutilizável no celular. Deveria virar **lista de cards** abaixo de `md` (padrão já adotado em outras telas — ver `mem://style/responsiveness-standard`).
+6. **Status "Ativa" em vermelho** — o `Badge variant="default"` herda a cor primária (vermelho da marca). Pelas regras do projeto (`mem://style/color-palette`), **vermelho é exclusivo de Rupturas**. Status deve ser verde/neutro.
+7. **Tabela sem hover** nas linhas (microconforto).
+8. **Padding interno do Card zero** (`p-0`) e o cabeçalho "Cadastro com código…" fica fora do card — visualmente o card parece "nu".
 
-```
-RangeError: Maximum call stack size exceeded
-  at RealtimeChannel.unsubscribe
-  at RealtimeClient.removeChannel
-  at src/hooks/useStatusPortariaPorCarga.ts:200
-  at Channel.trigger ... onClose
-```
+## Plano de correção (apenas frontend, arquivo único)
 
-Quando esse erro estoura, o React desmonta a árvore atual e o usuário cai em rota inexistente → renderiza `NotFound.tsx` ("404 Página não encontrada"). Não é um problema de SPA fallback nem de rota nova.
+**Arquivo:** `src/components/cadastros/TransportadorasTab.tsx`
 
-## Por que estoura a stack
+1. **Reagrupar header da aba** dentro de um único bloco:
+   - Linha 1: título sutil "Transportadoras cadastradas" + descrição.
+   - Linha 2 (à direita, alinhada ao topo): botão **+ Nova**.
+   - Usar `flex items-center justify-between gap-3 flex-wrap` com a descrição à esquerda e o botão à direita — mas com gap visualmente coeso (não solto como hoje).
 
-Em `src/hooks/useStatusPortariaPorCarga.ts` (callback do `subscribe`, linhas 233–247):
+2. **Tabela (desktop, ≥ md):**
+   - Adicionar `whitespace-nowrap` em todos os `TableHead`.
+   - Definir larguras: `Nome` flexível (`min-w-[220px]`), `Código`/`CNPJ` `w-[120px]`, `PIX` `min-w-[200px]`, `% Adt.` `w-[110px] text-right`, `Status` `w-[100px]`, ações `w-[88px]`.
+   - Linhas com `hover:bg-muted/40`.
+   - Trocar célula de ações para `<div className="flex justify-end gap-1">` envolvendo os dois botões.
 
-- Quando o canal recebe `CLOSED` / `CHANNEL_ERROR` / `TIMED_OUT`, **dentro do próprio callback** chamamos `supabase.removeChannel(channel)`.
-- `removeChannel` chama `unsubscribe()`, que dispara `onClose` de novo, que reentra no mesmo callback, que chama `removeChannel` de novo… recursão infinita até estourar a stack.
+3. **Status verde, não vermelho:**
+   - Substituir `<Badge variant={t.ativo ? "default" : "outline"}>` por um badge customizado com tokens semânticos:
+     - Ativa: `bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300` (ou usar token `--success` se existir; caso não exista, manter as classes acima — sem usar vermelho).
+     - Inativa: `variant="outline"` em cinza.
 
-Além disso a Promise rejeitada vira `unhandled rejection` e mata o render em curso.
+4. **Mobile (< md):**
+   - Esconder a tabela (`hidden md:block`) e mostrar uma lista de cards (`md:hidden space-y-2`) com os mesmos campos:
+     - Linha 1: `Nome` (negrito) + Badge de status à direita.
+     - Linha 2: `Código · CNPJ`.
+     - Linha 3: `PIX` (truncate).
+     - Linha 4: `% Adt: 50%` + ações (lápis/lixeira) à direita.
 
-## Plano de correção
+5. **Diálogo de edição:**
+   - O `<input type="checkbox">` nativo está cru — trocar pelo `<Checkbox>` do shadcn (`@/components/ui/checkbox`) para coerência visual.
+   - Trocar o `<select>` nativo do "Tipo PIX" pelo `<Select>` do shadcn (já usado em outras partes do projeto), mantendo as mesmas opções.
+   - `DialogContent` com `max-w-xl` está OK, mas adicionar `max-h-[85vh] overflow-y-auto` para telas baixas.
 
-**Arquivo único:** `src/hooks/useStatusPortariaPorCarga.ts`
-
-1. **Quebrar a recursão**: dentro do callback de `subscribe`, em vez de chamar `supabase.removeChannel(channel)` síncronamente, agendar com `setTimeout(..., 0)` para sair do stack do `onClose` antes de remover.
-2. **Guardar contra reentrância**: usar uma flag local `closing` para garantir que, mesmo se o callback disparar mais de uma vez para o mesmo canal, só agendamos `removeChannel` uma vez e só agendamos um `reconnectTimer` por ciclo.
-3. **Limpar referência antes de remover**: setar `channel = null` antes do `removeChannel` agendado, para que o cleanup do `useEffect` não tente remover de novo o mesmo canal.
-4. **Envolver `removeChannel` em try/catch silencioso** (já existe) e capturar a Promise retornada com `.catch(() => {})` para não gerar `unhandledrejection`.
-5. **Manter** o restante intacto: backoff de reconexão (3s, 6s, 12s… até 60s), debounce de 1.5s no invalidate, `enabled: !!session`, topic único por tentativa.
-
-## Validação
-
-- Abrir `/expedicao` e `/consolidado`, deixar a aba aberta vários minutos, forçar reconexão (alternar rede / dormir o computador) e confirmar que:
-  - Não aparece mais `Maximum call stack size exceeded` no console.
-  - A tela não cai mais para 404 sozinha.
-  - Após reconectar, os KPIs continuam atualizando (debounce + invalidate funcionando).
-- Conferir o console de erros do preview depois do fix.
+6. **Confirmação de exclusão:**
+   - Substituir `confirm(...)` nativo por `AlertDialog` do shadcn — alinha com `mem://features/data-safety` (deletions require user confirmation, não usar `window.confirm`).
 
 ## Fora do escopo
 
-- Não mexer em rotas, `BrowserRouter`, `NotFound.tsx` nem em outros hooks de realtime — o sintoma do 404 é consequência, não causa.
+- Não alterar a aba "Motorista / Caminhão" nem outras telas.
+- Não mexer em hooks (`useTransportadorasFinanceiro`) ou no banco.
+- Não mudar campos do cadastro (mesma estrutura).
+
+## Validação
+
+- Visualizar `/cadastros` → aba Transportadoras em **desktop (1185px)**: header coeso, colunas com largura proporcional, "% Adt. padrão" em uma linha só, status em verde.
+- Reduzir para **mobile (≤ 414px)** via device toolbar: tabela some, lista de cards aparece, sem scroll horizontal.
+- Abrir diálogo "+ Nova" e "Editar": Select/Checkbox shadcn renderizam, scroll vertical funciona em viewport baixa.
+- Clicar lixeira: `AlertDialog` aparece pedindo confirmação.
