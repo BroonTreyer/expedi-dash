@@ -1,28 +1,30 @@
-## Diagnóstico
-Hoje, ao clicar no ícone "Ver PDF" do CT-e, o app chama `supabase.storage.from("dacte").createSignedUrl(path, 3600)` e abre o resultado com `window.open(url, "_blank")`.
-
-Problemas:
-1. Não há tratamento de erro — se o `createSignedUrl` falhar (RLS, path com espaços, expiração), o `window.open` ainda é chamado com `undefined`/URL ruim, abrindo uma aba em branco ou com a página de erro do Supabase Storage.
-2. Bloqueador de pop-up pode interceptar.
-3. Sem feedback visual: o usuário fica olhando uma aba "com erro" sem saber por quê.
-
-A solução padrão do projeto para PDFs/fotos é o `PhotoViewerDialog` (já usado na Portaria), que renderiza dentro de um `<iframe>` no próprio app, com fallback para "Abrir em nova aba".
+## Problema
+Ao subir vários DACTEs ao mesmo tempo, todos batem no Lovable AI Gateway em paralelo e recebem **HTTP 429** (`rate_limited`). A edge function `parse-dacte-pdf` propaga o 429 cru, e o frontend mostra apenas "Edge Function returned a non-2xx status code".
 
 ## Plano
 
-### 1. `src/components/logistica/CtesDacteTab.tsx`
-- Importar `PhotoViewerDialog`.
-- Adicionar estados `viewerOpen` e `viewerUrl`.
-- Reescrever `openPdf(path)`:
-  - Se `path` vazio → `toast.error("PDF não disponível")`.
-  - Chamar `createSignedUrl(path, 3600)` e checar `error` / `data?.signedUrl`.
-  - Em sucesso → `setViewerUrl(url); setViewerOpen(true)`.
-  - Em falha → `toast.error("Não foi possível abrir o PDF")` e logar `error.message`.
-- Renderizar `<PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={viewerUrl} alt="DACTE" />` ao final do componente.
+### 1. `supabase/functions/parse-dacte-pdf/index.ts` — Retry com backoff
+- Encapsular a chamada `fetch("https://ai.gateway.lovable.dev/...")` em uma função `callGatewayWithRetry()`:
+  - Até **3 tentativas**.
+  - Esperas: **1s → 3s → 7s** + jitter aleatório de 0–500ms.
+  - Só faz retry em `429` e `5xx`. Outros erros (400/401/402) abortam imediatamente.
+- Mapear o resultado final:
+  - `429` persistente → resposta `429` com `{ error: "rate_limited", message: "Limite temporário da IA, tente novamente em alguns segundos.", retryable: true }`.
+  - `402` → `{ error: "payment_required", message: "Créditos da IA esgotados.", retryable: false }`.
+  - Sucesso → comportamento atual.
+- Mantém CORS e a estrutura de tool calling existente.
 
-### 2. `src/components/logistica/ImportarDacteDialog.tsx` (preventivo, melhora futuras importações)
-- Sanitizar o `path` ao subir o PDF: remover caracteres problemáticos do nome (`replace(/[^\w.\-]+/g, "_")`) para evitar ambiguidade com espaços/acentos. Continua único pelo `fileId`.
+### 2. `src/components/logistica/ImportarDacteDialog.tsx` — Concorrência limitada + retry manual
+- No `handleFiles`, substituir o `Promise.all` por uma **fila com concorrência 2** (helper `runWithConcurrency(items, 2, worker)` definido inline).
+- Tratar a resposta da edge function:
+  - Se `error?.message` contém `"rate_limited"` ou status 429 → `status: "rate_limited"`, `error: "Limite temporário da IA — clique em Tentar novamente"`.
+  - Outros erros → `status: "error"` (igual hoje).
+- Adicionar `rate_limited` ao tipo `Item.status`.
+- No render do item com `status === "rate_limited"`:
+  - Badge âmbar "Limite da IA atingido".
+  - Botão **"Tentar novamente"** que dispara `retryItem(it)` — reusa o mesmo fluxo de parse para aquele único arquivo.
+- Adicionar botão global **"Tentar novamente todos com erro de limite"** acima da lista quando houver ≥1 item `rate_limited`.
 
 ## Fora de escopo
-- Sem mudança de RLS, bucket ou estrutura de pastas existente — arquivos antigos seguem acessíveis via signed URL como hoje (path com espaços é codificado pelo SDK).
-- Sem download massivo ou pré-visualização inline na lista.
+- Não muda RLS, schema, nem a UI do botão "Ver PDF" já entregue.
+- Sem rate-limiting próprio no backend (apenas backoff em cima do gateway).
