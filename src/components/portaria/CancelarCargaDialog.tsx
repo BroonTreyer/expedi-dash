@@ -60,23 +60,68 @@ export function CancelarCargaDialog({ open, onOpenChange, carga }: Props) {
         data_carga: carga.data,
       });
 
-      // 2. Reverte pedidos para vendas (libera para refazer carga)
+      // 2. Busca itens da carga para preservar agrupamento por pedido
+      const { data: itens, error: eFetch } = await supabase
+        .from("carregamentos_dia")
+        .select("id, codigo_cliente, numero_pedido, cliente, data")
+        .eq("carga_id", carga.carga_id);
+      if (eFetch) throw eFetch;
+
+      // 2.1. Reverte pedidos para vendas (libera para refazer carga).
+      // Limpa TODOS os campos logísticos para que o pedido volte "limpo".
+      // Mantém data/cliente/numero_pedido intactos para preservar o
+      // agrupamento original na tela de Vendas
+      // (chave: data + codigo_cliente + numero_pedido).
+      const nowIso = new Date().toISOString();
       const { error: e1 } = await supabase
         .from("carregamentos_dia")
         .update({
           etapa: "vendas",
+          status: "Aguardando",
           carga_id: null,
           nome_carga: null,
           placa: null,
           motorista: null,
           transportadora: null,
           tipo_caminhao: null,
+          tipo_frete: null,
           horario_inicio: null,
           horario_fim: null,
+          horario_previsto: null,
           ordem_entrega: null,
+          ordem_carga: null,
+          updated_at: nowIso,
         })
         .eq("carga_id", carga.carga_id);
       if (e1) throw e1;
+
+      // 2.2. Normalização defensiva: garante que itens do mesmo pedido
+      // (codigo_cliente + numero_pedido) compartilhem a MESMA data e cliente,
+      // alinhando-os pela referência mais antiga do grupo. Evita que
+      // produtos do mesmo pedido apareçam separados após o retorno.
+      type Item = { id: string; codigo_cliente: string | null; numero_pedido: number | null; cliente: string | null; data: string };
+      const grupos = new Map<string, Item[]>();
+      for (const it of (itens ?? []) as Item[]) {
+        if (!it.codigo_cliente || it.numero_pedido == null) continue;
+        const k = `${it.codigo_cliente}__${it.numero_pedido}`;
+        const arr = grupos.get(k) ?? [];
+        arr.push(it);
+        grupos.set(k, arr);
+      }
+      for (const arr of grupos.values()) {
+        if (arr.length < 2) continue;
+        // Referência: menor data do grupo + primeiro nome de cliente disponível
+        const ref = arr.reduce((acc, x) => (x.data < acc.data ? x : acc), arr[0]);
+        const refCliente = arr.find((x) => x.cliente)?.cliente ?? ref.cliente ?? null;
+        const desalinhados = arr.filter(
+          (x) => x.data !== ref.data || (refCliente && x.cliente !== refCliente),
+        );
+        if (desalinhados.length === 0) continue;
+        await supabase
+          .from("carregamentos_dia")
+          .update({ data: ref.data, cliente: refCliente, updated_at: nowIso })
+          .in("id", desalinhados.map((x) => x.id));
+      }
 
       // 3. Remove veículo esperado vinculado a esta carga
       await supabase
@@ -94,6 +139,16 @@ export function CancelarCargaDialog({ open, onOpenChange, carga }: Props) {
       }
 
       // 5. Audit log
+      const pedidosAfetados = Array.from(
+        new Set(
+          ((itens ?? []) as { numero_pedido: number | null }[])
+            .map((x) => x.numero_pedido)
+            .filter((n): n is number => n != null),
+        ),
+      );
+      const datasAfetadas = Array.from(
+        new Set(((itens ?? []) as { data: string }[]).map((x) => x.data)),
+      );
       await supabase.rpc("log_audit", {
         _entity_type: "carga",
         _entity_id: carga.carga_id,
@@ -105,6 +160,9 @@ export function CancelarCargaDialog({ open, onOpenChange, carga }: Props) {
           qtd_pedidos: carga.qtd_pedidos,
           placa: carga.placa,
           motorista: carga.motorista,
+          linhas_revertidas: itens?.length ?? 0,
+          pedidos_afetados: pedidosAfetados,
+          datas_afetadas: datasAfetadas,
         } as any,
       });
 
