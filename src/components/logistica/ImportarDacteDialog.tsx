@@ -91,6 +91,7 @@ type Parsed = {
   peso_total?: number;
   data_emissao?: string;
   notas_fiscais: string[];
+  tomador?: string;
 };
 
 type Item = {
@@ -99,13 +100,24 @@ type Item = {
   fileName: string;
   ctIndex?: number;
   ctTotal?: number;
-  status: "loading" | "ok" | "error" | "saving" | "saved";
+  status: "loading" | "ok" | "error" | "saving" | "saved" | "rejected";
   error?: string;
   parsed?: Parsed;
   carga_id?: string | null;
   ordem_carga?: string;
   vinculo_status?: "pendente" | "vinculado" | "divergente";
 };
+
+function normalizeTomador(s: string): string {
+  return (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+function isFrico(s: string | undefined | null): boolean {
+  if (!s) return false;
+  return normalizeTomador(s).includes("frico");
+}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
