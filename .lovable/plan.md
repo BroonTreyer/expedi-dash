@@ -1,85 +1,76 @@
-## Ajuste necessário
+## Importar clientes a partir de PDFs (IA)
 
-Ao cancelar/desfazer uma carga, os produtos do mesmo pedido não podem voltar separados. Eles devem retornar para Vendas mantendo o **grupo original do pedido**.
+Adicionar na tela **Clientes** um novo botão **"Importar PDF"** que aceita múltiplos arquivos, extrai os dados de cliente via IA e abre uma tela de revisão antes de gravar no cadastro.
 
-## Causa provável
+### 1. Edge Function nova: `parse-cliente-pdf`
 
-A tela agrupa os produtos por:
+Arquivo: `supabase/functions/parse-cliente-pdf/index.ts` (modelo do `parse-pedido-pdf`, mas focada em cliente).
 
-```text
-data + codigo_cliente + numero_pedido
-```
+- Recebe `{ fileBase64, fileName }`.
+- Valida JWT via `auth.getUser()`.
+- Chama Lovable AI (`google/gemini-2.5-flash`) com tool calling. Schema esperado:
+  ```
+  { razao_social, nome_fantasia, cnpj, inscricao_estadual,
+    endereco, bairro, cidade, uf, cep, telefone, email }
+  ```
+- System prompt genérico: extrair dados de cliente do PDF, independente do layout (pedido, proposta, cadastro). Campos ausentes → string vazia. CNPJ/CEP só dígitos.
+- Trata 429 e 402 com mensagens claras.
+- Configurada em `supabase/config.toml` (mantém `verify_jwt` padrão).
 
-No cancelamento atual, todos os itens da carga têm os campos logísticos limpos, mas o retorno não garante uma “rebase” consistente do grupo. Se os itens do mesmo pedido ficaram com `data`, `numero_pedido`, `codigo_cliente` ou ordenação efetiva divergente, a UI passa a renderizar linhas separadas.
+### 2. UI — diálogo `ImportarClientesPdfDialog.tsx`
 
-## Plano de correção
+Novo componente em `src/components/clientes/ImportarClientesPdfDialog.tsx`.
 
-### 1. Corrigir o retorno da carga para Vendas
+**Fluxo em 2 passos:**
 
-Alterar `src/components/portaria/CancelarCargaDialog.tsx` no trecho que atualiza `carregamentos_dia` ao cancelar a carga.
+**Passo A — Upload e extração**
+- `<input type="file" accept="application/pdf" multiple>` (até 10 arquivos por vez).
+- Para cada PDF: converte para base64, chama `supabase.functions.invoke("parse-cliente-pdf")` em sequência (com toast de progresso `n/total`).
+- Acumula resultados em estado local: `parsed[]`.
 
-Além de limpar os campos de carga, o cancelamento deve:
+**Passo B — Tabela de revisão**
+Tabela editável com 1 linha por PDF, colunas:
+- **Status** (✓ extraído / ⚠ erro / ✗ duplicado)
+- **Código *** (input — usuário digita; pré-sugere CNPJ sem máscara, mas obrigatório editar/confirmar)
+- **Nome *** (input, pré-preenchido com `razao_social`)
+- **Cidade**, **UF**, **CEP** (inputs)
+- **Arquivo** (nome do PDF, somente leitura)
+- **Ações:** remover linha
 
-- manter `numero_pedido`, `codigo_cliente`, `cliente`, produtos, quantidades, pesos e valores intactos;
-- limpar resíduos logísticos:
-  - `carga_id`
-  - `nome_carga`
-  - `placa`
-  - `motorista`
-  - `transportadora`
-  - `tipo_caminhao`
-  - `ordem_entrega`
-  - `ordem_carga`
-  - `horario_inicio`
-  - `horario_fim`
-  - `horario_previsto`
-  - `tipo_frete`
-- definir `etapa = 'vendas'` e `status = 'Aguardando'` para todos os itens da carga;
-- atualizar `updated_at` para o momento do cancelamento.
+Validações em tempo real:
+- Código + Nome obrigatórios.
+- Marca duplicidade comparando `codigo_cliente` com a lista atual de `useClientes()` (badge "Já existe").
+- Detecta códigos repetidos entre as próprias linhas.
 
-### 2. Preservar agrupamento do pedido
+**Botão "Salvar todos":**
+- Filtra linhas válidas (não duplicadas, com código+nome).
+- Faz `supabase.from("clientes").upsert(batch, { onConflict: "codigo_cliente" })` em lote único.
+- Após salvar: dispara `enrich-clientes-viacep` (cursor) e `sync_clients_to_orders` (mesmo padrão do `handleImport` atual).
+- Toast: `"X clientes salvos, Y ignorados"`. Invalida queries `clientes` e `carregamentos`.
 
-Antes do UPDATE, buscar os registros da carga cancelada e agrupar por:
+### 3. Integração em `src/pages/Clientes.tsx`
 
-```text
-codigo_cliente + numero_pedido
-```
+- Importa o novo diálogo.
+- Adiciona botão **"Importar PDF"** (ícone `FileText`) ao lado de "Importar" (Excel), mantendo o mesmo padrão de estilo `variant="outline" size="sm"`.
+- Estado `pdfDialogOpen` controla abertura.
+- Não altera nenhum fluxo existente (Excel, ViaCEP, sync).
 
-Para cada grupo, aplicar uma normalização defensiva nos itens do mesmo pedido:
+### 4. Detalhes técnicos
 
-- mesma `data` entre os itens do grupo;
-- mesmo `codigo_cliente`;
-- mesmo `numero_pedido`;
-- mesma `cliente` quando disponível.
+- Conversão base64 no client com `FileReader.readAsDataURL` + `split(",")[1]`.
+- Limite por arquivo: 10MB (alerta no UI).
+- Erros por arquivo não bloqueiam os demais — mostra mensagem na linha.
+- Reuso de helpers: `normalizeCep`, `ufFromCep` para preencher UF se vier vazia mas com CEP.
+- CNPJ guardado sem máscara em `codigo_cliente` (apenas dígitos) caso o usuário aceite a sugestão.
 
-Assim, se algum item estiver inconsistente, ele volta junto do pedido original.
+### 5. Itens fora do escopo
 
-### 3. Evitar que pedidos antigos fiquem “perdidos”
+- Não cria pedido/carga a partir do PDF — apenas cliente.
+- Não altera o `parse-pedido-pdf` existente.
+- Não adiciona novos campos ao schema da tabela `clientes` (usa os campos já existentes: `codigo_cliente`, `nome_cliente`, `cidade`, `uf`, `cep`, `ativo`). Telefone/email/CNPJ extraídos são exibidos para conferência mas não persistidos enquanto não houver colunas — caso queira persistir, abrir tarefa separada para migration.
 
-Como o problema aconteceu ao cancelar uma carga de ontem, o retorno deve ter comportamento explícito:
+### Validação após implementação
 
-- os pedidos voltam para Vendas na data original do pedido, mas como “pendência operacional” já contemplada pela janela de 30 dias existente no dashboard;
-- não alterar `data` automaticamente para hoje, para não quebrar o agrupamento original nem misturar histórico de venda com operação.
-
-### 4. Melhorar a mensagem do diálogo
-
-Atualizar o texto do modal para deixar claro:
-
-```text
-Os pedidos voltarão para Vendas mantendo os produtos agrupados no pedido original.
-```
-
-### 5. Auditoria
-
-No `log_audit`, registrar também:
-
-- quantidade de linhas revertidas;
-- quantidade de pedidos/grupos afetados;
-- data(s) dos pedidos retornados.
-
-## Validação
-
-1. Cancelar uma carga com pedido contendo múltiplos produtos.
-2. Confirmar que todos os produtos voltam dentro do mesmo pedido/card/linha expansível em Vendas.
-3. Confirmar que `ordem_carga`, `ordem_entrega`, veículo, motorista e transportadora foram removidos.
-4. Confirmar que o pedido continua com seus dados comerciais originais.
+1. Subir 2-3 PDFs de layouts diferentes — confirmar extração correta.
+2. Editar código na tabela de revisão e salvar — conferir cliente no cadastro.
+3. Testar PDF com cliente já existente — confirmar badge "Já existe" e que o upsert atualiza sem duplicar.
