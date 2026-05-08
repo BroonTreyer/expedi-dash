@@ -427,7 +427,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       }
     }
 
-    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos, ordemCarga: ordemCarga.trim() });
+    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos, ordemCarga: ordemCargaResumo });
     onOpenChange(false);
 
     // Salva snapshot da rota planejada (km, custo, duração, ordem) para o histórico
