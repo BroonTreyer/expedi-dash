@@ -1,36 +1,51 @@
-## Adicionar aba "Transportadoras" em /cadastros
+# Corrigir data exibida para cargas terceirizadas
 
-Hoje a página `/cadastros` é um formulário único (Motorista + Caminhão + Tipo). Vamos reorganizá-la em **abas** e incluir uma aba dedicada a **Transportadoras**, reutilizando o CRUD que já existe na página `/transportadoras`.
+## Problema
+Quando um motorista terceirizado chega num dia (ex.: ontem) e termina o carregamento/sai em outro (ex.: hoje), a carga continua aparecendo apenas na data antiga em **Consolidado** e **Expedição**. O esperado é que ela seja contabilizada no dia em que efetivamente saiu/foi finalizada.
 
-### Estrutura nova de `/cadastros`
+## Escopo
+- **Apenas cargas terceirizadas** (com `transportadora` preenchida). Frota própria não é afetada.
+- Atinge somente as telas **Consolidado** e **Expedição — Distribuidores** (KPIs de peso, painel "Cargas expedidas do dia" e agrupamento por data).
+- Pedidos individuais e relatórios mantêm a data original (`carregamentos_dia.data`) como referência fiscal/operacional.
 
-Tabs (componente `Tabs` do shadcn):
-1. **Cadastro Unificado** — formulário atual (Motorista + Caminhão + Tipo), sem alterações de lógica.
-2. **Transportadoras** — lista + criar/editar/excluir transportadora financeira.
-3. O modo `?focus=buscar` continua funcionando: abre direto na aba "Cadastro Unificado" com o card de busca por cima (sem mudança de comportamento).
+## Critério da nova data ("data efetiva")
+Para cada carga terceirizada, usar a primeira data disponível abaixo:
+1. Data da **saída final pela portaria** (`movimentacoes_portaria.horario_saida_final`, etapa `expedido`).
+2. Senão, data em que **todos os itens** ficaram com `status = "Carregado"` (usar `MAX(updated_at)` dos itens da carga quando todos estiverem Carregado).
+3. Senão (ainda em andamento), mantém a `data` original.
 
-### Aba Transportadoras
+Assim a regra é: "saiu hoje → conta hoje", "finalizou no faturamento hoje → conta hoje", "ainda não terminou → fica no dia original".
 
-Reaproveita os hooks já existentes:
-- `useTransportadorasFinanceiro` (listar)
-- `useUpsertTransportadoraFin` (criar/editar)
-- `useDeleteTransportadoraFin` (excluir)
+## Abordagem técnica (apenas exibição, não muda o banco)
 
-UI igual à de `src/pages/Transportadoras.tsx`:
-- Tabela com Nome, Código, CNPJ, PIX, % Adt. padrão, Status, ações (editar/excluir).
-- Botão "Nova" abre `Dialog` com os mesmos campos (nome, código, CNPJ, PIX + tipo, banco/ag/conta, % adiantamento, ativa).
+### 1. Novo hook utilitário
+`src/hooks/useDataEfetivaTerceirizadas.ts`
+- Recebe lista de `{ carga_id, data_original }` (apenas com transportadora).
+- Busca em `movimentacoes_portaria` o `horario_saida_final` mais recente por `carga_id` (categoria `terceirizado`).
+- Combina com status agregado já calculado (todos Carregado → usa `max(updated_at)`).
+- Retorna `Map<carga_id, dataEfetiva>` (string `yyyy-MM-dd`).
 
-### Refatoração
+### 2. Consolidado (`src/pages/Consolidado.tsx`)
+- No `useConsolidado`, ampliar a janela de busca: além de `data = X`, trazer também cargas terceirizadas cuja **data efetiva** caia em X (buscar movimentos de saída do dia + cargas com `updated_at` no dia e todos itens "Carregado").
+- Após `groupByCarga`, sobrescrever `g.data` pela data efetiva quando a carga for terceirizada e tiver data efetiva calculada.
+- Filtrar fora do `dateRange` cargas cuja data efetiva caia fora do intervalo selecionado.
+- Cargas próprias seguem 100% inalteradas.
 
-Para evitar duplicação:
-- Extrair o conteúdo da página `Transportadoras.tsx` para um componente reutilizável **`src/components/cadastros/TransportadorasTab.tsx`**.
-- `src/pages/Transportadoras.tsx` passa a renderizar esse componente dentro do `Layout` (mantém a rota `/transportadoras` funcionando para quem acessa direto).
-- `src/pages/Cadastros.tsx` importa `TransportadorasTab` e renderiza dentro da nova aba.
+### 3. Expedição (`src/pages/Expedicao.tsx` + `useCargasDiaExpedicao`)
+- Em `useCargasDiaExpedicao(dateStr)`, ampliar a query para também incluir cargas terceirizadas de outras datas cuja **data efetiva = dateStr** (saída no dia ou finalização hoje com todos itens Carregado).
+- Reatribuir `c.data = dataEfetiva` antes do agrupamento, para que KPIs de peso (kgCarregado/kgACarregar/kgTotal) e o painel "Cargas expedidas do dia" reflitam o dia correto.
+- Remover do dia anterior as cargas que migraram (filtro por data efetiva ≠ dateStr quando estamos olhando o dia antigo).
 
-### Arquivos afetados
+### 4. Realtime
+Acrescentar invalidação por `movimentacoes_portaria` (saída final) nos dois hooks, para que assim que a portaria registre a saída, a carga "pule" para hoje em < 2s nas duas telas.
 
-- **Novo:** `src/components/cadastros/TransportadorasTab.tsx` (extração do CRUD atual de Transportadoras, sem `<Layout>` nem `<h1>`).
-- **Editado:** `src/pages/Cadastros.tsx` — envolver o conteúdo em `<Tabs>` com duas abas e incluir a nova aba.
-- **Editado:** `src/pages/Transportadoras.tsx` — passa a usar o novo componente extraído.
+## O que NÃO muda
+- `carregamentos_dia.data` no banco permanece o dia original (fiscal).
+- Página de Logística, relatórios XLSX, Rupturas, vendedores, portal motorista — sem alteração.
+- Cargas de **frota própria** (sem `transportadora`) — sem alteração.
+- Pedidos individuais continuam aparecendo no dia original quando consultados fora do agrupamento por carga.
 
-Sem alterações de banco, RLS ou edge functions.
+## Validação
+- Caso Fernando: chegou ontem, saiu hoje → some do Consolidado/Expedição de ontem, aparece em hoje, com peso total contabilizado nos KPIs de hoje.
+- Caso ainda em andamento (chegou ontem, está carregando hoje sem saída registrada e com itens não Carregado) → permanece em ontem (sem mudar).
+- Caso de frota própria → permanece exatamente como hoje.

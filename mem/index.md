@@ -1,0 +1,1 @@
+- [Data efetiva terceirizadas](mem://features/data-efetiva-terceirizadas) — Consolidado/Expedição usam data da saída pela portaria para terceirizadas
