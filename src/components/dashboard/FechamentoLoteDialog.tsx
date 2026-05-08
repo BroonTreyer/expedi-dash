@@ -32,8 +32,10 @@ import { Switch } from "@/components/ui/switch";
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
 /* ─── Sortable destination row ─── */
-function SortableDestRow({ id, group, idx, total, colorClass }: {
+function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChange }: {
   id: string; group: RotaGroup; idx: number; total: number; colorClass: string;
+  ocValue?: string;
+  onOcChange?: (v: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -42,7 +44,7 @@ function SortableDestRow({ id, group, idx, total, colorClass }: {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 px-2 py-1 rounded bg-muted/20 text-xs",
+        "flex flex-wrap items-center gap-2 px-2 py-1 rounded bg-muted/20 text-xs",
         isDragging && "z-50 shadow-lg ring-2 ring-primary/30 opacity-90"
       )}
     >
@@ -53,6 +55,15 @@ function SortableDestRow({ id, group, idx, total, colorClass }: {
       <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
       <span className="truncate flex-1">{group.nomeCliente ?? "Sem cliente"} – {group.cidade}{group.uf ? `/${group.uf}` : ""}</span>
       <span className="font-mono text-muted-foreground">{group.pesoTotal.toLocaleString("pt-BR")} kg</span>
+      {onOcChange && (
+        <Input
+          value={ocValue ?? ""}
+          onChange={(e) => onOcChange(e.target.value)}
+          placeholder="OC..."
+          className="h-7 w-28 text-xs font-mono"
+          onPointerDown={(e) => e.stopPropagation()}
+        />
+      )}
     </div>
   );
 }
@@ -78,6 +89,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
   const [ordemCarga, setOrdemCarga] = useState("");
+  const [modoOc, setModoOc] = useState<"unica" | "porGrupo">("unica");
+  const [ordemCargaPorGrupo, setOrdemCargaPorGrupo] = useState<Record<string, string>>({});
   const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
   const [walkInVinculadoId, setWalkInVinculadoId] = useState<string | null>(null);
   const { user } = useAuth();
@@ -289,6 +302,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setHorarioPrevisto("");
       setNomeCarga("");
       setOrdemCarga("");
+      setModoOc("unica");
+      setOrdemCargaPorGrupo({});
       setVeiculoVinculado("manual");
       setWalkInVinculadoId(null);
       setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
@@ -311,7 +326,13 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const totalPedidos = useMemo(() => groups.reduce((s, g) => s + g.items.length, 0), [groups]);
   const ufsUnicas = useMemo(() => { const set = new Set<string>(); groups.forEach((g) => { if (g.uf) set.add(g.uf); }); return Array.from(set).sort(); }, [groups]);
 
-  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && ordemCarga.trim().length > 0 && totalPedidos > 0;
+  const ocsPorGrupoValidas = useMemo(
+    () => Object.values(ordemCargaPorGrupo).filter((v) => v.trim().length > 0).length,
+    [ordemCargaPorGrupo],
+  );
+  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0 && (
+    modoOc === "unica" ? ordemCarga.trim().length > 0 : ocsPorGrupoValidas > 0
+  );
 
   // Submit guard: blocks double-clicks on "Fechar Carga" while the batch is in flight.
   // Without this, the user could trigger 2 simultaneous batch updates and create duplicate
@@ -336,8 +357,14 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     const cargaId = nomeCarga || `CG-${dateStr}-${timeStr}-${rand}`;
     const nomeCargaFinal = nomeCarga || cargaId;
 
-    const updates = groups.flatMap((group) =>
-      group.items.map((item) => ({
+    const ocFallback = ordemCarga.trim();
+    const ocPrimeiraValida =
+      Object.values(ordemCargaPorGrupo).map((v) => v.trim()).find((v) => v.length > 0) ?? "";
+    const updates = groups.flatMap((group) => {
+      const groupKey = group.codigoCliente ?? `__sem__${group.ordem}`;
+      const ocGrupo = (ordemCargaPorGrupo[groupKey] ?? "").trim();
+      const ocFinal = modoOc === "unica" ? ocFallback : (ocGrupo || ocPrimeiraValida);
+      return group.items.map((item) => ({
         id: item.id,
         tipo_caminhao: tipoCaminhao,
         placa,
@@ -349,9 +376,11 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         data: dataCarregamento,
         ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
         nome_carga: nomeCargaFinal,
-        ordem_carga: ordemCarga.trim(),
-      }))
-    );
+        ordem_carga: ocFinal,
+      }));
+    });
+    const ocsDistintas = Array.from(new Set(updates.map((u) => u.ordem_carga).filter(Boolean)));
+    const ordemCargaResumo = ocsDistintas.join(", ");
     const destinos = groups.filter(g => g.cidade).map(g => `${g.cidade}/${g.uf}`).join(", ");
 
     // Auto-autorizar veículo no pátio (walk-in) se foi vinculado a esta carga
@@ -398,7 +427,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       }
     }
 
-    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos, ordemCarga: ordemCarga.trim() });
+    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos, ordemCarga: ordemCargaResumo });
     onOpenChange(false);
 
     // Salva snapshot da rota planejada (km, custo, duração, ordem) para o histórico
@@ -509,8 +538,20 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               <div className="space-y-1">
                 {groups.map((g, idx) => {
                   const colorClass = idx === 0 ? "text-green-600" : idx === groups.length - 1 ? "text-red-500" : "text-primary";
+                  const groupKey = g.codigoCliente ?? `__sem__${g.ordem}`;
                   return (
-                    <SortableDestRow key={dndKey(g)} id={dndKey(g)} group={g} idx={idx} total={groups.length} colorClass={colorClass} />
+                    <SortableDestRow
+                      key={dndKey(g)}
+                      id={dndKey(g)}
+                      group={g}
+                      idx={idx}
+                      total={groups.length}
+                      colorClass={colorClass}
+                      ocValue={modoOc === "porGrupo" ? (ordemCargaPorGrupo[groupKey] ?? "") : undefined}
+                      onOcChange={modoOc === "porGrupo"
+                        ? (v) => setOrdemCargaPorGrupo((p) => ({ ...p, [groupKey]: v }))
+                        : undefined}
+                    />
                   );
                 })}
               </div>
@@ -639,13 +680,29 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               <Input value={nomeCarga} onChange={(e) => setNomeCarga(e.target.value)} placeholder="Ex: Carga MG Norte (opcional)" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Ordem de Carga *</Label>
-              <Input
-                value={ordemCarga}
-                onChange={(e) => setOrdemCarga(e.target.value)}
-                placeholder="Ex: OC-1234"
-              />
-              <p className="text-[10px] text-muted-foreground">Usada para vincular o CT-e/DACTE a esta carga.</p>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Ordem de Carga *</Label>
+                <div className="inline-flex rounded-md border p-0.5 bg-muted/40">
+                  <Button type="button" variant={modoOc === "unica" ? "default" : "ghost"} size="sm"
+                    className="h-6 px-2 text-[10px]" onClick={() => setModoOc("unica")}>Única</Button>
+                  <Button type="button" variant={modoOc === "porGrupo" ? "default" : "ghost"} size="sm"
+                    className="h-6 px-2 text-[10px]" onClick={() => setModoOc("porGrupo")}>Por grupo</Button>
+                </div>
+              </div>
+              {modoOc === "unica" ? (
+                <>
+                  <Input
+                    value={ordemCarga}
+                    onChange={(e) => setOrdemCarga(e.target.value)}
+                    placeholder="Ex: OC-1234"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Mesma OC para todos os pedidos da carga.</p>
+                </>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  Preencha a OC ao lado de cada destino na lista acima ({ocsPorGrupoValidas} de {groups.length} preenchidas).
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Data do Carregamento *</Label>

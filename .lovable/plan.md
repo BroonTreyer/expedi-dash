@@ -1,139 +1,47 @@
+## Múltiplas Ordens de Carga por Fechamento
 
-## Fluxo de Adiantamento de Frete
+Hoje o fechamento de carga aceita um único campo "Ordem de Carga" (texto), aplicado a todos os pedidos. A nova versão permitirá **uma OC por grupo de pedidos** (cada cliente da rota pode ter sua própria OC), continuando a aceitar OC única quando for o caso.
 
-Replica o que hoje é feito manualmente no WhatsApp: agrupar CT-es por transportadora, calcular adiantamento (% editável), gerar comprovante para o financeiro transferir e, depois, dar baixa na quitação do saldo.
+### Mudanças no diálogo de Fechamento (`FechamentoLoteDialog.tsx`)
 
-### 1. Cadastro de Transportadoras (novo)
+1. **Modo de OC** — toggle no topo do bloco "Ordem de Carga":
+   - **OC única para a carga inteira** (comportamento atual, padrão).
+   - **OC por grupo de pedidos** (novo).
 
-Nova tabela `transportadoras_financeiro` com:
-- `nome` (único, normalizado UPPER)
-- `codigo` (ex: "27308")
-- `cnpj`, `pix_chave`, `pix_tipo` (cpf/cnpj/email/telefone/aleatoria)
-- `banco`, `agencia`, `conta` (opcionais)
-- `percentual_adiantamento_padrao` (default 50)
-- `ativo`
+2. **Modo "OC única"**: mantém o input de hoje (`ordemCarga`).
 
-Página nova **Cadastros → Transportadoras** (lista + dialog editar). Acesso: admin/logistica.
+3. **Modo "OC por grupo"**:
+   - Em cada linha sortable de destino (`SortableDestRow`), exibir um input compacto "OC" ao lado do peso.
+   - O estado das OCs por grupo fica em `Record<codigoCliente, string>`.
+   - Validação: pelo menos uma OC preenchida; grupos sem OC ficam com valor vazio (não bloqueia, mas alerta).
+   - Botão "Aplicar primeira OC a todos" para acelerar quando a maioria é igual.
 
-### 2. Tabelas de Adiantamento e Quitação (novas)
+4. **Submit**: cada item recebe `ordem_carga` do seu próprio grupo (em vez do valor único). A coluna `ordem_carga` em `carregamentos_dia` continua sendo `text` simples — sem migração.
 
-**`adiantamentos_frete`** — um registro por lote enviado ao financeiro:
-- `id`, `numero` (sequencial diário tipo `ADT-YYYYMMDD-001`)
-- `transportadora`, `transportadora_id` (FK lógica)
-- `tipo_agrupamento` ('ordem' | 'lote')
-- `ordem_carga` (quando agrupamento por OC)
-- `valor_total_ctes` (soma dos CT-es)
-- `percentual` (editável por lote)
-- `valor_adiantamento` (= total × %)
-- `valor_saldo` (= total − adiantamento)
-- `status` ('pendente' | 'pago' | 'quitado' | 'cancelado')
-- `pago_em`, `pago_por`, `comprovante_pagamento_url` (opcional)
-- `quitado_em`, `quitado_por`, `comprovante_quitacao_url`
-- `observacoes`, `created_at`, `created_by`
+5. **Resumo / impressão**: o `CargaPrintData` e o painel de comprovante mostram a lista distinta de OCs (ex: "OCs: 12345, 67890").
 
-**`adiantamentos_frete_ctes`** — n:n entre adiantamento e CT-es:
-- `adiantamento_id`, `cte_id` (UNIQUE pra impedir o mesmo CT-e em 2 lotes abertos)
+### Integração CT-e e Adiantamentos (match em qualquer OC)
 
-RLS: admin/logistica fazem tudo; faturamento lê e marca como pago/quitado.
+- **`useCtesDacte.ts`** (vinculação automática CT-e ↔ pedidos): hoje compara `ordem_carga` do CT-e com `ordem_carga` do pedido. Trocar para `WHERE ordem_carga IN (lista distinta de OCs daquela carga)` ou usar `ilike any`. Como cada item já guarda sua própria OC, basta o match direto continuar funcionando — a busca por carga deve agregar todas as OCs daquele `carga_id` antes de consultar.
+- **`AdiantamentosTab.tsx`** (agrupamento por OC): quando o tipo é "Por Ordem de Carga", listar **todas as OCs distintas** da carga e permitir gerar 1 adiantamento por OC (ou agregar todas em um só, à escolha). UI ganha um seletor extra quando a carga tem >1 OC.
+- **`CtesDacteTab.tsx`** (coluna OC): exibir todas as OCs da carga vinculada, separadas por vírgula.
 
-### 3. UI — Nova aba "Adiantamentos" em `/logistica`
+### Sem mudanças de banco
 
-Adicionar aba ao lado de "CT-es", "Tabela de Frete", "Gastos por Vendedor".
+- A coluna `ordem_carga` continua `text` (uma por linha de pedido). Não precisa migration nem nova tabela.
+- O agrupamento por OC nos relatórios e adiantamentos passa a ser feito por `DISTINCT ordem_carga WHERE carga_id = X`.
 
-**Tela principal** com 3 sub-abas:
+### Detalhes técnicos
 
-```text
-[ A Pagar ]   [ Pagos / Aguardando Quitação ]   [ Quitados ]
-```
+- Tipo do `onSubmit` já aceita `ordem_carga?: string` por update — basta passar o valor por grupo.
+- O `canSubmit` muda para: modo único exige `ordemCarga` preenchida; modo por-grupo exige ao menos uma OC preenchida em qualquer grupo.
+- Reset ao abrir: `setOrdemCargaPorGrupo({})`, `setModoOc("unica")`.
+- Layout do input por linha: `w-24` à direita do peso, em telas mobile vira segunda linha do card.
 
-#### A Pagar (montagem do lote)
-- Filtro por transportadora (obrigatório pra montar lote).
-- Lista de CT-es **sem adiantamento ainda**, agrupados por OC (mesma lógica da aba CT-es).
-- Checkbox por CT-e e por OC inteira ("selecionar OC").
-- Painel lateral fixo "Resumo do Lote":
-  - Transportadora, Qtd CT-es, Valor total
-  - Input `% Adiantamento` (default vem do cadastro da transportadora)
-  - Mostra `Valor adiantamento` e `Saldo`
-  - Botão **"Gerar Adiantamento"** → cria registro + abre dialog de comprovante
-- Tabela embaixo: lotes já criados pendentes de pagamento.
+### Arquivos afetados
 
-#### Pagos / Aguardando Quitação
-- Lotes com status `pago`. Botão **"Registrar Quitação"** abre dialog: data, observação, upload opcional do comprovante. Marca como `quitado`.
-
-#### Quitados
-- Histórico, filtro por período/transportadora, link pro PDF.
-
-### 4. Dialog "Comprovante de Adiantamento" (estilo WhatsApp)
-
-Modal imprimível (reusa padrão do `CargaPrintDialog`) com layout idêntico ao print enviado:
-
-```text
-ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.
-
-1. <Transportadora> (<peso_total> Kg) CTE
-   <numero1>/<numero2>/<numero3>...
-   *VLR R$ <valor_total>*
-
-   *Valor Total do Frete R$ <valor_total>*
-
-<percentual>% de Adiantamento
-
-*R$ <valor_adiantamento>*
-
-Código <codigo> – <nome>
-Pix: <pix_chave>
-```
-
-Botões: **Copiar texto** (clipboard, formatação WhatsApp `*negrito*`), **Imprimir/PDF**, **Marcar como Pago** (passa para sub-aba "Pagos").
-
-### 5. Dialog "Quitação"
-
-Layout do segundo print:
-
-```text
-QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.
-
-| VALOR EM ABERTO | COD   | TRANSPORTADORA | OC   |
-| R$ 7.733,34     | 27308 | DOMINIO        | 2207 |
-| R$ 6.161,31     | 27308 | DOMINIO        | 2214 |
-                  Valor a Pagar
-R$ 13.894,65
-
-Valor Saldo R$ 13.894,65
-Código <codigo> – <nome>
-Pix: <pix_chave>
-```
-
-Pode agregar múltiplos lotes da mesma transportadora numa quitação só (toggle "Agrupar saldos pendentes desta transportadora").
-
-### 6. Hooks novos
-- `useTransportadorasFinanceiro` (CRUD)
-- `useAdiantamentos` (lista, com filtros de status)
-- `useCriarAdiantamento` (transação: cria header + insere ctes na pivot)
-- `useMarcarPago`, `useRegistrarQuitacao`, `useCancelarAdiantamento`
-
-### 7. Integração com aba CT-es existente
-- Coluna nova "Adiantamento" mostrando badge: `—` / `ADT-...` (link) / `Pago` / `Quitado`.
-- Bloquear delete de CT-e que já está em adiantamento `pago`/`quitado`.
-
-### Arquivos
-**Novos**
-- `src/components/logistica/AdiantamentosTab.tsx`
-- `src/components/logistica/MontarAdiantamentoPanel.tsx`
-- `src/components/logistica/ComprovanteAdiantamentoDialog.tsx`
-- `src/components/logistica/RegistrarQuitacaoDialog.tsx`
-- `src/components/cadastros/TransportadorasFinanceiroTab.tsx` (ou página dedicada)
-- `src/hooks/useAdiantamentos.ts`
-- `src/hooks/useTransportadorasFinanceiro.ts`
-
-**Editados**
-- `src/pages/Logistica.tsx` — adiciona aba "Adiantamentos"
-- `src/pages/Cadastros.tsx` — adiciona aba "Transportadoras"
-- `src/components/logistica/CtesDacteTab.tsx` — coluna "Adiantamento" + bloqueio de delete
-
-### Migrations
-1. `create table transportadoras_financeiro` + RLS admin/logistica.
-2. `create table adiantamentos_frete` + sequence/numeração + RLS.
-3. `create table adiantamentos_frete_ctes` + UNIQUE(cte_id) parcial (status ≠ cancelado).
-
-Sem alteração em `ctes_dacte` — vínculo é inferido pela pivot.
+- `src/components/dashboard/FechamentoLoteDialog.tsx` (UI + estado + submit)
+- `src/hooks/useCtesDacte.ts` (vinculação por lista de OCs)
+- `src/components/logistica/AdiantamentosTab.tsx` (agrupamento múltiplo por OC)
+- `src/components/logistica/CtesDacteTab.tsx` (exibição da lista de OCs)
+- `src/components/dashboard/CargaPrintDialog.tsx` (mostrar lista de OCs no cabeçalho)
