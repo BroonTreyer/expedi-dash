@@ -680,13 +680,29 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               <Input value={nomeCarga} onChange={(e) => setNomeCarga(e.target.value)} placeholder="Ex: Carga MG Norte (opcional)" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Ordem de Carga *</Label>
-              <Input
-                value={ordemCarga}
-                onChange={(e) => setOrdemCarga(e.target.value)}
-                placeholder="Ex: OC-1234"
-              />
-              <p className="text-[10px] text-muted-foreground">Usada para vincular o CT-e/DACTE a esta carga.</p>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Ordem de Carga *</Label>
+                <div className="inline-flex rounded-md border p-0.5 bg-muted/40">
+                  <Button type="button" variant={modoOc === "unica" ? "default" : "ghost"} size="sm"
+                    className="h-6 px-2 text-[10px]" onClick={() => setModoOc("unica")}>Única</Button>
+                  <Button type="button" variant={modoOc === "porGrupo" ? "default" : "ghost"} size="sm"
+                    className="h-6 px-2 text-[10px]" onClick={() => setModoOc("porGrupo")}>Por grupo</Button>
+                </div>
+              </div>
+              {modoOc === "unica" ? (
+                <>
+                  <Input
+                    value={ordemCarga}
+                    onChange={(e) => setOrdemCarga(e.target.value)}
+                    placeholder="Ex: OC-1234"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Mesma OC para todos os pedidos da carga.</p>
+                </>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  Preencha a OC ao lado de cada destino na lista acima ({ocsPorGrupoValidas} de {groups.length} preenchidas).
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Data do Carregamento *</Label>
