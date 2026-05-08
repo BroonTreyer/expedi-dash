@@ -357,8 +357,14 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     const cargaId = nomeCarga || `CG-${dateStr}-${timeStr}-${rand}`;
     const nomeCargaFinal = nomeCarga || cargaId;
 
-    const updates = groups.flatMap((group) =>
-      group.items.map((item) => ({
+    const ocFallback = ordemCarga.trim();
+    const ocPrimeiraValida =
+      Object.values(ordemCargaPorGrupo).map((v) => v.trim()).find((v) => v.length > 0) ?? "";
+    const updates = groups.flatMap((group) => {
+      const groupKey = group.codigoCliente ?? `__sem__${group.ordem}`;
+      const ocGrupo = (ordemCargaPorGrupo[groupKey] ?? "").trim();
+      const ocFinal = modoOc === "unica" ? ocFallback : (ocGrupo || ocPrimeiraValida);
+      return group.items.map((item) => ({
         id: item.id,
         tipo_caminhao: tipoCaminhao,
         placa,
@@ -370,9 +376,11 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         data: dataCarregamento,
         ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
         nome_carga: nomeCargaFinal,
-        ordem_carga: ordemCarga.trim(),
-      }))
-    );
+        ordem_carga: ocFinal,
+      }));
+    });
+    const ocsDistintas = Array.from(new Set(updates.map((u) => u.ordem_carga).filter(Boolean)));
+    const ordemCargaResumo = ocsDistintas.join(", ");
     const destinos = groups.filter(g => g.cidade).map(g => `${g.cidade}/${g.uf}`).join(", ");
 
     // Auto-autorizar veículo no pátio (walk-in) se foi vinculado a esta carga
