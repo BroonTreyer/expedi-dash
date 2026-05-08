@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { pesoEfetivo } from "@/lib/peso-utils";
 import { fetchAllPaginated } from "@/lib/supabase-paginate";
+import { computeDataEfetivaTerceirizada } from "@/lib/data-efetiva";
 
 export interface CargaDiaExpedicao {
   carga_id: string;
@@ -41,6 +42,13 @@ export function useCargasDiaExpedicao(dateStr: string) {
           queryClient.invalidateQueries({ queryKey: ["cargas_dia_expedicao"] });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "movimentacoes_portaria" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["cargas_dia_expedicao"] });
+        }
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -59,17 +67,72 @@ export function useCargasDiaExpedicao(dateStr: string) {
       const data = await fetchAllPaginated<any>((from, to) =>
         supabase
           .from("carregamentos_dia")
-          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, ruptura, data, numero_pedido, status, id")
+          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, ruptura, data, numero_pedido, status, id, updated_at")
           .not("carga_id", "is", null)
           .eq("data", dateStr)
           .order("id", { ascending: true })
           .range(from, to),
       );
-      // Sem carry-over: KPIs do painel Expedição refletem apenas as cargas
-      // com data = dia selecionado. Cargas de outros dias com movimento hoje
-      // aparecem nos painéis Pátio/Chegou (via movimentacoes_portaria), mas
-      // não inflam o peso total do dia.
-      const rows = (data ?? []) as any[];
+      let rows = (data ?? []) as any[];
+
+      // === Data efetiva: trazer cargas TERCEIRIZADAS de outros dias cuja
+      // saída pela portaria caiu hoje. Assim o peso vai para o dia correto.
+      const startOfDay = `${dateStr}T00:00:00`;
+      const endOfDay = `${dateStr}T23:59:59.999`;
+      const { data: saidasHoje } = await supabase
+        .from("movimentacoes_portaria")
+        .select("carga_id")
+        .eq("categoria", "terceirizado")
+        .not("carga_id", "is", null)
+        .not("horario_saida_final", "is", null)
+        .gte("horario_saida_final", startOfDay)
+        .lte("horario_saida_final", endOfDay);
+      const cargaIdsSaidaHoje = Array.from(
+        new Set(((saidasHoje ?? []) as { carga_id: string | null }[])
+          .map((m) => m.carga_id)
+          .filter((v): v is string => !!v))
+      );
+      const presentes = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
+      const faltantes = cargaIdsSaidaHoje.filter((cid) => !presentes.has(cid));
+      if (faltantes.length > 0) {
+        const trintaDiasAtras = new Date();
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+        const limit = trintaDiasAtras.toISOString().split("T")[0];
+        const extra = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from("carregamentos_dia")
+            .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, ruptura, data, numero_pedido, status, id, updated_at")
+            .in("carga_id", faltantes)
+            .lt("data", dateStr)
+            .gte("data", limit)
+            .order("id", { ascending: true })
+            .range(from, to),
+        );
+        if (extra && extra.length > 0) rows = [...rows, ...extra];
+      }
+
+      // Buscar saídas das cargas terceirizadas presentes (para reatribuir
+      // data efetiva: cargas cuja data original = dateStr mas saíram em outro
+      // dia devem SAIR deste dia).
+      const cargaIdsTerc = Array.from(new Set(
+        rows
+          .filter((r: any) => !!r.transportadora && r.carga_id)
+          .map((r: any) => r.carga_id as string)
+      ));
+      const saidaPorCarga = new Map<string, string>();
+      if (cargaIdsTerc.length > 0) {
+        const { data: todasSaidas } = await supabase
+          .from("movimentacoes_portaria")
+          .select("carga_id, horario_saida_final")
+          .eq("categoria", "terceirizado")
+          .in("carga_id", cargaIdsTerc)
+          .not("horario_saida_final", "is", null);
+        for (const m of (todasSaidas ?? []) as { carga_id: string | null; horario_saida_final: string | null }[]) {
+          if (!m.carga_id || !m.horario_saida_final) continue;
+          const prev = saidaPorCarga.get(m.carga_id);
+          if (!prev || m.horario_saida_final > prev) saidaPorCarga.set(m.carga_id, m.horario_saida_final);
+        }
+      }
 
       const grouped = new Map<string, CargaDiaExpedicao & { pedidos: Set<number>; statuses: Set<string> }>();
       for (const r of rows) {
@@ -99,19 +162,36 @@ export function useCargasDiaExpedicao(dateStr: string) {
         if (r.status) g.statuses.add(String(r.status));
       }
 
-      return Array.from(grouped.values()).map(({ pedidos, statuses, ...rest }) => ({
-        ...rest,
-        qtdPedidos: pedidos.size,
-        // status agregado: "Carregado" só se todos os itens da carga estão Carregado
-        status:
-          statuses.size === 1
-            ? Array.from(statuses)[0]
-            : statuses.has("Carregando")
-              ? "Carregando"
-              : statuses.size > 0
-                ? Array.from(statuses)[0]
-                : null,
-      })) as CargaDiaExpedicao[];
+      // Itens por carga (para computar data efetiva via updated_at)
+      const itensPorCarga = new Map<string, any[]>();
+      for (const r of rows) {
+        if (!r.carga_id || !r.transportadora) continue;
+        const arr = itensPorCarga.get(r.carga_id) ?? [];
+        arr.push(r);
+        itensPorCarga.set(r.carga_id, arr);
+      }
+
+      const list = Array.from(grouped.values()).map(({ pedidos, statuses, ...rest }) => {
+        const itens = itensPorCarga.get(rest.carga_id) ?? [];
+        const saidaIso = saidaPorCarga.get(rest.carga_id) ?? null;
+        const dataEfetiva = computeDataEfetivaTerceirizada(itens, rest.data, saidaIso);
+        return {
+          ...rest,
+          data: dataEfetiva,
+          qtdPedidos: pedidos.size,
+          status:
+            statuses.size === 1
+              ? Array.from(statuses)[0]
+              : statuses.has("Carregando")
+                ? "Carregando"
+                : statuses.size > 0
+                  ? Array.from(statuses)[0]
+                  : null,
+        };
+      }) as CargaDiaExpedicao[];
+
+      // Mantém somente cargas cuja data efetiva é o dia consultado
+      return list.filter((c) => c.data === dateStr);
     },
   });
 }
