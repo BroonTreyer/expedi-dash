@@ -1,14 +1,46 @@
 ## Problema
-No aviso âmbar "Sem cadastro financeiro" da aba **Adiantamentos → Montar Lote**, eu coloquei o link `/cadastros?tab=transportadoras`, que não existe. A página `/cadastros` só tem Motorista, Caminhão e Tipo de caminhão.
 
-O cadastro financeiro de transportadoras (Nome, Código, CNPJ, PIX, Banco, % padrão) já está implementado e funcional em **`/transportadoras`** (`src/pages/Transportadoras.tsx`).
+Ao gerar adiantamentos para várias transportadoras de uma vez, só o **comprovante/mensagem do primeiro** é exibido (`setComprovanteAdt(criados[0])`). Os demais ficam invisíveis — o usuário precisaria abrir um por um na lista.
+
+Além disso, o template da mensagem em `ComprovanteAdiantamentoDialog` já é numerado (`1.{transportadora}...`), sugerindo que o desenho original previa **uma única mensagem consolidada** com várias transportadoras.
 
 ## Correção
 
-### `src/components/logistica/AdiantamentosTab.tsx`
-- Trocar o `href` do link "Cadastrar" de `/cadastros?tab=transportadoras` para **`/transportadoras`**.
+### 1. `ComprovanteAdiantamentoDialog.tsx` — aceitar múltiplos adiantamentos
+- Mudar a prop de `adiantamento: Adiantamento | null` para `adiantamentos: Adiantamento[]` (manter compat aceitando array de 1).
+- Buscar os CT-es de cada adiantamento (loop de hooks → criar componente interno `BlocoTransportadora` que chama `useAdiantamentoCtes` para um id, para respeitar regras de hooks).
+- Montar a mensagem consolidada:
 
-Só isso. Nenhuma mudança de schema, hook ou outra página.
+  ```
+  ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.
 
-## Fora de escopo
-- Não vou duplicar o cadastro dentro de `/cadastros`. A página dedicada `/transportadoras` já cumpre esse papel.
+  1.{Transp A} ({peso} Kg) CTE
+  {numeros}
+  *VLR {valor}*
+
+  2.{Transp B} ({peso} Kg) CTE
+  {numeros}
+  *VLR {valor}*
+
+  *Valor Total do Frete {soma}*
+
+  {%}% de Adiantamento
+
+  *{soma adiantamento}*
+
+  Código X – Transp A
+  Pix: ...
+  Código Y – Transp B
+  Pix: ...
+  ```
+  
+  Quando os percentuais diferirem entre transportadoras, exibir o adiantamento por bloco (em vez de um total único).
+- Título do dialog: `Comprovante — N adiantamentos` (ou número único quando for 1).
+- Botão "Marcar como pago" passa a marcar **todos** os pendentes (loop `marcarPago.mutateAsync`).
+
+### 2. `AdiantamentosTab.tsx` — passar a lista
+- Trocar `comprovanteAdt: Adiantamento | null` por `comprovantesAdt: Adiantamento[]`.
+- Em `handleGerar`, após o loop: `setComprovantesAdt(criados)` em vez de `criados[0]`.
+- No clique de "Comprovante" da lista existente (`ListaAdiantamentos`), continuar abrindo com `[adiantamento]`.
+
+Nada muda no schema ou nos hooks — apenas frontend/apresentação.
