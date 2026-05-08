@@ -326,7 +326,13 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const totalPedidos = useMemo(() => groups.reduce((s, g) => s + g.items.length, 0), [groups]);
   const ufsUnicas = useMemo(() => { const set = new Set<string>(); groups.forEach((g) => { if (g.uf) set.add(g.uf); }); return Array.from(set).sort(); }, [groups]);
 
-  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && ordemCarga.trim().length > 0 && totalPedidos > 0;
+  const ocsPorGrupoValidas = useMemo(
+    () => Object.values(ordemCargaPorGrupo).filter((v) => v.trim().length > 0).length,
+    [ordemCargaPorGrupo],
+  );
+  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0 && (
+    modoOc === "unica" ? ordemCarga.trim().length > 0 : ocsPorGrupoValidas > 0
+  );
 
   // Submit guard: blocks double-clicks on "Fechar Carga" while the batch is in flight.
   // Without this, the user could trigger 2 simultaneous batch updates and create duplicate
