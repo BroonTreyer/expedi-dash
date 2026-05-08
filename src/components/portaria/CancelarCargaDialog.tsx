@@ -194,7 +194,8 @@ export function CancelarCargaDialog({ open, onOpenChange, carga }: Props) {
             Cancelar carga
           </DialogTitle>
           <DialogDescription>
-            Os pedidos voltarão para "Vendas" e poderão ser refeitos em outra carga.
+            Os pedidos voltarão para <strong>Vendas</strong> mantendo os produtos
+            agrupados no pedido original, prontos para serem refeitos em outra carga.
             O motivo ficará registrado em <strong>Ocorrências</strong>.
           </DialogDescription>
         </DialogHeader>
