@@ -16,7 +16,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Plus, Edit, Trash2, Search, Building2, Upload, RefreshCw } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Building2, Upload, RefreshCw, FileText } from "lucide-react";
+import { ImportarClientesPdfDialog } from "@/components/clientes/ImportarClientesPdfDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -39,6 +40,7 @@ export default function Clientes() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
@@ -348,9 +350,13 @@ export default function Clientes() {
             <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={importing} className="flex-1 sm:flex-initial text-xs sm:text-sm">
               <Upload className="h-4 w-4 mr-1" /> {importing ? "Importando..." : "Importar"}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setPdfDialogOpen(true)} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+              <FileText className="h-4 w-4 mr-1" /> Importar PDF
+            </Button>
             <Button size="sm" onClick={openNew} className="flex-1 sm:flex-initial text-xs sm:text-sm"><Plus className="h-4 w-4 mr-1" /> Novo</Button>
           </div>
         </div>
+        <ImportarClientesPdfDialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen} />
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
