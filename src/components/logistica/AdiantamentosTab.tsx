@@ -42,55 +42,74 @@ export function AdiantamentosTab() {
   const criar = useCriarAdiantamento();
   const cancelar = useCancelarAdiantamento();
 
-  const [transportadoraSel, setTransportadoraSel] = useState<string>("");
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
-  const [percentual, setPercentual] = useState<number>(50);
+  const [percentuais, setPercentuais] = useState<Record<string, number>>({});
   const [observacoes, setObservacoes] = useState("");
 
   const [comprovanteAdt, setComprovanteAdt] = useState<Adiantamento | null>(null);
   const [quitarTransp, setQuitarTransp] = useState<string | null>(null);
 
-  // CT-es disponíveis (sem adiantamento ativo) e da transportadora escolhida
-  const transportadorasDosCtes = useMemo(() => {
-    const set = new Set<string>();
+  // CT-es disponíveis (sem adiantamento ativo) agrupados por transportadora
+  const ctesPorTransp = useMemo(() => {
+    const map = new Map<string, CteDacteRow[]>();
     for (const c of ctes) {
       if (!c.transportadora) continue;
       if (ctesAtivos?.has(c.id)) continue;
-      set.add(c.transportadora);
+      if (!map.has(c.transportadora)) map.set(c.transportadora, []);
+      map.get(c.transportadora)!.push(c);
     }
-    return [...set].sort();
+    return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
   }, [ctes, ctesAtivos]);
 
-  const ctesDisponiveis = useMemo(() => {
-    if (!transportadoraSel) return [] as CteDacteRow[];
-    return ctes.filter((c) => c.transportadora === transportadoraSel && !ctesAtivos?.has(c.id));
-  }, [ctes, ctesAtivos, transportadoraSel]);
+  const transpInfoByName = useMemo(() => {
+    const m = new Map<string, (typeof transp)[number]>();
+    for (const t of transp) m.set(t.nome, t);
+    return m;
+  }, [transp]);
 
-  // Agrupa por OC para a UI
-  const grupos = useMemo(() => {
-    const map = new Map<string, CteDacteRow[]>();
-    for (const c of ctesDisponiveis) {
-      const k = (c.ordem_carga ?? "").trim() || "__sem_oc__";
-      if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(c);
+  const getPercentual = (nome: string) => {
+    if (percentuais[nome] !== undefined) return percentuais[nome];
+    return Number(transpInfoByName.get(nome)?.percentual_adiantamento_padrao ?? 50);
+  };
+  const setPerc = (nome: string, v: number) => setPercentuais((p) => ({ ...p, [nome]: v }));
+
+  // Resumo por transportadora (apenas as com seleção)
+  const resumoPorTransp = useMemo(() => {
+    const arr: Array<{
+      nome: string;
+      ctes: CteDacteRow[];
+      total: number;
+      peso: number;
+      percentual: number;
+      adt: number;
+      saldo: number;
+    }> = [];
+    for (const [nome, lista] of ctesPorTransp.entries()) {
+      const escolhidos = lista.filter((c) => selecionados.has(c.id));
+      if (escolhidos.length === 0) continue;
+      const total = escolhidos.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
+      const peso = escolhidos.reduce((s, c) => s + Number(c.peso_total || 0), 0);
+      const p = getPercentual(nome);
+      const adt = +(total * (p / 100)).toFixed(2);
+      arr.push({ nome, ctes: escolhidos, total, peso, percentual: p, adt, saldo: +(total - adt).toFixed(2) });
     }
-    return [...map.entries()].sort((a, b) => (a[0] === "__sem_oc__" ? 1 : -1));
-  }, [ctesDisponiveis]);
+    return arr;
+  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName]);
 
-  // Quando troca transportadora, define % padrão
-  const transpInfo = useMemo(() => transp.find((t) => t.nome === transportadoraSel), [transp, transportadoraSel]);
-  useMemo(() => {
-    if (transpInfo?.percentual_adiantamento_padrao) setPercentual(Number(transpInfo.percentual_adiantamento_padrao));
-  }, [transpInfo?.id]); // eslint-disable-line
-
-  const ctesEscolhidos = useMemo(
-    () => ctesDisponiveis.filter((c) => selecionados.has(c.id)),
-    [ctesDisponiveis, selecionados],
+  const totaisGerais = useMemo(
+    () =>
+      resumoPorTransp.reduce(
+        (acc, r) => ({
+          ctes: acc.ctes + r.ctes.length,
+          total: acc.total + r.total,
+          peso: acc.peso + r.peso,
+          adt: acc.adt + r.adt,
+          saldo: acc.saldo + r.saldo,
+        }),
+        { ctes: 0, total: 0, peso: 0, adt: 0, saldo: 0 },
+      ),
+    [resumoPorTransp],
   );
-  const totalSel = ctesEscolhidos.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
-  const pesoSel = ctesEscolhidos.reduce((s, c) => s + Number(c.peso_total || 0), 0);
-  const valorAdt = +(totalSel * (percentual / 100)).toFixed(2);
-  const saldo = +(totalSel - valorAdt).toFixed(2);
 
   const toggle = (id: string) =>
     setSelecionados((p) => {
@@ -98,7 +117,7 @@ export function AdiantamentosTab() {
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
-  const toggleGroup = (rows: CteDacteRow[]) =>
+  const toggleMany = (rows: CteDacteRow[]) =>
     setSelecionados((p) => {
       const n = new Set(p);
       const allIn = rows.every((r) => n.has(r.id));
@@ -108,27 +127,34 @@ export function AdiantamentosTab() {
     });
 
   const handleGerar = async () => {
-    if (!transportadoraSel || ctesEscolhidos.length === 0) return;
-    // OCs distintas
-    const ocs = new Set(ctesEscolhidos.map((c) => (c.ordem_carga ?? "").trim()).filter(Boolean));
-    const tipo: "ordem" | "lote" = ocs.size === 1 ? "ordem" : "lote";
-    const ordem = tipo === "ordem" ? [...ocs][0] : null;
-    const novo = await criar.mutateAsync({
-      transportadora: transportadoraSel,
-      transportadora_id: transpInfo?.id ?? null,
-      tipo_agrupamento: tipo,
-      ordem_carga: ordem,
-      percentual,
-      observacoes: observacoes.trim() || null,
-      ctes: ctesEscolhidos.map((c) => ({
-        id: c.id,
-        valor_frete: Number(c.valor_frete || 0),
-        peso_total: Number(c.peso_total || 0),
-      })),
-    });
-    setSelecionados(new Set());
-    setObservacoes("");
-    setComprovanteAdt(novo);
+    if (resumoPorTransp.length === 0) return;
+    const criados: Adiantamento[] = [];
+    try {
+      for (const r of resumoPorTransp) {
+        const ocs = new Set(r.ctes.map((c) => (c.ordem_carga ?? "").trim()).filter(Boolean));
+        const tipo: "ordem" | "lote" = ocs.size === 1 ? "ordem" : "lote";
+        const ordem = tipo === "ordem" ? [...ocs][0] : null;
+        const novo = await criar.mutateAsync({
+          transportadora: r.nome,
+          transportadora_id: transpInfoByName.get(r.nome)?.id ?? null,
+          tipo_agrupamento: tipo,
+          ordem_carga: ordem,
+          percentual: r.percentual,
+          observacoes: observacoes.trim() || null,
+          ctes: r.ctes.map((c) => ({
+            id: c.id,
+            valor_frete: Number(c.valor_frete || 0),
+            peso_total: Number(c.peso_total || 0),
+          })),
+        });
+        criados.push(novo);
+      }
+      setSelecionados(new Set());
+      setObservacoes("");
+      if (criados[0]) setComprovanteAdt(criados[0]);
+    } catch {
+      // toast já é exibido pelo hook
+    }
   };
 
   const pendentes = adiantamentos.filter((a) => a.status === "pendente");
@@ -159,118 +185,143 @@ export function AdiantamentosTab() {
 
         {/* MONTAR LOTE */}
         <TabsContent value="montar">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-            <Card className="p-4 space-y-3">
-              <div className="flex flex-wrap gap-2 items-center">
-                <label className="text-sm font-medium">Transportadora:</label>
-                <select
-                  value={transportadoraSel}
-                  onChange={(e) => {
-                    setTransportadoraSel(e.target.value);
-                    setSelecionados(new Set());
-                  }}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[240px]"
-                >
-                  <option value="">— selecione —</option>
-                  {transportadorasDosCtes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-                {transportadoraSel && !transpInfo && (
-                  <span className="text-xs text-amber-600">
-                    Sem cadastro financeiro. <a href="/cadastros?tab=transportadoras" className="underline">Cadastrar</a>
-                  </span>
-                )}
-              </div>
-
-              {!transportadoraSel ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  Selecione uma transportadora para listar os CT-es disponíveis.
-                </p>
-              ) : grupos.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  Nenhum CT-e pendente de adiantamento para esta transportadora.
-                </p>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
+            <div className="space-y-3">
+              {ctesPorTransp.size === 0 ? (
+                <Card className="p-8 text-center text-sm text-muted-foreground">
+                  Nenhum CT-e pendente de adiantamento.
+                </Card>
               ) : (
-                <div className="border rounded-md overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-8" />
-                        <TableHead>OC / CT-e</TableHead>
-                        <TableHead>Destino</TableHead>
-                        <TableHead className="text-right">Peso (kg)</TableHead>
-                        <TableHead className="text-right">Frete</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {grupos.map(([oc, rows]) => {
-                        const allIn = rows.every((r) => selecionados.has(r.id));
-                        const someIn = rows.some((r) => selecionados.has(r.id)) && !allIn;
-                        const totalRow = rows.reduce((s, r) => s + Number(r.valor_frete || 0), 0);
-                        const pesoRow = rows.reduce((s, r) => s + Number(r.peso_total || 0), 0);
-                        return (
-                          <>
-                            <TableRow key={oc} className="bg-muted/40 font-medium">
-                              <TableCell>
-                                <Checkbox checked={allIn} onCheckedChange={() => toggleGroup(rows)} aria-checked={someIn ? "mixed" : allIn} />
-                              </TableCell>
-                              <TableCell className="font-mono text-xs">
-                                OC {oc === "__sem_oc__" ? "—" : oc} <span className="text-muted-foreground">({rows.length} CT-e)</span>
-                              </TableCell>
-                              <TableCell />
-                              <TableCell className="text-right text-xs tabular-nums">{fmtKg(pesoRow)}</TableCell>
-                              <TableCell className="text-right text-xs tabular-nums">{fmtBRL(totalRow)}</TableCell>
+                [...ctesPorTransp.entries()].map(([nome, lista]) => {
+                  const info = transpInfoByName.get(nome);
+                  const selCount = lista.filter((c) => selecionados.has(c.id)).length;
+                  const allIn = lista.every((c) => selecionados.has(c.id));
+                  const grupos = (() => {
+                    const m = new Map<string, CteDacteRow[]>();
+                    for (const c of lista) {
+                      const k = (c.ordem_carga ?? "").trim() || "__sem_oc__";
+                      if (!m.has(k)) m.set(k, []);
+                      m.get(k)!.push(c);
+                    }
+                    return [...m.entries()].sort((a, b) => (a[0] === "__sem_oc__" ? 1 : -1));
+                  })();
+                  return (
+                    <Card key={nome} className="p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Checkbox checked={allIn} onCheckedChange={() => toggleMany(lista)} />
+                          <h3 className="font-semibold">{nome}</h3>
+                          <Badge variant="outline" className="text-xs">{lista.length} CT-e</Badge>
+                          {selCount > 0 && (
+                            <Badge className="text-xs">{selCount} selecionado{selCount > 1 ? "s" : ""}</Badge>
+                          )}
+                          {!info && (
+                            <span className="text-xs text-amber-600">
+                              Sem cadastro financeiro. <a href="/cadastros?tab=transportadoras" className="underline">Cadastrar</a>
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-muted-foreground">% Adt:</label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step="0.5"
+                            value={getPercentual(nome)}
+                            onChange={(e) => setPerc(nome, Number(e.target.value || 0))}
+                            className="h-8 w-20"
+                          />
+                        </div>
+                      </div>
+                      <div className="border rounded-md overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-8" />
+                              <TableHead>OC / CT-e</TableHead>
+                              <TableHead>Destino</TableHead>
+                              <TableHead className="text-right">Peso (kg)</TableHead>
+                              <TableHead className="text-right">Frete</TableHead>
                             </TableRow>
-                            {rows.map((r) => (
-                              <TableRow key={r.id}>
-                                <TableCell>
-                                  <Checkbox checked={selecionados.has(r.id)} onCheckedChange={() => toggle(r.id)} />
-                                </TableCell>
-                                <TableCell className="font-mono text-xs pl-8">{r.numero_cte}{r.serie ? `/${r.serie}` : ""}</TableCell>
-                                <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
-                                <TableCell className="text-right text-xs tabular-nums">{fmtKg(Number(r.peso_total ?? 0))}</TableCell>
-                                <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
-                              </TableRow>
-                            ))}
-                          </>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                          </TableHeader>
+                          <TableBody>
+                            {grupos.map(([oc, rows]) => {
+                              const allInG = rows.every((r) => selecionados.has(r.id));
+                              const someInG = rows.some((r) => selecionados.has(r.id)) && !allInG;
+                              const totalRow = rows.reduce((s, r) => s + Number(r.valor_frete || 0), 0);
+                              const pesoRow = rows.reduce((s, r) => s + Number(r.peso_total || 0), 0);
+                              return (
+                                <Fragment key={`${nome}-${oc}`}>
+                                  <TableRow className="bg-muted/40 font-medium">
+                                    <TableCell>
+                                      <Checkbox checked={allInG} onCheckedChange={() => toggleMany(rows)} aria-checked={someInG ? "mixed" : allInG} />
+                                    </TableCell>
+                                    <TableCell className="font-mono text-xs">
+                                      OC {oc === "__sem_oc__" ? "—" : oc} <span className="text-muted-foreground">({rows.length} CT-e)</span>
+                                    </TableCell>
+                                    <TableCell />
+                                    <TableCell className="text-right text-xs tabular-nums">{fmtKg(pesoRow)}</TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums">{fmtBRL(totalRow)}</TableCell>
+                                  </TableRow>
+                                  {rows.map((r) => (
+                                    <TableRow key={r.id}>
+                                      <TableCell>
+                                        <Checkbox checked={selecionados.has(r.id)} onCheckedChange={() => toggle(r.id)} />
+                                      </TableCell>
+                                      <TableCell className="font-mono text-xs pl-8">{r.numero_cte}{r.serie ? `/${r.serie}` : ""}</TableCell>
+                                      <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
+                                      <TableCell className="text-right text-xs tabular-nums">{fmtKg(Number(r.peso_total ?? 0))}</TableCell>
+                                      <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </Fragment>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </Card>
+                  );
+                })
               )}
-            </Card>
+            </div>
 
             <Card className="p-4 space-y-3 h-fit lg:sticky lg:top-4">
-              <h3 className="font-semibold text-sm">Resumo do Lote</h3>
-              <div className="text-xs text-muted-foreground">{transportadoraSel || "—"}</div>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between"><span>CT-es selecionados:</span><span className="font-medium">{ctesEscolhidos.length}</span></div>
-                <div className="flex justify-between"><span>Peso total:</span><span className="font-medium">{fmtKg(pesoSel)} kg</span></div>
-                <div className="flex justify-between"><span>Valor total:</span><span className="font-medium">{fmtBRL(totalSel)}</span></div>
-              </div>
-              <div>
-                <label className="text-xs font-medium">% Adiantamento</label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step="0.5"
-                  value={percentual}
-                  onChange={(e) => setPercentual(Number(e.target.value || 0))}
-                />
-              </div>
-              <div className="border-t pt-2 space-y-1 text-sm">
-                <div className="flex justify-between"><span>Adiantamento:</span><span className="font-bold text-primary">{fmtBRL(valorAdt)}</span></div>
-                <div className="flex justify-between"><span>Saldo (quitação):</span><span className="font-medium">{fmtBRL(saldo)}</span></div>
-              </div>
+              <h3 className="font-semibold text-sm">Resumo</h3>
+              {resumoPorTransp.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Selecione CT-es para gerar adiantamentos.</p>
+              ) : (
+                <div className="space-y-2">
+                  {resumoPorTransp.map((r) => (
+                    <div key={r.nome} className="border rounded-md p-2 text-xs space-y-0.5">
+                      <div className="font-semibold truncate">{r.nome}</div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>{r.ctes.length} CT-e · {r.percentual}%</span>
+                        <span>{fmtBRL(r.total)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Adt:</span>
+                        <span className="font-semibold text-primary">{fmtBRL(r.adt)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="border-t pt-2 space-y-1 text-sm">
+                    <div className="flex justify-between"><span>Transportadoras:</span><span className="font-medium">{resumoPorTransp.length}</span></div>
+                    <div className="flex justify-between"><span>CT-es:</span><span className="font-medium">{totaisGerais.ctes}</span></div>
+                    <div className="flex justify-between"><span>Peso total:</span><span className="font-medium">{fmtKg(totaisGerais.peso)} kg</span></div>
+                    <div className="flex justify-between"><span>Total fretes:</span><span className="font-medium">{fmtBRL(totaisGerais.total)}</span></div>
+                    <div className="flex justify-between"><span>Adiantamento:</span><span className="font-bold text-primary">{fmtBRL(totaisGerais.adt)}</span></div>
+                    <div className="flex justify-between"><span>Saldo:</span><span className="font-medium">{fmtBRL(totaisGerais.saldo)}</span></div>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium">Observações</label>
-                <Input value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Opcional" />
+                <Input value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Aplica a todos" />
               </div>
-              <Button className="w-full" disabled={ctesEscolhidos.length === 0 || criar.isPending} onClick={handleGerar}>
-                <FileText className="h-4 w-4 mr-1" /> Gerar Adiantamento
+              <Button className="w-full" disabled={resumoPorTransp.length === 0 || criar.isPending} onClick={handleGerar}>
+                <FileText className="h-4 w-4 mr-1" /> {resumoPorTransp.length > 1 ? `Gerar ${resumoPorTransp.length} adiantamentos` : "Gerar Adiantamento"}
               </Button>
             </Card>
           </div>
