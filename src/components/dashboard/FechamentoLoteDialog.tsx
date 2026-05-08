@@ -89,6 +89,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
   const [ordemCarga, setOrdemCarga] = useState("");
+  const [modoOc, setModoOc] = useState<"unica" | "porGrupo">("unica");
+  const [ordemCargaPorGrupo, setOrdemCargaPorGrupo] = useState<Record<string, string>>({});
   const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
   const [walkInVinculadoId, setWalkInVinculadoId] = useState<string | null>(null);
   const { user } = useAuth();
@@ -300,6 +302,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setHorarioPrevisto("");
       setNomeCarga("");
       setOrdemCarga("");
+      setModoOc("unica");
+      setOrdemCargaPorGrupo({});
       setVeiculoVinculado("manual");
       setWalkInVinculadoId(null);
       setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
