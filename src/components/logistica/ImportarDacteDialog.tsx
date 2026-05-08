@@ -436,23 +436,60 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
                       <Badge variant="outline" className="text-[10px]">CT-e {it.ctIndex}/{it.ctTotal}</Badge>
                     )}
                     {it.status === "loading" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Lendo</Badge>}
+                    {it.status === "rejected" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Recusado · Tomador: {it.parsed?.tomador || "—"}</Badge>}
                     {it.status === "saving" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Salvando</Badge>}
                     {it.status === "saved" && <Badge className="bg-emerald-600 text-white gap-1"><CheckCircle2 className="h-3 w-3" /> Salvo</Badge>}
                     {it.status === "error" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> {it.error}</Badge>}
                     {it.status === "ok" && it.vinculo_status === "vinculado" && <Badge className="bg-emerald-600 text-white">Vinculado à carga {it.carga_id}</Badge>}
                     {it.status === "ok" && it.vinculo_status === "pendente" && <Badge variant="outline">Sem vínculo automático</Badge>}
                     {it.status === "ok" && it.vinculo_status === "divergente" && <Badge className="bg-amber-500 text-white">Múltiplas cargas — revisar</Badge>}
+                    {it.status === "ok" && !((it.parsed?.tomador ?? "").trim()) && (
+                      <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" /> Tomador não identificado</Badge>
+                    )}
                   </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(it.fileId)}><X className="h-4 w-4" /></Button>
                 </div>
 
-                {it.status === "ok" && it.parsed && (
+                {(it.status === "ok" || it.status === "rejected") && it.parsed && (
                   <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                    <div className="col-span-2 sm:col-span-6">
+                    {it.status === "ok" && (
+                      <div className="col-span-2 sm:col-span-6">
                       <OrdemCargaPicker
                         value={it.ordem_carga ?? ""}
                         onChange={(v, picked) => updateOrdem(it.fileId, v, picked)}
                         cargaIdAtual={it.carga_id ?? null}
+                      />
+                      </div>
+                    )}
+                    <div className="col-span-2 sm:col-span-6 space-y-1">
+                      <Label className="text-xs flex items-center gap-1.5">
+                        Tomador
+                        {isFrico(it.parsed.tomador) && (
+                          <Badge className="bg-emerald-600 text-white text-[10px] h-5">Frico ✓</Badge>
+                        )}
+                        {it.status === "rejected" && (
+                          <Badge variant="destructive" className="text-[10px] h-5">Recusado</Badge>
+                        )}
+                      </Label>
+                      <Input
+                        value={it.parsed.tomador ?? ""}
+                        onChange={(e) => {
+                          const novo = e.target.value;
+                          updateParsed(it.fileId, { tomador: novo });
+                          // re-avalia status conforme edição manual
+                          setItems((prev) => prev.map((p) => {
+                            if (p.fileId !== it.fileId) return p;
+                            const tomadorPresente = novo.trim().length > 0;
+                            const ok = !tomadorPresente || isFrico(novo);
+                            return {
+                              ...p,
+                              status: ok ? "ok" : "rejected",
+                              error: ok ? undefined : `Tomador não é Frico: ${novo}`,
+                            };
+                          }));
+                        }}
+                        className="h-8 text-sm"
+                        placeholder="Razão social do tomador do CT-e"
                       />
                     </div>
                     <div className="space-y-1">
