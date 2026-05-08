@@ -496,6 +496,14 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
                     )}
                     {it.status === "loading" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Lendo</Badge>}
                     {it.status === "rejected" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Recusado · Tomador: {it.parsed?.tomador || "—"}</Badge>}
+                    {it.status === "rate_limited" && (
+                      <>
+                        <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" /> Limite da IA atingido</Badge>
+                        <Button variant="outline" size="sm" className="h-6 text-[11px] gap-1" onClick={() => processFile(it.file, it.fileId)}>
+                          <RotateCw className="h-3 w-3" /> Tentar novamente
+                        </Button>
+                      </>
+                    )}
                     {it.status === "saving" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Salvando</Badge>}
                     {it.status === "saved" && <Badge className="bg-emerald-600 text-white gap-1"><CheckCircle2 className="h-3 w-3" /> Salvo</Badge>}
                     {it.status === "error" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> {it.error}</Badge>}
