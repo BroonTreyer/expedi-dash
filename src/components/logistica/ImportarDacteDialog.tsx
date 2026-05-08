@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X, Search, Link2, Wand2, Eraser } from "lucide-react";
+import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X, Search, Link2, Wand2, Eraser, RotateCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { autoVincularCarga, useInsertCteDacte, buscarCargasPorOrdem, type CargaPorOrdemRow } from "@/hooks/useCtesDacte";
@@ -100,7 +100,7 @@ type Item = {
   fileName: string;
   ctIndex?: number;
   ctTotal?: number;
-  status: "loading" | "ok" | "error" | "saving" | "saved" | "rejected";
+  status: "loading" | "ok" | "error" | "saving" | "saved" | "rejected" | "rate_limited";
   error?: string;
   parsed?: Parsed;
   carga_id?: string | null;
@@ -170,50 +170,87 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
     }));
     setItems((prev) => [...prev, ...placeholders]);
 
-    await Promise.allSettled(arr.map(async (file, idx) => {
-      const ph = placeholders[idx];
-      try {
-        const b64 = await fileToBase64(file);
-        const { data, error } = await supabase.functions.invoke("parse-dacte-pdf", {
-          body: { fileBase64: b64, fileName: file.name },
-        });
-        if (error) throw error;
-        const ctes = ((data as any)?.ctes ?? []) as Parsed[];
-        if (!ctes.length) throw new Error("Nenhum CT-e identificado no PDF");
-        // Vincula cada CT-e em paralelo
-        const enriched = await Promise.all(ctes.map(async (parsed) => {
-          const vinc = await autoVincularCarga(parsed.notas_fiscais ?? []);
-          return { parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status };
-        }));
-        const newItems: Item[] = enriched.map((e, i) => {
-          const tomador = (e.parsed.tomador ?? "").trim();
-          const tomadorPresente = tomador.length > 0;
-          const tomadorFrico = isFrico(tomador);
-          const rejected = tomadorPresente && !tomadorFrico;
-          return {
-            fileId: `${ph.fileId}-${i}`,
-            file,
-            fileName: file.name,
-            ctIndex: i + 1,
-            ctTotal: enriched.length,
-            status: rejected ? ("rejected" as const) : ("ok" as const),
-            error: rejected ? `Tomador não é Frico: ${tomador}` : undefined,
-            parsed: e.parsed,
-            carga_id: rejected ? null : e.carga_id,
-            vinculo_status: rejected ? undefined : e.vinculo_status,
-          };
-        });
-        setItems((prev) => {
-          const without = prev.filter((p) => p.fileId !== ph.fileId);
-          return [...without, ...newItems];
-        });
-      } catch (e: any) {
-        setItems((prev) => prev.map((p) => p.fileId === ph.fileId
-          ? { ...p, status: "error", error: e?.message || "Falha" } : p));
+    // Concorrência limitada a 2 para evitar 429 do gateway de IA
+    const concurrency = 2;
+    const queue = arr.map((file, idx) => ({ file, ph: placeholders[idx] }));
+    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+      while (queue.length) {
+        const next = queue.shift();
+        if (!next) break;
+        await processFile(next.file, next.ph.fileId);
       }
-    }));
+    });
+    await Promise.all(workers);
     if (inputRef.current) inputRef.current.value = "";
   }, []);
+
+  const processFile = useCallback(async (file: File, phFileId: string) => {
+    setItems((prev) => prev.map((p) => p.fileId === phFileId ? { ...p, status: "loading", error: undefined } : p));
+    try {
+      const b64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke("parse-dacte-pdf", {
+        body: { fileBase64: b64, fileName: file.name },
+      });
+      if (error) {
+        const msg = (error as any)?.message || "";
+        const ctx = (error as any)?.context;
+        const status = ctx?.status ?? ctx?.response?.status;
+        const isRate = status === 429 || /rate.?limit|429|non-2xx/i.test(msg);
+        if (isRate) {
+          setItems((prev) => prev.map((p) => p.fileId === phFileId
+            ? { ...p, status: "rate_limited", error: "Limite temporário da IA — clique em Tentar novamente" } : p));
+          return;
+        }
+        throw error;
+      }
+      const ctes = ((data as any)?.ctes ?? []) as Parsed[];
+      if (!ctes.length) throw new Error("Nenhum CT-e identificado no PDF");
+      const enriched = await Promise.all(ctes.map(async (parsed) => {
+        const vinc = await autoVincularCarga(parsed.notas_fiscais ?? []);
+        return { parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status };
+      }));
+      const newItems: Item[] = enriched.map((e, i) => {
+        const tomador = (e.parsed.tomador ?? "").trim();
+        const tomadorPresente = tomador.length > 0;
+        const tomadorFrico = isFrico(tomador);
+        const rejected = tomadorPresente && !tomadorFrico;
+        return {
+          fileId: `${phFileId}-${i}`,
+          file,
+          fileName: file.name,
+          ctIndex: i + 1,
+          ctTotal: enriched.length,
+          status: rejected ? ("rejected" as const) : ("ok" as const),
+          error: rejected ? `Tomador não é Frico: ${tomador}` : undefined,
+          parsed: e.parsed,
+          carga_id: rejected ? null : e.carga_id,
+          vinculo_status: rejected ? undefined : e.vinculo_status,
+        };
+      });
+      setItems((prev) => {
+        const without = prev.filter((p) => p.fileId !== phFileId);
+        return [...without, ...newItems];
+      });
+    } catch (e: any) {
+      setItems((prev) => prev.map((p) => p.fileId === phFileId
+        ? { ...p, status: "error", error: e?.message || "Falha" } : p));
+    }
+  }, []);
+
+  const retryRateLimited = useCallback(async () => {
+    const targets = items.filter((p) => p.status === "rate_limited");
+    if (!targets.length) return;
+    const concurrency = 2;
+    const queue = [...targets];
+    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+      while (queue.length) {
+        const next = queue.shift();
+        if (!next) break;
+        await processFile(next.file, next.fileId);
+      }
+    });
+    await Promise.all(workers);
+  }, [items, processFile]);
 
   const updateParsed = (fileId: string, patch: Partial<Parsed>) => {
     setItems((prev) => prev.map((p) => p.fileId === fileId && p.parsed ? { ...p, parsed: { ...p.parsed, ...patch } } : p));
