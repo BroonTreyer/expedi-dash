@@ -416,6 +416,7 @@ export default function Consolidado() {
       pesoTotal: number;
       rupturaCount: number;
       ordem: number;
+      ordemCarga: string | null;
     }>();
     for (const item of group.items) {
       const key = item.codigo_cliente ?? `__sem__${item.cliente ?? "—"}`;
@@ -431,6 +432,7 @@ export default function Consolidado() {
           pesoTotal: 0,
           rupturaCount: 0,
           ordem: item.ordem_entrega ?? 9999,
+          ordemCarga: null,
         };
         clienteMap.set(key, c);
       }
@@ -451,6 +453,22 @@ export default function Consolidado() {
     const groupsArr = Array.from(clienteMap.values()).sort((a, b) => a.ordem - b.ordem);
     // Renumera ordens sequenciais (1..N) garantindo continuidade
     groupsArr.forEach((g, idx) => { g.ordem = idx + 1; });
+    // Coleta OCs distintas por cliente
+    {
+      const ocMap = new Map<string, Set<string>>();
+      for (const item of group.items) {
+        const key = item.codigo_cliente ?? `__sem__${item.cliente ?? "—"}`;
+        const oc = ((item as any).ordem_carga ?? "").toString().trim();
+        if (!oc) continue;
+        if (!ocMap.has(key)) ocMap.set(key, new Set());
+        ocMap.get(key)!.add(oc);
+      }
+      for (const g of groupsArr) {
+        const key = g.codigoCliente ?? `__sem__${g.nomeCliente ?? "—"}`;
+        const set = ocMap.get(key);
+        g.ordemCarga = set && set.size > 0 ? Array.from(set).join("/") : null;
+      }
+    }
 
     const totalPeso = groupsArr.reduce((s, g) => s + g.pesoTotal, 0);
     const totalRuptura = group.items
