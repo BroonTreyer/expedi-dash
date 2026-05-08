@@ -30,6 +30,7 @@ import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-util
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { useStatusPortariaPorCarga, ETAPA_PORTARIA_ORDEM, ETAPA_PORTARIA_LABELS, type EtapaPortaria } from "@/hooks/useStatusPortariaPorCarga";
 import { PortariaStatusBadge } from "@/components/dashboard/PortariaStatusBadge";
+import { computeDataEfetivaTerceirizada } from "@/lib/data-efetiva";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -111,18 +112,68 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
           }
         }
       }
+
+      // === Data efetiva (terceirizadas) ===
+      // Trazer também cargas TERCEIRIZADAS cuja data original está fora do
+      // intervalo, mas cuja saída pela portaria caiu dentro do intervalo.
+      // Assim "Fernando" (chegou ontem, saiu hoje) aparece em "hoje".
+      {
+        const startRange = `${dateFrom}T00:00:00`;
+        const endRange = `${dateEnd}T23:59:59.999`;
+        const { data: saidasNoIntervalo } = await supabase
+          .from("movimentacoes_portaria")
+          .select("carga_id")
+          .eq("categoria", "terceirizado")
+          .not("carga_id", "is", null)
+          .not("horario_saida_final", "is", null)
+          .gte("horario_saida_final", startRange)
+          .lte("horario_saida_final", endRange);
+        const cargaIdsSaida = Array.from(
+          new Set(((saidasNoIntervalo ?? []) as { carga_id: string | null }[])
+            .map((m) => m.carga_id)
+            .filter((v): v is string => !!v))
+        );
+        const jaPresentes2 = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
+        const faltantesSaida = cargaIdsSaida.filter((cid) => !jaPresentes2.has(cid));
+        if (faltantesSaida.length > 0) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
+          const extraSaida = await fetchAllPaginated<any>((from, to) =>
+            supabase
+              .from("carregamentos_dia")
+              .select("*, vendedores(nome_vendedor)")
+              .in("carga_id", faltantesSaida)
+              .lt("data", dateFrom)
+              .gte("data", limitDate)
+              .order("id", { ascending: true })
+              .range(from, to),
+          );
+          if (extraSaida && extraSaida.length > 0) {
+            rows = [...rows, ...(extraSaida as Carregamento[])];
+          }
+        }
+      }
+
       return rows;
     },
     staleTime: 15_000,
   });
 
-  // Realtime: listen for changes and invalidate
+  // Realtime: invalida ao mudar carregamentos OU saídas da portaria (data efetiva)
   useEffect(() => {
     const channel = supabase
       .channel(`consolidado-${dateFrom}-${dateEnd}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "carregamentos_dia" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["consolidado", dateFrom, dateEnd] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "movimentacoes_portaria" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["consolidado", dateFrom, dateEnd] });
         }
