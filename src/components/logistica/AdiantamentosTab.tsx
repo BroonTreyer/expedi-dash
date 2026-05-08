@@ -217,7 +217,7 @@ export function AdiantamentosTab() {
                           )}
                           {!info && (
                             <span className="text-xs text-amber-600">
-                              Sem cadastro financeiro. <a href="/cadastros?tab=transportadoras" className="underline">Cadastrar</a>
+                              Sem cadastro financeiro. <a href="/transportadoras" className="underline">Cadastrar</a>
                             </span>
                           )}
                         </div>
