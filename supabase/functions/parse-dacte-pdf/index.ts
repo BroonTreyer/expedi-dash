@@ -20,6 +20,7 @@ Regras por CT-e:
 - "peso_total": peso bruto total da carga em kg (número decimal com ponto).
 - "data_emissao": data de emissão do CT-e em formato YYYY-MM-DD.
 - "notas_fiscais": array de strings com TODOS os números das notas fiscais listadas em "DOCUMENTOS ORIGINÁRIOS" / "NF-e". Apenas o número (sem chave de acesso, sem série).
+- "tomador": razão social do TOMADOR DO SERVIÇO (quadro "TOMADOR DO SERVIÇO" do DACTE). Se o quadro indicar o tomador como remetente/destinatário/expedidor/recebedor, use a razão social desse papel correspondente.
 
 Não invente dados. Se um campo não estiver legível, retorne string vazia, 0 ou array vazio.`;
 
@@ -110,6 +111,7 @@ Deno.serve(async (req) => {
                         peso_total: { type: "number" },
                         data_emissao: { type: "string" },
                         notas_fiscais: { type: "array", items: { type: "string" } },
+                        tomador: { type: "string" },
                       },
                       required: ["numero_cte", "valor_frete", "notas_fiscais"],
                       additionalProperties: false,

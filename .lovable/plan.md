@@ -1,30 +1,34 @@
 ## Objetivo
-Mostrar a **OC (Ordem de Carga)** de cada grupo de pedidos no romaneio impresso (`CargaPrintDialog`), tanto na **Sequência de Entrega** quanto na **Sequência de Carregamento**.
+Ao importar um DACTE/CT-e, validar o **TOMADOR** do serviço. Se for diferente de **Frico**, o item é **recusado** (não pode ser salvo) e a recusa fica visível no card.
 
-## Onde aparece hoje
-O dialog mostra, por cliente:
-`[E:1] [C:3]  26940 – BRASIL SUPREMO · Simões Filho/BA          18.005,2 kg`
+## Comportamento
+- A IA extrai o nome do tomador do CT-e (normalmente o quadro "TOMADOR DO SERVIÇO").
+- Comparação tolerante: normaliza para minúsculas, remove acentos e símbolos; aceita se o nome contiver `"frico"` (cobre "FRICO ALIMENTOS", "FRICO ALIMENTOS LTDA", etc.).
+- Itens cujo tomador **não** contém `"frico"` ficam com status visual **Recusado** (badge vermelho com o nome do tomador detectado) e são bloqueados no Salvar.
+- Se o tomador vier vazio/ilegível, o item entra como **Tomador não identificado** (badge âmbar) — também bloqueado para salvar, mas o usuário pode editar manualmente o campo Tomador no formulário para liberar.
 
-## O que muda
-Adicionar um badge `OC: <numero>` ao lado dos selos `E:` / `C:`, para cada grupo. Quando um grupo tiver mais de uma OC (caso raro), exibir todas separadas por `/`. Se não houver OC, simplesmente não renderiza o badge.
+## Arquivos a alterar
 
-## Arquivos a alterar (somente UI / dados de impressão)
+### 1. `supabase/functions/parse-dacte-pdf/index.ts`
+- Acrescentar no `SYSTEM_PROMPT` extração do `tomador` (razão social do quadro "TOMADOR DO SERVIÇO" — se ausente, usar a razão social do destinatário ou expedidor conforme indicado como tomador no CT-e).
+- Acrescentar `tomador: { type: "string" }` no schema do tool `extract_dacte` (não obrigatório).
 
-### 1. `src/components/dashboard/CargaPrintDialog.tsx`
-- Acrescentar `ordemCarga?: string | null` na interface `ClienteGroup`.
-- Renderizar, no cabeçalho de cada grupo, um badge cinza (`bg-foreground/10`) com `OC: {group.ordemCarga}` quando presente — ao lado dos atuais `E:` e `C:`.
-- Sem mudanças de layout maiores; mantém o estilo print-friendly atual.
-
-### 2. `src/pages/Consolidado.tsx` (`handleOpenRomaneio`)
-- Ao montar cada `clienteGroup`, coletar as OCs distintas dos `items` daquele cliente (`Array.from(new Set(items.map(i => i.ordem_carga).filter(Boolean))).join("/")`) e atribuir em `ordemCarga`.
-- Isto garante o número correto mesmo no modo "OC por grupo" do fechamento em lote.
-
-### 3. `src/components/dashboard/FechamentoLoteDialog.tsx` (bloco `onPrintReady`)
-- Ao montar cada item de `groups`, calcular a OC efetiva do grupo:
-  - Se `modoOc === "porGrupo"` → `ordemCargaPorGrupo[groupKey]?.trim()`
-  - Caso contrário → `ordemCarga.trim()`
-- Passar como `ordemCarga` no objeto enviado ao `CargaPrintData`.
+### 2. `src/components/logistica/ImportarDacteDialog.tsx`
+- Adicionar `tomador?: string` ao tipo `Parsed`.
+- Helper `isFrico(s) = normaliza(s).includes("frico")` (lowercase + `normalize("NFD").replace(/[\u0300-\u036f]/g, "")`).
+- No `handleFiles`, ao montar `newItems`, computar:
+  - `tomadorOk = !!parsed.tomador && isFrico(parsed.tomador)`
+  - se `parsed.tomador` existe mas não é Frico → `status: "rejected"`, `error: "Tomador não é Frico: <nome>"`.
+  - se `parsed.tomador` ausente → status `"ok"` mas `tomadorOk = false` (badge âmbar).
+- Adicionar `"rejected"` ao union de `Item.status`.
+- Renderizar badge:
+  - `rejected` → `Badge variant="destructive"` com `AlertTriangle` e o nome detectado.
+  - âmbar quando tomador vazio.
+- Mostrar campo **Tomador** (read-only se Frico, editável se vazio) no grid do formulário, antes de "Transportadora".
+- `okCount` passa a contar apenas itens com `status === "ok" && tomadorOk`.
+- `handleSaveAll` ignora rejeitados; toast informa quantos foram pulados.
+- Bulk fill (Mesma OC / Múltiplas OCs) também ignora `rejected` (já filtra `status === "ok"`, mantém).
 
 ## Fora de escopo
-- Sem mudanças de banco, RLS, hooks ou lógica de submit.
-- Sem mudanças no `ConsolidadoPrintDialog` (relatório consolidado de cargas) — pediu apenas no romaneio por carga.
+- Sem mudança de banco/coluna nova (`tomador` fica em `raw_extracao` e na UI; opcionalmente persistido apenas dentro do JSON de extração).
+- Sem mudança em outras telas (Relatórios, Logística etc.).
