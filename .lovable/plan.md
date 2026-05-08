@@ -1,46 +1,30 @@
 ## Problema
 
-Ao gerar adiantamentos para várias transportadoras de uma vez, só o **comprovante/mensagem do primeiro** é exibido (`setComprovanteAdt(criados[0])`). Os demais ficam invisíveis — o usuário precisaria abrir um por um na lista.
+Os CT-es da **LOS Transportes LTDA** estão sendo importados com `peso_total = 0` em quase todos os casos. O `raw_extracao->peso_total` também é `0`, ou seja, o modelo Gemini **não está conseguindo localizar/interpretar o peso** no DACTE para esta transportadora.
 
-Além disso, o template da mensagem em `ComprovanteAdiantamentoDialog` já é numerado (`1.{transportadora}...`), sugerindo que o desenho original previa **uma única mensagem consolidada** com várias transportadoras.
+Possíveis causas no DACTE:
+- Quadro "QUANTIDADE / TIPO DE MEDIDA / TIPO" com peso em formato brasileiro (`5.490,000`) ou em toneladas.
+- Linha "PESO BRUTO" pode estar separada por outras unidades (M3, KG, UNID).
+- Uso de um prompt vago: hoje só pedimos `peso_total: peso bruto total da carga em kg`.
 
 ## Correção
 
-### 1. `ComprovanteAdiantamentoDialog.tsx` — aceitar múltiplos adiantamentos
-- Mudar a prop de `adiantamento: Adiantamento | null` para `adiantamentos: Adiantamento[]` (manter compat aceitando array de 1).
-- Buscar os CT-es de cada adiantamento (loop de hooks → criar componente interno `BlocoTransportadora` que chama `useAdiantamentoCtes` para um id, para respeitar regras de hooks).
-- Montar a mensagem consolidada:
+### 1. `supabase/functions/parse-dacte-pdf/index.ts` — prompt mais robusto para peso
+Substituir a regra atual de `peso_total` por instruções explícitas:
 
-  ```
-  ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.
+```
+- "peso_total": peso BRUTO total em QUILOGRAMAS (kg).
+  • Procure no quadro "QUANTIDADE / TIPO DE MEDIDA / TIPO" ou "INFORMAÇÕES DA CARGA / QTD. CARGA".
+  • Se houver várias linhas, some apenas as linhas cuja unidade seja KG / PESO BRUTO / PESO B. CALCULADO.
+  • Ignore linhas em UNID, M3, VOL, CUBAGEM.
+  • Se o número estiver no formato brasileiro (ex.: "5.490,500" ou "1.234,56"), interprete o "." como separador de milhar e a "," como decimal — converta para número com ponto decimal (5490.5, 1234.56).
+  • Se a unidade indicar TON ou TONELADAS, multiplique por 1000 para converter em kg.
+  • Se mesmo após inspeção não encontrar peso bruto em kg, devolva 0.
+```
 
-  1.{Transp A} ({peso} Kg) CTE
-  {numeros}
-  *VLR {valor}*
+Também acrescentar ao bloco de regras gerais um exemplo curto: `Ex.: "PESO BRUTO 5.490,000 KG" → peso_total = 5490` para ancorar a interpretação.
 
-  2.{Transp B} ({peso} Kg) CTE
-  {numeros}
-  *VLR {valor}*
+### 2. Reprocessar os CT-es já importados com peso 0
+Adicionar um botão **"Reprocessar peso"** em CT-es zerados? Não — escopo do pedido é só o parser. Ficará disponível ao re-importar o PDF.
 
-  *Valor Total do Frete {soma}*
-
-  {%}% de Adiantamento
-
-  *{soma adiantamento}*
-
-  Código X – Transp A
-  Pix: ...
-  Código Y – Transp B
-  Pix: ...
-  ```
-  
-  Quando os percentuais diferirem entre transportadoras, exibir o adiantamento por bloco (em vez de um total único).
-- Título do dialog: `Comprovante — N adiantamentos` (ou número único quando for 1).
-- Botão "Marcar como pago" passa a marcar **todos** os pendentes (loop `marcarPago.mutateAsync`).
-
-### 2. `AdiantamentosTab.tsx` — passar a lista
-- Trocar `comprovanteAdt: Adiantamento | null` por `comprovantesAdt: Adiantamento[]`.
-- Em `handleGerar`, após o loop: `setComprovantesAdt(criados)` em vez de `criados[0]`.
-- No clique de "Comprovante" da lista existente (`ListaAdiantamentos`), continuar abrindo com `[adiantamento]`.
-
-Nada muda no schema ou nos hooks — apenas frontend/apresentação.
+Nada mais muda — sem alteração de schema, sem mudanças no frontend.
