@@ -32,8 +32,10 @@ import { Switch } from "@/components/ui/switch";
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
 /* ─── Sortable destination row ─── */
-function SortableDestRow({ id, group, idx, total, colorClass }: {
+function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChange }: {
   id: string; group: RotaGroup; idx: number; total: number; colorClass: string;
+  ocValue?: string;
+  onOcChange?: (v: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -42,7 +44,7 @@ function SortableDestRow({ id, group, idx, total, colorClass }: {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 px-2 py-1 rounded bg-muted/20 text-xs",
+        "flex flex-wrap items-center gap-2 px-2 py-1 rounded bg-muted/20 text-xs",
         isDragging && "z-50 shadow-lg ring-2 ring-primary/30 opacity-90"
       )}
     >
@@ -53,6 +55,15 @@ function SortableDestRow({ id, group, idx, total, colorClass }: {
       <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
       <span className="truncate flex-1">{group.nomeCliente ?? "Sem cliente"} – {group.cidade}{group.uf ? `/${group.uf}` : ""}</span>
       <span className="font-mono text-muted-foreground">{group.pesoTotal.toLocaleString("pt-BR")} kg</span>
+      {onOcChange && (
+        <Input
+          value={ocValue ?? ""}
+          onChange={(e) => onOcChange(e.target.value)}
+          placeholder="OC..."
+          className="h-7 w-28 text-xs font-mono"
+          onPointerDown={(e) => e.stopPropagation()}
+        />
+      )}
     </div>
   );
 }
