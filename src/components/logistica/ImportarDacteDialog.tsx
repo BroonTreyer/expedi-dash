@@ -296,8 +296,15 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
   };
 
   const handleSaveAll = async () => {
-    const ok = items.filter((i) => i.status === "ok" && i.parsed);
-    if (!ok.length) return;
+    const ok = items.filter((i) => i.status === "ok" && i.parsed && isFrico(i.parsed.tomador));
+    const recusados = items.filter((i) => i.status === "rejected").length;
+    const semTomador = items.filter((i) => i.status === "ok" && !((i.parsed?.tomador ?? "").trim())).length;
+    if (!ok.length) {
+      if (recusados || semTomador) {
+        toast.error(`Nada para salvar — ${recusados} recusado(s)${semTomador ? `, ${semTomador} sem tomador` : ""}.`);
+      }
+      return;
+    }
     for (const it of ok) {
       try {
         setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "saving" } : x));
@@ -328,10 +335,11 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
         setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "error", error: e.message } : x));
       }
     }
-    toast.success("CT-es salvos");
+    const skipped = recusados + semTomador;
+    toast.success(`CT-es salvos${skipped ? ` · ${skipped} ignorado(s) (tomador inválido)` : ""}`);
   };
 
-  const okCount = items.filter((i) => i.status === "ok").length;
+  const okCount = items.filter((i) => i.status === "ok" && isFrico(i.parsed?.tomador)).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
