@@ -69,13 +69,7 @@ Deno.serve(async (req) => {
 
     const dataUrl = `data:application/pdf;base64,${fileBase64}`;
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const gatewayBody = JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -125,20 +119,40 @@ Deno.serve(async (req) => {
           },
         ],
         tool_choice: { type: "function", function: { name: "extract_dacte" } },
-      }),
     });
 
-    if (!aiResp.ok) {
-      const txt = await aiResp.text();
-      console.error("AI gateway error", aiResp.status, txt);
-      if (aiResp.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições atingido. Tente novamente em instantes." }), {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const waits = [1000, 3000, 7000];
+    let aiResp: Response | null = null;
+    let lastErrText = "";
+    for (let attempt = 0; attempt < waits.length; attempt++) {
+      aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: gatewayBody,
+      });
+      if (aiResp.ok) break;
+      const retryable = aiResp.status === 429 || aiResp.status >= 500;
+      lastErrText = await aiResp.text().catch(() => "");
+      console.error("AI gateway error", aiResp.status, lastErrText, "attempt", attempt + 1);
+      if (!retryable || attempt === waits.length - 1) break;
+      const jitter = Math.floor(Math.random() * 500);
+      await sleep(waits[attempt] + jitter);
+    }
+
+    if (!aiResp || !aiResp.ok) {
+      const status = aiResp?.status ?? 500;
+      if (status === 429) {
+        return new Response(JSON.stringify({ error: "rate_limited", message: "Limite temporário da IA, tente novamente em alguns segundos.", retryable: true }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiResp.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos da IA esgotados. Adicione créditos no workspace." }), {
+      if (status === 402) {
+        return new Response(JSON.stringify({ error: "payment_required", message: "Créditos da IA esgotados. Adicione créditos no workspace.", retryable: false }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
