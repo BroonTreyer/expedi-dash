@@ -221,6 +221,7 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
       const topic = `status-portaria-${idsKey}-${Date.now()}-${attempts}`;
       const ch = supabase.channel(topic);
       channel = ch;
+      let closing = false;
       ch.on(
           "postgres_changes",
           { event: "*", schema: "public", table: "movimentacoes_portaria" },
@@ -235,13 +236,25 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
           if (status === "SUBSCRIBED") {
             attempts = 0;
           } else if (status === "CHANNEL_ERROR" || status === "CLOSED" || status === "TIMED_OUT") {
+            // Guarda contra reentrância: removeChannel() dispara onClose,
+            // que reentra aqui — sem essa flag a stack estoura.
+            if (closing) return;
+            closing = true;
             // Reconexão com backoff (3s, 10s, 30s, 60s)
             const delay = Math.min(60_000, 3_000 * Math.pow(2, attempts));
             attempts += 1;
-            if (channel) {
-              try { supabase.removeChannel(channel); } catch { /* noop */ }
-            }
+            const dead = channel;
             channel = null;
+            // Sai do stack do callback antes de remover, para evitar recursão
+            // síncrona (removeChannel -> unsubscribe -> onClose -> callback).
+            setTimeout(() => {
+              if (dead) {
+                try {
+                  const p: any = supabase.removeChannel(dead);
+                  if (p && typeof p.catch === "function") p.catch(() => {});
+                } catch { /* noop */ }
+              }
+            }, 0);
             reconnectTimer = setTimeout(connect, delay);
           }
         });
