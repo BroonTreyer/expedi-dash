@@ -558,19 +558,39 @@ export default function Consolidado() {
     });
   }, [rawData, filterUf, filterStatus]);
 
-  const rawGroups = useMemo(() => groupByCarga(filtered), [filtered]);
+  const rawGroupsBruto = useMemo(() => groupByCarga(filtered), [filtered]);
 
   // Status da Portaria (terceirizados) por carga — passa também a data para
   // evitar que cargas homônimas em datas diferentes se misturem no status.
   const cargaIds = useMemo(
-    () => rawGroups.map((g) => ({ carga_id: g.cargaId, data: g.data, placa: g.placa })),
-    [rawGroups]
+    () => rawGroupsBruto.map((g) => ({ carga_id: g.cargaId, data: g.data, placa: g.placa })),
+    [rawGroupsBruto]
   );
   const { data: statusPortariaMap } = useStatusPortariaPorCarga(cargaIds);
   const getStatusPortaria = useCallback(
     (cargaId: string) => statusPortariaMap?.get(cargaId),
     [statusPortariaMap],
   );
+
+  // === Data efetiva (terceirizadas) ===
+  // Sobrescreve g.data pela data da saída da portaria / finalização no
+  // faturamento. Em seguida, filtra apenas grupos cuja data efetiva caia
+  // dentro do intervalo selecionado. Cargas próprias mantêm a data original.
+  const rawGroups = useMemo(() => {
+    const out: CargaGroup[] = [];
+    for (const g of rawGroupsBruto) {
+      const saida = statusPortariaMap?.get(g.cargaId)?.saida ?? null;
+      const dataEfetiva = computeDataEfetivaTerceirizada(g.items, g.data, saida);
+      const isWithin = dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr;
+      if (!isWithin) continue;
+      if (dataEfetiva !== g.data) {
+        out.push({ ...g, data: dataEfetiva });
+      } else {
+        out.push(g);
+      }
+    }
+    return out;
+  }, [rawGroupsBruto, statusPortariaMap, dateFromStr, dateToStr]);
 
   const groupsWithPortariaFilter = useMemo(() => {
     if (filterEtapaPortaria === "todas") return rawGroups;
