@@ -1,47 +1,35 @@
-## Múltiplas Ordens de Carga por Fechamento
+## Preencher Ordens de Carga em massa no Importar DACTE
 
-Hoje o fechamento de carga aceita um único campo "Ordem de Carga" (texto), aplicado a todos os pedidos. A nova versão permitirá **uma OC por grupo de pedidos** (cada cliente da rota pode ter sua própria OC), continuando a aceitar OC única quando for o caso.
+Hoje, ao importar vários DACTEs em **Logística → CT-e**, cada item exige preencher a Ordem de Carga individualmente pelo `OrdemCargaPicker`. Vou adicionar um bloco de preenchimento em lote no topo da lista de itens, suportando 1 OC para todos ou várias OCs distribuídas.
 
-### Mudanças no diálogo de Fechamento (`FechamentoLoteDialog.tsx`)
+### Mudanças (apenas UI, sem banco)
 
-1. **Modo de OC** — toggle no topo do bloco "Ordem de Carga":
-   - **OC única para a carga inteira** (comportamento atual, padrão).
-   - **OC por grupo de pedidos** (novo).
+**`src/components/logistica/ImportarDacteDialog.tsx`** — adicionar barra "Preencher OCs em lote" visível quando há ≥2 itens com `status === "ok"`:
 
-2. **Modo "OC única"**: mantém o input de hoje (`ordemCarga`).
+1. **Modo "Mesma OC para todos"** (padrão)
+   - Um único campo OC com autocomplete (reusa `OrdemCargaPicker`).
+   - Botão **Aplicar a todos** → seta `ordem_carga` (e `carga_id` se a OC tiver vínculo encontrado) em todos os itens `ok` que ainda estão sem OC.
+   - Checkbox **"Sobrescrever OCs já preenchidas"** (desmarcado por padrão).
 
-3. **Modo "OC por grupo"**:
-   - Em cada linha sortable de destino (`SortableDestRow`), exibir um input compacto "OC" ao lado do peso.
-   - O estado das OCs por grupo fica em `Record<codigoCliente, string>`.
-   - Validação: pelo menos uma OC preenchida; grupos sem OC ficam com valor vazio (não bloqueia, mas alerta).
-   - Botão "Aplicar primeira OC a todos" para acelerar quando a maioria é igual.
+2. **Modo "Múltiplas OCs"** (toggle no canto)
+   - `Textarea` aceitando OCs separadas por linha, vírgula ou espaço.
+   - Botão **Distribuir** → atribui na ordem da lista de itens: 1ª OC → 1º item, 2ª OC → 2º item, etc.
+     - Se houver menos OCs que itens, os restantes ficam vazios.
+     - Se houver mais OCs que itens, mostra aviso "X OCs sobraram".
+   - Para cada OC distribuída, faz `buscarCargasPorOrdem(oc)` e, se retornar exatamente 1, preenche também `carga_id` + `vinculo_status: "vinculado"` (mesmo comportamento do `updateOrdem` atual).
+   - Botão **Limpar todas** que zera as OCs dos itens `ok`.
 
-4. **Submit**: cada item recebe `ordem_carga` do seu próprio grupo (em vez do valor único). A coluna `ordem_carga` em `carregamentos_dia` continua sendo `text` simples — sem migração.
-
-5. **Resumo / impressão**: o `CargaPrintData` e o painel de comprovante mostram a lista distinta de OCs (ex: "OCs: 12345, 67890").
-
-### Integração CT-e e Adiantamentos (match em qualquer OC)
-
-- **`useCtesDacte.ts`** (vinculação automática CT-e ↔ pedidos): hoje compara `ordem_carga` do CT-e com `ordem_carga` do pedido. Trocar para `WHERE ordem_carga IN (lista distinta de OCs daquela carga)` ou usar `ilike any`. Como cada item já guarda sua própria OC, basta o match direto continuar funcionando — a busca por carga deve agregar todas as OCs daquele `carga_id` antes de consultar.
-- **`AdiantamentosTab.tsx`** (agrupamento por OC): quando o tipo é "Por Ordem de Carga", listar **todas as OCs distintas** da carga e permitir gerar 1 adiantamento por OC (ou agregar todas em um só, à escolha). UI ganha um seletor extra quando a carga tem >1 OC.
-- **`CtesDacteTab.tsx`** (coluna OC): exibir todas as OCs da carga vinculada, separadas por vírgula.
-
-### Sem mudanças de banco
-
-- A coluna `ordem_carga` continua `text` (uma por linha de pedido). Não precisa migration nem nova tabela.
-- O agrupamento por OC nos relatórios e adiantamentos passa a ser feito por `DISTINCT ordem_carga WHERE carga_id = X`.
+3. **Atalho rápido**: ao colar uma string com várias OCs no campo do modo "Mesma OC", detectar separadores (`,`, `\n`, `;`) e perguntar "Detectamos N OCs. Distribuir uma por item?" (toast com ação).
 
 ### Detalhes técnicos
 
-- Tipo do `onSubmit` já aceita `ordem_carga?: string` por update — basta passar o valor por grupo.
-- O `canSubmit` muda para: modo único exige `ordemCarga` preenchida; modo por-grupo exige ao menos uma OC preenchida em qualquer grupo.
-- Reset ao abrir: `setOrdemCargaPorGrupo({})`, `setModoOc("unica")`.
-- Layout do input por linha: `w-24` à direita do peso, em telas mobile vira segunda linha do card.
+- Reaproveitar a função interna `updateOrdem(fileId, ordem, picked?)` já existente; criar `bulkApply(ordens: string[])` que chama `updateOrdem` por item na sequência.
+- Chamadas a `buscarCargasPorOrdem` em paralelo via `Promise.all`, com debounce visual (loading spinner no botão).
+- Estado local novo: `modoBulk: "uma" | "varias"`, `bulkOrdem: string`, `bulkLista: string`, `sobrescrever: boolean`.
+- Layout: card compacto com fundo `bg-muted/30`, `border-dashed`, posicionado entre o uploader e a lista de itens; só aparece quando `items.filter(i => i.status === "ok").length >= 2`.
+- Ordem de itens segue a ordem do array `items` (que reflete a ordem de upload), igual ao que o usuário já vê.
 
-### Arquivos afetados
+### Fora de escopo
 
-- `src/components/dashboard/FechamentoLoteDialog.tsx` (UI + estado + submit)
-- `src/hooks/useCtesDacte.ts` (vinculação por lista de OCs)
-- `src/components/logistica/AdiantamentosTab.tsx` (agrupamento múltiplo por OC)
-- `src/components/logistica/CtesDacteTab.tsx` (exibição da lista de OCs)
-- `src/components/dashboard/CargaPrintDialog.tsx` (mostrar lista de OCs no cabeçalho)
+- Não mexe no `FechamentoLoteDialog` (fluxo de OC por grupo no fechamento de carga já existe).
+- Sem alteração de schema, RLS, edge functions ou hooks.
