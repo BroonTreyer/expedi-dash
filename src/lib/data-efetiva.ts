@@ -1,3 +1,13 @@
+import { format } from "date-fns";
+
+function toLocalDate(iso: string): string {
+  try {
+    return format(new Date(iso), "yyyy-MM-dd");
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
 /**
  * Calcula a "data efetiva" de uma carga TERCEIRIZADA, ou seja, o dia em
  * que ela realmente saiu / foi finalizada — não o dia em que foi cadastrada.
@@ -26,11 +36,7 @@ export function computeDataEfetivaTerceirizada(
   if (!isTerc) return dataOriginal;
 
   if (saidaPortariaIso) {
-    try {
-      return saidaPortariaIso.slice(0, 10); // YYYY-MM-DD em TZ local sem conversão
-    } catch {
-      // fallback abaixo
-    }
+    return toLocalDate(saidaPortariaIso);
   }
 
   const todosCarregado =
@@ -40,7 +46,7 @@ export function computeDataEfetivaTerceirizada(
     for (const i of items) {
       if (i.updated_at && (!maxUpd || i.updated_at > maxUpd)) maxUpd = i.updated_at;
     }
-    if (maxUpd) return maxUpd.slice(0, 10);
+    if (maxUpd) return toLocalDate(maxUpd);
   }
 
   return dataOriginal;
