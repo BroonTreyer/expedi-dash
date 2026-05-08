@@ -185,17 +185,24 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
           const vinc = await autoVincularCarga(parsed.notas_fiscais ?? []);
           return { parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status };
         }));
-        const newItems: Item[] = enriched.map((e, i) => ({
-          fileId: `${ph.fileId}-${i}`,
-          file,
-          fileName: file.name,
-          ctIndex: i + 1,
-          ctTotal: enriched.length,
-          status: "ok",
-          parsed: e.parsed,
-          carga_id: e.carga_id,
-          vinculo_status: e.vinculo_status,
-        }));
+        const newItems: Item[] = enriched.map((e, i) => {
+          const tomador = (e.parsed.tomador ?? "").trim();
+          const tomadorPresente = tomador.length > 0;
+          const tomadorFrico = isFrico(tomador);
+          const rejected = tomadorPresente && !tomadorFrico;
+          return {
+            fileId: `${ph.fileId}-${i}`,
+            file,
+            fileName: file.name,
+            ctIndex: i + 1,
+            ctTotal: enriched.length,
+            status: rejected ? ("rejected" as const) : ("ok" as const),
+            error: rejected ? `Tomador não é Frico: ${tomador}` : undefined,
+            parsed: e.parsed,
+            carga_id: rejected ? null : e.carga_id,
+            vinculo_status: rejected ? undefined : e.vinculo_status,
+          };
+        });
         setItems((prev) => {
           const without = prev.filter((p) => p.fileId !== ph.fileId);
           return [...without, ...newItems];
