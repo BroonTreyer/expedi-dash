@@ -46,7 +46,7 @@ export function AdiantamentosTab() {
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
   const [observacoes, setObservacoes] = useState("");
 
-  const [comprovanteAdt, setComprovanteAdt] = useState<Adiantamento | null>(null);
+  const [comprovantesAdt, setComprovantesAdt] = useState<Adiantamento[]>([]);
   const [quitarTransp, setQuitarTransp] = useState<string | null>(null);
 
   // CT-es disponíveis (sem adiantamento ativo) agrupados por transportadora
@@ -151,7 +151,7 @@ export function AdiantamentosTab() {
       }
       setSelecionados(new Set());
       setObservacoes("");
-      if (criados[0]) setComprovanteAdt(criados[0]);
+      if (criados.length > 0) setComprovantesAdt(criados);
     } catch {
       // toast já é exibido pelo hook
     }
@@ -331,7 +331,7 @@ export function AdiantamentosTab() {
         <TabsContent value="pendentes">
           <ListaAdiantamentos
             data={pendentes}
-            onComprovante={setComprovanteAdt}
+            onComprovante={(a) => setComprovantesAdt([a])}
             onCancelar={(id) => {
               if (confirm("Cancelar este adiantamento? Os CT-es voltam a ficar disponíveis.")) cancelar.mutate(id);
             }}
@@ -356,7 +356,7 @@ export function AdiantamentosTab() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setComprovanteAdt(lista[0])}>
+                        <Button variant="outline" size="sm" onClick={() => setComprovantesAdt(lista)}>
                           Ver comprovantes
                         </Button>
                         <Button size="sm" onClick={() => setQuitarTransp(nome)}>
@@ -373,14 +373,14 @@ export function AdiantamentosTab() {
 
         {/* QUITADOS */}
         <TabsContent value="quitados">
-          <ListaAdiantamentos data={quitados} onComprovante={setComprovanteAdt} />
+          <ListaAdiantamentos data={quitados} onComprovante={(a) => setComprovantesAdt([a])} />
         </TabsContent>
       </Tabs>
 
       <ComprovanteAdiantamentoDialog
-        open={!!comprovanteAdt}
-        onOpenChange={(o) => !o && setComprovanteAdt(null)}
-        adiantamento={comprovanteAdt}
+        open={comprovantesAdt.length > 0}
+        onOpenChange={(o) => !o && setComprovantesAdt([])}
+        adiantamentos={comprovantesAdt}
       />
       <RegistrarQuitacaoDialog
         open={!!quitarTransp}
