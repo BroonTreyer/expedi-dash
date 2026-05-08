@@ -46,7 +46,7 @@ export function AdiantamentosTab() {
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
   const [observacoes, setObservacoes] = useState("");
 
-  const [comprovanteAdt, setComprovanteAdt] = useState<Adiantamento | null>(null);
+  const [comprovantesAdt, setComprovantesAdt] = useState<Adiantamento[]>([]);
   const [quitarTransp, setQuitarTransp] = useState<string | null>(null);
 
   // CT-es disponíveis (sem adiantamento ativo) agrupados por transportadora
@@ -151,7 +151,7 @@ export function AdiantamentosTab() {
       }
       setSelecionados(new Set());
       setObservacoes("");
-      if (criados[0]) setComprovanteAdt(criados[0]);
+      if (criados.length > 0) setComprovantesAdt(criados);
     } catch {
       // toast já é exibido pelo hook
     }
