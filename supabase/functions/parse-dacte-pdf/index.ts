@@ -17,7 +17,13 @@ Regras por CT-e:
 - "transportadora": razão social do EMITENTE (transportadora).
 - "placa": placa do veículo de tração (campo "PLACA DO VEÍCULO" — só a placa principal).
 - "destino_cidade" e "destino_uf": município/UF do DESTINATÁRIO.
-- "peso_total": peso bruto total da carga em kg (número decimal com ponto).
+- "peso_total": peso BRUTO total em QUILOGRAMAS (kg). Regras estritas:
+  • Procure no quadro "QUANTIDADE / TIPO DE MEDIDA / TIPO" ou em "INFORMAÇÕES DA CARGA" / "QTD. CARGA".
+  • Some apenas as linhas cuja unidade/tipo seja KG, PESO BRUTO ou PESO B. CALCULADO.
+  • IGNORE linhas com unidades UNID, UN, M3, VOL, VOLUMES, CUBAGEM, PEÇAS.
+  • Números no formato brasileiro: "." é separador de milhar e "," é decimal. Converta para número com ponto. Ex.: "5.490,000" → 5490 ; "1.234,56" → 1234.56 ; "824,00" → 824.
+  • Se a unidade for TON ou TONELADAS, multiplique por 1000 para obter kg.
+  • Se mesmo após inspeção não encontrar peso bruto, devolva 0 (não invente).
 - "data_emissao": data de emissão do CT-e em formato YYYY-MM-DD.
 - "notas_fiscais": array de strings com TODOS os números das notas fiscais listadas em "DOCUMENTOS ORIGINÁRIOS" / "NF-e". Apenas o número (sem chave de acesso, sem série).
 - "tomador": razão social do TOMADOR DO SERVIÇO (quadro "TOMADOR DO SERVIÇO" do DACTE). Se o quadro indicar o tomador como remetente/destinatário/expedidor/recebedor, use a razão social desse papel correspondente.
