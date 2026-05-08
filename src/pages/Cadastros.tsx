@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, Truck, Tag, CheckCircle2, Plus, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, User, Truck, Tag, CheckCircle2, Plus, X, Building2 } from "lucide-react";
 import { useMotoristas, useCreateMotorista, useUpdateMotorista, type Motorista } from "@/hooks/useMotoristas";
 import { useCaminhoes, useCreateCaminhao, useUpdateCaminhao, type Caminhao } from "@/hooks/useCaminhoes";
 import { useTiposCaminhao, useCreateTipoCaminhao } from "@/hooks/useTiposCaminhao";
+import { TransportadorasTab } from "@/components/cadastros/TransportadorasTab";
 import { toast } from "sonner";
 import { maskCPF, maskPhone } from "@/lib/masks";
 
@@ -190,7 +192,14 @@ export default function Cadastros() {
           </p>
         </div>
 
-        {isBuscarMode && (
+        <Tabs defaultValue="unificado" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="unificado"><User className="h-4 w-4 mr-2" />Motorista / Caminhão</TabsTrigger>
+            <TabsTrigger value="transportadoras"><Building2 className="h-4 w-4 mr-2" />Transportadoras</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="unificado" className="space-y-6">
+            {isBuscarMode && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -423,6 +432,12 @@ export default function Cadastros() {
           </CardContent>
         </Card>
         )}
+          </TabsContent>
+
+          <TabsContent value="transportadoras">
+            <TransportadorasTab />
+          </TabsContent>
+        </Tabs>
       </main>
     </Layout>
   );
