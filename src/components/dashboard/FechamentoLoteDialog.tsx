@@ -468,18 +468,25 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         transportadora: transportadora || undefined,
         horarioPrevisto: horarioPrevisto || undefined,
         tipoFrete: tipoFreteStr,
-        groups: groups.map((g) => ({
-          codigoCliente: g.codigoCliente,
-          nomeCliente: g.nomeCliente,
-          cidade: g.cidade ?? null,
-          uf: g.uf ?? null,
-          formaPagamento:
-            (items.find((it) => it.codigo_cliente === g.codigoCliente) as any)?.forma_pagamento ?? null,
-          items: g.items.map((i) => ({ id: i.id, nomeProduto: null, peso: i.peso, ruptura: i.ruptura })),
-          pesoTotal: g.pesoTotal,
-          rupturaCount: g.rupturaCount,
-          ordem: g.ordem,
-        })),
+        groups: groups.map((g) => {
+          const groupKey = g.codigoCliente ?? `__sem__${g.ordem}`;
+          const ocGrupo = modoOc === "porGrupo"
+            ? (ordemCargaPorGrupo[groupKey] ?? "").trim()
+            : ordemCarga.trim();
+          return {
+            codigoCliente: g.codigoCliente,
+            nomeCliente: g.nomeCliente,
+            cidade: g.cidade ?? null,
+            uf: g.uf ?? null,
+            formaPagamento:
+              (items.find((it) => it.codigo_cliente === g.codigoCliente) as any)?.forma_pagamento ?? null,
+            items: g.items.map((i) => ({ id: i.id, nomeProduto: null, peso: i.peso, ruptura: i.ruptura })),
+            pesoTotal: g.pesoTotal,
+            rupturaCount: g.rupturaCount,
+            ordem: g.ordem,
+            ordemCarga: ocGrupo || null,
+          };
+        }),
         totalPeso,
         totalRuptura,
         totalPedidos,
