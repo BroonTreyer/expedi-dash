@@ -538,8 +538,20 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               <div className="space-y-1">
                 {groups.map((g, idx) => {
                   const colorClass = idx === 0 ? "text-green-600" : idx === groups.length - 1 ? "text-red-500" : "text-primary";
+                  const groupKey = g.codigoCliente ?? `__sem__${g.ordem}`;
                   return (
-                    <SortableDestRow key={dndKey(g)} id={dndKey(g)} group={g} idx={idx} total={groups.length} colorClass={colorClass} />
+                    <SortableDestRow
+                      key={dndKey(g)}
+                      id={dndKey(g)}
+                      group={g}
+                      idx={idx}
+                      total={groups.length}
+                      colorClass={colorClass}
+                      ocValue={modoOc === "porGrupo" ? (ordemCargaPorGrupo[groupKey] ?? "") : undefined}
+                      onOcChange={modoOc === "porGrupo"
+                        ? (v) => setOrdemCargaPorGrupo((p) => ({ ...p, [groupKey]: v }))
+                        : undefined}
+                    />
                   );
                 })}
               </div>
