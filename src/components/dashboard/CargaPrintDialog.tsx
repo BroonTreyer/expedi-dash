@@ -14,6 +14,7 @@ interface ClienteGroup {
   pesoTotal: number;
   rupturaCount?: number;
   ordem: number;
+  ordemCarga?: string | null;
 }
 
 export interface CargaPrintData {
@@ -192,6 +193,9 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold">
                       <span className="px-1.5 py-0.5 rounded bg-foreground/10">E:{group.ordem}</span>
                       <span className="px-1.5 py-0.5 rounded bg-foreground/10">C:{total - group.ordem + 1}</span>
+                      {group.ordemCarga && (
+                        <span className="px-1.5 py-0.5 rounded bg-foreground/10">OC: {group.ordemCarga}</span>
+                      )}
                     </span>
                     <span>{group.codigoCliente ? `${group.codigoCliente} – ${group.nomeCliente ?? ""}` : "Sem cliente"}</span>
                     {(group.cidade || group.uf) && (

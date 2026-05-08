@@ -1,35 +1,30 @@
-## Preencher Ordens de Carga em massa no Importar DACTE
+## Objetivo
+Mostrar a **OC (Ordem de Carga)** de cada grupo de pedidos no romaneio impresso (`CargaPrintDialog`), tanto na **Sequência de Entrega** quanto na **Sequência de Carregamento**.
 
-Hoje, ao importar vários DACTEs em **Logística → CT-e**, cada item exige preencher a Ordem de Carga individualmente pelo `OrdemCargaPicker`. Vou adicionar um bloco de preenchimento em lote no topo da lista de itens, suportando 1 OC para todos ou várias OCs distribuídas.
+## Onde aparece hoje
+O dialog mostra, por cliente:
+`[E:1] [C:3]  26940 – BRASIL SUPREMO · Simões Filho/BA          18.005,2 kg`
 
-### Mudanças (apenas UI, sem banco)
+## O que muda
+Adicionar um badge `OC: <numero>` ao lado dos selos `E:` / `C:`, para cada grupo. Quando um grupo tiver mais de uma OC (caso raro), exibir todas separadas por `/`. Se não houver OC, simplesmente não renderiza o badge.
 
-**`src/components/logistica/ImportarDacteDialog.tsx`** — adicionar barra "Preencher OCs em lote" visível quando há ≥2 itens com `status === "ok"`:
+## Arquivos a alterar (somente UI / dados de impressão)
 
-1. **Modo "Mesma OC para todos"** (padrão)
-   - Um único campo OC com autocomplete (reusa `OrdemCargaPicker`).
-   - Botão **Aplicar a todos** → seta `ordem_carga` (e `carga_id` se a OC tiver vínculo encontrado) em todos os itens `ok` que ainda estão sem OC.
-   - Checkbox **"Sobrescrever OCs já preenchidas"** (desmarcado por padrão).
+### 1. `src/components/dashboard/CargaPrintDialog.tsx`
+- Acrescentar `ordemCarga?: string | null` na interface `ClienteGroup`.
+- Renderizar, no cabeçalho de cada grupo, um badge cinza (`bg-foreground/10`) com `OC: {group.ordemCarga}` quando presente — ao lado dos atuais `E:` e `C:`.
+- Sem mudanças de layout maiores; mantém o estilo print-friendly atual.
 
-2. **Modo "Múltiplas OCs"** (toggle no canto)
-   - `Textarea` aceitando OCs separadas por linha, vírgula ou espaço.
-   - Botão **Distribuir** → atribui na ordem da lista de itens: 1ª OC → 1º item, 2ª OC → 2º item, etc.
-     - Se houver menos OCs que itens, os restantes ficam vazios.
-     - Se houver mais OCs que itens, mostra aviso "X OCs sobraram".
-   - Para cada OC distribuída, faz `buscarCargasPorOrdem(oc)` e, se retornar exatamente 1, preenche também `carga_id` + `vinculo_status: "vinculado"` (mesmo comportamento do `updateOrdem` atual).
-   - Botão **Limpar todas** que zera as OCs dos itens `ok`.
+### 2. `src/pages/Consolidado.tsx` (`handleOpenRomaneio`)
+- Ao montar cada `clienteGroup`, coletar as OCs distintas dos `items` daquele cliente (`Array.from(new Set(items.map(i => i.ordem_carga).filter(Boolean))).join("/")`) e atribuir em `ordemCarga`.
+- Isto garante o número correto mesmo no modo "OC por grupo" do fechamento em lote.
 
-3. **Atalho rápido**: ao colar uma string com várias OCs no campo do modo "Mesma OC", detectar separadores (`,`, `\n`, `;`) e perguntar "Detectamos N OCs. Distribuir uma por item?" (toast com ação).
+### 3. `src/components/dashboard/FechamentoLoteDialog.tsx` (bloco `onPrintReady`)
+- Ao montar cada item de `groups`, calcular a OC efetiva do grupo:
+  - Se `modoOc === "porGrupo"` → `ordemCargaPorGrupo[groupKey]?.trim()`
+  - Caso contrário → `ordemCarga.trim()`
+- Passar como `ordemCarga` no objeto enviado ao `CargaPrintData`.
 
-### Detalhes técnicos
-
-- Reaproveitar a função interna `updateOrdem(fileId, ordem, picked?)` já existente; criar `bulkApply(ordens: string[])` que chama `updateOrdem` por item na sequência.
-- Chamadas a `buscarCargasPorOrdem` em paralelo via `Promise.all`, com debounce visual (loading spinner no botão).
-- Estado local novo: `modoBulk: "uma" | "varias"`, `bulkOrdem: string`, `bulkLista: string`, `sobrescrever: boolean`.
-- Layout: card compacto com fundo `bg-muted/30`, `border-dashed`, posicionado entre o uploader e a lista de itens; só aparece quando `items.filter(i => i.status === "ok").length >= 2`.
-- Ordem de itens segue a ordem do array `items` (que reflete a ordem de upload), igual ao que o usuário já vê.
-
-### Fora de escopo
-
-- Não mexe no `FechamentoLoteDialog` (fluxo de OC por grupo no fechamento de carga já existe).
-- Sem alteração de schema, RLS, edge functions ou hooks.
+## Fora de escopo
+- Sem mudanças de banco, RLS, hooks ou lógica de submit.
+- Sem mudanças no `ConsolidadoPrintDialog` (relatório consolidado de cargas) — pediu apenas no romaneio por carga.
