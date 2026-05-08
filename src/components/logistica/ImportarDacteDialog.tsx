@@ -309,7 +309,9 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
       try {
         setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "saving" } : x));
         // upload pdf
-        const path = `${new Date().getFullYear()}/${it.parsed!.numero_cte || "sem-numero"}-${it.fileId}.pdf`;
+        const safeId = it.fileId.replace(/[^\w.\-]+/g, "_");
+        const safeNum = (it.parsed!.numero_cte || "sem-numero").replace(/[^\w.\-]+/g, "_");
+        const path = `${new Date().getFullYear()}/${safeNum}-${safeId}.pdf`;
         const { error: upErr } = await supabase.storage.from("dacte").upload(path, it.file, { upsert: true, contentType: "application/pdf" });
         if (upErr) throw upErr;
         await insertMut.mutateAsync({
