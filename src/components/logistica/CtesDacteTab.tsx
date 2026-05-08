@@ -8,6 +8,8 @@ import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, L
 import { useCtesDacte, useDeleteCteDacte, useDeleteCtesByIds, type CteDacteRow } from "@/hooks/useCtesDacte";
 import { ImportarDacteDialog } from "./ImportarDacteDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
+import { toast } from "sonner";
 
 const fmtBRL = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 const fmtKg = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(n || 0);
@@ -22,6 +24,8 @@ export function CtesDacteTab() {
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [viewMode, setViewMode] = useState<"ordem" | "lista">("ordem");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -94,9 +98,18 @@ export function CtesDacteTab() {
     });
 
   const openPdf = async (path: string | null) => {
-    if (!path) return;
-    const { data } = await supabase.storage.from("dacte").createSignedUrl(path, 3600);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    if (!path) {
+      toast.error("PDF não disponível para este CT-e");
+      return;
+    }
+    const { data, error } = await supabase.storage.from("dacte").createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      console.error("[openPdf] createSignedUrl falhou", error);
+      toast.error("Não foi possível abrir o PDF", { description: error?.message });
+      return;
+    }
+    setViewerUrl(data.signedUrl);
+    setViewerOpen(true);
   };
 
   return (
@@ -307,6 +320,7 @@ export function CtesDacteTab() {
       )}
 
       <ImportarDacteDialog open={open} onOpenChange={setOpen} />
+      <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={viewerUrl} alt="DACTE" />
     </Card>
   );
 }

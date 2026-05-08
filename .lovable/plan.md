@@ -1,34 +1,28 @@
-## Objetivo
-Ao importar um DACTE/CT-e, validar o **TOMADOR** do serviço. Se for diferente de **Frico**, o item é **recusado** (não pode ser salvo) e a recusa fica visível no card.
+## Diagnóstico
+Hoje, ao clicar no ícone "Ver PDF" do CT-e, o app chama `supabase.storage.from("dacte").createSignedUrl(path, 3600)` e abre o resultado com `window.open(url, "_blank")`.
 
-## Comportamento
-- A IA extrai o nome do tomador do CT-e (normalmente o quadro "TOMADOR DO SERVIÇO").
-- Comparação tolerante: normaliza para minúsculas, remove acentos e símbolos; aceita se o nome contiver `"frico"` (cobre "FRICO ALIMENTOS", "FRICO ALIMENTOS LTDA", etc.).
-- Itens cujo tomador **não** contém `"frico"` ficam com status visual **Recusado** (badge vermelho com o nome do tomador detectado) e são bloqueados no Salvar.
-- Se o tomador vier vazio/ilegível, o item entra como **Tomador não identificado** (badge âmbar) — também bloqueado para salvar, mas o usuário pode editar manualmente o campo Tomador no formulário para liberar.
+Problemas:
+1. Não há tratamento de erro — se o `createSignedUrl` falhar (RLS, path com espaços, expiração), o `window.open` ainda é chamado com `undefined`/URL ruim, abrindo uma aba em branco ou com a página de erro do Supabase Storage.
+2. Bloqueador de pop-up pode interceptar.
+3. Sem feedback visual: o usuário fica olhando uma aba "com erro" sem saber por quê.
 
-## Arquivos a alterar
+A solução padrão do projeto para PDFs/fotos é o `PhotoViewerDialog` (já usado na Portaria), que renderiza dentro de um `<iframe>` no próprio app, com fallback para "Abrir em nova aba".
 
-### 1. `supabase/functions/parse-dacte-pdf/index.ts`
-- Acrescentar no `SYSTEM_PROMPT` extração do `tomador` (razão social do quadro "TOMADOR DO SERVIÇO" — se ausente, usar a razão social do destinatário ou expedidor conforme indicado como tomador no CT-e).
-- Acrescentar `tomador: { type: "string" }` no schema do tool `extract_dacte` (não obrigatório).
+## Plano
 
-### 2. `src/components/logistica/ImportarDacteDialog.tsx`
-- Adicionar `tomador?: string` ao tipo `Parsed`.
-- Helper `isFrico(s) = normaliza(s).includes("frico")` (lowercase + `normalize("NFD").replace(/[\u0300-\u036f]/g, "")`).
-- No `handleFiles`, ao montar `newItems`, computar:
-  - `tomadorOk = !!parsed.tomador && isFrico(parsed.tomador)`
-  - se `parsed.tomador` existe mas não é Frico → `status: "rejected"`, `error: "Tomador não é Frico: <nome>"`.
-  - se `parsed.tomador` ausente → status `"ok"` mas `tomadorOk = false` (badge âmbar).
-- Adicionar `"rejected"` ao union de `Item.status`.
-- Renderizar badge:
-  - `rejected` → `Badge variant="destructive"` com `AlertTriangle` e o nome detectado.
-  - âmbar quando tomador vazio.
-- Mostrar campo **Tomador** (read-only se Frico, editável se vazio) no grid do formulário, antes de "Transportadora".
-- `okCount` passa a contar apenas itens com `status === "ok" && tomadorOk`.
-- `handleSaveAll` ignora rejeitados; toast informa quantos foram pulados.
-- Bulk fill (Mesma OC / Múltiplas OCs) também ignora `rejected` (já filtra `status === "ok"`, mantém).
+### 1. `src/components/logistica/CtesDacteTab.tsx`
+- Importar `PhotoViewerDialog`.
+- Adicionar estados `viewerOpen` e `viewerUrl`.
+- Reescrever `openPdf(path)`:
+  - Se `path` vazio → `toast.error("PDF não disponível")`.
+  - Chamar `createSignedUrl(path, 3600)` e checar `error` / `data?.signedUrl`.
+  - Em sucesso → `setViewerUrl(url); setViewerOpen(true)`.
+  - Em falha → `toast.error("Não foi possível abrir o PDF")` e logar `error.message`.
+- Renderizar `<PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={viewerUrl} alt="DACTE" />` ao final do componente.
+
+### 2. `src/components/logistica/ImportarDacteDialog.tsx` (preventivo, melhora futuras importações)
+- Sanitizar o `path` ao subir o PDF: remover caracteres problemáticos do nome (`replace(/[^\w.\-]+/g, "_")`) para evitar ambiguidade com espaços/acentos. Continua único pelo `fileId`.
 
 ## Fora de escopo
-- Sem mudança de banco/coluna nova (`tomador` fica em `raw_extracao` e na UI; opcionalmente persistido apenas dentro do JSON de extração).
-- Sem mudança em outras telas (Relatórios, Logística etc.).
+- Sem mudança de RLS, bucket ou estrutura de pastas existente — arquivos antigos seguem acessíveis via signed URL como hoje (path com espaços é codificado pelo SDK).
+- Sem download massivo ou pré-visualização inline na lista.
