@@ -54,6 +54,7 @@ const Usuarios = lazyWithRetry("/usuarios", () => import("./pages/Usuarios"));
 const Rupturas = lazyWithRetry("/rupturas", () => import("./pages/Rupturas"));
 const Clientes = lazyWithRetry("/clientes", () => import("./pages/Clientes"));
 const Consolidado = lazyWithRetry("/consolidado", () => import("./pages/Consolidado"));
+const Transportadoras = lazyWithRetry("/transportadoras", () => import("./pages/Transportadoras"));
 const PortariaCargaPropria = lazyWithRetry("/portaria", () => import("./pages/PortariaCargaPropria"));
 const PortariaTerceirizado = lazyWithRetry("/portaria/terceirizado", () => import("./pages/PortariaTerceirizado"));
 const PortariaManual = lazyWithRetry("/portaria/manual", () => import("./pages/PortariaManual"));
