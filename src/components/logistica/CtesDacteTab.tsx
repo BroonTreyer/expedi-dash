@@ -320,6 +320,7 @@ export function CtesDacteTab() {
       )}
 
       <ImportarDacteDialog open={open} onOpenChange={setOpen} />
+      <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={viewerUrl} alt="DACTE" />
     </Card>
   );
 }
