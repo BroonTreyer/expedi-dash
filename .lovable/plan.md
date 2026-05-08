@@ -1,30 +1,28 @@
-## Problema
-Ao subir vários DACTEs ao mesmo tempo, todos batem no Lovable AI Gateway em paralelo e recebem **HTTP 429** (`rate_limited`). A edge function `parse-dacte-pdf` propaga o 429 cru, e o frontend mostra apenas "Edge Function returned a non-2xx status code".
+## Objetivo
+Permitir gerar adiantamentos de **várias transportadoras de uma só vez** na aba "Montar Lote", criando 1 adiantamento por transportadora num único clique.
 
-## Plano
+## Mudanças
 
-### 1. `supabase/functions/parse-dacte-pdf/index.ts` — Retry com backoff
-- Encapsular a chamada `fetch("https://ai.gateway.lovable.dev/...")` em uma função `callGatewayWithRetry()`:
-  - Até **3 tentativas**.
-  - Esperas: **1s → 3s → 7s** + jitter aleatório de 0–500ms.
-  - Só faz retry em `429` e `5xx`. Outros erros (400/401/402) abortam imediatamente.
-- Mapear o resultado final:
-  - `429` persistente → resposta `429` com `{ error: "rate_limited", message: "Limite temporário da IA, tente novamente em alguns segundos.", retryable: true }`.
-  - `402` → `{ error: "payment_required", message: "Créditos da IA esgotados.", retryable: false }`.
-  - Sucesso → comportamento atual.
-- Mantém CORS e a estrutura de tool calling existente.
+### `src/components/logistica/AdiantamentosTab.tsx`
+- Remover o `select` de transportadora única. Listar **todas as transportadoras com CT-es disponíveis**, cada uma como uma seção colapsável (Card) contendo seus grupos de OC e CT-es (mesma UI de hoje).
+- Estado `selecionados: Set<string>` continua global (IDs de CT-es de qualquer transportadora).
+- Cada seção tem:
+  - Cabeçalho com nome da transportadora, badge "X CT-es selecionados", subtotal e campo `% Adiantamento` próprio (default = `percentual_adiantamento_padrao` da transportadora, ou 50%).
+  - Aviso âmbar se a transportadora não tiver cadastro financeiro.
+  - Checkbox "selecionar todos os CT-es desta transportadora".
+- **Painel "Resumo" lateral** passa a mostrar agregado multi-transportadora:
+  - Lista por transportadora: nº de CT-es, total frete, % aplicado, valor adiantamento, saldo.
+  - Totais gerais (soma de todos).
+  - Campo único de "Observações" aplicado a todos.
+  - Botão **"Gerar N adiantamentos"** (N = nº de transportadoras com seleção).
 
-### 2. `src/components/logistica/ImportarDacteDialog.tsx` — Concorrência limitada + retry manual
-- No `handleFiles`, substituir o `Promise.all` por uma **fila com concorrência 2** (helper `runWithConcurrency(items, 2, worker)` definido inline).
-- Tratar a resposta da edge function:
-  - Se `error?.message` contém `"rate_limited"` ou status 429 → `status: "rate_limited"`, `error: "Limite temporário da IA — clique em Tentar novamente"`.
-  - Outros erros → `status: "error"` (igual hoje).
-- Adicionar `rate_limited` ao tipo `Item.status`.
-- No render do item com `status === "rate_limited"`:
-  - Badge âmbar "Limite da IA atingido".
-  - Botão **"Tentar novamente"** que dispara `retryItem(it)` — reusa o mesmo fluxo de parse para aquele único arquivo.
-- Adicionar botão global **"Tentar novamente todos com erro de limite"** acima da lista quando houver ≥1 item `rate_limited`.
+### `handleGerar` (mesmo arquivo)
+- Agrupar `ctesEscolhidos` por `transportadora`.
+- Para cada grupo, chamar `criar.mutateAsync(...)` em sequência (não paralelo, para não estourar a numeração `next_adiantamento_numero`).
+- Acumular resultados; ao final, abrir o `ComprovanteAdiantamentoDialog` apenas do **primeiro** gerado e mostrar toast "N adiantamentos gerados".
+- Se algum falhar, abortar os subsequentes e mostrar quais foram criados.
 
 ## Fora de escopo
-- Não muda RLS, schema, nem a UI do botão "Ver PDF" já entregue.
-- Sem rate-limiting próprio no backend (apenas backoff em cima do gateway).
+- Sem alteração de schema, RLS, hooks ou edge functions.
+- Sem mudança nas abas Pendentes / Pagos / Quitados.
+- Sem alteração no `useCriarAdiantamento` — usado N vezes como hoje.
