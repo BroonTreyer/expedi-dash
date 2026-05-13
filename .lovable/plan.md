@@ -1,18 +1,23 @@
-Encontrei o problema: o Fagno está no banco aguardando vínculo com a placa **QWE1B20**, e a carga **JR ROTA** existe em Logística. Mas o fluxo atual só “libera” corretamente quando há um registro em `veiculos_esperados`; o caso do Fagno veio direto como movimentação órfã em `movimentacoes_portaria`, então o diálogo até pode listar cargas, mas o vínculo não cria/atualiza o registro esperado para a Portaria continuar o processo.
+Plano para corrigir sem quebrar o fluxo atual:
 
-Plano de correção:
+1. Ajustar o estado do Fagno agora
+- O registro atual do Fagno está com `carga_id = JR ROTA` e `status_autorizacao = autorizado`, por isso ele saiu do card vermelho e não aparece em Fechar Carga.
+- Vou retornar o registro ativo dele para `aguardando_vinculo` e limpar o vínculo de carga pendente, preservando placa, motorista, transportadora e horário de chegada.
 
-1. Ajustar `useVincularMovimentoACarga`
-   - Ao vincular uma movimentação órfã, além de colocar `carga_id` na movimentação e atualizar a placa/motorista da carga, criar ou atualizar um registro em `veiculos_esperados` para a mesma placa/carga.
-   - Esse registro ficará como `status_autorizacao = 'autorizado'`, `conferido = false`, `walk_in = true`, permitindo aparecer na etapa “Carga vinculada — clique para liberar entrada no pátio”.
+2. Corrigir a causa no código
+- Em `useVincularMovimentoACarga`, ao vincular um movimento órfão, não vou mais criar/alterar `veiculos_esperados` como `autorizado` imediatamente.
+- O vínculo manual direto continuará anexando a carga ao movimento quando usado, mas não deve “sumir” com o veículo do fluxo de espera antes da Portaria liberar corretamente.
 
-2. Corrigir invalidação de cache
-   - Invalidar também `veiculos_walkin_ativos`, `veiculos_walkin_pendentes_count` e `movimentacoes_portaria_aguardando_vinculo` depois do vínculo.
-   - Assim o card vermelho some e o card de liberação aparece sem precisar atualizar a página.
+3. Fazer o Fagno aparecer em Fechar Carga
+- Em `useVeiculosAguardandoVinculo`, manter a lista baseada em `veiculos_esperados` aguardando vínculo.
+- Adicionar fallback para incluir movimentos órfãos da Portaria (`terceirizado`, `entrada`, `chegada`, sem `horario_entrada`) como veículos aguardando vínculo, mesmo quando não existir ou estiver inconsistente o registro em `veiculos_esperados`.
+- Remover duplicidade por placa, priorizando o registro correto de `veiculos_esperados` quando existir.
 
-3. Remover o gargalo visual do diálogo
-   - Manter a lista de cargas dos últimos 7 dias, mas garantir que cargas como **JR ROTA** não sejam escondidas por falta de registro em `veiculos_esperados`.
-   - Preservar a priorização por placa coincidente.
+4. Garantir fechamento sem bug
+- Ao fechar a carga com um veículo selecionado, se ele veio desse fallback de movimento órfão, o fechamento deve atualizar também a movimentação da Portaria com o `carga_id` gerado.
+- Se ele veio de `veiculos_esperados`, mantém o comportamento atual.
 
-4. Validar com dados reais
-   - Confirmar que **JR ROTA / FAGNO / QWE1B20** está contemplado pelo fluxo e que o vínculo leva o veículo para a próxima etapa da Portaria.
+5. Validação
+- Conferir no banco que Fagno/QWE1B20 volta para o card vermelho.
+- Conferir que ele aparece na seção “Veículos no pátio aguardando vínculo” dentro de Fechar Carga.
+- Manter os filtros por sessão e invalidação de cache existentes.
