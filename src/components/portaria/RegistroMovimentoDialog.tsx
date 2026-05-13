@@ -133,8 +133,12 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
       if (forcedCategoria) {
         setStep("form");
         setCategoria(forcedCategoria);
-        // Carga própria não tem "entrada" — começa como saída p/ rota
-        setTipo(forcedCategoria === "carga_propria" ? "saida_rota" : "entrada");
+        // Registro manual standalone: sempre começa como "entrada" para que o
+        // formulário peça placa, motorista e demais dados de identificação
+        // (a matriz VISIBILITY_SAIDA_ROTA omite esses campos por presumir prefill).
+        // A lógica `isCargaPropriaPrimeiraSaida` no submit reescreve para
+        // tipo_movimento=entrada e nasce em "chegou" ou "em_rota" conforme as fotos/KM.
+        setTipo("entrada");
       } else {
         setStep("categoria");
         setTipo("entrada");
