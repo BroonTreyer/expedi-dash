@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +15,13 @@ import {
   type VeiculoEsperado,
 } from "@/hooks/useVeiculosEsperados";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useSession } from "@/hooks/useAuth";
 import { VincularCargaDialog } from "./VincularCargaDialog";
+import { VincularMovimentoCargaDialog } from "./VincularMovimentoCargaDialog";
 import { EditarVeiculoEsperadoDialog } from "./EditarVeiculoEsperadoDialog";
+import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
 
 interface Props {
   categoria?: "carga_propria" | "terceirizado";
@@ -26,6 +29,7 @@ interface Props {
 
 export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
   const { role } = useAuth();
+  const session = useSession();
   const { data: ativosRaw = [], isLoading } = useVeiculosWalkInAtivos();
   const autorizar = useAutorizarChegada();
   const registrarChegada = useRegistrarChegadaPortaria();
@@ -33,6 +37,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
   const [recusaId, setRecusaId] = useState<string | null>(null);
   const [motivoRecusa, setMotivoRecusa] = useState("");
   const [vincularVeiculo, setVincularVeiculo] = useState<{ id: string; placa: string; motorista?: string | null } | null>(null);
+  const [vincularMovimento, setVincularMovimento] = useState<MovimentacaoPortaria | null>(null);
   const [editarVeiculo, setEditarVeiculo] = useState<any | null>(null);
 
   const canDecide = role === "admin" || role === "logistica";
@@ -54,6 +59,46 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
 
+  // Movimentos de portaria órfãos: terceirizado em "chegada" SEM carga vinculada
+  // e sem entrada física registrada. São veículos que chegaram na portaria mas
+  // não passaram pelo fluxo de walk-in (logo não têm registro em
+  // veiculos_esperados) e ficavam invisíveis para a Logística.
+  const { data: movimentosOrfaos = [] } = useQuery({
+    queryKey: ["movimentacoes_portaria_aguardando_vinculo"],
+    enabled: !!session,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - 7);
+      const { data, error } = await supabase
+        .from("movimentacoes_portaria")
+        .select("*")
+        .eq("tipo_movimento", "entrada")
+        .eq("categoria", "terceirizado")
+        .eq("etapa_terceirizado", "chegada")
+        .is("carga_id", null)
+        .is("horario_entrada", null)
+        .gte("data_hora", desde.toISOString())
+        .order("data_hora", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as MovimentacaoPortaria[];
+    },
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("movimentos_aguardando_vinculo")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "movimentacoes_portaria" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["movimentacoes_portaria_aguardando_vinculo"] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
   const ativos = ativosRaw.filter((v: any) => {
     if (!categoria) return true;
     // Regra de negócio canônica do app: a presença de transportadora
@@ -70,10 +115,51 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
     return categoria === "carga_propria" ? isPropria : !isPropria;
   });
 
-  if (isLoading || ativos.length === 0) return null;
+  // Normaliza movimentos órfãos no mesmo shape usado pelo render, e remove
+  // duplicidade caso já exista um veiculos_esperados ativo para a mesma placa.
+  const placasJaListadas = useMemo(() => {
+    const s = new Set<string>();
+    for (const v of ativos) {
+      const p = (v.placa || "").trim().toUpperCase();
+      if (p) s.add(p);
+    }
+    return s;
+  }, [ativos]);
 
-  const aguardando = ativos.filter((v) => v.status_autorizacao === "aguardando_vinculo" || v.status_autorizacao === "aguardando_autorizacao");
-  const liberados = ativos.filter((v) => v.status_autorizacao === "autorizado");
+  const movimentosFiltrados = useMemo(() => {
+    return movimentosOrfaos
+      .filter((m) => {
+        if (categoria && categoria !== "terceirizado") return false;
+        const p = (m.placa || "").trim().toUpperCase();
+        return p && !placasJaListadas.has(p);
+      })
+      .map((m) => ({
+        __source: "mov" as const,
+        __mov: m,
+        id: m.id,
+        placa: m.placa || "",
+        motorista: m.motorista,
+        transportadora: m.empresa,
+        tipo_veiculo: m.tipo_caminhao,
+        destino: m.rota,
+        observacoes: m.observacoes,
+        carga_id: m.carga_id,
+        created_at: m.horario_chegada || m.data_hora || m.created_at,
+        status_autorizacao: "aguardando_vinculo" as const,
+      }));
+  }, [movimentosOrfaos, placasJaListadas, categoria]);
+
+  const ativosNorm = ativos.map((v: any) => ({ ...v, __source: "ve" as const }));
+
+  if (isLoading && ativosNorm.length === 0 && movimentosFiltrados.length === 0) return null;
+
+  const aguardando = [
+    ...ativosNorm.filter((v: any) => v.status_autorizacao === "aguardando_vinculo" || v.status_autorizacao === "aguardando_autorizacao"),
+    ...movimentosFiltrados,
+  ];
+  const liberados = ativosNorm.filter((v: any) => v.status_autorizacao === "autorizado");
+
+  if (aguardando.length === 0 && liberados.length === 0) return null;
 
   const handleRecusar = async () => {
     if (!recusaId) return;
@@ -151,30 +237,40 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
         canDecide ? (
           <div className="flex flex-col gap-1.5 shrink-0 sm:items-end">
             <div className="flex gap-2">
+              {v.__source !== "mov" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setEditarVeiculo(v)}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Editar
+                </Button>
+              )}
               <Button
                 size="sm"
-                variant="outline"
                 className="h-8 text-xs gap-1"
-                onClick={() => setEditarVeiculo(v)}
-              >
-                <Pencil className="h-3.5 w-3.5" /> Editar
-              </Button>
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-1"
-                onClick={() => setVincularVeiculo({ id: v.id, placa: v.placa, motorista: v.motorista })}
+                onClick={() => {
+                  if (v.__source === "mov") {
+                    setVincularMovimento(v.__mov);
+                  } else {
+                    setVincularVeiculo({ id: v.id, placa: v.placa, motorista: v.motorista });
+                  }
+                }}
               >
                 <Link2 className="h-3.5 w-3.5" /> Vincular a carga
               </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="h-8 text-xs gap-1"
-                onClick={() => setRecusaId(v.id)}
-                disabled={autorizar.isPending}
-              >
-                <X className="h-3.5 w-3.5" /> Recusar
-              </Button>
+              {v.__source !== "mov" && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setRecusaId(v.id)}
+                  disabled={autorizar.isPending}
+                >
+                  <X className="h-3.5 w-3.5" /> Recusar
+                </Button>
+              )}
             </div>
             <span className="text-[10px] text-muted-foreground">Vincule uma carga para liberar a entrada</span>
           </div>
@@ -269,6 +365,12 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
         open={!!vincularVeiculo}
         onOpenChange={(o) => { if (!o) setVincularVeiculo(null); }}
         veiculoEsperado={vincularVeiculo}
+      />
+
+      <VincularMovimentoCargaDialog
+        open={!!vincularMovimento}
+        onOpenChange={(o) => { if (!o) setVincularMovimento(null); }}
+        movimento={vincularMovimento}
       />
 
       <EditarVeiculoEsperadoDialog
