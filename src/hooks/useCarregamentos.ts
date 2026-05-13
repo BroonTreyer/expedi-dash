@@ -761,6 +761,10 @@ export function useVincularMovimentoACarga() {
       motoristaReal?: string | null;
       transportadoraReal?: string | null;
     }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const nowIso = new Date().toISOString();
+      const placaNorm = (input.placaReal || "").trim().toUpperCase();
+
       // 1. Anexa carga_id ao movimento de chegada (mantém estado 'chegada' —
       //    a Portaria depois clica "Liberar Entrada no Pátio").
       const movUpdate: Record<string, any> = { carga_id: input.cargaId };
@@ -779,13 +783,61 @@ export function useVincularMovimentoACarga() {
         .update(cargaUpdate)
         .eq("carga_id", input.cargaId);
       if (e2) throw e2;
+
+      // 3. Garante um registro em veiculos_esperados marcado como autorizado
+      //    para esta placa+carga. Sem isso, o painel "Carga vinculada — clique
+      //    para liberar entrada no pátio" não aparece e a Portaria não tem o
+      //    botão de Liberar Entrada — caso típico do veículo que chegou direto
+      //    pela portaria sem walk-in (ex.: Fagno / QWE1B20 / JR ROTA).
+      const { data: veExistente } = await supabase
+        .from("veiculos_esperados" as any)
+        .select("id")
+        .ilike("placa", placaNorm)
+        .eq("conferido", false)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (veExistente && veExistente.length > 0) {
+        const veId = (veExistente[0] as any).id;
+        await supabase
+          .from("veiculos_esperados" as any)
+          .update({
+            carga_id: input.cargaId,
+            status_autorizacao: "autorizado",
+            autorizado_por: user?.id ?? null,
+            autorizado_em: nowIso,
+            motorista: input.motoristaReal ?? undefined,
+            transportadora: input.transportadoraReal ?? undefined,
+          } as any)
+          .eq("id", veId);
+      } else {
+        await supabase
+          .from("veiculos_esperados" as any)
+          .insert({
+            data_referencia: new Date().toISOString().slice(0, 10),
+            grupo: "WALK-IN-TERCEIRIZADO",
+            placa: placaNorm,
+            motorista: input.motoristaReal ?? null,
+            transportadora: input.transportadoraReal ?? null,
+            carga_id: input.cargaId,
+            status_autorizacao: "autorizado",
+            walk_in: true,
+            conferido: false,
+            autorizado_por: user?.id ?? null,
+            autorizado_em: nowIso,
+            criado_por: user?.id ?? null,
+          } as any);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria_aguardando_vinculo"] });
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_para_vincular"] });
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
       qc.invalidateQueries({ queryKey: ["carregamentos"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
       toast.success("Carga vinculada — veículo liberado para entrada");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao vincular carga"),
