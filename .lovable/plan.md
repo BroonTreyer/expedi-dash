@@ -1,49 +1,43 @@
 ## Diagnóstico
 
-Os pesos da Expedição estão errados por duas causas distintas:
+A linha do print é o **Pedido 145 — JR DISTRIBUIDORA — Araguaína/TO**, com 26 produtos somando **30.205 kg**, vendedor ALCIR. Todos os 26 itens estão em `carregamentos_dia` da data **13/05/2026** com:
 
-### 1. KPIs ignoram EDIVAR (30.020 kg) e cargas finalizadas hoje
+- `carga_id = NULL`
+- `nome_carga = NULL`
+- `transportadora`, `placa`, `motorista`, `tipo_caminhao` em branco
+- `status = "Pronto para carregar"`
 
-A causa é a **"data efetiva"** das cargas terceirizadas. O hook `useCargasDiaExpedicao` busca `horario_saida_final` de TODAS as movimentações com aquele `carga_id`, sem filtrar por data, e usa essa saída para reatribuir o dia da carga. Quando o `carga_id` é reutilizado (caso comum: "EDIVAR", "JR", "ELIAS+EDIVAR" etc.), o sistema acha uma saída antiga e joga a carga de hoje para o passado.
+Por isso ele não aparece como carga em lugar nenhum (Expedição, KPIs, Cargas do dia).
 
-Hoje (13/05) temos:
+Do outro lado, na portaria, o motorista **FAGNO PEREIRA ALMEIDA** chegou hoje 13/05 às 12:46 com a placa **QWE1B20** e o operador digitou `carga_id = 'JR'` no campo de carga (movimento `f23697ed…`, etapa "no_patio"). Esse `JR` não casa com nenhuma carga real do dia — é só texto livre.
 
-| Carga             | Peso       | Saída encontrada     | Data efetiva calculada | Resultado |
-|-------------------|-----------:|----------------------|------------------------|-----------|
-| EDIVAR (no pátio) | 30.020 kg  | 30/04 (carga antiga) | 30/04                  | sumiu     |
-| EDIVAR+DMA+ALCIR  | 28.161 kg  | 12/05                | 12/05                  | sumiu     |
-| Elvis Maraba      | 12.144 kg  | 13/05                | 13/05                  | aparece   |
+Histórico do Fagno: ele rodou anteriormente como **JR TRANSPORTES / Carreta**, com cargas chamadas `JR` (27/04) e `JR ROTA` (07/05).
 
-Por isso o KPI mostra apenas **12.144 kg** em vez de **42.164 kg**.
+## Solução proposta
 
-### 2. Card QWE1B20 (Fagno) sem peso
+Transformar o Pedido 145 numa carga real, atribuindo a ele os mesmos dados do veículo do Fagno que já está no pátio. Assim a carga aparece nos painéis e o card do Fagno passa a mostrar os 30.205 kg.
 
-O movimento de portaria está com `carga_id = 'JR'`, mas em `carregamentos_dia` não existe nenhuma carga chamada exatamente `JR` (existem `JR PERNIL`, `JR ROTA` etc., todas de outros dias). Como não há a carga, não há peso para mostrar no badge.
+Atualizar os **26 itens** de `carregamentos_dia` (data = 2026-05-13, numero_pedido = 145, cliente = JR DISTRIBUIDORA, todos com `carga_id IS NULL`) com:
 
-## Plano
+- `carga_id` = **`JR`** (mesmo valor já gravado no movimento do Fagno → vínculo automático)
+- `nome_carga` = **`JR`**
+- `transportadora` = **`JR TRANSPORTES`**
+- `placa` = **`QWE1B20`**
+- `motorista` = **`FAGNO PEREIRA ALMEIDA`**
+- `tipo_caminhao` = **`Carreta`**
 
-### Correção 1 — Ignorar saídas antigas ao calcular a data efetiva
+Não mexo no movimento da portaria — ele já está com `carga_id = 'JR'`, então no momento em que os itens receberem `carga_id = 'JR'` o vínculo é imediato.
 
-Em `src/hooks/useCargasDiaExpedicao.ts`, ao montar `saidaPorCarga`:
+## Resultado esperado
 
-- Só considerar `horario_saida_final` que seja **>= a data da própria carga** (`r.data`).
-- Implementação: agrupar a data mínima por `carga_id` antes da consulta, filtrar `.gte('horario_saida_final', minDataGlobal)` na query, e depois descartar por carga qualquer saída anterior à data daquela carga específica.
+- A carga **JR (Fagno / QWE1B20)** passa a existir na expedição de hoje com 30.205 kg / 26 produtos / 1 pedido.
+- O card do Fagno em "No Pátio" deixa de aparecer sem peso e passa a exibir 30.205 kg e o cliente.
+- KPIs de "A carregar" do dia incorporam esses 30.205 kg.
 
-Resultado esperado:
+## Confirmação necessária
 
-- EDIVAR (data 13/05) ignora a saída antiga de 30/04 → sem `saidaPortariaIso` → fica em 13/05.
-- EDIVAR+DMA+ALCIR (data 13/05) ignora a saída de 12/05 → fica em 13/05 e cai como "Carregado/Em carregamento" (status=Carregado).
-- Elvis Maraba continua igual (saída 13/05 é válida).
-- KPI passa de 12.144 kg → ~70.325 kg (30.020 EDIVAR no pátio + 28.161 EDIVAR+DMA+ALCIR carregada + 12.144 Elvis Maraba).
+Confirma que devo:
+1. Usar exatamente o nome de carga **`JR`** (igual ao que o porteiro digitou) — ou prefere **`JR ROTA`**?
+2. Manter transportadora **JR TRANSPORTES** e tipo **Carreta** como nas cargas anteriores do Fagno?
 
-A mesma proteção também é aplicada em `cargaIdsSaidaHoje` (busca de cargas extras) — isso lá já está filtrado por janela do dia, então não muda.
-
-### Correção 2 — Card QWE1B20 sem peso (caso operacional)
-
-Sem mudança de código necessária aqui: o porteiro vinculou a placa ao `carga_id = 'JR'` que não existe como carga real. O ideal é a Logística atribuir a carga correta (algum `JR …` real do dia) usando "Vincular carga" no painel do pátio. Posso fazer isso pelo banco se você me disser qual carga é, mas não vou adivinhar.
-
-### Arquivos alterados
-
-- `src/hooks/useCargasDiaExpedicao.ts` — filtrar saídas antigas ao calcular `saidaPorCarga`.
-
-Sem migração, sem mudança de schema, sem alterar UI.
+Assim que você confirmar, executo o update nos 26 itens.
