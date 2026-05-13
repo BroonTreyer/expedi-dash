@@ -28,10 +28,6 @@ export function VincularCargaDialog({ open, onOpenChange, veiculoEsperado }: Pro
     return cargas
       .filter((c) => c.transportadora && c.transportadora.trim() !== "")
       .filter((c) => {
-        const placaCarga = (c.placa || "").trim().toUpperCase();
-        return !placaCarga || placaCarga === placaVe;
-      })
-      .filter((c) => {
         if (!search) return true;
         const s = search.toLowerCase();
         return (
@@ -40,6 +36,15 @@ export function VincularCargaDialog({ open, onOpenChange, veiculoEsperado }: Pro
           c.transportadora?.toLowerCase().includes(s) ||
           c.motorista?.toLowerCase().includes(s)
         );
+      })
+      .sort((a, b) => {
+        const score = (c: typeof a) => {
+          const p = (c.placa || "").trim().toUpperCase();
+          if (p && p === placaVe) return 0;
+          if (!p) return 1;
+          return 2;
+        };
+        return score(a) - score(b);
       });
   }, [cargas, search, placaVe]);
 
@@ -134,6 +139,11 @@ export function VincularCargaDialog({ open, onOpenChange, veiculoEsperado }: Pro
                           {!c.placa && (
                             <Badge variant="outline" className="text-[10px] h-5">
                               Sem placa atribuída
+                            </Badge>
+                          )}
+                          {c.placa && !placaMatch && (
+                            <Badge variant="outline" className="text-[10px] h-5 border-amber-500/50 text-amber-700 dark:text-amber-400">
+                              Placa diferente: {c.placa}
                             </Badge>
                           )}
                         </div>
