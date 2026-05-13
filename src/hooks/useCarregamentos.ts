@@ -761,6 +761,7 @@ export function useVincularMovimentoACarga() {
       motoristaReal?: string | null;
       transportadoraReal?: string | null;
     }) => {
+      const { data: { user } } = await supabase.auth.getUser();
       const placaNorm = (input.placaReal || "").trim().toUpperCase();
 
       // 1. Anexa carga_id ao movimento de chegada (mantém estado 'chegada' —
