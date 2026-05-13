@@ -1,43 +1,49 @@
 ## Diagnóstico
 
-Existem dois registros do mesmo motorista/placa (DANILO / TMQ7C81), mas **não são duplicatas reais** — são duas faces do mesmo caminhão que ficaram desconectadas:
+Os pesos da Expedição estão errados por duas causas distintas:
 
-1. **Card vermelho (em cima)** — "Vincular a carga"
-   - Vem do movimento de portaria `740cde50…` com `carga_id = NULL`, `etapa_terceirizado = 'chegada'`
-   - Aparece em vermelho porque chegou na portaria sem carga vinculada
+### 1. KPIs ignoram EDIVAR (30.020 kg) e cargas finalizadas hoje
 
-2. **Card azul (Cargas fechadas aguardando veículo)** — EDIVAR
-   - Vem da carga `EDIVAR` (4 itens) com placa prevista TMQ7C81 e transportadora LOS TRANSPORTES
-   - O painel cruza por placa e enxerga a chegada acima → mostra "Aguardando liberação · 06:05 (309min)"
+A causa é a **"data efetiva"** das cargas terceirizadas. O hook `useCargasDiaExpedicao` busca `horario_saida_final` de TODAS as movimentações com aquele `carga_id`, sem filtrar por data, e usa essa saída para reatribuir o dia da carga. Quando o `carga_id` é reutilizado (caso comum: "EDIVAR", "JR", "ELIAS+EDIVAR" etc.), o sistema acha uma saída antiga e joga a carga de hoje para o passado.
 
-Ou seja, o porteiro registrou a chegada **sem usar o botão da carga EDIVAR**, então o sistema ficou com a chegada solta + a carga esperando.
+Hoje (13/05) temos:
 
-Existe também um `veiculos_esperados` antigo (`51e691d5…`) com `status_autorizacao = 'recusado'` para a mesma placa — lixo de tentativa anterior, sem efeito visual, mas convém limpar.
+| Carga             | Peso       | Saída encontrada     | Data efetiva calculada | Resultado |
+|-------------------|-----------:|----------------------|------------------------|-----------|
+| EDIVAR (no pátio) | 30.020 kg  | 30/04 (carga antiga) | 30/04                  | sumiu     |
+| EDIVAR+DMA+ALCIR  | 28.161 kg  | 12/05                | 12/05                  | sumiu     |
+| Elvis Maraba      | 12.144 kg  | 13/05                | 13/05                  | aparece   |
+
+Por isso o KPI mostra apenas **12.144 kg** em vez de **42.164 kg**.
+
+### 2. Card QWE1B20 (Fagno) sem peso
+
+O movimento de portaria está com `carga_id = 'JR'`, mas em `carregamentos_dia` não existe nenhuma carga chamada exatamente `JR` (existem `JR PERNIL`, `JR ROTA` etc., todas de outros dias). Como não há a carga, não há peso para mostrar no badge.
 
 ## Plano
 
-Vincular o movimento órfão à carga EDIVAR, exatamente como o botão "Vincular a carga" faria, para que **só o card azul EDIVAR permaneça** (com "Liberar entrada no pátio" verde funcionando normalmente).
+### Correção 1 — Ignorar saídas antigas ao calcular a data efetiva
 
-### Ações no banco (somente dados, sem mudanças de código)
+Em `src/hooks/useCargasDiaExpedicao.ts`, ao montar `saidaPorCarga`:
 
-1. **Vincular o movimento de portaria à carga EDIVAR**
-   - `UPDATE movimentacoes_portaria SET carga_id = 'EDIVAR' WHERE id = '740cde50-fe53-4c2a-8b78-36f43a4b10e4'`
+- Só considerar `horario_saida_final` que seja **>= a data da própria carga** (`r.data`).
+- Implementação: agrupar a data mínima por `carga_id` antes da consulta, filtrar `.gte('horario_saida_final', minDataGlobal)` na query, e depois descartar por carga qualquer saída anterior à data daquela carga específica.
 
-2. **Atualizar `veiculos_esperados` para refletir o vínculo**
-   - Apagar o registro antigo `recusado` (`51e691d5…`) que ficou órfão
-   - Garantir que exista um `veiculos_esperados` para a carga EDIVAR com a placa TMQ7C81, status `aguardando_vinculo`, `conferido = false`, `carga_id = 'EDIVAR'` (criar se não existir; o painel azul EDIVAR continua funcionando porque lê direto de `carregamentos_dia` + movimento)
+Resultado esperado:
 
-### Resultado esperado na tela
+- EDIVAR (data 13/05) ignora a saída antiga de 30/04 → sem `saidaPortariaIso` → fica em 13/05.
+- EDIVAR+DMA+ALCIR (data 13/05) ignora a saída de 12/05 → fica em 13/05 e cai como "Carregado/Em carregamento" (status=Carregado).
+- Elvis Maraba continua igual (saída 13/05 é válida).
+- KPI passa de 12.144 kg → ~70.325 kg (30.020 EDIVAR no pátio + 28.161 EDIVAR+DMA+ALCIR carregada + 12.144 Elvis Maraba).
 
-- Some o card vermelho "TMQ7C81 — Vincular a carga"
-- Permanece apenas o card azul **EDIVAR** com:
-  - badge "Aguardando liberação · 06:05 (xxxmin)"
-  - botões "Desfazer chegada" e "Liberar entrada no pátio"
+A mesma proteção também é aplicada em `cargaIdsSaidaHoje` (busca de cargas extras) — isso lá já está filtrado por janela do dia, então não muda.
 
-### Sem mudança de código
+### Correção 2 — Card QWE1B20 sem peso (caso operacional)
 
-Nenhum arquivo TS precisa ser editado — o bug não está no código, está no estado do banco. O fluxo correto (porteiro clicar em "Registrar chegada" dentro do card EDIVAR) já existe e funciona; só precisamos consertar o estado atual.
+Sem mudança de código necessária aqui: o porteiro vinculou a placa ao `carga_id = 'JR'` que não existe como carga real. O ideal é a Logística atribuir a carga correta (algum `JR …` real do dia) usando "Vincular carga" no painel do pátio. Posso fazer isso pelo banco se você me disser qual carga é, mas não vou adivinhar.
 
-### Como evitar repetição (opcional, fora deste plano)
+### Arquivos alterados
 
-Se quiser, num próximo passo posso adicionar uma trava: quando o porteiro registra chegada de uma placa que já está como "placa prevista" em uma carga fechada do dia, sugerir/forçar o vínculo automaticamente em vez de criar movimento órfão. Diga se quer que eu faça isso depois.
+- `src/hooks/useCargasDiaExpedicao.ts` — filtrar saídas antigas ao calcular `saidaPorCarga`.
+
+Sem migração, sem mudança de schema, sem alterar UI.
