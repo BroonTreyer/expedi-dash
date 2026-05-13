@@ -522,8 +522,13 @@ export function useCargasFechadasAguardando() {
       const norm = (p: string | null | undefined) => (p || "").trim().toUpperCase();
       const dentroJanela = (cargaData: string, ts: string | null) => {
         if (!ts) return false;
-        const ini = new Date(`${cargaData}T00:00:00`).getTime() - 12 * 3600_000;
-        const fim = new Date(`${cargaData}T00:00:00`).getTime() + 48 * 3600_000;
+        // Usa UTC para casar com `data_hora` (que vem em UTC do banco).
+        // Antes usávamos `T00:00:00` (horário local) — em pt-BR (UTC-3) isso
+        // descartava entradas legítimas registradas até ~3h após meia-noite UTC
+        // do dia anterior, fazendo a carga continuar aparecendo como "aguardando".
+        const base = new Date(`${cargaData}T00:00:00Z`).getTime();
+        const ini = base - 12 * 3600_000;
+        const fim = base + 48 * 3600_000;
         const t = new Date(ts).getTime();
         return Number.isFinite(t) && t >= ini && t <= fim;
       };
