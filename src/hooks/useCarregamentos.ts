@@ -647,7 +647,7 @@ export function useCargasFechadasParaVincular() {
     refetchInterval: 30000,
     queryFn: async () => {
       const since = new Date();
-      since.setDate(since.getDate() - 3);
+      since.setDate(since.getDate() - 7);
       const sinceStr = since.toISOString().slice(0, 10);
 
       const arr = await fetchAllPaginated<any>((from, to) =>

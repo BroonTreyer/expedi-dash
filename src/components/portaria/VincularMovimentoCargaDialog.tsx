@@ -27,11 +27,6 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
     return cargas
       .filter((c) => c.transportadora && c.transportadora.trim() !== "")
       .filter((c) => {
-        const placaCarga = (c.placa || "").trim().toUpperCase();
-        // Só lista: sem placa atribuída OU placa igual à do veículo que chegou.
-        return !placaCarga || placaCarga === placaMov;
-      })
-      .filter((c) => {
         if (!search) return true;
         const s = search.toLowerCase();
         return (
@@ -40,6 +35,16 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
           c.transportadora?.toLowerCase().includes(s) ||
           c.motorista?.toLowerCase().includes(s)
         );
+      })
+      .sort((a, b) => {
+        // Prioriza: placa coincide > sem placa > placa diferente.
+        const score = (c: typeof a) => {
+          const p = (c.placa || "").trim().toUpperCase();
+          if (p && p === placaMov) return 0;
+          if (!p) return 1;
+          return 2;
+        };
+        return score(a) - score(b);
       });
   }, [cargas, search, placaMov]);
 
@@ -137,6 +142,11 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
                           {!c.placa && (
                             <Badge variant="outline" className="text-[10px] h-5">
                               Sem placa atribuída
+                            </Badge>
+                          )}
+                          {c.placa && !placaMatch && (
+                            <Badge variant="outline" className="text-[10px] h-5 border-amber-500/50 text-amber-700 dark:text-amber-400">
+                              Placa diferente: {c.placa}
                             </Badge>
                           )}
                         </div>
