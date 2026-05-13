@@ -1,41 +1,39 @@
-## Problema
+## Objetivo
 
-Ao clicar em **"Registrar"** no topo da Portaria → Varejo (`/portaria/carga-propria`) sem nenhum prefill (registro manual), o nome do motorista e a placa não aparecem depois de salvar — nem no Pátio Atual, nem em outros painéis.
+Permitir dar baixa em massa (ou individualmente) nos registros antigos de **Varejo / Carga Própria** que estão travados no Pátio Atual em "Em Rota", "Chegou" ou "Estado inconsistente", sem precisar preencher KM, foto ou horário de retorno.
 
-## Causa raiz
+## Onde
 
-No arquivo `src/components/portaria/RegistroMovimentoDialog.tsx`, na inicialização do diálogo (linha 137), quando não há prefill e `forcedCategoria === "carga_propria"`, o `tipo` é forçado para `"saida_rota"`:
+Adicionar um terceiro card no `PortariaAdminPanel` (já existe em `/portaria-admin`, ao lado de "Movimentações Fantasma" e "Veículos Esperados Antigos"), chamado **"Carga Própria travada no pátio"**.
 
-```ts
-setTipo(forcedCategoria === "carga_propria" ? "saida_rota" : "entrada");
-```
+## Como funciona
 
-Isso faz o formulário usar a matriz `VISIBILITY_SAIDA_ROTA` (`src/lib/portaria-fields-config.ts`), que mantém **placa, motorista e tipo_caminhao como `"oculto"`** — porque o desenho original presumia que a chegada já tinha sido registrada antes (via aba Esperados ou painel "Cargas fechadas aguardando veículo"), trazendo esses dados pelo prefill.
+- Lista todas as movimentações com `categoria = 'carga_propria'` que ainda **não foram finalizadas** (`etapa_carga_propria IN ('chegou','em_rota','retornou')` ou nulo, e `horario_saida_final IS NULL`) e cuja `data_hora` (ou `horario_real_saida`) seja anterior a um limite configurável.
+- Limite padrão: **24 horas**. Seletor rápido no header do card: 24h / 48h / 72h / 7 dias.
+- Cada linha mostra: placa (ou "—"), motorista, rota, etapa atual (badge) e há quanto tempo está aberto.
+- Botão por linha **"Dar baixa"** e botão no header **"Dar baixa em todos"** (com confirmação `AlertDialog`, igual aos outros cards).
 
-Resultado: no fluxo manual standalone os campos placa/motorista nunca são pedidos, o `INSERT` salva `placa = null, motorista = null` e o cartão no Pátio Atual mostra "—".
+## O que a "baixa" faz
 
-## Correção proposta
+UPDATE na `movimentacoes_portaria` setando:
 
-Tratar o caso "Registrar manual de Varejo sem prefill" como uma chegada+saída-p/-rota combinada, exigindo os dados de identidade do veículo.
+- `etapa_carga_propria = 'finalizado'`
+- `horario_saida_final = now()` (e também `horario_real_retorno = now()` se ainda for nulo, para os relatórios fecharem o ciclo)
+- `observacoes` recebe append: `"[Baixa administrativa - registro antigo sem dados]"`
 
-### Mudança 1 — `src/components/portaria/RegistroMovimentoDialog.tsx`
+Não preenche KM final, foto, nem nada que dependa do motorista. O registro sai do Pátio Atual e dos KPIs de "No Pátio", e fica disponível no Histórico marcado como finalizado por admin.
 
-Quando `!prefill && !prefillFromPlanilha && forcedCategoria === "carga_propria"`, manter `tipo = "entrada"` (em vez de `"saida_rota"`). Assim o formulário passa a usar a matriz `VISIBILITY` padrão, que para `carga_propria` já marca `placa`, `motorista`, `rota`, `km_inicial` e `foto_painel_saida_url` como obrigatórios (nasce direto em "em_rota" via lógica `isCargaPropriaPrimeiraSaida` já existente nas linhas 357–420).
+## Detalhes técnicos
 
-A lógica de salvar (`isCargaPropriaPrimeiraSaida`) continua valendo: `tipo_movimento` é reescrito para `"entrada"` no payload, com `etapa_carga_propria = "chegou"` ou `"em_rota"` se a foto do painel/KM inicial vierem preenchidos. Nada muda na persistência.
-
-### Mudança 2 — verificação de regressão
-
-- Confirmar que abrir o diálogo via "Saída p/ Rota" no Pátio Atual continua usando `prefillEtapa = "saida_rota"` (esse caminho já preserva placa/motorista pelo prefill — linhas 79–94 — então não é afetado).
-- Confirmar que abrir via aba Esperados continua passando pelo `openRegistroFromVeiculoEsperado` em `Portaria.tsx` (não usa este diálogo, usa `buildCargaPropriaPayload` direto — também não é afetado).
-
-## Arquivo a alterar
-
-- `src/components/portaria/RegistroMovimentoDialog.tsx` — ajustar a linha 137 para forçar `setTipo("entrada")` quando não houver prefill, mesmo para `carga_propria`.
+- Arquivo único alterado: `src/components/portaria/PortariaAdminPanel.tsx`.
+- Nova `useQuery(["admin-cargas-proprias-travadas", limiteHoras])` e duas mutations (`finalizarUmaCargaPropria`, `finalizarTodasCargasProprias`), seguindo exatamente o padrão das mutations existentes (toast + invalidate de `movimentacoes-portaria`).
+- Invalidar também `["motoristas-painel"]` para o painel de motoristas atualizar.
+- Sem migração de banco — só UPDATE via cliente, RLS já permite admin/logística editar `movimentacoes_portaria`.
+- Sem mudança em telas de Portaria/Pátio Atual — a baixa em massa fica concentrada no painel admin para evitar uso acidental.
 
 ## Validação
 
-1. Em `/portaria/carga-propria`, clicar **Registrar** → diálogo deve mostrar os blocos **Veículo** (placa + motorista + tipo_caminhão) e **Operação** (rota, km_inicial, foto do painel).
-2. Preencher placa "TEST123", motorista "João" e salvar.
-3. O cartão deve aparecer no **Pátio Atual** mostrando placa e motorista corretamente.
-4. Não deve mais aparecer o badge vermelho "Estado inconsistente" para registros recém-criados.
+1. Acessar `/portaria-admin` como admin.
+2. O novo card mostra os registros da imagem (OMN3I28 155h, EFO0D46 133h, etc.).
+3. Clicar "Dar baixa em todos" com janela de 24h → confirma → todos somem do Pátio Atual de Varejo e aparecem como finalizados no Histórico.
+4. KPIs "No Pátio" e "Em Rota" do painel de Varejo zeram para esses registros antigos.
