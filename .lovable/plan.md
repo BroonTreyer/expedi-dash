@@ -1,42 +1,43 @@
-# Por que o SAMUEL ainda está aparecendo
+## Diagnóstico
 
-**Causa raiz 1 — bug de fuso horário (código):**
-Em `src/hooks/useCarregamentos.ts`, a função `dentroJanela` (linhas ~523-529) cria a janela de tempo com `new Date(\`${cargaData}T00:00:00\`)`, que o navegador interpreta como **horário local**. Em pt-BR (UTC-3), a janela da carga de `2026-05-13` vira `2026-05-12 15:00 UTC` → `2026-05-15 03:00 UTC`. A entrada real do SAMUEL ocorreu às `2026-05-12 12:51 UTC` (09:51 local) — **fica fora da janela por ~3h**. Resultado: o hook não casa o movimento com a carga, ignora o `horario_entrada` já preenchido e segue exibindo "Confirmar entrada do motorista".
+Existem dois registros do mesmo motorista/placa (DANILO / TMQ7C81), mas **não são duplicatas reais** — são duas faces do mesmo caminhão que ficaram desconectadas:
 
-**Causa raiz 2 — operacional (dado):**
-O movimento `9c47876f...` (TFI2E43 / SAMUEL) tem `horario_entrada=2026-05-12 13:36`, `etapa_terceirizado=no_patio` e `horario_saida_final=NULL`. Ou seja, o motorista carregou e foi embora **sem registrar saída na portaria**, então mesmo após o fix do bug ele continuaria pendurado em "Pátio Atual".
+1. **Card vermelho (em cima)** — "Vincular a carga"
+   - Vem do movimento de portaria `740cde50…` com `carga_id = NULL`, `etapa_terceirizado = 'chegada'`
+   - Aparece em vermelho porque chegou na portaria sem carga vinculada
 
-# Plano
+2. **Card azul (Cargas fechadas aguardando veículo)** — EDIVAR
+   - Vem da carga `EDIVAR` (4 itens) com placa prevista TMQ7C81 e transportadora LOS TRANSPORTES
+   - O painel cruza por placa e enxerga a chegada acima → mostra "Aguardando liberação · 06:05 (309min)"
 
-## 1. Corrigir o bug de fuso horário (`src/hooks/useCarregamentos.ts`)
+Ou seja, o porteiro registrou a chegada **sem usar o botão da carga EDIVAR**, então o sistema ficou com a chegada solta + a carga esperando.
 
-Em `dentroJanela`, trocar a construção de data local por UTC para que a janela operacional case corretamente com `data_hora` (que vem em UTC do banco):
+Existe também um `veiculos_esperados` antigo (`51e691d5…`) com `status_autorizacao = 'recusado'` para a mesma placa — lixo de tentativa anterior, sem efeito visual, mas convém limpar.
 
-```ts
-const dentroJanela = (cargaData: string, ts: string | null) => {
-  if (!ts) return false;
-  const base = new Date(`${cargaData}T00:00:00Z`).getTime(); // UTC
-  const ini = base - 12 * 3600_000;
-  const fim = base + 48 * 3600_000;
-  const t = new Date(ts).getTime();
-  return Number.isFinite(t) && t >= ini && t <= fim;
-};
-```
+## Plano
 
-Efeito: a partir desse fix, qualquer carga cuja entrada já foi liberada (`horario_entrada` preenchido) sai automaticamente do painel "Cargas fechadas aguardando veículo".
+Vincular o movimento órfão à carga EDIVAR, exatamente como o botão "Vincular a carga" faria, para que **só o card azul EDIVAR permaneça** (com "Liberar entrada no pátio" verde funcionando normalmente).
 
-## 2. Resolver o caso atual do SAMUEL (dado)
+### Ações no banco (somente dados, sem mudanças de código)
 
-Como a saída nunca foi registrada, há duas opções — preciso da sua confirmação:
+1. **Vincular o movimento de portaria à carga EDIVAR**
+   - `UPDATE movimentacoes_portaria SET carga_id = 'EDIVAR' WHERE id = '740cde50-fe53-4c2a-8b78-36f43a4b10e4'`
 
-- **(a) Registrar a saída agora** no banco para o movimento `9c47876f-09e3-4b5f-8ff2-1a027ba536cd`: setar `horario_saida_final = horario_real_saida = now()` e `etapa_terceirizado = 'finalizado'`. Ele sai do painel e do Pátio Atual.
-- **(b) Apenas finalizar a etapa** sem horário de saída real (caso você queira lançar manualmente outro horário depois pela tela de Portaria).
+2. **Atualizar `veiculos_esperados` para refletir o vínculo**
+   - Apagar o registro antigo `recusado` (`51e691d5…`) que ficou órfão
+   - Garantir que exista um `veiculos_esperados` para a carga EDIVAR com a placa TMQ7C81, status `aguardando_vinculo`, `conferido = false`, `carga_id = 'EDIVAR'` (criar se não existir; o painel azul EDIVAR continua funcionando porque lê direto de `carregamentos_dia` + movimento)
 
-A opção (a) é a mais limpa e reflete a realidade ("ja carregou e foi embora").
+### Resultado esperado na tela
 
-## 3. Validação
-- Recarregar `/portaria/registro-entrada` e confirmar que o card "SAMUEL" sumiu.
-- Conferir que outras cargas legítimas (que ainda não tiveram entrada liberada) continuam aparecendo normalmente.
+- Some o card vermelho "TMQ7C81 — Vincular a carga"
+- Permanece apenas o card azul **EDIVAR** com:
+  - badge "Aguardando liberação · 06:05 (xxxmin)"
+  - botões "Desfazer chegada" e "Liberar entrada no pátio"
 
-# Pergunta antes de implementar
-Confirma que pode marcar a saída do SAMUEL com `now()` (opção **a**)? Ou prefere registrar a saída manualmente pela tela depois (opção **b**, só aplico o fix de código)?
+### Sem mudança de código
+
+Nenhum arquivo TS precisa ser editado — o bug não está no código, está no estado do banco. O fluxo correto (porteiro clicar em "Registrar chegada" dentro do card EDIVAR) já existe e funciona; só precisamos consertar o estado atual.
+
+### Como evitar repetição (opcional, fora deste plano)
+
+Se quiser, num próximo passo posso adicionar uma trava: quando o porteiro registra chegada de uma placa que já está como "placa prevista" em uma carga fechada do dia, sugerir/forçar o vínculo automaticamente em vez de criar movimento órfão. Diga se quer que eu faça isso depois.
