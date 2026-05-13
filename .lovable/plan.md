@@ -1,76 +1,41 @@
-## Importar clientes a partir de PDFs (IA)
+## Problema
 
-Adicionar na tela **Clientes** um novo botão **"Importar PDF"** que aceita múltiplos arquivos, extrai os dados de cliente via IA e abre uma tela de revisão antes de gravar no cadastro.
+Ao clicar em **"Registrar"** no topo da Portaria → Varejo (`/portaria/carga-propria`) sem nenhum prefill (registro manual), o nome do motorista e a placa não aparecem depois de salvar — nem no Pátio Atual, nem em outros painéis.
 
-### 1. Edge Function nova: `parse-cliente-pdf`
+## Causa raiz
 
-Arquivo: `supabase/functions/parse-cliente-pdf/index.ts` (modelo do `parse-pedido-pdf`, mas focada em cliente).
+No arquivo `src/components/portaria/RegistroMovimentoDialog.tsx`, na inicialização do diálogo (linha 137), quando não há prefill e `forcedCategoria === "carga_propria"`, o `tipo` é forçado para `"saida_rota"`:
 
-- Recebe `{ fileBase64, fileName }`.
-- Valida JWT via `auth.getUser()`.
-- Chama Lovable AI (`google/gemini-2.5-flash`) com tool calling. Schema esperado:
-  ```
-  { razao_social, nome_fantasia, cnpj, inscricao_estadual,
-    endereco, bairro, cidade, uf, cep, telefone, email }
-  ```
-- System prompt genérico: extrair dados de cliente do PDF, independente do layout (pedido, proposta, cadastro). Campos ausentes → string vazia. CNPJ/CEP só dígitos.
-- Trata 429 e 402 com mensagens claras.
-- Configurada em `supabase/config.toml` (mantém `verify_jwt` padrão).
+```ts
+setTipo(forcedCategoria === "carga_propria" ? "saida_rota" : "entrada");
+```
 
-### 2. UI — diálogo `ImportarClientesPdfDialog.tsx`
+Isso faz o formulário usar a matriz `VISIBILITY_SAIDA_ROTA` (`src/lib/portaria-fields-config.ts`), que mantém **placa, motorista e tipo_caminhao como `"oculto"`** — porque o desenho original presumia que a chegada já tinha sido registrada antes (via aba Esperados ou painel "Cargas fechadas aguardando veículo"), trazendo esses dados pelo prefill.
 
-Novo componente em `src/components/clientes/ImportarClientesPdfDialog.tsx`.
+Resultado: no fluxo manual standalone os campos placa/motorista nunca são pedidos, o `INSERT` salva `placa = null, motorista = null` e o cartão no Pátio Atual mostra "—".
 
-**Fluxo em 2 passos:**
+## Correção proposta
 
-**Passo A — Upload e extração**
-- `<input type="file" accept="application/pdf" multiple>` (até 10 arquivos por vez).
-- Para cada PDF: converte para base64, chama `supabase.functions.invoke("parse-cliente-pdf")` em sequência (com toast de progresso `n/total`).
-- Acumula resultados em estado local: `parsed[]`.
+Tratar o caso "Registrar manual de Varejo sem prefill" como uma chegada+saída-p/-rota combinada, exigindo os dados de identidade do veículo.
 
-**Passo B — Tabela de revisão**
-Tabela editável com 1 linha por PDF, colunas:
-- **Status** (✓ extraído / ⚠ erro / ✗ duplicado)
-- **Código *** (input — usuário digita; pré-sugere CNPJ sem máscara, mas obrigatório editar/confirmar)
-- **Nome *** (input, pré-preenchido com `razao_social`)
-- **Cidade**, **UF**, **CEP** (inputs)
-- **Arquivo** (nome do PDF, somente leitura)
-- **Ações:** remover linha
+### Mudança 1 — `src/components/portaria/RegistroMovimentoDialog.tsx`
 
-Validações em tempo real:
-- Código + Nome obrigatórios.
-- Marca duplicidade comparando `codigo_cliente` com a lista atual de `useClientes()` (badge "Já existe").
-- Detecta códigos repetidos entre as próprias linhas.
+Quando `!prefill && !prefillFromPlanilha && forcedCategoria === "carga_propria"`, manter `tipo = "entrada"` (em vez de `"saida_rota"`). Assim o formulário passa a usar a matriz `VISIBILITY` padrão, que para `carga_propria` já marca `placa`, `motorista`, `rota`, `km_inicial` e `foto_painel_saida_url` como obrigatórios (nasce direto em "em_rota" via lógica `isCargaPropriaPrimeiraSaida` já existente nas linhas 357–420).
 
-**Botão "Salvar todos":**
-- Filtra linhas válidas (não duplicadas, com código+nome).
-- Faz `supabase.from("clientes").upsert(batch, { onConflict: "codigo_cliente" })` em lote único.
-- Após salvar: dispara `enrich-clientes-viacep` (cursor) e `sync_clients_to_orders` (mesmo padrão do `handleImport` atual).
-- Toast: `"X clientes salvos, Y ignorados"`. Invalida queries `clientes` e `carregamentos`.
+A lógica de salvar (`isCargaPropriaPrimeiraSaida`) continua valendo: `tipo_movimento` é reescrito para `"entrada"` no payload, com `etapa_carga_propria = "chegou"` ou `"em_rota"` se a foto do painel/KM inicial vierem preenchidos. Nada muda na persistência.
 
-### 3. Integração em `src/pages/Clientes.tsx`
+### Mudança 2 — verificação de regressão
 
-- Importa o novo diálogo.
-- Adiciona botão **"Importar PDF"** (ícone `FileText`) ao lado de "Importar" (Excel), mantendo o mesmo padrão de estilo `variant="outline" size="sm"`.
-- Estado `pdfDialogOpen` controla abertura.
-- Não altera nenhum fluxo existente (Excel, ViaCEP, sync).
+- Confirmar que abrir o diálogo via "Saída p/ Rota" no Pátio Atual continua usando `prefillEtapa = "saida_rota"` (esse caminho já preserva placa/motorista pelo prefill — linhas 79–94 — então não é afetado).
+- Confirmar que abrir via aba Esperados continua passando pelo `openRegistroFromVeiculoEsperado` em `Portaria.tsx` (não usa este diálogo, usa `buildCargaPropriaPayload` direto — também não é afetado).
 
-### 4. Detalhes técnicos
+## Arquivo a alterar
 
-- Conversão base64 no client com `FileReader.readAsDataURL` + `split(",")[1]`.
-- Limite por arquivo: 10MB (alerta no UI).
-- Erros por arquivo não bloqueiam os demais — mostra mensagem na linha.
-- Reuso de helpers: `normalizeCep`, `ufFromCep` para preencher UF se vier vazia mas com CEP.
-- CNPJ guardado sem máscara em `codigo_cliente` (apenas dígitos) caso o usuário aceite a sugestão.
+- `src/components/portaria/RegistroMovimentoDialog.tsx` — ajustar a linha 137 para forçar `setTipo("entrada")` quando não houver prefill, mesmo para `carga_propria`.
 
-### 5. Itens fora do escopo
+## Validação
 
-- Não cria pedido/carga a partir do PDF — apenas cliente.
-- Não altera o `parse-pedido-pdf` existente.
-- Não adiciona novos campos ao schema da tabela `clientes` (usa os campos já existentes: `codigo_cliente`, `nome_cliente`, `cidade`, `uf`, `cep`, `ativo`). Telefone/email/CNPJ extraídos são exibidos para conferência mas não persistidos enquanto não houver colunas — caso queira persistir, abrir tarefa separada para migration.
-
-### Validação após implementação
-
-1. Subir 2-3 PDFs de layouts diferentes — confirmar extração correta.
-2. Editar código na tabela de revisão e salvar — conferir cliente no cadastro.
-3. Testar PDF com cliente já existente — confirmar badge "Já existe" e que o upsert atualiza sem duplicar.
+1. Em `/portaria/carga-propria`, clicar **Registrar** → diálogo deve mostrar os blocos **Veículo** (placa + motorista + tipo_caminhão) e **Operação** (rota, km_inicial, foto do painel).
+2. Preencher placa "TEST123", motorista "João" e salvar.
+3. O cartão deve aparecer no **Pátio Atual** mostrando placa e motorista corretamente.
+4. Não deve mais aparecer o badge vermelho "Estado inconsistente" para registros recém-criados.
