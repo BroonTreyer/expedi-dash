@@ -784,11 +784,14 @@ export function useVincularMovimentoACarga() {
         .eq("carga_id", input.cargaId);
       if (e2) throw e2;
 
-      // 3. Garante um registro em veiculos_esperados marcado como autorizado
-      //    para esta placa+carga. Sem isso, o painel "Carga vinculada — clique
-      //    para liberar entrada no pátio" não aparece e a Portaria não tem o
-      //    botão de Liberar Entrada — caso típico do veículo que chegou direto
-      //    pela portaria sem walk-in (ex.: Fagno / QWE1B20 / JR ROTA).
+      // 3. Garante um registro em veiculos_esperados em estado
+      //    `aguardando_vinculo` (NÃO autorizado ainda) para esta placa.
+      //    Manter como aguardando_vinculo é essencial para que o veículo:
+      //      - continue aparecendo no card vermelho da Portaria
+      //      - apareça em "Veículos no pátio aguardando vínculo" do
+      //        Fechar Carga, permitindo a Logística selecioná-lo e fechar
+      //        a carga corretamente. A autorização efetiva é feita ao
+      //        fechar a carga (FechamentoLoteDialog).
       const { data: veExistente } = await supabase
         .from("veiculos_esperados" as any)
         .select("id")
@@ -803,9 +806,9 @@ export function useVincularMovimentoACarga() {
           .from("veiculos_esperados" as any)
           .update({
             carga_id: input.cargaId,
-            status_autorizacao: "autorizado",
-            autorizado_por: user?.id ?? null,
-            autorizado_em: nowIso,
+            status_autorizacao: "aguardando_vinculo",
+            autorizado_por: null,
+            autorizado_em: null,
             motorista: input.motoristaReal ?? undefined,
             transportadora: input.transportadoraReal ?? undefined,
           } as any)
@@ -820,11 +823,11 @@ export function useVincularMovimentoACarga() {
             motorista: input.motoristaReal ?? null,
             transportadora: input.transportadoraReal ?? null,
             carga_id: input.cargaId,
-            status_autorizacao: "autorizado",
+            status_autorizacao: "aguardando_vinculo",
             walk_in: true,
             conferido: false,
-            autorizado_por: user?.id ?? null,
-            autorizado_em: nowIso,
+            autorizado_por: null,
+            autorizado_em: null,
             criado_por: user?.id ?? null,
           } as any);
       }
