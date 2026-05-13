@@ -1,38 +1,22 @@
-## Problema
+Vou corrigir a fonte do card vermelho dessa tela (`/portaria/registro-entrada`).
 
-Fagno (registro `3ab3d485-e833-4568-8157-5117b86a77a6`, placa QWE1B20, terceirizado, etapa `chegada`, criado em 12/05 11:33 sem `carga_id` e sem `horario_entrada`) sumiu do Pátio Atual hoje. Ontem ele aparecia como card vermelho "Aguardando vínculo".
+Problema encontrado:
+- O registro atual do Fagno existe em `movimentacoes_portaria` como terceirizado em `chegada`, sem `carga_id` e sem `horario_entrada`.
+- Mas o card vermelho da tela do print não lê essa tabela; ele lê apenas `veiculos_esperados` com `walk_in=true`, `conferido=false` e `status_autorizacao='aguardando_vinculo'`.
+- Como o Fagno não tem um `veiculos_esperados` ativo equivalente, ele aparece no Pátio Atual, mas não entra nesse card vermelho de “Aguardando vínculo da Logística”.
 
-Em `src/components/portaria/PatioAtualTab.tsx` o filtro de `veiculosNoPatio` tem dois trechos conflitantes:
+Plano de correção:
+1. Ajustar `SolicitacoesPendentesPanel` para também buscar movimentos ativos em `movimentacoes_portaria` que estejam como:
+   - `categoria='terceirizado'`
+   - `etapa_terceirizado='chegada'`
+   - `carga_id` vazio
+   - `horario_entrada` vazio
+2. Unificar esses registros com os walk-ins de `veiculos_esperados`, evitando duplicidade quando houver os dois registros para a mesma placa.
+3. No card vermelho, manter os mesmos dados visíveis: placa, motorista, transportadora, tipo do veículo e horário de chegada.
+4. Para registros vindos de `movimentacoes_portaria` (caso do Fagno), trocar a ação “Vincular a carga” para usar o diálogo correto (`VincularMovimentoCargaDialog`), que atualiza o movimento existente.
+5. Manter os registros antigos de `veiculos_esperados` usando o fluxo atual (`VincularCargaDialog`) sem alterar o comportamento dos cards que já aparecem no print.
 
-- Linha 136: `if (m.horario_chegada && !m.horario_entrada) return false;` — remove qualquer chegada sem entrada física, **incluindo terceirizados em `chegada` sem carga**.
-- Linhas 139-142 (comentário): "Terceirizado em 'chegada' SEM carga vinculada permanece visível aqui em destaque vermelho" — intenção declarada, mas inalcançável porque o filtro anterior já excluiu o registro.
-
-A regra do filtro 136 foi criada para evitar duplicação com o painel azul "Cargas fechadas aguardando veículo", que mostra entradas com `carga_id` vinculado. Terceirizado em `chegada` **sem** `carga_id` não aparece no painel azul (não há carga para vincular), então não há duplicação a temer — ele deve ficar no Pátio Atual como card vermelho.
-
-## Correção
-
-Em `src/components/portaria/PatioAtualTab.tsx`, ajustar a linha 136 para abrir uma exceção a terceirizado em `chegada` sem `carga_id`:
-
-```ts
-// Chegada registrada mas sem entrada física no pátio fica no painel azul,
-// EXCETO terceirizado em "chegada" sem carga vinculada — esse permanece
-// aqui em vermelho ("Aguardando vínculo"), porque o painel azul só lista
-// chegadas COM carga_id.
-const isTerceirizadoAguardandoVinculo =
-  m.categoria === "terceirizado" &&
-  m.etapa_terceirizado === "chegada" &&
-  !m.carga_id;
-if (m.horario_chegada && !m.horario_entrada && !isTerceirizadoAguardandoVinculo) return false;
-```
-
-Mantém a deduplicação para carga própria/terceirizado com carga vinculada e devolve o card vermelho do Fagno (e qualquer caso similar).
-
-## Arquivos alterados
-
-- `src/components/portaria/PatioAtualTab.tsx` — uma linha de filtro em `veiculosNoPatio`.
-
-## Validação
-
-1. Recarregar `/portaria` → Pátio Atual deve mostrar o card vermelho do Fagno (placa QWE1B20) no topo da lista, com botão "Vincular carga".
-2. Vincular uma carga ao Fagno → ele migra para o estado normal (libera entrada) e o card vermelho some.
-3. Conferir que terceirizados COM `carga_id` aguardando liberação continuam aparecendo no painel azul "Cargas fechadas aguardando veículo" e não duplicam no Pátio Atual.
+Validação esperada:
+- Fagno/QWE1B20 volta a aparecer no card vermelho “Aguardando vínculo da Logística”.
+- PBV1F92 e TMQ7C81 continuam aparecendo como estão.
+- Ao vincular uma carga no Fagno, ele sai do vermelho e segue o fluxo normal de liberação/entrada no pátio.
