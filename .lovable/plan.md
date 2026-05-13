@@ -1,39 +1,30 @@
-## Objetivo
+## Problema
 
-Permitir dar baixa em massa (ou individualmente) nos registros antigos de **Varejo / Carga Própria** que estão travados no Pátio Atual em "Em Rota", "Chegou" ou "Estado inconsistente", sem precisar preencher KM, foto ou horário de retorno.
+Em `/portaria/carga-propria` (Varejo), o registro `id=a3ba1b31-d809-4aa4-9531-ca7a899b030b` (rota "Águas lindas", 09:06) ficou com **placa=null** e **motorista=null** mesmo estando "Em Rota". A causa: o fluxo **"Saída p/ Rota"** usa a matriz `VISIBILITY_SAIDA_ROTA` (em `src/lib/portaria-fields-config.ts`, linhas 208–220) que marca **placa, motorista e foto_placa_url como `oculto`** — assumindo que o prefill já trouxe esses dados. Quando o registro de "Chegou" foi criado a partir da aba **Esperados** com a planilha sem essas colunas, o prefill veio vazio, o formulário não pediu, e o UPDATE gravou `null`.
 
-## Onde
+## Correção
 
-Adicionar um terceiro card no `PortariaAdminPanel` (já existe em `/portaria-admin`, ao lado de "Movimentações Fantasma" e "Veículos Esperados Antigos"), chamado **"Carga Própria travada no pátio"**.
+Em `src/lib/portaria-fields-config.ts`, ajustar `VISIBILITY_SAIDA_ROTA` para exibir placa, motorista e foto da placa em **carga_propria**:
 
-## Como funciona
+- `placa`               → `obrigatorio`
+- `motorista`           → `obrigatorio`
+- `foto_placa_url`      → `opcional` (se a foto já existe da chegada, não força tirar de novo; se não existe, fica disponível)
 
-- Lista todas as movimentações com `categoria = 'carga_propria'` que ainda **não foram finalizadas** (`etapa_carga_propria IN ('chegou','em_rota','retornou')` ou nulo, e `horario_saida_final IS NULL`) e cuja `data_hora` (ou `horario_real_saida`) seja anterior a um limite configurável.
-- Limite padrão: **24 horas**. Seletor rápido no header do card: 24h / 48h / 72h / 7 dias.
-- Cada linha mostra: placa (ou "—"), motorista, rota, etapa atual (badge) e há quanto tempo está aberto.
-- Botão por linha **"Dar baixa"** e botão no header **"Dar baixa em todos"** (com confirmação `AlertDialog`, igual aos outros cards).
+Mantém o resto da matriz como está (foto_painel_saida_url e km_inicial obrigatórios; rota/peso/qtd_entregas/km_rota/observações opcionais).
 
-## O que a "baixa" faz
+O diálogo (`RegistroMovimentoDialog.tsx`, linhas 84–94) já faz o pré-preenchimento de placa/motorista a partir do `prefill`, então casos em que esses dados já existem aparecem preenchidos automaticamente — o operador só precisa confirmar. Casos com prefill vazio agora exigem preenchimento, eliminando o registro fantasma.
 
-UPDATE na `movimentacoes_portaria` setando:
+## Limpeza pontual
 
-- `etapa_carga_propria = 'finalizado'`
-- `horario_saida_final = now()` (e também `horario_real_retorno = now()` se ainda for nulo, para os relatórios fecharem o ciclo)
-- `observacoes` recebe append: `"[Baixa administrativa - registro antigo sem dados]"`
+Atualizar o registro existente (`a3ba1b31`) para limpar o estado, ou deixar o admin dar baixa via `/portaria-admin` (já implementado). Pergunto ao usuário se quer que eu corrija a placa/motorista deste registro específico assim que ele me passar os dados.
 
-Não preenche KM final, foto, nem nada que dependa do motorista. O registro sai do Pátio Atual e dos KPIs de "No Pátio", e fica disponível no Histórico marcado como finalizado por admin.
+## Arquivos alterados
 
-## Detalhes técnicos
-
-- Arquivo único alterado: `src/components/portaria/PortariaAdminPanel.tsx`.
-- Nova `useQuery(["admin-cargas-proprias-travadas", limiteHoras])` e duas mutations (`finalizarUmaCargaPropria`, `finalizarTodasCargasProprias`), seguindo exatamente o padrão das mutations existentes (toast + invalidate de `movimentacoes-portaria`).
-- Invalidar também `["motoristas-painel"]` para o painel de motoristas atualizar.
-- Sem migração de banco — só UPDATE via cliente, RLS já permite admin/logística editar `movimentacoes_portaria`.
-- Sem mudança em telas de Portaria/Pátio Atual — a baixa em massa fica concentrada no painel admin para evitar uso acidental.
+- `src/lib/portaria-fields-config.ts` — três entradas em `VISIBILITY_SAIDA_ROTA` para `carga_propria`.
 
 ## Validação
 
-1. Acessar `/portaria-admin` como admin.
-2. O novo card mostra os registros da imagem (OMN3I28 155h, EFO0D46 133h, etc.).
-3. Clicar "Dar baixa em todos" com janela de 24h → confirma → todos somem do Pátio Atual de Varejo e aparecem como finalizados no Histórico.
-4. KPIs "No Pátio" e "Em Rota" do painel de Varejo zeram para esses registros antigos.
+1. Abrir um card "Chegou" sem placa → clicar "Saída p/ Rota" → o diálogo agora mostra os blocos **Veículo** (placa + motorista) com asterisco vermelho de obrigatório.
+2. Tentar salvar sem preencher → botão fica desabilitado.
+3. Preencher placa+motorista, salvar → registro vai para "Em Rota" com os dois campos populados; some o "—" do Pátio Atual.
+4. Em cards onde o prefill já trazia placa/motorista (vindo de uma carga fechada vinculada), os campos aparecem preenchidos e o operador só confirma.

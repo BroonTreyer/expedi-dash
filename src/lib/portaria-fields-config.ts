@@ -210,6 +210,9 @@ export const VISIBILITY_SAIDA_ROTA: VisibilityMatrix = Object.fromEntries(
     const allOculto: Record<Categoria, FieldVisibility> = { carga_propria: "oculto", terceirizado: "oculto", fornecedor: "oculto", visitante: "oculto", prestador: "oculto", outros: "oculto" };
     if (key === "foto_painel_saida_url") return [key, { ...allOculto, carga_propria: "obrigatorio" }];
     if (key === "km_inicial") return [key, { ...allOculto, carga_propria: "obrigatorio" }];
+    if (key === "placa") return [key, { ...allOculto, carga_propria: "obrigatorio" }];
+    if (key === "motorista") return [key, { ...allOculto, carga_propria: "obrigatorio" }];
+    if (key === "foto_placa_url") return [key, { ...allOculto, carga_propria: "opcional" }];
     if (key === "rota") return [key, { ...allOculto, carga_propria: "opcional" }];
     if (key === "peso") return [key, { ...allOculto, carga_propria: "opcional" }];
     if (key === "qtd_entregas") return [key, { ...allOculto, carga_propria: "opcional" }];
