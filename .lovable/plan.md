@@ -1,23 +1,42 @@
-Plano para corrigir sem quebrar o fluxo atual:
+# Por que o SAMUEL ainda está aparecendo
 
-1. Ajustar o estado do Fagno agora
-- O registro atual do Fagno está com `carga_id = JR ROTA` e `status_autorizacao = autorizado`, por isso ele saiu do card vermelho e não aparece em Fechar Carga.
-- Vou retornar o registro ativo dele para `aguardando_vinculo` e limpar o vínculo de carga pendente, preservando placa, motorista, transportadora e horário de chegada.
+**Causa raiz 1 — bug de fuso horário (código):**
+Em `src/hooks/useCarregamentos.ts`, a função `dentroJanela` (linhas ~523-529) cria a janela de tempo com `new Date(\`${cargaData}T00:00:00\`)`, que o navegador interpreta como **horário local**. Em pt-BR (UTC-3), a janela da carga de `2026-05-13` vira `2026-05-12 15:00 UTC` → `2026-05-15 03:00 UTC`. A entrada real do SAMUEL ocorreu às `2026-05-12 12:51 UTC` (09:51 local) — **fica fora da janela por ~3h**. Resultado: o hook não casa o movimento com a carga, ignora o `horario_entrada` já preenchido e segue exibindo "Confirmar entrada do motorista".
 
-2. Corrigir a causa no código
-- Em `useVincularMovimentoACarga`, ao vincular um movimento órfão, não vou mais criar/alterar `veiculos_esperados` como `autorizado` imediatamente.
-- O vínculo manual direto continuará anexando a carga ao movimento quando usado, mas não deve “sumir” com o veículo do fluxo de espera antes da Portaria liberar corretamente.
+**Causa raiz 2 — operacional (dado):**
+O movimento `9c47876f...` (TFI2E43 / SAMUEL) tem `horario_entrada=2026-05-12 13:36`, `etapa_terceirizado=no_patio` e `horario_saida_final=NULL`. Ou seja, o motorista carregou e foi embora **sem registrar saída na portaria**, então mesmo após o fix do bug ele continuaria pendurado em "Pátio Atual".
 
-3. Fazer o Fagno aparecer em Fechar Carga
-- Em `useVeiculosAguardandoVinculo`, manter a lista baseada em `veiculos_esperados` aguardando vínculo.
-- Adicionar fallback para incluir movimentos órfãos da Portaria (`terceirizado`, `entrada`, `chegada`, sem `horario_entrada`) como veículos aguardando vínculo, mesmo quando não existir ou estiver inconsistente o registro em `veiculos_esperados`.
-- Remover duplicidade por placa, priorizando o registro correto de `veiculos_esperados` quando existir.
+# Plano
 
-4. Garantir fechamento sem bug
-- Ao fechar a carga com um veículo selecionado, se ele veio desse fallback de movimento órfão, o fechamento deve atualizar também a movimentação da Portaria com o `carga_id` gerado.
-- Se ele veio de `veiculos_esperados`, mantém o comportamento atual.
+## 1. Corrigir o bug de fuso horário (`src/hooks/useCarregamentos.ts`)
 
-5. Validação
-- Conferir no banco que Fagno/QWE1B20 volta para o card vermelho.
-- Conferir que ele aparece na seção “Veículos no pátio aguardando vínculo” dentro de Fechar Carga.
-- Manter os filtros por sessão e invalidação de cache existentes.
+Em `dentroJanela`, trocar a construção de data local por UTC para que a janela operacional case corretamente com `data_hora` (que vem em UTC do banco):
+
+```ts
+const dentroJanela = (cargaData: string, ts: string | null) => {
+  if (!ts) return false;
+  const base = new Date(`${cargaData}T00:00:00Z`).getTime(); // UTC
+  const ini = base - 12 * 3600_000;
+  const fim = base + 48 * 3600_000;
+  const t = new Date(ts).getTime();
+  return Number.isFinite(t) && t >= ini && t <= fim;
+};
+```
+
+Efeito: a partir desse fix, qualquer carga cuja entrada já foi liberada (`horario_entrada` preenchido) sai automaticamente do painel "Cargas fechadas aguardando veículo".
+
+## 2. Resolver o caso atual do SAMUEL (dado)
+
+Como a saída nunca foi registrada, há duas opções — preciso da sua confirmação:
+
+- **(a) Registrar a saída agora** no banco para o movimento `9c47876f-09e3-4b5f-8ff2-1a027ba536cd`: setar `horario_saida_final = horario_real_saida = now()` e `etapa_terceirizado = 'finalizado'`. Ele sai do painel e do Pátio Atual.
+- **(b) Apenas finalizar a etapa** sem horário de saída real (caso você queira lançar manualmente outro horário depois pela tela de Portaria).
+
+A opção (a) é a mais limpa e reflete a realidade ("ja carregou e foi embora").
+
+## 3. Validação
+- Recarregar `/portaria/registro-entrada` e confirmar que o card "SAMUEL" sumiu.
+- Conferir que outras cargas legítimas (que ainda não tiveram entrada liberada) continuam aparecendo normalmente.
+
+# Pergunta antes de implementar
+Confirma que pode marcar a saída do SAMUEL com `now()` (opção **a**)? Ou prefere registrar a saída manualmente pela tela depois (opção **b**, só aplico o fix de código)?
