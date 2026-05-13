@@ -127,13 +127,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         // Normal: show entradas without linked saída
         if (m.tipo_movimento !== "entrada") return false;
         if (saidasVinculadas.has(m.id)) return false;
-        // Chegada registrada mas sem entrada física no pátio
-        // (horario_chegada preenchido, horario_entrada nulo) NÃO pertence ao
-        // Pátio Atual — a visibilidade fica no painel azul "Cargas fechadas
-        // aguardando veículo", em estado âmbar com o botão
-        // "Liberar entrada no pátio". Sem este filtro o veículo aparecia
-        // duplicado (painel azul + pátio).
-        if (m.horario_chegada && !m.horario_entrada) return false;
+        // Chegada registrada mas sem entrada física no pátio fica no painel
+        // azul "Cargas fechadas aguardando veículo" — EXCETO terceirizado em
+        // "chegada" SEM carga vinculada, que precisa permanecer aqui em
+        // vermelho ("Aguardando vínculo"), porque o painel azul só lista
+        // chegadas COM carga_id.
+        const isTerceirizadoAguardandoVinculo =
+          m.categoria === "terceirizado" &&
+          m.etapa_terceirizado === "chegada" &&
+          !m.carga_id;
+        if (m.horario_chegada && !m.horario_entrada && !isTerceirizadoAguardandoVinculo) return false;
         // Exclude finalized terceirizados
         if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
         // Terceirizado em 'chegada' SEM carga vinculada permanece visível

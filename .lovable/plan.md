@@ -1,30 +1,38 @@
 ## Problema
 
-Em `/portaria/carga-propria` (Varejo), o registro `id=a3ba1b31-d809-4aa4-9531-ca7a899b030b` (rota "Águas lindas", 09:06) ficou com **placa=null** e **motorista=null** mesmo estando "Em Rota". A causa: o fluxo **"Saída p/ Rota"** usa a matriz `VISIBILITY_SAIDA_ROTA` (em `src/lib/portaria-fields-config.ts`, linhas 208–220) que marca **placa, motorista e foto_placa_url como `oculto`** — assumindo que o prefill já trouxe esses dados. Quando o registro de "Chegou" foi criado a partir da aba **Esperados** com a planilha sem essas colunas, o prefill veio vazio, o formulário não pediu, e o UPDATE gravou `null`.
+Fagno (registro `3ab3d485-e833-4568-8157-5117b86a77a6`, placa QWE1B20, terceirizado, etapa `chegada`, criado em 12/05 11:33 sem `carga_id` e sem `horario_entrada`) sumiu do Pátio Atual hoje. Ontem ele aparecia como card vermelho "Aguardando vínculo".
+
+Em `src/components/portaria/PatioAtualTab.tsx` o filtro de `veiculosNoPatio` tem dois trechos conflitantes:
+
+- Linha 136: `if (m.horario_chegada && !m.horario_entrada) return false;` — remove qualquer chegada sem entrada física, **incluindo terceirizados em `chegada` sem carga**.
+- Linhas 139-142 (comentário): "Terceirizado em 'chegada' SEM carga vinculada permanece visível aqui em destaque vermelho" — intenção declarada, mas inalcançável porque o filtro anterior já excluiu o registro.
+
+A regra do filtro 136 foi criada para evitar duplicação com o painel azul "Cargas fechadas aguardando veículo", que mostra entradas com `carga_id` vinculado. Terceirizado em `chegada` **sem** `carga_id` não aparece no painel azul (não há carga para vincular), então não há duplicação a temer — ele deve ficar no Pátio Atual como card vermelho.
 
 ## Correção
 
-Em `src/lib/portaria-fields-config.ts`, ajustar `VISIBILITY_SAIDA_ROTA` para exibir placa, motorista e foto da placa em **carga_propria**:
+Em `src/components/portaria/PatioAtualTab.tsx`, ajustar a linha 136 para abrir uma exceção a terceirizado em `chegada` sem `carga_id`:
 
-- `placa`               → `obrigatorio`
-- `motorista`           → `obrigatorio`
-- `foto_placa_url`      → `opcional` (se a foto já existe da chegada, não força tirar de novo; se não existe, fica disponível)
+```ts
+// Chegada registrada mas sem entrada física no pátio fica no painel azul,
+// EXCETO terceirizado em "chegada" sem carga vinculada — esse permanece
+// aqui em vermelho ("Aguardando vínculo"), porque o painel azul só lista
+// chegadas COM carga_id.
+const isTerceirizadoAguardandoVinculo =
+  m.categoria === "terceirizado" &&
+  m.etapa_terceirizado === "chegada" &&
+  !m.carga_id;
+if (m.horario_chegada && !m.horario_entrada && !isTerceirizadoAguardandoVinculo) return false;
+```
 
-Mantém o resto da matriz como está (foto_painel_saida_url e km_inicial obrigatórios; rota/peso/qtd_entregas/km_rota/observações opcionais).
-
-O diálogo (`RegistroMovimentoDialog.tsx`, linhas 84–94) já faz o pré-preenchimento de placa/motorista a partir do `prefill`, então casos em que esses dados já existem aparecem preenchidos automaticamente — o operador só precisa confirmar. Casos com prefill vazio agora exigem preenchimento, eliminando o registro fantasma.
-
-## Limpeza pontual
-
-Atualizar o registro existente (`a3ba1b31`) para limpar o estado, ou deixar o admin dar baixa via `/portaria-admin` (já implementado). Pergunto ao usuário se quer que eu corrija a placa/motorista deste registro específico assim que ele me passar os dados.
+Mantém a deduplicação para carga própria/terceirizado com carga vinculada e devolve o card vermelho do Fagno (e qualquer caso similar).
 
 ## Arquivos alterados
 
-- `src/lib/portaria-fields-config.ts` — três entradas em `VISIBILITY_SAIDA_ROTA` para `carga_propria`.
+- `src/components/portaria/PatioAtualTab.tsx` — uma linha de filtro em `veiculosNoPatio`.
 
 ## Validação
 
-1. Abrir um card "Chegou" sem placa → clicar "Saída p/ Rota" → o diálogo agora mostra os blocos **Veículo** (placa + motorista) com asterisco vermelho de obrigatório.
-2. Tentar salvar sem preencher → botão fica desabilitado.
-3. Preencher placa+motorista, salvar → registro vai para "Em Rota" com os dois campos populados; some o "—" do Pátio Atual.
-4. Em cards onde o prefill já trazia placa/motorista (vindo de uma carga fechada vinculada), os campos aparecem preenchidos e o operador só confirma.
+1. Recarregar `/portaria` → Pátio Atual deve mostrar o card vermelho do Fagno (placa QWE1B20) no topo da lista, com botão "Vincular carga".
+2. Vincular uma carga ao Fagno → ele migra para o estado normal (libera entrada) e o card vermelho some.
+3. Conferir que terceirizados COM `carga_id` aguardando liberação continuam aparecendo no painel azul "Cargas fechadas aguardando veículo" e não duplicam no Pátio Atual.
