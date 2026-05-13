@@ -114,21 +114,40 @@ export function useCargasDiaExpedicao(dateStr: string) {
       // Buscar saídas das cargas terceirizadas presentes (para reatribuir
       // data efetiva: cargas cuja data original = dateStr mas saíram em outro
       // dia devem SAIR deste dia).
+      //
+      // IMPORTANTE: o mesmo `carga_id` pode ser reutilizado em datas diferentes
+      // (ex.: "EDIVAR", "JR"). Por isso só consideramos saídas cujo
+      // `horario_saida_final` seja >= a data da carga atual — saídas mais
+      // antigas são de cargas anteriores com o mesmo nome e não devem
+      // reatribuir o dia da carga de hoje.
       const cargaIdsTerc = Array.from(new Set(
         rows
           .filter((r: any) => !!r.transportadora && r.carga_id)
           .map((r: any) => r.carga_id as string)
       ));
+      // menor data entre as cargas presentes (limite global da consulta)
+      const dataPorCarga = new Map<string, string>();
+      for (const r of rows) {
+        if (!r.carga_id || !r.transportadora || !r.data) continue;
+        const prev = dataPorCarga.get(r.carga_id);
+        if (!prev || r.data < prev) dataPorCarga.set(r.carga_id, r.data);
+      }
       const saidaPorCarga = new Map<string, string>();
       if (cargaIdsTerc.length > 0) {
-        const { data: todasSaidas } = await supabase
+        const minData = Array.from(dataPorCarga.values()).sort()[0];
+        let q = supabase
           .from("movimentacoes_portaria")
           .select("carga_id, horario_saida_final")
           .eq("categoria", "terceirizado")
           .in("carga_id", cargaIdsTerc)
           .not("horario_saida_final", "is", null);
+        if (minData) q = q.gte("horario_saida_final", `${minData}T00:00:00`);
+        const { data: todasSaidas } = await q;
         for (const m of (todasSaidas ?? []) as { carga_id: string | null; horario_saida_final: string | null }[]) {
           if (!m.carga_id || !m.horario_saida_final) continue;
+          // descarta saídas anteriores à data da própria carga (carga_id reaproveitado)
+          const dataCarga = dataPorCarga.get(m.carga_id);
+          if (dataCarga && m.horario_saida_final < `${dataCarga}T00:00:00`) continue;
           const prev = saidaPorCarga.get(m.carga_id);
           if (!prev || m.horario_saida_final > prev) saidaPorCarga.set(m.carga_id, m.horario_saida_final);
         }
