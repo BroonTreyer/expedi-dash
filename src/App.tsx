@@ -81,7 +81,7 @@ const VendedoresPainel = lazyWithRetry("/vendedores-painel", () => import("./pag
 const Aprovacoes = lazyWithRetry("/aprovacoes", () => import("./pages/Aprovacoes"));
 const PoliticaPrivacidade = lazyWithRetry("/politica-de-privacidade", () => import("./pages/PoliticaPrivacidade"));
 const TermosServico = lazyWithRetry("/termos-de-servico", () => import("./pages/TermosServico"));
-const ExclusaoDados = lazyWithRetry("/exclusao-de-dados", () => import("./pages/ExclusaoDados"));
+const ExclusaoDados = lazyWithRetry("/dados", () => import("./pages/ExclusaoDados"));
 
 /** Barra de progresso fina no topo (não bloqueia o layout). */
 const PageFallback = () => (
@@ -135,7 +135,7 @@ function AppRoutes() {
           <Route path="/portal/:token" element={<PortalMotorista />} />
           <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
           <Route path="/termos-de-servico" element={<TermosServico />} />
-          <Route path="/exclusao-de-dados" element={<ExclusaoDados />} />
+          <Route path="/dados" element={<ExclusaoDados />} />
           <Route path="/" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Index /></ProtectedRoute>} />
           <Route path="/produtos" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Produtos /></ProtectedRoute>} />
           <Route path="/vendedores" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Vendedores /></ProtectedRoute>} />

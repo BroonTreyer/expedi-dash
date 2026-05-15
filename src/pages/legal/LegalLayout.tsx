@@ -11,7 +11,7 @@ interface Props {
 const LINKS = [
   { to: "/politica-de-privacidade", label: "Política de Privacidade" },
   { to: "/termos-de-servico", label: "Termos de Serviço" },
-  { to: "/exclusao-de-dados", label: "Exclusão de Dados" },
+  { to: "/dados", label: "Exclusão de Dados" },
 ];
 
 export function LegalLayout({ title, updatedAt, children }: Props) {
