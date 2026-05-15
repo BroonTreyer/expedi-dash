@@ -1,28 +1,39 @@
-## Vincular itens TONI/Moreira a uma carga histórica de 23/04
+# Criar 3 páginas legais públicas
 
-**Itens afetados** (3 linhas em `carregamentos_dia`):
-- `a0b7a936...` — J.M.RIBEIRO — 8.000 kg
-- `93ff4833...` — J.M.RIBEIRO — 14.004 kg
-- `cbd3a19f...` — COM CONFIANCA — 8.003,6 kg
-- Total: **30.007,6 kg**, motorista TONI DA SILVA COSTA, transportadora Moreira
+Adicionar três novas páginas públicas (sem autenticação) ao FricoTrack:
 
-### Ação (UPDATE em `carregamentos_dia`)
+1. `/politica-de-privacidade` — Política de Privacidade
+2. `/termos-de-servico` — Termos de Serviço
+3. `/exclusao-de-dados` — Exclusão de Dados
 
-Para os 3 IDs acima, definir:
-- `data = '2026-04-23'` (volta para o dia em que foram criados)
-- `carga_id = 'TONI 23/04'`
-- `nome_carga = 'TONI 23/04'`
-- `transportadora = 'MOREIRA'` (padroniza maiúsculas)
-- `status = 'Carregado'` (já está)
-- `updated_at = now()`
+## O que será feito
 
-### Resultado esperado
+**Novos arquivos:**
+- `src/pages/PoliticaPrivacidade.tsx`
+- `src/pages/TermosServico.tsx`
+- `src/pages/ExclusaoDados.tsx`
 
-- Saem do painel **Expedição de hoje (13/05)** — a carga passa a pertencer ao dia 23/04.
-- Aparecem agrupados como uma carga única no **Consolidado** do dia 23/04 (TONI 23/04 — 30.007,6 kg).
-- Nenhuma alteração em código, somente dados.
+Cada página terá:
+- Layout limpo, centralizado, legível (max-w-3xl, tipografia confortável)
+- Cabeçalho com logo/nome FricoTrack e link "Voltar"
+- Conteúdo em seções (h2 / parágrafos), data de "última atualização"
+- Rodapé com links cruzados entre as 3 páginas
+- Responsivo (mobile-first)
+- Usa tokens do design system (sem cores hardcoded)
 
-### O que NÃO faço
+**Alterações em `src/App.tsx`:**
+- Registrar as 3 rotas como **públicas** (fora de `ProtectedRoute`), iguais a `/portal/:token`
+- Lazy-load com `lazyWithRetry`
 
-- Não crio movimento na portaria (não passou pela portaria, então não cabe lançar saída fictícia).
-- Não mexo em nenhum outro item.
+**Conteúdo padrão (LGPD-friendly):**
+- **Privacidade:** dados coletados (nome, e-mail, dados operacionais de logística), finalidade, base legal, compartilhamento, direitos do titular, contato do controlador, cookies, retenção.
+- **Termos:** descrição do serviço (gestão de expedição/portaria), conta e responsabilidade do usuário, uso aceitável, propriedade intelectual, limitação de responsabilidade, rescisão, foro.
+- **Exclusão de Dados:** como solicitar exclusão (formulário simples de e-mail + descrição **mailto:** para o e-mail de contato), prazo de atendimento (até 15 dias), o que é/não é excluído (registros fiscais/logísticos retidos por obrigação legal).
+
+## Perguntas antes de implementar
+
+1. **E-mail de contato** para exibir nas 3 páginas (DPO / suporte). Ex.: `contato@fricotrack.com.br`?
+2. **Razão social / CNPJ** do controlador para a Política (opcional — posso deixar genérico "FricoTrack" se preferir)?
+3. A página `/exclusao-de-dados` deve ser apenas **informativa com mailto:**, ou um **formulário** que envia para um e-mail / grava no banco?
+
+Se preferir, posso implementar com defaults sensatos (e-mail genérico `contato@fricotrack.com.br`, sem CNPJ, exclusão via mailto:) e você ajusta depois.
