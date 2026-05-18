@@ -1,31 +1,36 @@
-## Mostrar produtos em ruptura sem precisar clicar
+## Reorganizar os blocos do pedido em /pre-cargas
 
-Hoje só dá pra ver os produtos em ruptura expandindo o pedido. Vamos exibi-los direto na linha, ficando óbvio o que está faltando.
+No print, a linha do pedido fica desbalanceada: a coluna **Cliente** expande com os chips de ruptura e empurra **Cidade / Peso / Ruptura / Editar** para a direita, deixando o nome dos produtos truncado no meio da palavra.
 
-### Mudança (apenas UI em `src/pages/PreCargas.tsx`)
+### Mudanças (somente UI em `src/pages/PreCargas.tsx`)
 
-Na `PedidoRow`, quando `pedido.qtdRupturas > 0`, renderizar logo abaixo do nome do cliente uma lista compacta dos itens em ruptura — sem precisar expandir.
+1. **Trocar a `<Table>` por uma grid responsiva por linha de pedido**, mantendo o mesmo cabeçalho. Cada linha vira um grid:
+   ```
+   grid-cols-[64px_minmax(0,1fr)_140px_110px_120px_88px]   // ≥ lg
+   grid-cols-[56px_minmax(0,1fr)_110px_100px_96px]         // md (esconde Cidade, igual hoje)
+   flex-col                                                 // sm (cards empilhados)
+   ```
+   Isso fixa as colunas numéricas à direita e o bloco do cliente nunca empurra o resto.
 
-Formato de cada item (badge/chip vermelho discreto):
+2. **Chips de ruptura em bloco próprio abaixo da linha do pedido**, ocupando largura total (`col-span-full`), não mais dentro da célula "Cliente":
+   - Container: `mt-2 flex flex-wrap gap-1.5`
+   - Chip: largura natural, `max-w-full`, nome do produto com `truncate` só quando passa de ~28ch — sem cortar no meio da palavra em telas largas.
+   - Mantém até 3 chips + `+N`.
 
-```
-⚠ <código> <nome do produto> — <peso> kg [· <motivo>]
-```
+3. **Bloco de cabeçalho do card** (já existente, topo do card): no print já está OK, mas vou garantir que `Peso total / embarcados` use `text-right` com `ml-auto` e quebra controlada em telas < sm (vira linha abaixo do título em vez de competir com os badges).
 
-- Filtra `pedido.itens.filter(temRuptura)`.
-- Lista até 3 itens; se houver mais, mostra `+N` ao final.
-- Estilo: `bg-destructive/10 text-destructive border-destructive/30 rounded px-1.5 py-0.5 text-[11px]`, com `AlertTriangle` 3x3.
-- O clique na linha continua expandindo para ver todos os itens (inclusive os não-ruptura).
-- Nada muda em hooks, dados, edição ou permissões.
+4. **Mobile (< sm)**: cada pedido vira um mini-card com:
+   ```
+   #85 · CF DISTRIBUIDORA ...           [Editar]
+   Santa Isabel/PA
+   Peso: 26.960,6 kg   Ruptura: 3.612 kg
+   [chips de ruptura, largura total]
+   ```
 
-### Resultado esperado no card do print
+5. **Nada muda** em hooks, dados, edição, KPIs, permissões ou no expand de "Itens do pedido".
 
-Abaixo de "CF DISTRIBUIDORA (CEARA FRANGOS) · Cód. 21405":
+### Resultado
 
-```
-⚠ 1234 FILE DE PEITO — 1.200 kg · Sem estoque
-⚠ 5678 COXA E SOBRECOXA — 1.500 kg
-⚠ 9012 ASA — 912 kg
-```
-
-Fora do escopo: filtros novos, mudança de KPIs, alteração no dialog de edição.
+- Colunas alinhadas e estáveis independente da quantidade de chips.
+- Nome do produto não quebra mais no meio (`LING SUINA FINA APIMENTADA NT...` vira `LING SUINA FINA APIMENTADA NT 60` ou trunca limpo no fim).
+- Em telas estreitas o pedido empilha em vez de gerar scroll horizontal.
