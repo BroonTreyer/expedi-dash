@@ -1174,6 +1174,119 @@ export default function Consolidado() {
             </Table>
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="rupturas" className="mt-3 space-y-4">
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
+            ) : rupturaPorCarga.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma ruptura no período. ✓</p>
+            ) : (
+              <>
+                {/* Totais */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <Card className="border-[#EF5350]/30">
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Cargas com ruptura</p>
+                      <p className="text-sm sm:text-xl font-bold tracking-tight text-[#EF5350]">{rupturaPorCarga.length}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-[#EF5350]/30">
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Peso total ruptura</p>
+                      <p className="text-sm sm:text-xl font-bold tracking-tight text-[#EF5350]">{rupturaTotais.kg.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-[#EF5350]/30">
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Itens distintos</p>
+                      <p className="text-sm sm:text-xl font-bold tracking-tight text-[#EF5350]">{rupturaTotais.itens}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Tabela 1: por carga */}
+                <div>
+                  <h2 className="text-sm font-semibold mb-2">Ruptura por carga</h2>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Carga</TableHead>
+                          <TableHead className="text-xs">Cliente(s)</TableHead>
+                          <TableHead className="text-xs text-right">Peso planejado (kg)</TableHead>
+                          <TableHead className="text-xs text-right">Peso ruptura (kg)</TableHead>
+                          <TableHead className="text-xs text-right">Qtd ruptura (unid)</TableHead>
+                          <TableHead className="text-xs text-center">Itens</TableHead>
+                          <TableHead className="text-xs text-right">% Ruptura</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rupturaPorCarga.map((r) => (
+                          <TableRow key={r.cargaId}>
+                            <TableCell className="text-xs font-medium">
+                              <button
+                                className="hover:underline text-left"
+                                onClick={() => navigate(`/rupturas?carga=${encodeURIComponent(r.nomeCarga || r.cargaId)}`)}
+                                title="Ver itens em ruptura desta carga"
+                              >
+                                {r.nomeCarga || r.cargaId}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{r.clientes}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums">{r.pesoPlanejado.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{r.pesoRuptura.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{r.qtdRuptura.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</TableCell>
+                            <TableCell className="text-xs text-center">{r.itensRuptura}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums font-semibold text-[#EF5350]">{r.pctRuptura.toFixed(1)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Tabela 2: por item */}
+                <div>
+                  <h2 className="text-sm font-semibold mb-2">Ruptura por item</h2>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Produto</TableHead>
+                          <TableHead className="text-xs">Código</TableHead>
+                          <TableHead className="text-xs text-right">Total ruptura (kg)</TableHead>
+                          <TableHead className="text-xs text-right">Total ruptura (unid)</TableHead>
+                          <TableHead className="text-xs text-center">Cargas</TableHead>
+                          <TableHead className="text-xs text-center">Pedidos</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rupturaPorItem.map((r) => (
+                          <TableRow key={r.codigo + r.nome}>
+                            <TableCell className="text-xs font-medium">{r.nome}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground font-mono">{r.codigo}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{r.kg.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{r.unid.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</TableCell>
+                            <TableCell className="text-xs text-center">{r.cargas.size}</TableCell>
+                            <TableCell className="text-xs text-center">{r.pedidos.size}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/40 font-semibold">
+                          <TableCell className="text-xs" colSpan={2}>Total ({rupturaTotais.itens} {rupturaTotais.itens === 1 ? "item" : "itens"})</TableCell>
+                          <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{rupturaTotais.kg.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</TableCell>
+                          <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{rupturaTotais.unid.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</TableCell>
+                          <TableCell />
+                          <TableCell />
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
       <ConsolidadoPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
       <CargaPrintDialog open={romaneioOpen} onOpenChange={setRomaneioOpen} data={romaneioData} />
