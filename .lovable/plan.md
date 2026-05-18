@@ -1,43 +1,30 @@
 ## Objetivo
 
-Adicionar, em cada card de pré-carga na tela `/pre-cargas`, um botão "Baixar PDF" que abre um diálogo de impressão (gerar PDF via "Imprimir") com o resumo da pré-carga e todas as rupturas dos pedidos.
+Simplificar o relatório PDF de pré-carga (`PreCargaPrintDialog`) para exibir **apenas** as informações essenciais da carga e os produtos que estão em ruptura, removendo a tabela completa de pedidos e os KPIs intermediários.
 
-## O que o PDF traz
+## O que muda no PDF
 
-Cabeçalho:
-- Logo Frico + título "Pré-carga — [nome_carga ou carga_id]"
-- Data da carga (dd/MM/aaaa)
-- Linha de identificação: placa, motorista, transportadora, tipo de caminhão, ordem de carga, destinos
+### Mantém
+- Cabeçalho com logo Frico, nome da carga e data
+- Identificação resumida (placa, motorista, transportadora, tipo, ordem, destinos)
+- Tabela de **Rupturas** (pedido, cliente, código, produto, tipo, original, carregado, diferença, motivo)
+- Rodapé simples (total de rupturas e peso em ruptura)
 
-Resumo (KPIs):
-- Qtd pedidos
-- Peso total planejado (embarcado + ruptura)
-- Peso embarcado
-- Peso em ruptura + qtd de itens em ruptura
+### Remove
+- Bloco de KPIs numéricos (pedidos, peso planejado, embarcado, em ruptura)
+- Tabela completa de **Pedidos** (com todos os pedidos da carga)
+- Rodapé com "X pedidos · Y rupturas"
 
-Tabela "Pedidos":
-- Pedido · Cliente (código) · Cidade/UF · Peso embarcado · Peso em ruptura
+## Implementação
 
-Tabela "Rupturas detalhadas" (somente itens com ruptura total ou parcial):
-- Pedido · Cliente · Código · Produto · Tipo (Total/Parcial) · Peso original · Carregado · Diferença · Motivo
+1. Editar `src/components/precargas/PreCargaPrintDialog.tsx`:
+   - Remover a seção `KPIs` (grid de 4 colunas com pedidos/peso planejado/embarcado/ruptura)
+   - Remover a tabela de `Pedidos` inteira (`<table>` com map de `carga.pedidos`)
+   - Simplificar o rodapé para mostrar apenas o total de rupturas e peso em ruptura
+   - Manter header, identificação e tabela de rupturas detalhadas exatamente como estão
 
-Rodapé com totais.
+Nenhum outro arquivo precisa ser alterado.
 
-## Implementação técnica
+## Arquivos alterados
 
-1. Criar `src/components/precargas/PreCargaPrintDialog.tsx`:
-   - Mesmo padrão de impressão do `RupturasPrintDialog` (id `rupturas-print-content` → `carga-print-root`, `printing-carga`, `window.print()`).
-   - Recebe `carga: PreCargaGrupo` via props.
-   - Calcula listas/itens usando `temRuptura`, `pesoEfetivo`, `pesoNaoCarregado`.
-
-2. Em `src/pages/PreCargas.tsx`:
-   - Adicionar estado `printCarga: PreCargaGrupo | null`.
-   - No header do `PreCargaCard` (ao lado do resumo de peso), adicionar `<Button variant="outline" size="sm">` com ícone `FileDown`/`Printer` → chama `onPrint(carga)`.
-   - Renderizar `<PreCargaPrintDialog open={!!printCarga} ... carga={printCarga} />`.
-
-3. Reutilizar o CSS de impressão já existente (`printing-carga` em `index.css`) — nenhum CSS novo necessário.
-
-## Arquivos alterados/criados
-
-- Novo: `src/components/precargas/PreCargaPrintDialog.tsx`
-- Editado: `src/pages/PreCargas.tsx` (botão + estado + render do diálogo)
+- `src/components/precargas/PreCargaPrintDialog.tsx`

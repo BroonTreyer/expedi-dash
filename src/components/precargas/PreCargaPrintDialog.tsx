@@ -134,43 +134,8 @@ export function PreCargaPrintDialog({ open, onOpenChange, carga }: Props) {
             {carga.destinos && <div className="col-span-2"><span className="font-semibold">Destinos:</span> {carga.destinos}</div>}
           </div>
 
-          {/* KPIs */}
-          <div className="grid grid-cols-4 gap-3 text-xs border-y border-foreground/10 py-2">
-            <div><div className="text-muted-foreground">Pedidos</div><div className="font-semibold text-sm">{carga.qtdPedidos}</div></div>
-            <div><div className="text-muted-foreground">Peso planejado</div><div className="font-semibold text-sm">{formatKg(carga.pesoTotal)} kg</div></div>
-            <div><div className="text-muted-foreground">Embarcado</div><div className="font-semibold text-sm">{formatKg(carga.pesoEmbarcado)} kg</div></div>
-            <div><div className="text-muted-foreground">Em ruptura</div><div className="font-semibold text-sm">{formatKg(carga.pesoRuptura)} kg{carga.qtdRupturas > 0 ? ` · ${carga.qtdRupturas}` : ""}</div></div>
-          </div>
-
-          {/* Pedidos */}
-          <div>
-            <h2 className="text-sm font-bold mb-2">Pedidos</h2>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="border-b-2 border-foreground/20">
-                  <th className="text-left py-1.5 pr-2 font-semibold">Pedido</th>
-                  <th className="text-left py-1.5 pr-2 font-semibold">Cliente</th>
-                  <th className="text-left py-1.5 pr-2 font-semibold">Cidade/UF</th>
-                  <th className="text-right py-1.5 pr-2 font-semibold">Embarcado (kg)</th>
-                  <th className="text-right py-1.5 font-semibold">Ruptura (kg)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {carga.pedidos.map((p) => (
-                  <tr key={p.numero_pedido} className="border-b border-foreground/5">
-                    <td className="py-1 pr-2 font-mono">#{p.numero_pedido}</td>
-                    <td className="py-1 pr-2">{p.cliente ?? "—"}{p.codigo_cliente ? ` (${p.codigo_cliente})` : ""}</td>
-                    <td className="py-1 pr-2">{p.cidade ? `${p.cidade}/${p.uf ?? ""}` : "—"}</td>
-                    <td className="py-1 pr-2 text-right font-mono">{formatKg(p.pesoEmbarcado)}</td>
-                    <td className="py-1 text-right font-mono">{p.pesoRuptura > 0 ? formatKg(p.pesoRuptura) : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
           {/* Rupturas detalhadas */}
-          {rupturas.length > 0 && (
+          {rupturas.length > 0 ? (
             <div>
               <h2 className="text-sm font-bold mb-2">Rupturas detalhadas</h2>
               <table className="w-full text-xs border-collapse">
@@ -210,13 +175,17 @@ export function PreCargaPrintDialog({ open, onOpenChange, carga }: Props) {
                 </tbody>
               </table>
             </div>
+          ) : (
+            <div className="text-xs text-muted-foreground italic">Sem rupturas registradas nesta pré-carga.</div>
           )}
 
           {/* Footer */}
-          <div className="border-t-2 border-foreground/20 pt-3 flex justify-between items-center text-sm font-bold">
-            <span>{carga.qtdPedidos} pedidos · {rupturas.length} ruptura{rupturas.length === 1 ? "" : "s"}</span>
-            <span>{formatKg(carga.pesoTotal)} kg planejados</span>
-          </div>
+          {rupturas.length > 0 && (
+            <div className="border-t-2 border-foreground/20 pt-3 flex justify-between items-center text-sm font-bold">
+              <span>{rupturas.length} ruptura{rupturas.length === 1 ? "" : "s"}</span>
+              <span>{formatKg(carga.pesoRuptura)} kg em ruptura</span>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
