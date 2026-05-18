@@ -591,6 +591,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             <Package className="h-4 w-4 text-primary" />
             <span>{totalPedidos} pedidos</span>
           </div>
+          {totalRuptura > 0 && (
+            <span className="font-medium">{(totalPeso + totalRuptura).toLocaleString("pt-BR")} kg total</span>
+          )}
           <span className="font-medium">{totalPeso.toLocaleString("pt-BR")} kg embarcados</span>
           {totalRuptura > 0 && (
             <span className="text-xs text-amber-600 dark:text-amber-400">
