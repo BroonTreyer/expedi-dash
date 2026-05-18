@@ -1,54 +1,48 @@
-## Objetivo
+## Pré-carga (carga em rascunho)
 
-Adicionar uma visão "Rupturas Consolidadas" dentro da página `/consolidado` mostrando, para o dia selecionado:
+Permitir montar toda a estrutura de uma carga (pedidos selecionados, veículo, motorista, transportadora, rota, ordem de entrega, nome da carga, etc.) e salvar como **pré-carga**, sem disparar o fechamento. Depois, a pré-carga é reaberta no dialog de fechamento já pré-preenchida para o usuário revisar e finalizar.
 
-1. **Por carga**: peso total da carga × peso/quantidade em ruptura × % de ruptura.
-2. **Por item (produto)**: ranking de produtos com mais ruptura no dia, somando todas as cargas.
+### Comportamento aprovado
+- **Onde criar:** botão "Salvar pré-carga" dentro do `FechamentoLoteDialog` (ao lado de "Fechar carga") **e** botão "Criar pré-carga" no Dashboard quando há pedidos selecionados.
+- **Estado dos pedidos:** ficam **reservados/bloqueados** — saem da lista de "Vendas" e vão para uma seção "Pré-cargas". Não podem ser selecionados em outra carga.
+- **Finalização:** botão "Finalizar" na pré-carga reabre o `FechamentoLoteDialog` já pré-preenchido com todos os campos salvos; usuário revisa e confirma para virar carga real (`etapa = logistica`).
+- **Campos obrigatórios:** todos opcionais ao salvar a pré-carga; validação tradicional só na hora de finalizar.
 
-Filtro padrão: dia atual (mesmo seletor de data que o Consolidado já tem — funciona de graça).
+### Estrutura
 
-## UX
+**Nova etapa:** `etapa = 'pre_carga'` em `carregamentos_dia`.
+- Some das listas de Vendas/Logística atuais (filtros já excluem etapas != `vendas`/`logistica`, então um `'pre_carga'` novo será naturalmente invisível nessas telas).
+- Identificada por `carga_id` com prefixo `PRE-<timestamp>` para não colidir com cargas finalizadas.
+- Campos salvos diretamente nas linhas: `placa`, `motorista`, `transportadora`, `tipo_caminhao`, `nome_carga`, `ordem_carga`, `horario_previsto`, `data`, `ordem_entrega`.
+- Roteirização (`rotas_executadas`) salva normalmente com o `carga_id` PRE- (já existe e é compatível).
 
-Dentro de `src/pages/Consolidado.tsx`, acima da tabela atual de cargas, adicionar um par de `Tabs` ("Cargas" | "Rupturas"). A aba "Cargas" preserva 100% da tela atual. A aba "Rupturas" mostra:
+### Mudanças no Dashboard (`src/pages/Index.tsx`)
+1. **Bloqueio de seleção:** o `useMemo` que monta a lista de pedidos selecionáveis ignora linhas com `etapa = 'pre_carga'`.
+2. **Botão "Criar pré-carga":** ao lado do "Fechar carga" no toolbar de seleção; abre o `FechamentoLoteDialog` em modo `pre`.
+3. **Seção "Pré-cargas":** novo card colapsável (acima de "Logística") listando pré-cargas agrupadas por `carga_id`, mostrando nome da carga, qtd pedidos, peso total, veículo, destino. Cada linha tem ações:
+   - **Finalizar** → abre `FechamentoLoteDialog` em modo `finalize` com os itens da pré-carga pré-selecionados e campos preenchidos.
+   - **Editar** → mesmo dialog em modo `pre` para alterar campos/itens.
+   - **Cancelar** → confirmação + reverte `etapa` para `vendas` e limpa `carga_id`/campos logísticos.
 
-### Tabela 1 — Ruptura por carga
-| Carga | Cliente(s) | Peso planejado (kg) | Peso ruptura (kg) | Qtd ruptura (unid) | Itens em ruptura | % Ruptura |
+### Mudanças no `FechamentoLoteDialog`
+- Nova prop `mode: 'fechar' | 'pre' | 'finalize'` (default `'fechar'`).
+- Em `pre`/`finalize`, pré-preencher state a partir do primeiro item (já há padrão de leitura via `items`).
+- Botão primário:
+  - `fechar`: "Fechar carga" (comportamento atual, `etapa = logistica`).
+  - `pre`: "Salvar pré-carga" (envia `etapa = 'pre_carga'`, `carga_id = PRE-...`).
+  - `finalize`: "Finalizar carga" (atualiza `etapa = 'logistica'`, substitui `carga_id` PRE- pelo definitivo via mesma lógica de geração já existente).
+- Validações de campos vazios desligadas no modo `pre`.
 
-- Só lista cargas que têm pelo menos 1 item com `ruptura || ruptura_sinalizada` no período.
-- Ordenável por % ruptura desc por padrão.
-- Clicar na carga abre a tabela atual filtrada (ou navega para `/rupturas?carga=...`, igual ao link que já existe na visão de cargas).
-- "% Ruptura" = `peso_ruptura / peso_planejado * 100`.
+### Migração necessária
+Atualizar política RLS / triggers que filtram por etapa para reconhecer `'pre_carga'` (apenas leitura — nenhuma policy restringe pelo valor `etapa` exceto a do vendedor, que não é afetada). Sem alteração de schema; apenas documentar o novo valor.
 
-### Tabela 2 — Ruptura por item (produto)
-| Produto | Cód. | Total kg ruptura | Total unid ruptura | Cargas afetadas | Pedidos afetados |
+### Arquivos afetados
+- `src/components/dashboard/FechamentoLoteDialog.tsx` — modos, validações, label do botão.
+- `src/pages/Index.tsx` — botão "Criar pré-carga", abertura do dialog em modos diferentes, bloqueio de seleção.
+- `src/hooks/useCarregamentos.ts` — helper `usePreCargas()` (filtro `etapa = 'pre_carga'`, agrupado por `carga_id`); atualizar filtros existentes para não contar pré-cargas em KPIs de Vendas/Logística.
+- `src/components/dashboard/PreCargasPanel.tsx` *(novo)* — listagem com ações Finalizar / Editar / Cancelar.
 
-- Agrupa por `codigo_produto` (fallback `nome_produto`).
-- Ordenável por kg desc por padrão.
-- Linha total no rodapé.
-
-### Métrica usada
-Para cada item com ruptura (`temRuptura` de `src/lib/ruptura-utils.ts`):
-- **kg ruptura** = `pesoNaoCarregado(item)` (já existe em `src/lib/peso-utils.ts` — devolve `peso_original` para ruptura total e `peso_original - peso` para parcial).
-- **unid ruptura** = mesma lógica para `quantidade_original` vs `quantidade`. Adicionar um helper `quantidadeNaoCarregada` espelhando `pesoNaoCarregado` em `src/lib/peso-utils.ts`.
-- **peso planejado da carga** = soma de `peso_original ?? peso` de todos os itens da carga.
-
-Produto "PAO DE ALHO" continua sendo exibido em UNID (regra de produto já documentada), mas o número de kg da ruptura ainda vale para a coluna kg — mostro os dois campos, o usuário escolhe o que faz sentido.
-
-## Implementação
-
-Arquivos:
-- **`src/lib/peso-utils.ts`**: adicionar `quantidadeNaoCarregada(item)` análogo a `pesoNaoCarregado`.
-- **`src/pages/Consolidado.tsx`**: 
-  - Envolver o conteúdo principal num `<Tabs defaultValue="cargas">` com 2 trigger.
-  - Novo `useMemo` `rupturaPorCarga` derivado das rows já carregadas (sem nova query).
-  - Novo `useMemo` `rupturaPorItem` agregando por `codigo_produto`.
-  - 2 componentes locais simples reusando `Table`/`SortableTableHead` já presentes.
-- **Sem migração de banco. Sem nova query.** Aproveita a mesma data já paginada do hook `useConsolidado`.
-
-## Fora do escopo
-- Não vou criar página nova nem mexer em `/rupturas`.
-- Não vou alterar a aba "Cargas" atual.
-- Sem exportação XLSX nessa entrega (posso adicionar depois se você pedir).
-
-## Pergunta opcional
-Quer um botão "Imprimir/PDF" para essa aba também, reaproveitando o estilo do `ConsolidadoPrintDialog`? Se sim, adiciono; se preferir manter simples agora, fica só na tela.
+### Fora do escopo
+- Notificações realtime específicas de pré-carga.
+- Histórico/auditoria de quem montou a pré-carga (audit_log atual já cobre via updates).
+- Impressão de manifesto antes da finalização.
