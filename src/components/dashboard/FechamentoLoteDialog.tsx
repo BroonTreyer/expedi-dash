@@ -574,8 +574,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Truck className="h-5 w-5" /> Fechar Carga</DialogTitle>
-          <DialogDescription>Preencha os dados de transporte e confirme o fechamento.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <Truck className="h-5 w-5" />
+            {existingPreCargaId ? "Pré-carga em edição" : "Fechar Carga"}
+          </DialogTitle>
+          <DialogDescription>
+            {existingPreCargaId
+              ? "Revise os dados e finalize, ou salve novamente como pré-carga."
+              : "Preencha os dados de transporte e confirme o fechamento — ou salve como pré-carga para finalizar depois."}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Summary */}
@@ -821,9 +828,18 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
-            {submitting ? "Fechando carga..." : `Fechar Carga (${totalPedidos} pedidos)`}
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting || savingPre}>Cancelar</Button>
+          {onSavePreCarga && (
+            <Button
+              variant="secondary"
+              onClick={handleSavePreCarga}
+              disabled={totalPedidos === 0 || submitting || savingPre}
+            >
+              {savingPre ? "Salvando..." : existingPreCargaId ? "Atualizar pré-carga" : "Salvar pré-carga"}
+            </Button>
+          )}
+          <Button onClick={handleSubmit} disabled={!canSubmit || submitting || savingPre}>
+            {submitting ? "Fechando carga..." : `${existingPreCargaId ? "Finalizar Carga" : "Fechar Carga"} (${totalPedidos} pedidos)`}
           </Button>
         </div>
       </DialogContent>
