@@ -16,6 +16,7 @@ import { RoteirizacaoDialog, type RoteirizacaoResult } from "@/components/dashbo
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
 import { ImportarPedidoPdfDialog } from "@/components/dashboard/ImportarPedidoPdfDialog";
+import { PreCargasPanel, type PreCargaGroup } from "@/components/dashboard/PreCargasPanel";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchDeleteCarregamento, useBatchCreateCarregamento, useBatchUpdateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
@@ -69,6 +70,10 @@ export default function Index() {
   const [roteirizacaoOpen, setRoteirizacaoOpen] = useState(false);
   const [roteirizacaoResult, setRoteirizacaoResult] = useState<RoteirizacaoResult | null>(null);
   const [importPdfOpen, setImportPdfOpen] = useState(false);
+  // Pré-carga sendo finalizada/editada — quando setada, o FechamentoLoteDialog
+  // usa esses itens em vez da seleção atual.
+  const [preCargaItems, setPreCargaItems] = useState<Carregamento[] | null>(null);
+  const [cancelPreCarga, setCancelPreCarga] = useState<PreCargaGroup | null>(null);
 
   const dateFromStr = filters.dateRange.from ? format(filters.dateRange.from, "yyyy-MM-dd") : getToday();
   const dateToStr = filters.dateRange.to ? format(filters.dateRange.to, "yyyy-MM-dd") : dateFromStr;
@@ -138,6 +143,8 @@ export default function Index() {
   const filtered = useMemo(() => {
     const hojeStr = getToday();
     return carregamentos.filter((c) => {
+      // Pré-cargas aparecem em painel próprio (PreCargasPanel) — escondidas aqui.
+      if (c.etapa === "pre_carga") return false;
       // Carry-over: itens de dias passados ainda pendentes aparecem no painel
       // de hoje independentemente do toggle de etapa (logística).
       const ehCarryOver = !!c.data && c.data < hojeStr && c.status !== "Carregado";
@@ -165,6 +172,8 @@ export default function Index() {
   // mas respeita filtros explícitos do usuário.
   const kpiSource = useMemo(() => {
     return carregamentos.filter((c) => {
+      // Pré-cargas não entram nos KPIs operacionais.
+      if (c.etapa === "pre_carga") return false;
       if (filters.status !== "todos" && c.status !== filters.status) return false;
       if (filters.vendedor.length > 0 && !filters.vendedor.includes(c.vendedor_id ?? "")) return false;
       if (filters.tipoCaminhao !== "todos" && c.tipo_caminhao !== filters.tipoCaminhao) return false;
@@ -177,6 +186,42 @@ export default function Index() {
       return true;
     });
   }, [carregamentos, filters]);
+
+  // ── Pré-cargas agrupadas por carga_id (etapa === 'pre_carga')
+  const preCargas: PreCargaGroup[] = useMemo(() => {
+    const map = new Map<string, PreCargaGroup>();
+    for (const c of carregamentos) {
+      if (c.etapa !== "pre_carga" || !c.carga_id) continue;
+      if (!map.has(c.carga_id)) {
+        map.set(c.carga_id, {
+          cargaId: c.carga_id,
+          nomeCarga: c.nome_carga,
+          placa: c.placa,
+          motorista: c.motorista,
+          transportadora: c.transportadora,
+          tipoCaminhao: c.tipo_caminhao,
+          data: c.data,
+          pesoTotal: 0,
+          qtdPedidos: 0,
+          destinos: "",
+          items: [],
+        });
+      }
+      const g = map.get(c.carga_id)!;
+      g.pesoTotal += c.peso ?? 0;
+      g.qtdPedidos += 1;
+      g.items.push(c);
+    }
+    // Build destinos string
+    for (const g of map.values()) {
+      const dest = new Set<string>();
+      for (const it of g.items) {
+        if (it.cidade) dest.add(`${it.cidade}${it.uf ? "/" + it.uf : ""}`);
+      }
+      g.destinos = Array.from(dest).join(", ");
+    }
+    return Array.from(map.values()).sort((a, b) => a.data.localeCompare(b.data));
+  }, [carregamentos]);
 
   // Prune selection when filtered data changes
   const filteredIds = useMemo(() => new Set(filtered.map(c => c.id)), [filtered]);
@@ -485,6 +530,64 @@ export default function Index() {
     }
     setSelectedIds([]);
   }, [batchUpdateMut]);
+
+  // ── Pré-carga: salvar (cria ou atualiza) ─────────────────────────────────
+  const handleSavePreCarga = useCallback((
+    updates: { id: string; tipo_caminhao: string | null; placa: string | null; motorista: string | null; transportadora: string | null; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string | null; nome_carga?: string | null; ordem_carga?: string | null }[],
+    meta: { cargaId: string; isExisting: boolean }
+  ) => {
+    batchUpdateMut.mutate(updates as any, {
+      onSuccess: () => {
+        toast.success(meta.isExisting ? "Pré-carga atualizada" : `Pré-carga ${meta.cargaId} salva`);
+      },
+      onError: (e: any) => {
+        toast.error(e?.message || "Erro ao salvar pré-carga");
+      },
+    });
+    setSelectedIds([]);
+    setPreCargaItems(null);
+  }, [batchUpdateMut]);
+
+  // ── Pré-carga: finalizar (abre dialog para virar carga real)
+  const handleFinalizePreCarga = useCallback((pc: PreCargaGroup) => {
+    setPreCargaItems(pc.items);
+    setRoteirizacaoResult(null);
+    setLoteDialogOpen(true);
+  }, []);
+
+  // ── Pré-carga: editar (mesma UI, mas mantém o carga_id PRE-)
+  const handleEditPreCarga = useCallback((pc: PreCargaGroup) => {
+    setPreCargaItems(pc.items);
+    setRoteirizacaoResult(null);
+    setLoteDialogOpen(true);
+  }, []);
+
+  // ── Pré-carga: cancelar — volta itens para 'vendas', limpa campos
+  const handleCancelPreCargaConfirm = useCallback(async () => {
+    if (!cancelPreCarga) return;
+    const { error } = await supabase
+      .from("carregamentos_dia")
+      .update({
+        etapa: "vendas",
+        carga_id: null,
+        nome_carga: null,
+        ordem_carga: null,
+        tipo_caminhao: null,
+        placa: null,
+        motorista: null,
+        transportadora: null,
+        ordem_entrega: null,
+        horario_previsto: null,
+      })
+      .eq("carga_id", cancelPreCarga.cargaId);
+    if (error) {
+      toast.error("Erro ao cancelar pré-carga: " + error.message);
+    } else {
+      toast.success("Pré-carga cancelada — pedidos voltaram para vendas");
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+    }
+    setCancelPreCarga(null);
+  }, [cancelPreCarga, queryClient]);
 
   const handlePrintCarga = useCallback((cargaId: string) => {
     const itemsInCarga = carregamentos.filter(c => c.carga_id === cargaId);
