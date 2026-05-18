@@ -77,9 +77,15 @@ interface Props {
   onPrintReady?: (data: CargaPrintData) => void;
   selectedDate?: string;
   roteirizacao?: RoteirizacaoResult | null;
+  /**
+   * Quando definido, exibe o botão "Salvar pré-carga", que persiste todos os
+   * campos preenchidos com `etapa = 'pre_carga'` sem fechar a carga. Validação
+   * é relaxada (apenas exige pelo menos 1 pedido).
+   */
+  onSavePreCarga?: (updates: { id: string; tipo_caminhao: string | null; placa: string | null; motorista: string | null; transportadora: string | null; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string | null; nome_carga?: string | null; ordem_carga?: string | null }[], meta: { cargaId: string; isExisting: boolean }) => void;
 }
 
-export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate, roteirizacao }: Props) {
+export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate, roteirizacao, onSavePreCarga }: Props) {
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
@@ -295,20 +301,25 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
   useEffect(() => {
     if (open) {
-      setTipoCaminhao("");
-      setPlaca("");
-      setMotorista("");
-      setTransportadora("");
-      setHorarioPrevisto("");
-      setNomeCarga("");
-      setOrdemCarga("");
+      // Pré-preencher a partir do primeiro item — usado quando o dialog é
+      // aberto para finalizar/editar uma pré-carga existente. Em uma carga
+      // nova (itens vindos da seleção em "vendas"), os campos vêm null
+      // mesmo e funcionam como reset.
+      const first = items[0];
+      setTipoCaminhao(first?.tipo_caminhao ?? "");
+      setPlaca(first?.placa ?? "");
+      setMotorista(first?.motorista ?? "");
+      setTransportadora(first?.transportadora ?? "");
+      setHorarioPrevisto(first?.horario_previsto ?? "");
+      setNomeCarga(first?.nome_carga ?? "");
+      setOrdemCarga(first?.ordem_carga ?? "");
       setModoOc("unica");
       setOrdemCargaPorGrupo({});
       setVeiculoVinculado("manual");
       setWalkInVinculadoId(null);
-      setDataCarregamento(selectedDate ?? new Date().toISOString().split("T")[0]);
+      setDataCarregamento(first?.data ?? selectedDate ?? new Date().toISOString().split("T")[0]);
     }
-  }, [open, selectedDate]);
+  }, [open, selectedDate, items]);
 
   const handleVincularWalkIn = (v: typeof veiculosNoPatio[number]) => {
     setPlaca(v.placa);
@@ -339,11 +350,62 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   // carga_id rows + duplicate veiculos_esperados entries.
   const submitGuard = useRef<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
+  const [savingPre, setSavingPre] = useState(false);
 
   // Reset submitting ao reabrir o dialog
   useEffect(() => {
     if (open) setSubmitting(false);
   }, [open]);
+
+  // Detecta se os itens já têm carga_id de pré-carga (modo edição/finalização).
+  const existingPreCargaId = useMemo(() => {
+    const id = items[0]?.carga_id;
+    return id && id.startsWith("PRE-") ? id : null;
+  }, [items]);
+
+  const handleSavePreCarga = async () => {
+    if (!onSavePreCarga) return;
+    if (submitGuard.current || submitting || savingPre) return;
+    if (totalPedidos === 0) return;
+    submitGuard.current = true;
+    setSavingPre(true);
+    try {
+      const cargaId = existingPreCargaId ?? (() => {
+        const now = new Date();
+        const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
+        const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
+        const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
+        return `PRE-${dateStr}-${timeStr}-${rand}`;
+      })();
+      const nomeCargaFinal = nomeCarga.trim() || null;
+      const ocFallback = ordemCarga.trim();
+      const ocPrimeiraValida = Object.values(ordemCargaPorGrupo).map(v => v.trim()).find(v => v.length > 0) ?? "";
+      const updates = groups.flatMap((group) => {
+        const groupKey = group.codigoCliente ?? `__sem__${group.ordem}`;
+        const ocGrupo = (ordemCargaPorGrupo[groupKey] ?? "").trim();
+        const ocFinal = (modoOc === "unica" ? ocFallback : (ocGrupo || ocPrimeiraValida)) || null;
+        return group.items.map((item) => ({
+          id: item.id,
+          tipo_caminhao: tipoCaminhao || null,
+          placa: placa || null,
+          motorista: motorista || null,
+          transportadora: transportadora || null,
+          ordem_entrega: group.ordem,
+          etapa: "pre_carga",
+          carga_id: cargaId,
+          data: dataCarregamento,
+          horario_previsto: horarioPrevisto || null,
+          nome_carga: nomeCargaFinal,
+          ordem_carga: ocFinal,
+        }));
+      });
+      onSavePreCarga(updates, { cargaId, isExisting: !!existingPreCargaId });
+      onOpenChange(false);
+    } finally {
+      submitGuard.current = false;
+      setSavingPre(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (submitGuard.current || submitting) return;
@@ -512,8 +574,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Truck className="h-5 w-5" /> Fechar Carga</DialogTitle>
-          <DialogDescription>Preencha os dados de transporte e confirme o fechamento.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <Truck className="h-5 w-5" />
+            {existingPreCargaId ? "Pré-carga em edição" : "Fechar Carga"}
+          </DialogTitle>
+          <DialogDescription>
+            {existingPreCargaId
+              ? "Revise os dados e finalize, ou salve novamente como pré-carga."
+              : "Preencha os dados de transporte e confirme o fechamento — ou salve como pré-carga para finalizar depois."}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Summary */}
@@ -759,9 +828,18 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
-            {submitting ? "Fechando carga..." : `Fechar Carga (${totalPedidos} pedidos)`}
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting || savingPre}>Cancelar</Button>
+          {onSavePreCarga && (
+            <Button
+              variant="secondary"
+              onClick={handleSavePreCarga}
+              disabled={totalPedidos === 0 || submitting || savingPre}
+            >
+              {savingPre ? "Salvando..." : existingPreCargaId ? "Atualizar pré-carga" : "Salvar pré-carga"}
+            </Button>
+          )}
+          <Button onClick={handleSubmit} disabled={!canSubmit || submitting || savingPre}>
+            {submitting ? "Fechando carga..." : `${existingPreCargaId ? "Finalizar Carga" : "Fechar Carga"} (${totalPedidos} pedidos)`}
           </Button>
         </div>
       </DialogContent>
