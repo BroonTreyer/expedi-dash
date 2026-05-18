@@ -315,24 +315,19 @@ function PreCargaCard({ carga, onEditPedido }: { carga: PreCargaGrupo; onEditPed
               Pedidos e rupturas
             </AccordionTrigger>
             <AccordionContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-20">Pedido</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead className="hidden sm:table-cell">Cidade</TableHead>
-                      <TableHead className="text-right">Peso</TableHead>
-                      <TableHead className="text-right">Ruptura</TableHead>
-                      <TableHead className="w-20"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {carga.pedidos.map((p) => (
-                      <PedidoRow key={p.numero_pedido} pedido={p} onEdit={() => onEditPedido(p)} />
-                    ))}
-                  </TableBody>
-                </Table>
+              {/* Cabeçalho (≥ md) */}
+              <div className="hidden md:grid grid-cols-[64px_minmax(0,1fr)_160px_120px_120px_92px] gap-3 px-2 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground border-b">
+                <div>Pedido</div>
+                <div>Cliente</div>
+                <div className="hidden lg:block">Cidade</div>
+                <div className="text-right">Peso</div>
+                <div className="text-right">Ruptura</div>
+                <div></div>
+              </div>
+              <div className="divide-y">
+                {carga.pedidos.map((p) => (
+                  <PedidoRow key={p.numero_pedido} pedido={p} onEdit={() => onEditPedido(p)} />
+                ))}
               </div>
             </AccordionContent>
           </AccordionItem>
@@ -345,91 +340,126 @@ function PreCargaCard({ carga, onEditPedido }: { carga: PreCargaGrupo; onEditPed
 function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void }) {
   const [expand, setExpand] = useState(false);
   const temRup = pedido.qtdRupturas > 0;
+  const rupturas = temRup ? pedido.itens.filter((it) => temRuptura(it)) : [];
+  const rupturasMostrar = rupturas.slice(0, 3);
+  const rupturasExtra = rupturas.length - rupturasMostrar.length;
+
   return (
-    <>
-      <TableRow
-        className={cn("cursor-pointer", temRup && "bg-destructive/5 hover:bg-destructive/10")}
+    <div className={cn("rounded-md", temRup && "bg-destructive/5")}>
+      {/* Linha principal: grid em md+, stack em mobile */}
+      <button
+        type="button"
         onClick={() => setExpand((v) => !v)}
+        className={cn(
+          "w-full text-left px-2 py-2 transition-colors",
+          "hover:bg-muted/40",
+          temRup && "hover:bg-destructive/10",
+          "md:grid md:grid-cols-[64px_minmax(0,1fr)_160px_120px_120px_92px] md:gap-3 md:items-center",
+          "flex flex-col gap-1"
+        )}
       >
-        <TableCell className="font-mono text-xs">#{pedido.numero_pedido}</TableCell>
-        <TableCell className="text-sm">
-          <div className="font-medium truncate max-w-[260px]">{pedido.cliente ?? "—"}</div>
-          {pedido.codigo_cliente && <div className="text-[11px] text-muted-foreground">Cód. {pedido.codigo_cliente}</div>}
-          {temRup && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {pedido.itens.filter((it) => temRuptura(it)).slice(0, 3).map((it) => (
-                <span
-                  key={it.id}
-                  className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px]"
-                  title={it.motivo_ruptura ?? undefined}
-                >
-                  <AlertTriangle className="h-3 w-3 shrink-0" />
-                  <span className="font-mono">{it.codigo_produto}</span>
-                  <span className="truncate max-w-[180px]">{it.nome_produto}</span>
-                  <span className="tabular-nums">— {formatKg(pesoNaoCarregado(it))} kg</span>
-                  {it.motivo_ruptura && <span className="opacity-80">· {it.motivo_ruptura}</span>}
-                </span>
-              ))}
-              {pedido.qtdRupturas > 3 && (
-                <span className="inline-flex items-center rounded border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px]">
-                  +{pedido.qtdRupturas - 3}
-                </span>
-              )}
-            </div>
+        {/* Pedido + cliente em mobile ficam na mesma linha */}
+        <div className="flex items-center gap-2 md:block">
+          <span className="font-mono text-xs text-muted-foreground">#{pedido.numero_pedido}</span>
+        </div>
+
+        <div className="min-w-0">
+          <div className="font-medium text-sm truncate">{pedido.cliente ?? "—"}</div>
+          {pedido.codigo_cliente && (
+            <div className="text-[11px] text-muted-foreground">Cód. {pedido.codigo_cliente}</div>
           )}
-        </TableCell>
-        <TableCell className="hidden sm:table-cell text-xs">{pedido.cidade ? `${pedido.cidade}/${pedido.uf ?? ""}` : "—"}</TableCell>
-        <TableCell className="text-right tabular-nums text-sm">{formatKg(pedido.pesoEmbarcado)} kg</TableCell>
-        <TableCell className="text-right">
+          {/* Cidade visível em mobile/md, escondida onde a coluna dedicada aparece */}
+          <div className="text-[11px] text-muted-foreground lg:hidden">
+            {pedido.cidade ? `${pedido.cidade}/${pedido.uf ?? ""}` : ""}
+          </div>
+        </div>
+
+        <div className="hidden lg:block text-xs text-muted-foreground truncate">
+          {pedido.cidade ? `${pedido.cidade}/${pedido.uf ?? ""}` : "—"}
+        </div>
+
+        <div className="flex md:block items-center justify-between md:text-right text-xs md:text-sm tabular-nums">
+          <span className="md:hidden text-[11px] uppercase text-muted-foreground">Peso</span>
+          <span>{formatKg(pedido.pesoEmbarcado)} kg</span>
+        </div>
+
+        <div className="flex md:block items-center justify-between md:text-right">
+          <span className="md:hidden text-[11px] uppercase text-muted-foreground">Ruptura</span>
           {temRup ? (
             <Badge variant="destructive" className="text-[10px] gap-1">
               <AlertTriangle className="h-3 w-3" /> {formatKg(pedido.pesoRuptura)} kg
             </Badge>
-          ) : <span className="text-xs text-muted-foreground">—</span>}
-        </TableCell>
-        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={onEdit}>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </div>
+
+        <div className="flex md:justify-end" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 w-full md:w-auto" onClick={onEdit}>
             <Pencil className="h-3 w-3" /> Editar
           </Button>
-        </TableCell>
-      </TableRow>
-      {expand && (
-        <TableRow className="bg-muted/30 hover:bg-muted/30">
-          <TableCell colSpan={6} className="p-3">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Itens do pedido</div>
-            <div className="space-y-1">
-              {pedido.itens.map((it) => {
-                const rup = temRuptura(it);
-                return (
-                  <div
-                    key={it.id}
-                    className={cn(
-                      "flex flex-wrap items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs",
-                      rup ? "border-destructive/40 bg-destructive/5" : "bg-card"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[11px] text-muted-foreground">{it.codigo_produto}</span>
-                      <span className="truncate">{it.nome_produto}</span>
-                    </div>
-                    <div className="flex items-center gap-2 tabular-nums">
-                      <span>{(it.quantidade ?? 0).toLocaleString("pt-BR")} un</span>
-                      <span className="text-muted-foreground">·</span>
-                      <span>{formatKg(it.peso ?? 0)} kg</span>
-                      {rup && (
-                        <Badge variant="destructive" className="text-[10px] gap-1 ml-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Ruptura{it.motivo_ruptura ? `: ${it.motivo_ruptura}` : ""}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </TableCell>
-        </TableRow>
+        </div>
+      </button>
+
+      {/* Chips de ruptura: largura total, abaixo da linha */}
+      {temRup && (
+        <div className="px-2 pb-2 -mt-1 flex flex-wrap gap-1.5">
+          {rupturasMostrar.map((it) => (
+            <span
+              key={it.id}
+              className="inline-flex items-center gap-1 max-w-full rounded border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px]"
+              title={`${it.codigo_produto} ${it.nome_produto}${it.motivo_ruptura ? " · " + it.motivo_ruptura : ""}`}
+            >
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              <span className="font-mono shrink-0">{it.codigo_produto}</span>
+              <span className="truncate max-w-[220px] sm:max-w-[280px] lg:max-w-[360px]">{it.nome_produto}</span>
+              <span className="tabular-nums shrink-0">— {formatKg(pesoNaoCarregado(it))} kg</span>
+            </span>
+          ))}
+          {rupturasExtra > 0 && (
+            <span className="inline-flex items-center rounded border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px]">
+              +{rupturasExtra} item{rupturasExtra === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
       )}
-    </>
+
+      {/* Expand: detalhe de todos os itens */}
+      {expand && (
+        <div className="bg-muted/30 px-3 py-3 rounded-b-md">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Itens do pedido</div>
+          <div className="space-y-1">
+            {pedido.itens.map((it) => {
+              const rup = temRuptura(it);
+              return (
+                <div
+                  key={it.id}
+                  className={cn(
+                    "flex flex-wrap items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs",
+                    rup ? "border-destructive/40 bg-destructive/5" : "bg-card"
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-[11px] text-muted-foreground">{it.codigo_produto}</span>
+                    <span className="truncate">{it.nome_produto}</span>
+                  </div>
+                  <div className="flex items-center gap-2 tabular-nums">
+                    <span>{(it.quantidade ?? 0).toLocaleString("pt-BR")} un</span>
+                    <span className="text-muted-foreground">·</span>
+                    <span>{formatKg(it.peso ?? 0)} kg</span>
+                    {rup && (
+                      <Badge variant="destructive" className="text-[10px] gap-1 ml-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Ruptura{it.motivo_ruptura ? `: ${it.motivo_ruptura}` : ""}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
