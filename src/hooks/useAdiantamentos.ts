@@ -136,7 +136,10 @@ export function useCriarAdiantamento() {
           qtd_ctes: input.ctes.length,
           peso_total,
           valor_total_ctes,
-          percentual: input.percentual,
+          percentual:
+            valor_total_ctes > 0
+              ? +((valor_adiantamento / valor_total_ctes) * 100).toFixed(2)
+              : input.percentual,
           valor_adiantamento,
           valor_saldo,
           status: "pendente",
