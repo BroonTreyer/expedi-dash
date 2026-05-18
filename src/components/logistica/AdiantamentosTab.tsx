@@ -275,7 +275,10 @@ export function AdiantamentosTab() {
                               <TableHead>OC / CT-e</TableHead>
                               <TableHead>Destino</TableHead>
                               <TableHead className="text-right">Peso (kg)</TableHead>
-                              <TableHead className="text-right">Frete</TableHead>
+                              <TableHead className="text-right">Vl. Tabela</TableHead>
+                              <TableHead className="text-right">Vl. Fechado</TableHead>
+                              <TableHead className="text-right">R$/kg</TableHead>
+                              <TableHead className="text-right">Δ</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -284,6 +287,13 @@ export function AdiantamentosTab() {
                               const someInG = rows.some((r) => selecionados.has(r.id)) && !allInG;
                               const totalRow = rows.reduce((s, r) => s + Number(r.valor_frete || 0), 0);
                               const pesoRow = rows.reduce((s, r) => s + Number(r.peso_total || 0), 0);
+                              const tabelaRow = rows.reduce(
+                                (s, r) => s + (tabelaMap?.get(r.id)?.valorTabela ?? 0),
+                                0,
+                              );
+                              const rkgRow = pesoRow > 0 ? totalRow / pesoRow : 0;
+                              const deltaRow = tabelaRow > 0 ? totalRow - tabelaRow : 0;
+                              const deltaPctRow = tabelaRow > 0 ? (deltaRow / tabelaRow) * 100 : 0;
                               return (
                                 <Fragment key={`${nome}-${oc}`}>
                                   <TableRow className="bg-muted/40 font-medium">
@@ -295,7 +305,22 @@ export function AdiantamentosTab() {
                                     </TableCell>
                                     <TableCell />
                                     <TableCell className="text-right text-xs tabular-nums">{fmtKg(pesoRow)}</TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                                      {tabelaRow > 0 ? fmtBRL(tabelaRow) : "—"}
+                                    </TableCell>
                                     <TableCell className="text-right text-xs tabular-nums">{fmtBRL(totalRow)}</TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums">{rkgRow > 0 ? fmtRkg(rkgRow) : "—"}</TableCell>
+                                    <TableCell
+                                      className={`text-right text-xs tabular-nums ${
+                                        tabelaRow === 0
+                                          ? "text-muted-foreground"
+                                          : deltaRow > 0
+                                            ? "text-destructive"
+                                            : "text-emerald-600"
+                                      }`}
+                                    >
+                                      {tabelaRow > 0 ? `${fmtBRL(deltaRow)} (${fmtPct(deltaPctRow)})` : "—"}
+                                    </TableCell>
                                   </TableRow>
                                   {rows.map((r) => (
                                     <TableRow key={r.id}>
@@ -305,7 +330,35 @@ export function AdiantamentosTab() {
                                       <TableCell className="font-mono text-xs pl-8">{r.numero_cte}{r.serie ? `/${r.serie}` : ""}</TableCell>
                                       <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
                                       <TableCell className="text-right text-xs tabular-nums">{fmtKg(Number(r.peso_total ?? 0))}</TableCell>
-                                      <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
+                                      {(() => {
+                                        const info = tabelaMap?.get(r.id);
+                                        const vTab = info?.valorTabela ?? 0;
+                                        const vFec = Number(r.valor_frete || 0);
+                                        const peso = Number(r.peso_total ?? 0);
+                                        const rkg = peso > 0 ? vFec / peso : 0;
+                                        const delta = vTab > 0 ? vFec - vTab : 0;
+                                        const deltaPct = vTab > 0 ? (delta / vTab) * 100 : 0;
+                                        return (
+                                          <>
+                                            <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                                              {vTab > 0 ? fmtBRL(vTab) : "—"}
+                                            </TableCell>
+                                            <TableCell className="text-right text-xs tabular-nums">{fmtBRL(vFec)}</TableCell>
+                                            <TableCell className="text-right text-xs tabular-nums">{rkg > 0 ? fmtRkg(rkg) : "—"}</TableCell>
+                                            <TableCell
+                                              className={`text-right text-xs tabular-nums ${
+                                                vTab === 0
+                                                  ? "text-muted-foreground"
+                                                  : delta > 0
+                                                    ? "text-destructive"
+                                                    : "text-emerald-600"
+                                              }`}
+                                            >
+                                              {vTab > 0 ? `${fmtBRL(delta)} (${fmtPct(deltaPct)})` : "—"}
+                                            </TableCell>
+                                          </>
+                                        );
+                                      })()}
                                     </TableRow>
                                   ))}
                                 </Fragment>
