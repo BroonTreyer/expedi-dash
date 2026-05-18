@@ -22,11 +22,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
-import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
+import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
+import { temRuptura } from "@/lib/ruptura-utils";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { useStatusPortariaPorCarga, ETAPA_PORTARIA_ORDEM, ETAPA_PORTARIA_LABELS, type EtapaPortaria } from "@/hooks/useStatusPortariaPorCarga";
 import { PortariaStatusBadge } from "@/components/dashboard/PortariaStatusBadge";
@@ -620,6 +622,93 @@ export default function Consolidado() {
 
   const groups = useMemo(() => sortData(groupsWithPortariaFilter, consolidadoAccessors), [groupsWithPortariaFilter, sortData, consolidadoAccessors]);
 
+  // === Consolidado de Rupturas ===
+  const rupturaPorCarga = useMemo(() => {
+    const out: Array<{
+      cargaId: string;
+      nomeCarga: string | null;
+      clientes: string;
+      pesoPlanejado: number;
+      pesoRuptura: number;
+      qtdRuptura: number;
+      itensRuptura: number;
+      pctRuptura: number;
+    }> = [];
+    for (const g of groups) {
+      let pesoPlan = 0;
+      let pesoRup = 0;
+      let qtdRup = 0;
+      let itens = 0;
+      const clientesSet = new Set<string>();
+      for (const it of g.items) {
+        pesoPlan += Number(it.peso_original ?? it.peso ?? 0);
+        if (temRuptura(it)) {
+          pesoRup += pesoNaoCarregado(it);
+          qtdRup += quantidadeNaoCarregada(it);
+          itens += 1;
+          if (it.cliente) clientesSet.add(it.cliente);
+        }
+      }
+      if (itens === 0) continue;
+      const clientesArr = [...clientesSet];
+      const clientesLabel = clientesArr.length <= 2
+        ? clientesArr.join(", ")
+        : `${clientesArr.slice(0, 2).join(", ")} +${clientesArr.length - 2}`;
+      out.push({
+        cargaId: g.cargaId,
+        nomeCarga: g.nomeCarga,
+        clientes: clientesLabel || "—",
+        pesoPlanejado: pesoPlan,
+        pesoRuptura: pesoRup,
+        qtdRuptura: qtdRup,
+        itensRuptura: itens,
+        pctRuptura: pesoPlan > 0 ? (pesoRup / pesoPlan) * 100 : 0,
+      });
+    }
+    return out.sort((a, b) => b.pctRuptura - a.pctRuptura);
+  }, [groups]);
+
+  const rupturaPorItem = useMemo(() => {
+    const map = new Map<string, {
+      codigo: string;
+      nome: string;
+      kg: number;
+      unid: number;
+      cargas: Set<string>;
+      pedidos: Set<string>;
+    }>();
+    for (const g of groups) {
+      for (const it of g.items) {
+        if (!temRuptura(it)) continue;
+        const key = it.codigo_produto || it.nome_produto || "—";
+        let row = map.get(key);
+        if (!row) {
+          row = {
+            codigo: it.codigo_produto || "—",
+            nome: it.nome_produto || "—",
+            kg: 0,
+            unid: 0,
+            cargas: new Set(),
+            pedidos: new Set(),
+          };
+          map.set(key, row);
+        }
+        row.kg += pesoNaoCarregado(it);
+        row.unid += quantidadeNaoCarregada(it);
+        if (g.cargaId) row.cargas.add(g.cargaId);
+        if (it.numero_pedido != null) row.pedidos.add(String(it.numero_pedido));
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.kg - a.kg);
+  }, [groups]);
+
+  const rupturaTotais = useMemo(() => {
+    return rupturaPorItem.reduce(
+      (acc, r) => ({ kg: acc.kg + r.kg, unid: acc.unid + r.unid, itens: acc.itens + 1 }),
+      { kg: 0, unid: 0, itens: 0 },
+    );
+  }, [rupturaPorItem]);
+
   // Keep the open edit dialog in sync with the latest data (e.g. after inverting order)
   useEffect(() => {
     if (!editGroup) return;
@@ -837,6 +926,19 @@ export default function Consolidado() {
         </TooltipProvider>
 
         {/* Content */}
+        <Tabs defaultValue="cargas" className="w-full">
+          <TabsList>
+            <TabsTrigger value="cargas">Cargas</TabsTrigger>
+            <TabsTrigger value="rupturas" className="gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Rupturas
+              {rupturaPorCarga.length > 0 && (
+                <span className="ml-1 text-[10px] font-semibold tabular-nums">({rupturaPorCarga.length})</span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="cargas" className="mt-3 space-y-3">
         {isLoading ? (
           <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
         ) : groups.length === 0 ? (
@@ -1072,6 +1174,119 @@ export default function Consolidado() {
             </Table>
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="rupturas" className="mt-3 space-y-4">
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
+            ) : rupturaPorCarga.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma ruptura no período. ✓</p>
+            ) : (
+              <>
+                {/* Totais */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <Card className="border-[#EF5350]/30">
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Cargas com ruptura</p>
+                      <p className="text-sm sm:text-xl font-bold tracking-tight text-[#EF5350]">{rupturaPorCarga.length}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-[#EF5350]/30">
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Peso total ruptura</p>
+                      <p className="text-sm sm:text-xl font-bold tracking-tight text-[#EF5350]">{rupturaTotais.kg.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-[#EF5350]/30">
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Itens distintos</p>
+                      <p className="text-sm sm:text-xl font-bold tracking-tight text-[#EF5350]">{rupturaTotais.itens}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Tabela 1: por carga */}
+                <div>
+                  <h2 className="text-sm font-semibold mb-2">Ruptura por carga</h2>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Carga</TableHead>
+                          <TableHead className="text-xs">Cliente(s)</TableHead>
+                          <TableHead className="text-xs text-right">Peso planejado (kg)</TableHead>
+                          <TableHead className="text-xs text-right">Peso ruptura (kg)</TableHead>
+                          <TableHead className="text-xs text-right">Qtd ruptura (unid)</TableHead>
+                          <TableHead className="text-xs text-center">Itens</TableHead>
+                          <TableHead className="text-xs text-right">% Ruptura</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rupturaPorCarga.map((r) => (
+                          <TableRow key={r.cargaId}>
+                            <TableCell className="text-xs font-medium">
+                              <button
+                                className="hover:underline text-left"
+                                onClick={() => navigate(`/rupturas?carga=${encodeURIComponent(r.nomeCarga || r.cargaId)}`)}
+                                title="Ver itens em ruptura desta carga"
+                              >
+                                {r.nomeCarga || r.cargaId}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{r.clientes}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums">{r.pesoPlanejado.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{r.pesoRuptura.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{r.qtdRuptura.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</TableCell>
+                            <TableCell className="text-xs text-center">{r.itensRuptura}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums font-semibold text-[#EF5350]">{r.pctRuptura.toFixed(1)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Tabela 2: por item */}
+                <div>
+                  <h2 className="text-sm font-semibold mb-2">Ruptura por item</h2>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Produto</TableHead>
+                          <TableHead className="text-xs">Código</TableHead>
+                          <TableHead className="text-xs text-right">Total ruptura (kg)</TableHead>
+                          <TableHead className="text-xs text-right">Total ruptura (unid)</TableHead>
+                          <TableHead className="text-xs text-center">Cargas</TableHead>
+                          <TableHead className="text-xs text-center">Pedidos</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rupturaPorItem.map((r) => (
+                          <TableRow key={r.codigo + r.nome}>
+                            <TableCell className="text-xs font-medium">{r.nome}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground font-mono">{r.codigo}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{r.kg.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</TableCell>
+                            <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{r.unid.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</TableCell>
+                            <TableCell className="text-xs text-center">{r.cargas.size}</TableCell>
+                            <TableCell className="text-xs text-center">{r.pedidos.size}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/40 font-semibold">
+                          <TableCell className="text-xs" colSpan={2}>Total ({rupturaTotais.itens} {rupturaTotais.itens === 1 ? "item" : "itens"})</TableCell>
+                          <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{rupturaTotais.kg.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</TableCell>
+                          <TableCell className="text-xs text-right font-mono tabular-nums text-[#EF5350]">{rupturaTotais.unid.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</TableCell>
+                          <TableCell />
+                          <TableCell />
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
       <ConsolidadoPrintDialog open={printOpen} onOpenChange={setPrintOpen} data={printData} />
       <CargaPrintDialog open={romaneioOpen} onOpenChange={setRomaneioOpen} data={romaneioData} />
