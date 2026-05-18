@@ -1,8 +1,14 @@
+## Objetivo
+
+No diálogo de Fechar Carga (Roteirização) → botão "Exportar", a coluna **PESO** está usando o peso efetivo (já descontados itens em ruptura). O usuário quer o **peso total planejado**, sem o corte da ruptura.
+
 ## Mudança
 
-Em `src/pages/PreCargas.tsx`, na função `PedidoRow`, remover o limite de 3 chips de ruptura:
+Arquivo: `src/components/dashboard/RoteirizacaoDialog.tsx` — função `handleExportExcel` (linhas ~525-565).
 
-- Trocar `rupturas.slice(0, 3)` por renderizar todas (`rupturas`).
-- Remover o cálculo de `rupturasExtra` e o badge `+N items`.
+Trocar `g.pesoTotal` (peso efetivo) por `g.pesoPlanejado` (peso original, inclui itens em ruptura) tanto na linha do cliente quanto no total da última linha:
 
-Sem alterações em dados, hooks ou layout — os chips já quebram em várias linhas via `flex flex-wrap`, então mostrar todos continua responsivo.
+- Linha 538: `totalPesoExcel += g.pesoPlanejado;`
+- Linha 545: `g.pesoPlanejado,`
+
+Nada mais muda — a UI do diálogo continua mostrando `pesoTotal` (efetivo) normalmente; só o Excel exportado passa a refletir o peso planejado completo.

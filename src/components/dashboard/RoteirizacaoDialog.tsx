@@ -535,14 +535,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
           vendedores.add(item.vendedores.nome_vendedor);
         }
       }
-      totalPesoExcel += g.pesoTotal;
+      totalPesoExcel += g.pesoPlanejado;
       rows.push([
         `${i + 1}º`,
         g.codigoCliente ?? "",
         g.nomeCliente ?? "Sem cliente",
         g.cidade ?? "",
         g.uf ?? "",
-        g.pesoTotal,
+        g.pesoPlanejado,
         Array.from(vendedores).join(", "),
       ]);
     });
