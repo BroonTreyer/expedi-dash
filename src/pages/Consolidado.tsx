@@ -926,6 +926,19 @@ export default function Consolidado() {
         </TooltipProvider>
 
         {/* Content */}
+        <Tabs defaultValue="cargas" className="w-full">
+          <TabsList>
+            <TabsTrigger value="cargas">Cargas</TabsTrigger>
+            <TabsTrigger value="rupturas" className="gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Rupturas
+              {rupturaPorCarga.length > 0 && (
+                <span className="ml-1 text-[10px] font-semibold tabular-nums">({rupturaPorCarga.length})</span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="cargas" className="mt-3 space-y-3">
         {isLoading ? (
           <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
         ) : groups.length === 0 ? (
