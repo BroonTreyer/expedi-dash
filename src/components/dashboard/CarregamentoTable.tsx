@@ -43,6 +43,23 @@ function RupturaBadge() {
   );
 }
 
+function AtrasadoChip({ data }: { data: string | null | undefined }) {
+  if (!data) return null;
+  const hoje = new Date().toISOString().split("T")[0];
+  if (data >= hoje) return null;
+  // data no formato YYYY-MM-DD → DD/MM
+  const [, m, d] = data.split("-");
+  if (!m || !d) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+      title={`Pedido da data ${d}/${m} ainda pendente`}
+    >
+      Atrasado · {d}/{m}
+    </span>
+  );
+}
+
 interface Props {
   data: Carregamento[];
   currentDate?: string;
