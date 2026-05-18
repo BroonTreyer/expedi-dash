@@ -171,6 +171,7 @@ function AppRoutes() {
           <Route path="/meu-painel/:vendedorId" element={<ProtectedRoute allowedRoles={["admin"]}><MeuPainel /></ProtectedRoute>} />
           <Route path="/vendedores-painel" element={<ProtectedRoute allowedRoles={["admin"]}><VendedoresPainel /></ProtectedRoute>} />
           <Route path="/aprovacoes" element={<ProtectedRoute allowedRoles={["admin", "faturamento"]}><Aprovacoes /></ProtectedRoute>} />
+          <Route path="/pre-cargas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><PreCargas /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
