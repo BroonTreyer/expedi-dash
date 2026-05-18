@@ -1,89 +1,88 @@
-## Onde aplicar
-
-Tela **Logística → Adiantamentos → aba "Gerar"** — arquivo `src/components/logistica/AdiantamentosTab.tsx` e o card "Resumo" (lateral direita) mostrado no print.
-
 ## O que o print pede
 
-> "tem q trazer o valor da tabela.. e tb valor q eu fechei.. para comparativos.. tem q fazer um custo do valor /pelo peso. para saber o custo kg.. me dar a opção de mudar o valor do adiantamento."
+> "bom dia.. temos q ver essa data.. pq ficou para carregar hoje.. tinha q aparece no painel de hoje.. as pendentes.. ele só aparece se eu voltar a data.."
 
-Três entregas:
+No print há um pedido com **data 13/05/2026**, status **"Pronto para carregar"** e badge **"Carga … aguardando finalizar"** (faltam etapas de portaria pra ser "Carregado"). Hoje é 18/05. O usuário diz: *esse pedido ficou pendente, era pra aparecer no painel de hoje automaticamente* — mas só aparece quando ele volta o filtro para 13/05.
 
-1. **Comparativo Tabela × Fechado** por CT-e e por transportadora.
-2. **Custo por kg** (R$/kg) calculado a partir do valor fechado e do peso.
-3. **Permitir editar o valor do adiantamento** manualmente (hoje só dá pra mudar o %).
+## Diagnóstico
 
-## Como funciona hoje
+Existe carry-over no `useCarregamentos.ts` (linhas 140-144):
 
-- Cada CT-e (`ctes_dacte`) tem `valor_frete` (= valor que foi fechado) e `peso_total`.
-- A tabela de preços existe em `tabelas_frete_itens` (`valor_kg_bitruck`, `valor_kg_carreta`, por destino e código de cliente) e/ou `tabela_frete` (`valor_kg` por destino + `tipo_veiculo`).
-- O tipo do veículo vem de `caminhoes.tipo_caminhao` via `ctes_dacte.placa`.
-- O Resumo só mostra: nº CT-es, peso total, total fretes, adiantamento (% × total), saldo.
-- O percentual de adiantamento é editável por transportadora; o **valor em R$** do adiantamento não é editável.
+```ts
+if (isSingleDay && dateFrom === todayStr) {
+  q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
+}
+```
+
+A query traz todos os pendentes dos últimos 30 dias. **Esse pedido vem do banco.**
+
+O problema está no filtro de exibição do painel (`src/pages/Index.tsx`, linha 142):
+
+```ts
+if (!showLogistica && c.etapa === "logistica") return false;
+```
+
+O pedido do print tem `etapa = 'logistica'` (já passou pra logística e foi anexado numa carga fechada), com `status = 'Pronto para carregar'` (ainda não "Carregado" porque a portaria não finalizou). Por padrão `showLogistica = false`, então o painel principal **esconde esse registro**. Ele só "reaparece" quando o usuário muda a data porque o usuário também alterna o toggle, ou porque o item vira o único da listagem ali.
+
+Confirmação no banco:
+
+```
+data        | status               | etapa     | count
+2026-05-13  | Carregado            | logistica | 108
+2026-05-14  | Pronto para carregar | vendas    | 3      ← carry-over funcionando
+2026-05-15  | Pendente / Problema  | vendas    | 51     ← carry-over funcionando
+... (etapa=logistica + status != Carregado) → escondidos
+```
+
+Resumo: o carry-over funciona pra `etapa=vendas`, mas **não** pra `etapa=logistica` (pedidos já em carga fechada aguardando finalização).
 
 ## Mudanças propostas
 
-### 1. Buscar "valor de tabela" para cada CT-e
+### 1. Carry-over inclui também logística pendente (`src/pages/Index.tsx`)
 
-Novo hook `useValoresTabelaPorCte(ctes)` que, dado um conjunto de CT-es:
-- Resolve o tipo do veículo (`bitruck` / `carreta`) cruzando `placa` → `caminhoes.tipo_caminhao`.
-- Busca em `tabelas_frete_itens` por `destino_cidade` + `destino_uf` (+ código do cliente quando disponível) o `valor_kg_bitruck` ou `valor_kg_carreta`.
-- Fallback para `tabela_frete` (`destino_cidade`+`destino_uf`+`tipo_veiculo`) quando não houver item específico.
-- Retorna `Map<cteId, { valorTabela, valorKgTabela, tipoVeiculo, origem: 'item'|'generica'|'indisponivel' }>`.
-- `valorTabela = valor_kg × peso_total`.
+Tornar o filtro de etapa **insensível** para itens de carry-over (data < hoje). Itens do dia atual continuam respeitando o toggle "Mostrar logística".
 
-### 2. Mostrar comparativo na tabela de CT-es
+```ts
+const hojeStr = new Date().toISOString().split("T")[0];
 
-Na tabela onde cada CT-e é listado (linha `numero_cte … peso … valor_frete`), adicionar duas colunas à direita:
+const filtered = useMemo(() => {
+  return carregamentos.filter((c) => {
+    const ehCarryOver = c.data < hojeStr && c.status !== "Carregado";
 
-```text
-| CT-e | Destino | Peso | Vl. Tabela | Vl. Fechado | R$/kg | Δ |
+    // Toggle logística aplica-se só ao dia corrente
+    if (!ehCarryOver) {
+      if (showLogistica && c.etapa !== "logistica") return false;
+      if (!showLogistica && c.etapa === "logistica") return false;
+    }
+
+    // Mantém: esconde só os efetivamente finalizados
+    if (c.carga_id != null && c.status === "Carregado") return false;
+    // ...restante dos filtros sem mudança
+  });
+}, [carregamentos, filters, showLogistica]);
 ```
 
-- **Vl. Tabela**: `fmtBRL(valorTabela)` (ou "—" se não houver tabela).
-- **Vl. Fechado**: o atual `valor_frete`.
-- **R$/kg**: `valor_frete / peso_total` formatado `pt-BR`.
-- **Δ**: diferença em R$ e %, colorido (verde se fechado ≤ tabela, vermelho se fechado > tabela). Não exibir cor vermelha se não houver tabela.
+### 2. Indicador visual de carry-over
 
-### 3. Card "Resumo" — totais comparativos
+No render da linha do painel, quando `c.data !== hoje`, mostrar um chip discreto **"Atrasado · DD/MM"** ao lado do número do pedido (cor `text-amber-600` / `bg-amber-50`, sem usar vermelho — vermelho fica reservado para Ruptura conforme regra de design). Assim o operador entende rapidamente que aquele item não é de hoje, é arrasto.
 
-Adicionar no bloco de totais gerais:
+### 3. KPIs continuam consistentes
 
-```text
-Peso total:        16.472,3 kg
-Total tabela:      R$ 16.900,00     ← novo
-Total fechado:     R$ 16.307,57     ← rótulo atualizado
-Diferença:         −R$ 592,43 (−3,5%) ← novo
-Custo médio/kg:    R$ 0,99           ← novo (= total fechado / peso)
-```
+`kpiSource` (linhas 158-) já ignora o toggle de etapa — não precisa mudar. O peso/qtd dos atrasados já entram nos KPIs do topo (que o print mostra "93.960,16 kg"). Nada a alterar.
 
-E, em cada bloco por transportadora, mostrar mini-linha: `R$/kg médio` e `Δ vs tabela`.
+### 4. Sem mudança de query nem de banco
 
-### 4. Editar valor do adiantamento manualmente
-
-Hoje o adiantamento é calculado por `%`. Mudanças:
-
-- Tornar o **valor em R$ do adiantamento editável** por transportadora (input numérico ao lado do `%`).
-- Ao editar o R$: o `%` é recalculado a partir do total (`adt / total × 100`).
-- Ao editar o `%`: o R$ é recalculado (comportamento atual).
-- Estado novo: `adiantamentosManuais: Record<string, number>` mantido no `AdiantamentosTab`.
-- `resumoPorTransp` passa a usar `adiantamentosManuais[nome] ?? total × pct/100` como `adt`.
-- Mostrar pequeno indicador "manual" quando o valor for sobrescrito, com botão "voltar ao %".
-- Persistir no `criar.mutate(...)` o valor final (já é gravado em `adiantamentos_frete.valor_adiantamento`, sem mudança de schema).
-
-### 5. Sem mudança de banco
-
-Tudo derivado de tabelas já existentes (`ctes_dacte`, `caminhoes`, `tabelas_frete_itens`, `tabela_frete`). Nenhuma migration.
-
-## Detalhes técnicos
-
-- Novo hook: `src/hooks/useValoresTabelaPorCte.ts` — uma query única que pega placas únicas + destinos únicos do conjunto de CT-es selecionáveis, evitando N+1.
-- Memoização: o cálculo do comparativo entra no `useMemo` do `resumoPorTransp`.
-- Formatação: usar os helpers `fmtBRL` / `fmtKg` já existentes; criar `fmtRkg` para `R$/kg` (`maximumFractionDigits: 3`).
-- Cores semânticas: `text-emerald-600` / `text-destructive` via tokens já existentes (não introduzir cores cruas).
-- Acessibilidade: manter tabular-nums nas colunas numéricas.
+O `useCarregamentos` já traz tudo certo. Mudança é puramente de exibição. Sem migration, sem alterar RLS.
 
 ## Fora de escopo
 
-- Não mexer no fluxo dos adiantamentos já gerados (aba "Pendentes"/"Pagos").
-- Não criar tela de cadastro de tabela de frete (já existe).
-- Não alterar regra de divergência de status do CT-e.
+- Não mudar o toggle "Mostrar logística" (continua filtrando o dia corrente).
+- Não mexer no Consolidado (regra própria de carry-over de 30 dias).
+- Não criar nova coluna no banco para marcar "atrasado" — derivado em tempo de render.
+
+## Detalhes técnicos
+
+- Arquivo único alterado: `src/pages/Index.tsx`.
+- O chip "Atrasado · DD/MM" será adicionado dentro do componente `LinhaCarregamento` ou no card mobile equivalente — verificar onde está renderizada a linha (próxima exploração no build).
+- `c.data` é string `YYYY-MM-DD`, comparação lexicográfica com `hojeStr` funciona.
+- Carry-over de logística respeita `status !== 'Carregado'` (mesma regra da query) — itens "Carregado" continuam fora do painel principal.
