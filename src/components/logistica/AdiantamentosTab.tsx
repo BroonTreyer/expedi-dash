@@ -16,11 +16,15 @@ import {
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
 
 const fmtBRL = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 const fmtKg = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(n || 0);
+const fmtRkg = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(n || 0);
+const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(1).replace(".", ",")}%`;
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("pt-BR") : "—");
 
 function StatusBadge({ s }: { s: Adiantamento["status"] }) {
@@ -44,6 +48,7 @@ export function AdiantamentosTab() {
 
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
+  const [adtManuais, setAdtManuais] = useState<Record<string, number>>({});
   const [observacoes, setObservacoes] = useState("");
 
   const [comprovantesAdt, setComprovantesAdt] = useState<Adiantamento[]>([]);
@@ -60,6 +65,13 @@ export function AdiantamentosTab() {
     }
     return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
   }, [ctes, ctesAtivos]);
+
+  // Apenas CT-es selecionáveis (disponíveis) para buscar valores de tabela
+  const ctesDisponiveis = useMemo(
+    () => [...ctesPorTransp.values()].flat(),
+    [ctesPorTransp],
+  );
+  const { data: tabelaMap } = useValoresTabelaPorCte(ctesDisponiveis);
 
   const transpInfoByName = useMemo(() => {
     const m = new Map<string, (typeof transp)[number]>();
@@ -80,21 +92,41 @@ export function AdiantamentosTab() {
       ctes: CteDacteRow[];
       total: number;
       peso: number;
+      totalTabela: number;
       percentual: number;
       adt: number;
       saldo: number;
+      manual: boolean;
     }> = [];
     for (const [nome, lista] of ctesPorTransp.entries()) {
       const escolhidos = lista.filter((c) => selecionados.has(c.id));
       if (escolhidos.length === 0) continue;
       const total = escolhidos.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
       const peso = escolhidos.reduce((s, c) => s + Number(c.peso_total || 0), 0);
+      const totalTabela = escolhidos.reduce(
+        (s, c) => s + (tabelaMap?.get(c.id)?.valorTabela ?? 0),
+        0,
+      );
       const p = getPercentual(nome);
-      const adt = +(total * (p / 100)).toFixed(2);
-      arr.push({ nome, ctes: escolhidos, total, peso, percentual: p, adt, saldo: +(total - adt).toFixed(2) });
+      const calc = +(total * (p / 100)).toFixed(2);
+      const manualVal = adtManuais[nome];
+      const manual = manualVal !== undefined && !Number.isNaN(manualVal);
+      const adt = manual ? +Number(manualVal).toFixed(2) : calc;
+      const percentualEfetivo = total > 0 ? +((adt / total) * 100).toFixed(2) : p;
+      arr.push({
+        nome,
+        ctes: escolhidos,
+        total,
+        peso,
+        totalTabela,
+        percentual: manual ? percentualEfetivo : p,
+        adt,
+        saldo: +(total - adt).toFixed(2),
+        manual,
+      });
     }
     return arr;
-  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName]);
+  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName, tabelaMap, adtManuais]);
 
   const totaisGerais = useMemo(
     () =>
@@ -103,10 +135,11 @@ export function AdiantamentosTab() {
           ctes: acc.ctes + r.ctes.length,
           total: acc.total + r.total,
           peso: acc.peso + r.peso,
+          totalTabela: acc.totalTabela + r.totalTabela,
           adt: acc.adt + r.adt,
           saldo: acc.saldo + r.saldo,
         }),
-        { ctes: 0, total: 0, peso: 0, adt: 0, saldo: 0 },
+        { ctes: 0, total: 0, peso: 0, totalTabela: 0, adt: 0, saldo: 0 },
       ),
     [resumoPorTransp],
   );
@@ -141,6 +174,7 @@ export function AdiantamentosTab() {
           ordem_carga: ordem,
           percentual: r.percentual,
           observacoes: observacoes.trim() || null,
+          valor_adiantamento_override: r.manual ? r.adt : null,
           ctes: r.ctes.map((c) => ({
             id: c.id,
             valor_frete: Number(c.valor_frete || 0),
@@ -151,6 +185,7 @@ export function AdiantamentosTab() {
       }
       setSelecionados(new Set());
       setObservacoes("");
+      setAdtManuais({});
       if (criados.length > 0) setComprovantesAdt(criados);
     } catch {
       // toast já é exibido pelo hook
@@ -242,7 +277,10 @@ export function AdiantamentosTab() {
                               <TableHead>OC / CT-e</TableHead>
                               <TableHead>Destino</TableHead>
                               <TableHead className="text-right">Peso (kg)</TableHead>
-                              <TableHead className="text-right">Frete</TableHead>
+                              <TableHead className="text-right">Vl. Tabela</TableHead>
+                              <TableHead className="text-right">Vl. Fechado</TableHead>
+                              <TableHead className="text-right">R$/kg</TableHead>
+                              <TableHead className="text-right">Δ</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -251,6 +289,13 @@ export function AdiantamentosTab() {
                               const someInG = rows.some((r) => selecionados.has(r.id)) && !allInG;
                               const totalRow = rows.reduce((s, r) => s + Number(r.valor_frete || 0), 0);
                               const pesoRow = rows.reduce((s, r) => s + Number(r.peso_total || 0), 0);
+                              const tabelaRow = rows.reduce(
+                                (s, r) => s + (tabelaMap?.get(r.id)?.valorTabela ?? 0),
+                                0,
+                              );
+                              const rkgRow = pesoRow > 0 ? totalRow / pesoRow : 0;
+                              const deltaRow = tabelaRow > 0 ? totalRow - tabelaRow : 0;
+                              const deltaPctRow = tabelaRow > 0 ? (deltaRow / tabelaRow) * 100 : 0;
                               return (
                                 <Fragment key={`${nome}-${oc}`}>
                                   <TableRow className="bg-muted/40 font-medium">
@@ -262,7 +307,22 @@ export function AdiantamentosTab() {
                                     </TableCell>
                                     <TableCell />
                                     <TableCell className="text-right text-xs tabular-nums">{fmtKg(pesoRow)}</TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                                      {tabelaRow > 0 ? fmtBRL(tabelaRow) : "—"}
+                                    </TableCell>
                                     <TableCell className="text-right text-xs tabular-nums">{fmtBRL(totalRow)}</TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums">{rkgRow > 0 ? fmtRkg(rkgRow) : "—"}</TableCell>
+                                    <TableCell
+                                      className={`text-right text-xs tabular-nums ${
+                                        tabelaRow === 0
+                                          ? "text-muted-foreground"
+                                          : deltaRow > 0
+                                            ? "text-destructive"
+                                            : "text-emerald-600"
+                                      }`}
+                                    >
+                                      {tabelaRow > 0 ? `${fmtBRL(deltaRow)} (${fmtPct(deltaPctRow)})` : "—"}
+                                    </TableCell>
                                   </TableRow>
                                   {rows.map((r) => (
                                     <TableRow key={r.id}>
@@ -272,7 +332,35 @@ export function AdiantamentosTab() {
                                       <TableCell className="font-mono text-xs pl-8">{r.numero_cte}{r.serie ? `/${r.serie}` : ""}</TableCell>
                                       <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
                                       <TableCell className="text-right text-xs tabular-nums">{fmtKg(Number(r.peso_total ?? 0))}</TableCell>
-                                      <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
+                                      {(() => {
+                                        const info = tabelaMap?.get(r.id);
+                                        const vTab = info?.valorTabela ?? 0;
+                                        const vFec = Number(r.valor_frete || 0);
+                                        const peso = Number(r.peso_total ?? 0);
+                                        const rkg = peso > 0 ? vFec / peso : 0;
+                                        const delta = vTab > 0 ? vFec - vTab : 0;
+                                        const deltaPct = vTab > 0 ? (delta / vTab) * 100 : 0;
+                                        return (
+                                          <>
+                                            <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                                              {vTab > 0 ? fmtBRL(vTab) : "—"}
+                                            </TableCell>
+                                            <TableCell className="text-right text-xs tabular-nums">{fmtBRL(vFec)}</TableCell>
+                                            <TableCell className="text-right text-xs tabular-nums">{rkg > 0 ? fmtRkg(rkg) : "—"}</TableCell>
+                                            <TableCell
+                                              className={`text-right text-xs tabular-nums ${
+                                                vTab === 0
+                                                  ? "text-muted-foreground"
+                                                  : delta > 0
+                                                    ? "text-destructive"
+                                                    : "text-emerald-600"
+                                              }`}
+                                            >
+                                              {vTab > 0 ? `${fmtBRL(delta)} (${fmtPct(deltaPct)})` : "—"}
+                                            </TableCell>
+                                          </>
+                                        );
+                                      })()}
                                     </TableRow>
                                   ))}
                                 </Fragment>
@@ -297,12 +385,58 @@ export function AdiantamentosTab() {
                     <div key={r.nome} className="border rounded-md p-2 text-xs space-y-0.5">
                       <div className="font-semibold truncate">{r.nome}</div>
                       <div className="flex justify-between text-muted-foreground">
-                        <span>{r.ctes.length} CT-e · {r.percentual}%</span>
+                        <span>{r.ctes.length} CT-e · {r.percentual.toFixed(1).replace(".", ",")}%{r.manual ? " (manual)" : ""}</span>
                         <span>{fmtBRL(r.total)}</span>
+                      </div>
+                      {r.totalTabela > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Tabela:</span>
+                          <span>{fmtBRL(r.totalTabela)} · Δ <span className={r.total > r.totalTabela ? "text-destructive" : "text-emerald-600"}>{fmtPct(((r.total - r.totalTabela) / r.totalTabela) * 100)}</span></span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>R$/kg fechado:</span>
+                        <span>{r.peso > 0 ? fmtRkg(r.total / r.peso) : "—"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Adt:</span>
                         <span className="font-semibold text-primary">{fmtBRL(r.adt)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 pt-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder="Valor manual R$"
+                          value={adtManuais[r.nome] ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setAdtManuais((p) => {
+                              const n = { ...p };
+                              if (v === "") delete n[r.nome];
+                              else n[r.nome] = Number(v);
+                              return n;
+                            });
+                          }}
+                          className="h-7 text-xs"
+                        />
+                        {r.manual && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() =>
+                              setAdtManuais((p) => {
+                                const n = { ...p };
+                                delete n[r.nome];
+                                return n;
+                              })
+                            }
+                          >
+                            ↺ %
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -310,7 +444,25 @@ export function AdiantamentosTab() {
                     <div className="flex justify-between"><span>Transportadoras:</span><span className="font-medium">{resumoPorTransp.length}</span></div>
                     <div className="flex justify-between"><span>CT-es:</span><span className="font-medium">{totaisGerais.ctes}</span></div>
                     <div className="flex justify-between"><span>Peso total:</span><span className="font-medium">{fmtKg(totaisGerais.peso)} kg</span></div>
-                    <div className="flex justify-between"><span>Total fretes:</span><span className="font-medium">{fmtBRL(totaisGerais.total)}</span></div>
+                    {totaisGerais.totalTabela > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Total tabela:</span>
+                        <span className="font-medium">{fmtBRL(totaisGerais.totalTabela)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between"><span>Total fechado:</span><span className="font-medium">{fmtBRL(totaisGerais.total)}</span></div>
+                    {totaisGerais.totalTabela > 0 && (
+                      <div className="flex justify-between">
+                        <span>Diferença:</span>
+                        <span className={`font-medium ${totaisGerais.total > totaisGerais.totalTabela ? "text-destructive" : "text-emerald-600"}`}>
+                          {fmtBRL(totaisGerais.total - totaisGerais.totalTabela)} ({fmtPct(((totaisGerais.total - totaisGerais.totalTabela) / totaisGerais.totalTabela) * 100)})
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Custo médio/kg:</span>
+                      <span className="font-medium">{totaisGerais.peso > 0 ? fmtRkg(totaisGerais.total / totaisGerais.peso) : "—"}</span>
+                    </div>
                     <div className="flex justify-between"><span>Adiantamento:</span><span className="font-bold text-primary">{fmtBRL(totaisGerais.adt)}</span></div>
                     <div className="flex justify-between"><span>Saldo:</span><span className="font-medium">{fmtBRL(totaisGerais.saldo)}</span></div>
                   </div>

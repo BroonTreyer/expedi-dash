@@ -110,10 +110,15 @@ export function useCriarAdiantamento() {
       percentual: number;
       ctes: Array<{ id: string; valor_frete: number; peso_total: number }>;
       observacoes?: string | null;
+      valor_adiantamento_override?: number | null;
     }) => {
       const valor_total_ctes = input.ctes.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
       const peso_total = input.ctes.reduce((s, c) => s + Number(c.peso_total || 0), 0);
-      const valor_adiantamento = +(valor_total_ctes * (input.percentual / 100)).toFixed(2);
+      const calculado = +(valor_total_ctes * (input.percentual / 100)).toFixed(2);
+      const valor_adiantamento =
+        input.valor_adiantamento_override != null && input.valor_adiantamento_override >= 0
+          ? +Number(input.valor_adiantamento_override).toFixed(2)
+          : calculado;
       const valor_saldo = +(valor_total_ctes - valor_adiantamento).toFixed(2);
 
       const { data: numeroData, error: numErr } = await (supabase as any).rpc("next_adiantamento_numero");
@@ -131,7 +136,10 @@ export function useCriarAdiantamento() {
           qtd_ctes: input.ctes.length,
           peso_total,
           valor_total_ctes,
-          percentual: input.percentual,
+          percentual:
+            valor_total_ctes > 0
+              ? +((valor_adiantamento / valor_total_ctes) * 100).toFixed(2)
+              : input.percentual,
           valor_adiantamento,
           valor_saldo,
           status: "pendente",
