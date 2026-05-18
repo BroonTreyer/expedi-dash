@@ -728,6 +728,15 @@ export default function Index() {
           carregamentos={carregamentos}
         />
 
+        {(isAdmin || isLogistica) && preCargas.length > 0 && (
+          <PreCargasPanel
+            preCargas={preCargas}
+            onFinalize={handleFinalizePreCarga}
+            onEdit={handleEditPreCarga}
+            onCancel={(pc) => setCancelPreCarga(pc)}
+          />
+        )}
+
         {/* Selection summary */}
         {selectedInView.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-xs sm:text-sm font-medium">
@@ -815,10 +824,14 @@ export default function Index() {
 
         <FechamentoLoteDialog
           open={loteDialogOpen}
-          onOpenChange={setLoteDialogOpen}
-          items={selectedItems}
+          onOpenChange={(o) => {
+            setLoteDialogOpen(o);
+            if (!o) setPreCargaItems(null);
+          }}
+          items={preCargaItems ?? selectedItems}
           tiposCaminhao={tiposCaminhao}
           onSubmit={handleLoteSubmit}
+          onSavePreCarga={handleSavePreCarga}
           onPrintReady={handlePrintReady}
           selectedDate={dateFromStr}
           roteirizacao={roteirizacaoResult}
@@ -886,6 +899,15 @@ export default function Index() {
           onConfirm={handleUndoCargaConfirm}
           title="Desfazer Carga"
           description={`Tem certeza que deseja desfazer a carga ${undoCargaId ?? ""}? Todos os pedidos desta carga terão os dados de transporte removidos e voltarão para a etapa "vendas".`}
+        />
+
+        <DeleteConfirmDialog
+          open={!!cancelPreCarga}
+          onOpenChange={(o) => !o && setCancelPreCarga(null)}
+          onConfirm={handleCancelPreCargaConfirm}
+          title="Cancelar pré-carga"
+          description={`Cancelar a pré-carga ${cancelPreCarga?.nomeCarga || cancelPreCarga?.cargaId || ""}? Todos os ${cancelPreCarga?.qtdPedidos ?? 0} pedidos voltarão para a etapa "vendas" e os dados de transporte serão removidos.`}
+          confirmLabel="Cancelar pré-carga"
         />
       </div>
     </Layout>
