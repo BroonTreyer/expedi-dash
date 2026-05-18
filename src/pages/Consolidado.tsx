@@ -622,6 +622,93 @@ export default function Consolidado() {
 
   const groups = useMemo(() => sortData(groupsWithPortariaFilter, consolidadoAccessors), [groupsWithPortariaFilter, sortData, consolidadoAccessors]);
 
+  // === Consolidado de Rupturas ===
+  const rupturaPorCarga = useMemo(() => {
+    const out: Array<{
+      cargaId: string;
+      nomeCarga: string | null;
+      clientes: string;
+      pesoPlanejado: number;
+      pesoRuptura: number;
+      qtdRuptura: number;
+      itensRuptura: number;
+      pctRuptura: number;
+    }> = [];
+    for (const g of groups) {
+      let pesoPlan = 0;
+      let pesoRup = 0;
+      let qtdRup = 0;
+      let itens = 0;
+      const clientesSet = new Set<string>();
+      for (const it of g.items) {
+        pesoPlan += Number(it.peso_original ?? it.peso ?? 0);
+        if (temRuptura(it)) {
+          pesoRup += pesoNaoCarregado(it);
+          qtdRup += quantidadeNaoCarregada(it);
+          itens += 1;
+          if (it.cliente) clientesSet.add(it.cliente);
+        }
+      }
+      if (itens === 0) continue;
+      const clientesArr = [...clientesSet];
+      const clientesLabel = clientesArr.length <= 2
+        ? clientesArr.join(", ")
+        : `${clientesArr.slice(0, 2).join(", ")} +${clientesArr.length - 2}`;
+      out.push({
+        cargaId: g.cargaId,
+        nomeCarga: g.nomeCarga,
+        clientes: clientesLabel || "—",
+        pesoPlanejado: pesoPlan,
+        pesoRuptura: pesoRup,
+        qtdRuptura: qtdRup,
+        itensRuptura: itens,
+        pctRuptura: pesoPlan > 0 ? (pesoRup / pesoPlan) * 100 : 0,
+      });
+    }
+    return out.sort((a, b) => b.pctRuptura - a.pctRuptura);
+  }, [groups]);
+
+  const rupturaPorItem = useMemo(() => {
+    const map = new Map<string, {
+      codigo: string;
+      nome: string;
+      kg: number;
+      unid: number;
+      cargas: Set<string>;
+      pedidos: Set<string>;
+    }>();
+    for (const g of groups) {
+      for (const it of g.items) {
+        if (!temRuptura(it)) continue;
+        const key = it.codigo_produto || it.nome_produto || "—";
+        let row = map.get(key);
+        if (!row) {
+          row = {
+            codigo: it.codigo_produto || "—",
+            nome: it.nome_produto || "—",
+            kg: 0,
+            unid: 0,
+            cargas: new Set(),
+            pedidos: new Set(),
+          };
+          map.set(key, row);
+        }
+        row.kg += pesoNaoCarregado(it);
+        row.unid += quantidadeNaoCarregada(it);
+        if (g.cargaId) row.cargas.add(g.cargaId);
+        if (it.numero_pedido != null) row.pedidos.add(String(it.numero_pedido));
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.kg - a.kg);
+  }, [groups]);
+
+  const rupturaTotais = useMemo(() => {
+    return rupturaPorItem.reduce(
+      (acc, r) => ({ kg: acc.kg + r.kg, unid: acc.unid + r.unid, itens: acc.itens + 1 }),
+      { kg: 0, unid: 0, itens: 0 },
+    );
+  }, [rupturaPorItem]);
+
   // Keep the open edit dialog in sync with the latest data (e.g. after inverting order)
   useEffect(() => {
     if (!editGroup) return;
