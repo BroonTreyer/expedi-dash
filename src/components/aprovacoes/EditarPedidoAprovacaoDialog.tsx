@@ -25,9 +25,23 @@ interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   grupo: any[] | null; // pedidos do grupo (mesmo numero_pedido + cliente + vendedor + data)
+  /**
+   * Quando definido, o dialog opera em modo "pré-carga":
+   * - novos itens nascem em etapa = 'pre_carga' herdando dados de transporte
+   * - o botão "Salvar e aprovar" some (o pedido continua na pré-carga)
+   */
+  preCargaContext?: {
+    carga_id: string;
+    nome_carga: string | null;
+    placa: string | null;
+    motorista: string | null;
+    transportadora: string | null;
+    tipo_caminhao: string | null;
+    ordem_carga: string | null;
+  } | null;
 }
 
-export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props) {
+export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCargaContext }: Props) {
   const { data: produtosAll = [] } = useProdutos();
   const editar = useEditarPedidoAprovacao();
 
