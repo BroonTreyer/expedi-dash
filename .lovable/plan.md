@@ -1,54 +1,54 @@
-## Diagnóstico
+## Objetivo
 
-O pedido **85 do cliente 21405** tem `quantidade` e `quantidade_original` inconsistentes em todos os 10 itens. Exemplo do "PAO DE ALHO PICANTE 10x400g" (carga 811):
+Adicionar uma visão "Rupturas Consolidadas" dentro da página `/consolidado` mostrando, para o dia selecionado:
 
-| Campo | Valor no banco |
-|---|---|
-| `quantidade` | 30 |
-| `quantidade_original` | **13** |
-| `peso` | 12 |
-| `peso_original` | 12 |
-| `ruptura` | true |
+1. **Por carga**: peso total da carga × peso/quantidade em ruptura × % de ruptura.
+2. **Por item (produto)**: ranking de produtos com mais ruptura no dia, somando todas as cargas.
 
-- O **Painel/Carregamento** mostra `quantidade` (30 unid ou 12 kg) → o "estado atual" do pedido.
-- A aba **Rupturas** mostra `quantidade_original` (13 unid) → o "que foi pedido originalmente", porque ruptura total significa "perdemos tudo que foi pedido". Lógica em `src/pages/Rupturas.tsx:223-227`.
+Filtro padrão: dia atual (mesmo seletor de data que o Consolidado já tem — funciona de graça).
 
-O valor "13" se repete **idêntico em todos os 10 itens** do pedido 85, e "23" idêntico em todos os 23 itens do pedido 1 do mesmo cliente. Isso não é coincidência — é um bug de gravação, não de exibição.
+## UX
 
-## Causa raiz provável
+Dentro de `src/pages/Consolidado.tsx`, acima da tabela atual de cargas, adicionar um par de `Tabs` ("Cargas" | "Rupturas"). A aba "Cargas" preserva 100% da tela atual. A aba "Rupturas" mostra:
 
-Em `src/hooks/useEditarPedidoAprovacao.ts:67`, ao salvar uma edição em Aprovações:
+### Tabela 1 — Ruptura por carga
+| Carga | Cliente(s) | Peso planejado (kg) | Peso ruptura (kg) | Qtd ruptura (unid) | Itens em ruptura | % Ruptura |
 
-```ts
-quantidade_original: it.quantidade,
-```
+- Só lista cargas que têm pelo menos 1 item com `ruptura || ruptura_sinalizada` no período.
+- Ordenável por % ruptura desc por padrão.
+- Clicar na carga abre a tabela atual filtrada (ou navega para `/rupturas?carga=...`, igual ao link que já existe na visão de cargas).
+- "% Ruptura" = `peso_ruptura / peso_planejado * 100`.
 
-Esse "rebase de baseline" sobrescreve o original com a quantidade atual da linha — mas o padrão idêntico em todos os itens sugere que, em algum fluxo (edição em massa, importação ou clonagem), `it.quantidade` recebeu um valor compartilhado entre todas as linhas antes do save, gravando o mesmo número em todas. Preciso reproduzir o caminho exato; o sintoma já é suficiente para tratar.
+### Tabela 2 — Ruptura por item (produto)
+| Produto | Cód. | Total kg ruptura | Total unid ruptura | Cargas afetadas | Pedidos afetados |
 
-## Plano
+- Agrupa por `codigo_produto` (fallback `nome_produto`).
+- Ordenável por kg desc por padrão.
+- Linha total no rodapé.
 
-### 1. Corrigir os dados existentes do pedido afetado
-Para os registros do pedido 85 (e quaisquer outros pedidos com mesmo padrão "todos itens com `quantidade_original` idêntico ≠ `quantidade`"), realinhar `quantidade_original = quantidade` e `peso_original = peso`, já que `peso_original` já está correto e `quantidade_original` é o único divergente. Isso fará a aba Rupturas mostrar 30 unid em vez de 13 para esse item.
+### Métrica usada
+Para cada item com ruptura (`temRuptura` de `src/lib/ruptura-utils.ts`):
+- **kg ruptura** = `pesoNaoCarregado(item)` (já existe em `src/lib/peso-utils.ts` — devolve `peso_original` para ruptura total e `peso_original - peso` para parcial).
+- **unid ruptura** = mesma lógica para `quantidade_original` vs `quantidade`. Adicionar um helper `quantidadeNaoCarregada` espelhando `pesoNaoCarregado` em `src/lib/peso-utils.ts`.
+- **peso planejado da carga** = soma de `peso_original ?? peso` de todos os itens da carga.
 
-Migration SQL (somente UPDATE direcionado, sem mexer em outros pedidos):
+Produto "PAO DE ALHO" continua sendo exibido em UNID (regra de produto já documentada), mas o número de kg da ruptura ainda vale para a coluna kg — mostro os dois campos, o usuário escolhe o que faz sentido.
 
-```sql
-UPDATE carregamentos_dia
-SET quantidade_original = quantidade
-WHERE numero_pedido IN (85, 1)
-  AND codigo_cliente = '21405'
-  AND quantidade_original IS DISTINCT FROM quantidade;
-```
+## Implementação
 
-### 2. Blindar a origem do bug
-Em `useEditarPedidoAprovacao.ts`, só rebasear `quantidade_original`/`peso_original` quando o item **não estiver em ruptura** (mesma lógica defensiva que já existe para `ruptura_sinalizada`). Em itens com `ruptura=true`, o "original" deve permanecer como o pedido realmente solicitado — não deve ser reescrito pelo valor da edição. Isso evita que futuras edições em Aprovações zerem ou achatem o baseline de itens já em ruptura.
-
-### 3. Validação visual
-Após o UPDATE, abrir a aba Rupturas filtrando pelo pedido 85 e conferir se "PAO DE ALHO PICANTE" passa a mostrar 30 UNID (igual ao Painel) em vez de 13.
+Arquivos:
+- **`src/lib/peso-utils.ts`**: adicionar `quantidadeNaoCarregada(item)` análogo a `pesoNaoCarregado`.
+- **`src/pages/Consolidado.tsx`**: 
+  - Envolver o conteúdo principal num `<Tabs defaultValue="cargas">` com 2 trigger.
+  - Novo `useMemo` `rupturaPorCarga` derivado das rows já carregadas (sem nova query).
+  - Novo `useMemo` `rupturaPorItem` agregando por `codigo_produto`.
+  - 2 componentes locais simples reusando `Table`/`SortableTableHead` já presentes.
+- **Sem migração de banco. Sem nova query.** Aproveita a mesma data já paginada do hook `useConsolidado`.
 
 ## Fora do escopo
-- Não vou alterar a fórmula de `pesoNaoCarregado` nem a regra "ruptura total = original" — essa regra está correta; o problema é o dado de origem.
-- Não vou rodar correção em massa em outros clientes/pedidos sem você confirmar o escopo.
+- Não vou criar página nova nem mexer em `/rupturas`.
+- Não vou alterar a aba "Cargas" atual.
+- Sem exportação XLSX nessa entrega (posso adicionar depois se você pedir).
 
-## Pergunta para você
-Antes de aplicar a migration corrigindo os dados: além do pedido 85 (e do pedido 1 que mostra o mesmo padrão), quer que eu rode uma varredura listando **todos** os pedidos com esse sintoma (`quantidade_original` idêntico em ≥3 itens do mesmo pedido e ≠ `quantidade`) para você decidir corrigir em lote, ou prefere corrigir só o pedido 85 agora?
+## Pergunta opcional
+Quer um botão "Imprimir/PDF" para essa aba também, reaproveitando o estilo do `ConsolidadoPrintDialog`? Se sim, adiciono; se preferir manter simples agora, fica só na tela.
