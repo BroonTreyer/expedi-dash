@@ -387,6 +387,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCarg
             >
               <Save className="h-4 w-4" /> Salvar
             </Button>
+            {!preCargaContext && (
             <Button
               disabled={!isValid || editar.isPending}
               onClick={() => salvar(true)}
@@ -395,6 +396,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCarg
               <CheckCircle2 className="h-4 w-4" />
               {editar.isPending ? "Salvando..." : "Salvar e aprovar"}
             </Button>
+            )}
           </div>
         </div>
       </DialogContent>
