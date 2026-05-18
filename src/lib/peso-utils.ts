@@ -12,6 +12,12 @@ interface PesoItem {
   peso_original?: number | null;
 }
 
+interface QtdItem {
+  quantidade: number | null;
+  ruptura: boolean;
+  quantidade_original?: number | null;
+}
+
 export const pesoEfetivo = (c: PesoItem): number =>
   c.ruptura ? 0 : (c.peso ?? 0);
 
@@ -36,4 +42,15 @@ export const isRupturaParcial = (c: PesoItem): boolean => {
   const original = c.peso_original ?? 0;
   const atual = c.peso ?? 0;
   return original > atual && original > 0;
+};
+
+/**
+ * Quantidade que deixou de ser carregada — espelha `pesoNaoCarregado` para unidades.
+ * Ruptura total: devolve `quantidade_original`. Parcial: `original - atual`. Sem perda: 0.
+ */
+export const quantidadeNaoCarregada = (c: QtdItem): number => {
+  const original = c.quantidade_original ?? c.quantidade ?? 0;
+  if (c.ruptura) return original;
+  const atual = c.quantidade ?? 0;
+  return Math.max(0, original - atual);
 };
