@@ -174,6 +174,7 @@ export function AdiantamentosTab() {
           ordem_carga: ordem,
           percentual: r.percentual,
           observacoes: observacoes.trim() || null,
+          valor_adiantamento_override: r.manual ? r.adt : null,
           ctes: r.ctes.map((c) => ({
             id: c.id,
             valor_frete: Number(c.valor_frete || 0),
@@ -184,6 +185,7 @@ export function AdiantamentosTab() {
       }
       setSelecionados(new Set());
       setObservacoes("");
+      setAdtManuais({});
       if (criados.length > 0) setComprovantesAdt(criados);
     } catch {
       // toast já é exibido pelo hook
