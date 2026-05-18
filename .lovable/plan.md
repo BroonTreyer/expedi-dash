@@ -1,88 +1,54 @@
-## O que o print pede
-
-> "bom dia.. temos q ver essa data.. pq ficou para carregar hoje.. tinha q aparece no painel de hoje.. as pendentes.. ele só aparece se eu voltar a data.."
-
-No print há um pedido com **data 13/05/2026**, status **"Pronto para carregar"** e badge **"Carga … aguardando finalizar"** (faltam etapas de portaria pra ser "Carregado"). Hoje é 18/05. O usuário diz: *esse pedido ficou pendente, era pra aparecer no painel de hoje automaticamente* — mas só aparece quando ele volta o filtro para 13/05.
-
 ## Diagnóstico
 
-Existe carry-over no `useCarregamentos.ts` (linhas 140-144):
+O pedido **85 do cliente 21405** tem `quantidade` e `quantidade_original` inconsistentes em todos os 10 itens. Exemplo do "PAO DE ALHO PICANTE 10x400g" (carga 811):
+
+| Campo | Valor no banco |
+|---|---|
+| `quantidade` | 30 |
+| `quantidade_original` | **13** |
+| `peso` | 12 |
+| `peso_original` | 12 |
+| `ruptura` | true |
+
+- O **Painel/Carregamento** mostra `quantidade` (30 unid ou 12 kg) → o "estado atual" do pedido.
+- A aba **Rupturas** mostra `quantidade_original` (13 unid) → o "que foi pedido originalmente", porque ruptura total significa "perdemos tudo que foi pedido". Lógica em `src/pages/Rupturas.tsx:223-227`.
+
+O valor "13" se repete **idêntico em todos os 10 itens** do pedido 85, e "23" idêntico em todos os 23 itens do pedido 1 do mesmo cliente. Isso não é coincidência — é um bug de gravação, não de exibição.
+
+## Causa raiz provável
+
+Em `src/hooks/useEditarPedidoAprovacao.ts:67`, ao salvar uma edição em Aprovações:
 
 ```ts
-if (isSingleDay && dateFrom === todayStr) {
-  q = q.or(`data.eq.${dateFrom},and(data.lt.${dateFrom},data.gte.${limitDate},status.neq.Carregado)`);
-}
+quantidade_original: it.quantidade,
 ```
 
-A query traz todos os pendentes dos últimos 30 dias. **Esse pedido vem do banco.**
+Esse "rebase de baseline" sobrescreve o original com a quantidade atual da linha — mas o padrão idêntico em todos os itens sugere que, em algum fluxo (edição em massa, importação ou clonagem), `it.quantidade` recebeu um valor compartilhado entre todas as linhas antes do save, gravando o mesmo número em todas. Preciso reproduzir o caminho exato; o sintoma já é suficiente para tratar.
 
-O problema está no filtro de exibição do painel (`src/pages/Index.tsx`, linha 142):
+## Plano
 
-```ts
-if (!showLogistica && c.etapa === "logistica") return false;
+### 1. Corrigir os dados existentes do pedido afetado
+Para os registros do pedido 85 (e quaisquer outros pedidos com mesmo padrão "todos itens com `quantidade_original` idêntico ≠ `quantidade`"), realinhar `quantidade_original = quantidade` e `peso_original = peso`, já que `peso_original` já está correto e `quantidade_original` é o único divergente. Isso fará a aba Rupturas mostrar 30 unid em vez de 13 para esse item.
+
+Migration SQL (somente UPDATE direcionado, sem mexer em outros pedidos):
+
+```sql
+UPDATE carregamentos_dia
+SET quantidade_original = quantidade
+WHERE numero_pedido IN (85, 1)
+  AND codigo_cliente = '21405'
+  AND quantidade_original IS DISTINCT FROM quantidade;
 ```
 
-O pedido do print tem `etapa = 'logistica'` (já passou pra logística e foi anexado numa carga fechada), com `status = 'Pronto para carregar'` (ainda não "Carregado" porque a portaria não finalizou). Por padrão `showLogistica = false`, então o painel principal **esconde esse registro**. Ele só "reaparece" quando o usuário muda a data porque o usuário também alterna o toggle, ou porque o item vira o único da listagem ali.
+### 2. Blindar a origem do bug
+Em `useEditarPedidoAprovacao.ts`, só rebasear `quantidade_original`/`peso_original` quando o item **não estiver em ruptura** (mesma lógica defensiva que já existe para `ruptura_sinalizada`). Em itens com `ruptura=true`, o "original" deve permanecer como o pedido realmente solicitado — não deve ser reescrito pelo valor da edição. Isso evita que futuras edições em Aprovações zerem ou achatem o baseline de itens já em ruptura.
 
-Confirmação no banco:
+### 3. Validação visual
+Após o UPDATE, abrir a aba Rupturas filtrando pelo pedido 85 e conferir se "PAO DE ALHO PICANTE" passa a mostrar 30 UNID (igual ao Painel) em vez de 13.
 
-```
-data        | status               | etapa     | count
-2026-05-13  | Carregado            | logistica | 108
-2026-05-14  | Pronto para carregar | vendas    | 3      ← carry-over funcionando
-2026-05-15  | Pendente / Problema  | vendas    | 51     ← carry-over funcionando
-... (etapa=logistica + status != Carregado) → escondidos
-```
+## Fora do escopo
+- Não vou alterar a fórmula de `pesoNaoCarregado` nem a regra "ruptura total = original" — essa regra está correta; o problema é o dado de origem.
+- Não vou rodar correção em massa em outros clientes/pedidos sem você confirmar o escopo.
 
-Resumo: o carry-over funciona pra `etapa=vendas`, mas **não** pra `etapa=logistica` (pedidos já em carga fechada aguardando finalização).
-
-## Mudanças propostas
-
-### 1. Carry-over inclui também logística pendente (`src/pages/Index.tsx`)
-
-Tornar o filtro de etapa **insensível** para itens de carry-over (data < hoje). Itens do dia atual continuam respeitando o toggle "Mostrar logística".
-
-```ts
-const hojeStr = new Date().toISOString().split("T")[0];
-
-const filtered = useMemo(() => {
-  return carregamentos.filter((c) => {
-    const ehCarryOver = c.data < hojeStr && c.status !== "Carregado";
-
-    // Toggle logística aplica-se só ao dia corrente
-    if (!ehCarryOver) {
-      if (showLogistica && c.etapa !== "logistica") return false;
-      if (!showLogistica && c.etapa === "logistica") return false;
-    }
-
-    // Mantém: esconde só os efetivamente finalizados
-    if (c.carga_id != null && c.status === "Carregado") return false;
-    // ...restante dos filtros sem mudança
-  });
-}, [carregamentos, filters, showLogistica]);
-```
-
-### 2. Indicador visual de carry-over
-
-No render da linha do painel, quando `c.data !== hoje`, mostrar um chip discreto **"Atrasado · DD/MM"** ao lado do número do pedido (cor `text-amber-600` / `bg-amber-50`, sem usar vermelho — vermelho fica reservado para Ruptura conforme regra de design). Assim o operador entende rapidamente que aquele item não é de hoje, é arrasto.
-
-### 3. KPIs continuam consistentes
-
-`kpiSource` (linhas 158-) já ignora o toggle de etapa — não precisa mudar. O peso/qtd dos atrasados já entram nos KPIs do topo (que o print mostra "93.960,16 kg"). Nada a alterar.
-
-### 4. Sem mudança de query nem de banco
-
-O `useCarregamentos` já traz tudo certo. Mudança é puramente de exibição. Sem migration, sem alterar RLS.
-
-## Fora de escopo
-
-- Não mudar o toggle "Mostrar logística" (continua filtrando o dia corrente).
-- Não mexer no Consolidado (regra própria de carry-over de 30 dias).
-- Não criar nova coluna no banco para marcar "atrasado" — derivado em tempo de render.
-
-## Detalhes técnicos
-
-- Arquivo único alterado: `src/pages/Index.tsx`.
-- O chip "Atrasado · DD/MM" será adicionado dentro do componente `LinhaCarregamento` ou no card mobile equivalente — verificar onde está renderizada a linha (próxima exploração no build).
-- `c.data` é string `YYYY-MM-DD`, comparação lexicográfica com `hojeStr` funciona.
-- Carry-over de logística respeita `status !== 'Carregado'` (mesma regra da query) — itens "Carregado" continuam fora do painel principal.
+## Pergunta para você
+Antes de aplicar a migration corrigindo os dados: além do pedido 85 (e do pedido 1 que mostra o mesmo padrão), quer que eu rode uma varredura listando **todos** os pedidos com esse sintoma (`quantidade_original` idêntico em ≥3 itens do mesmo pedido e ≠ `quantidade`) para você decidir corrigir em lote, ou prefere corrigir só o pedido 85 agora?

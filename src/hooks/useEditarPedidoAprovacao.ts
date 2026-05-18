@@ -52,6 +52,11 @@ export function useEditarPedidoAprovacao() {
         // Se a ruptura foi desmarcada e o peso voltou ao original, limpa também
         // o flag persistente "ruptura_sinalizada" (defensivo — o trigger DB também faz).
         const limparSinalizada = !it.ruptura;
+        // Rebase do baseline (peso_original / quantidade_original) só faz sentido
+        // para itens SEM ruptura — para um item em ruptura, o "original" precisa
+        // continuar refletindo o que foi pedido, senão a aba Rupturas exibe um
+        // valor diferente do Painel (perda achatada pela última edição).
+        const rebaseBaseline = !it.ruptura;
         const { error } = await supabase
           .from("carregamentos_dia")
           .update({
@@ -63,8 +68,8 @@ export function useEditarPedidoAprovacao() {
             // Rebase de baseline: ao editar em Aprovações, o pedido novo é a referência
             // de demanda. Sem isso, peso_original/quantidade_original ficam com o valor
             // antigo e a tela "Faltando agora" mostra ruptura maior do que o pedido real.
-            peso_original: it.peso,
-            quantidade_original: it.quantidade,
+            // Não rebasear quando o item está em ruptura — ver comentário acima.
+            ...(rebaseBaseline ? { peso_original: it.peso, quantidade_original: it.quantidade } : {}),
             preco_unitario: it.preco_unitario || null,
             preco_total: it.preco_total || null,
             motivo_ruptura: it.motivo_ruptura || null,
