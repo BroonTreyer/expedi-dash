@@ -356,6 +356,28 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
         <TableCell className="text-sm">
           <div className="font-medium truncate max-w-[260px]">{pedido.cliente ?? "—"}</div>
           {pedido.codigo_cliente && <div className="text-[11px] text-muted-foreground">Cód. {pedido.codigo_cliente}</div>}
+          {temRup && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {pedido.itens.filter((it) => temRuptura(it)).slice(0, 3).map((it) => (
+                <span
+                  key={it.id}
+                  className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px]"
+                  title={it.motivo_ruptura ?? undefined}
+                >
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  <span className="font-mono">{it.codigo_produto}</span>
+                  <span className="truncate max-w-[180px]">{it.nome_produto}</span>
+                  <span className="tabular-nums">— {formatKg(pesoNaoCarregado(it))} kg</span>
+                  {it.motivo_ruptura && <span className="opacity-80">· {it.motivo_ruptura}</span>}
+                </span>
+              ))}
+              {pedido.qtdRupturas > 3 && (
+                <span className="inline-flex items-center rounded border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px]">
+                  +{pedido.qtdRupturas - 3}
+                </span>
+              )}
+            </div>
+          )}
         </TableCell>
         <TableCell className="hidden sm:table-cell text-xs">{pedido.cidade ? `${pedido.cidade}/${pedido.uf ?? ""}` : "—"}</TableCell>
         <TableCell className="text-right tabular-nums text-sm">{formatKg(pedido.pesoEmbarcado)} kg</TableCell>
