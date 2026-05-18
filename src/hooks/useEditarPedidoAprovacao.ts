@@ -28,6 +28,22 @@ interface EditarPedidoPayload {
   items: EditItemPayload[];
   removedIds: string[];
   aprovarAposSalvar?: boolean;
+  /**
+   * Quando o pedido pertence a uma pré-carga já formada, novos itens
+   * inseridos pela edição devem nascer na MESMA pré-carga (etapa +
+   * dados de transporte), em vez de cair em "aguardando_faturamento".
+   * Quando definido, ignora `aprovarAposSalvar` para a etapa de novos
+   * itens (continua valendo para UPDATEs).
+   */
+  preCargaContext?: {
+    carga_id: string;
+    nome_carga: string | null;
+    placa: string | null;
+    motorista: string | null;
+    transportadora: string | null;
+    tipo_caminhao: string | null;
+    ordem_carga: string | null;
+  } | null;
 }
 
 export function useEditarPedidoAprovacao() {
