@@ -136,10 +136,16 @@ export default function Index() {
   }, [carregamentos]);
 
   const filtered = useMemo(() => {
+    const hojeStr = getToday();
     return carregamentos.filter((c) => {
-      // Hide logistica-ok items unless toggle is active
-      if (showLogistica && c.etapa !== "logistica") return false;
-      if (!showLogistica && c.etapa === "logistica") return false;
+      // Carry-over: itens de dias passados ainda pendentes aparecem no painel
+      // de hoje independentemente do toggle de etapa (logística).
+      const ehCarryOver = !!c.data && c.data < hojeStr && c.status !== "Carregado";
+      if (!ehCarryOver) {
+        // Hide logistica-ok items unless toggle is active
+        if (showLogistica && c.etapa !== "logistica") return false;
+        if (!showLogistica && c.etapa === "logistica") return false;
+      }
       // Hide finalized items — they appear only in Consolidado
       if (c.carga_id != null && c.status === "Carregado") return false;
       if (filters.status !== "todos" && c.status !== filters.status) return false;

@@ -43,6 +43,23 @@ function RupturaBadge() {
   );
 }
 
+function AtrasadoChip({ data }: { data: string | null | undefined }) {
+  if (!data) return null;
+  const hoje = new Date().toISOString().split("T")[0];
+  if (data >= hoje) return null;
+  // data no formato YYYY-MM-DD → DD/MM
+  const [, m, d] = data.split("-");
+  if (!m || !d) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+      title={`Pedido da data ${d}/${m} ainda pendente`}
+    >
+      Atrasado · {d}/{m}
+    </span>
+  );
+}
+
 interface Props {
   data: Carregamento[];
   currentDate?: string;
@@ -236,6 +253,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
         <div className="flex items-center gap-2 flex-wrap">
           {!isGrouped && !hideColumns.includes("etapa") && <EtapaBadge etapa={c.etapa} />}
           {!isGrouped && <StatusBadge status={c.status} statusColors={statusColors} />}
+          {!isGrouped && <AtrasadoChip data={c.data} />}
           {temRuptura(c) && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
               <AlertTriangle className="h-3 w-3" /> Ruptura
@@ -541,7 +559,12 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         <StatusBadge status={c.status} statusColors={statusColors} />
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(c.created_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5 flex-wrap">
+                        {formatDateCompact(c.created_at)}
+                        <AtrasadoChip data={c.data} />
+                      </span>
+                    </TableCell>
                     <TableCell className="text-sm">{c.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell className="text-sm font-mono">
                       <span className="flex items-center gap-1.5">
@@ -694,7 +717,12 @@ export function CarregamentoTable({ data, currentDate, onStatusChange, onEdit, o
                         <StatusBadge status={first.status} statusColors={statusColors} />
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDateCompact(first.created_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5 flex-wrap">
+                        {formatDateCompact(first.created_at)}
+                        <AtrasadoChip data={first.data} />
+                      </span>
+                    </TableCell>
                     <TableCell className="text-sm">{first.vendedores?.nome_vendedor ?? "—"}</TableCell>
                     <TableCell colSpan={2} className="text-sm text-muted-foreground italic">
                       <span className="inline-flex items-center gap-1.5">
