@@ -37,6 +37,7 @@ const navTree: NavNode[] = [
   { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
   { to: "/expedicao", label: "Expedição", icon: Monitor, roles: ["admin", "logistica", "portaria", "expedicao"] },
   { to: "/aprovacoes", label: "Aprovações", icon: Inbox, roles: ["admin", "faturamento"] },
+  { to: "/pre-cargas", label: "Pré-cargas", icon: PackageOpen, roles: ["admin", "logistica", "faturamento"] },
   { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
   { to: "/ocorrencias", label: "Ocorrências", icon: AlertOctagon, roles: ["admin", "logistica", "portaria"] },
