@@ -147,7 +147,7 @@ export function PreCargaPrintDialog({ open, onOpenChange, carga }: Props) {
                     <th className="text-left py-1.5 pr-2 font-semibold">Produto</th>
                     <th className="text-left py-1.5 pr-2 font-semibold">Tipo de ruptura</th>
                     <th className="text-right py-1.5 pr-2 font-semibold">Peso Total (kg)</th>
-                    <th className="text-right py-1.5 pr-2 font-semibold">Carregado (kg)</th>
+                    <th className="text-right py-1.5 pr-2 font-semibold">Disponível (kg)</th>
                     <th className="text-right py-1.5 pr-2 font-semibold">Ruptura (kg)</th>
                     <th className="text-left py-1.5 font-semibold">Motivo</th>
                   </tr>
