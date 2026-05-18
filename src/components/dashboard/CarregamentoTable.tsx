@@ -253,6 +253,7 @@ function MobileCardItem({ c, isAdmin, canEdit, canDelete, canComplete, hasAction
         <div className="flex items-center gap-2 flex-wrap">
           {!isGrouped && !hideColumns.includes("etapa") && <EtapaBadge etapa={c.etapa} />}
           {!isGrouped && <StatusBadge status={c.status} statusColors={statusColors} />}
+          {!isGrouped && <AtrasadoChip data={c.data} />}
           {temRuptura(c) && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase">
               <AlertTriangle className="h-3 w-3" /> Ruptura
