@@ -79,6 +79,7 @@ const NotFound = lazyWithRetry("/404", () => import("./pages/NotFound"));
 const MeuPainel = lazyWithRetry("/meu-painel", () => import("./pages/MeuPainel"));
 const VendedoresPainel = lazyWithRetry("/vendedores-painel", () => import("./pages/VendedoresPainel"));
 const Aprovacoes = lazyWithRetry("/aprovacoes", () => import("./pages/Aprovacoes"));
+const PreCargas = lazyWithRetry("/pre-cargas", () => import("./pages/PreCargas"));
 const PoliticaPrivacidade = lazyWithRetry("/politica-de-privacidade", () => import("./pages/PoliticaPrivacidade"));
 const TermosServico = lazyWithRetry("/termos-de-servico", () => import("./pages/TermosServico"));
 const ExclusaoDados = lazyWithRetry("/dados", () => import("./pages/ExclusaoDados"));
@@ -170,6 +171,7 @@ function AppRoutes() {
           <Route path="/meu-painel/:vendedorId" element={<ProtectedRoute allowedRoles={["admin"]}><MeuPainel /></ProtectedRoute>} />
           <Route path="/vendedores-painel" element={<ProtectedRoute allowedRoles={["admin"]}><VendedoresPainel /></ProtectedRoute>} />
           <Route path="/aprovacoes" element={<ProtectedRoute allowedRoles={["admin", "faturamento"]}><Aprovacoes /></ProtectedRoute>} />
+          <Route path="/pre-cargas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><PreCargas /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

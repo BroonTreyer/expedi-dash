@@ -28,13 +28,29 @@ interface EditarPedidoPayload {
   items: EditItemPayload[];
   removedIds: string[];
   aprovarAposSalvar?: boolean;
+  /**
+   * Quando o pedido pertence a uma pré-carga já formada, novos itens
+   * inseridos pela edição devem nascer na MESMA pré-carga (etapa +
+   * dados de transporte), em vez de cair em "aguardando_faturamento".
+   * Quando definido, ignora `aprovarAposSalvar` para a etapa de novos
+   * itens (continua valendo para UPDATEs).
+   */
+  preCargaContext?: {
+    carga_id: string;
+    nome_carga: string | null;
+    placa: string | null;
+    motorista: string | null;
+    transportadora: string | null;
+    tipo_caminhao: string | null;
+    ordem_carga: string | null;
+  } | null;
 }
 
 export function useEditarPedidoAprovacao() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: EditarPedidoPayload) => {
-      const { items, removedIds, aprovarAposSalvar, ...meta } = payload;
+      const { items, removedIds, aprovarAposSalvar, preCargaContext, ...meta } = payload;
       const operationId = crypto.randomUUID();
 
       // 1) DELETE removidos
@@ -105,7 +121,22 @@ export function useEditarPedidoAprovacao() {
           ruptura: !!it.ruptura,
           observacoes: meta.observacoes || null,
           forma_pagamento: meta.forma_pagamento || null,
-          etapa: aprovarAposSalvar ? "vendas" : "aguardando_faturamento",
+          etapa: preCargaContext
+            ? "pre_carga"
+            : aprovarAposSalvar
+              ? "vendas"
+              : "aguardando_faturamento",
+          ...(preCargaContext
+            ? {
+                carga_id: preCargaContext.carga_id,
+                nome_carga: preCargaContext.nome_carga,
+                placa: preCargaContext.placa,
+                motorista: preCargaContext.motorista,
+                transportadora: preCargaContext.transportadora,
+                tipo_caminhao: preCargaContext.tipo_caminhao,
+                ordem_carga: preCargaContext.ordem_carga,
+              }
+            : {}),
           status: "Aguardando",
           operation_id: operationId,
           // Chave única por linha: bloqueia o MESMO envio repetido,
@@ -151,6 +182,7 @@ export function useEditarPedidoAprovacao() {
       qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes-count"] });
       qc.invalidateQueries({ queryKey: ["carregamentos"] });
       qc.invalidateQueries({ queryKey: ["meu-painel"] });
+      qc.invalidateQueries({ queryKey: ["pre-cargas"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao salvar edição"),
   });

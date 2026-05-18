@@ -25,9 +25,23 @@ interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   grupo: any[] | null; // pedidos do grupo (mesmo numero_pedido + cliente + vendedor + data)
+  /**
+   * Quando definido, o dialog opera em modo "pré-carga":
+   * - novos itens nascem em etapa = 'pre_carga' herdando dados de transporte
+   * - o botão "Salvar e aprovar" some (o pedido continua na pré-carga)
+   */
+  preCargaContext?: {
+    carga_id: string;
+    nome_carga: string | null;
+    placa: string | null;
+    motorista: string | null;
+    transportadora: string | null;
+    tipo_caminhao: string | null;
+    ordem_carga: string | null;
+  } | null;
 }
 
-export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props) {
+export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCargaContext }: Props) {
   const { data: produtosAll = [] } = useProdutos();
   const editar = useEditarPedidoAprovacao();
 
@@ -173,7 +187,8 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
         ruptura: r.ruptura,
       })),
       removedIds,
-      aprovarAposSalvar: aprovar,
+      aprovarAposSalvar: preCargaContext ? false : aprovar,
+      preCargaContext: preCargaContext ?? null,
       });
       onOpenChange(false);
     } finally {
@@ -187,9 +202,13 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-base sm:text-lg">Editar pedido em aprovação</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg">
+            {preCargaContext ? "Editar pedido na pré-carga" : "Editar pedido em aprovação"}
+          </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            Ajuste produtos, peso, quantidade ou preços. Para trocar o cliente, devolva ao vendedor.
+            {preCargaContext
+              ? "Ajuste produtos, peso, quantidade ou preços. O pedido continua dentro da pré-carga."
+              : "Ajuste produtos, peso, quantidade ou preços. Para trocar o cliente, devolva ao vendedor."}
           </DialogDescription>
         </DialogHeader>
 
@@ -368,6 +387,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
             >
               <Save className="h-4 w-4" /> Salvar
             </Button>
+            {!preCargaContext && (
             <Button
               disabled={!isValid || editar.isPending}
               onClick={() => salvar(true)}
@@ -376,6 +396,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo }: Props
               <CheckCircle2 className="h-4 w-4" />
               {editar.isPending ? "Salvando..." : "Salvar e aprovar"}
             </Button>
+            )}
           </div>
         </div>
       </DialogContent>
