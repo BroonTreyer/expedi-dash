@@ -153,8 +153,11 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCarg
   };
 
   const isValid = useMemo(
-    () => items.length > 0 && !!formaPagamento && items.every((r) => r.codigo_produto && r.quantidade > 0),
-    [items, formaPagamento]
+    () =>
+      items.length > 0 &&
+      (preCargaContext ? true : !!formaPagamento) &&
+      items.every((r) => r.codigo_produto && r.quantidade > 0),
+    [items, formaPagamento, preCargaContext]
   );
 
   const totalPedido = items.reduce((s, r) => s + (r.preco_unitario || 0) * (r.quantidade || 0), 0);
@@ -227,7 +230,8 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCarg
             </div>
           </section>
 
-          {/* Forma de pagamento */}
+          {/* Forma de pagamento (oculta em pré-carga) */}
+          {!preCargaContext && (
           <section className="space-y-2 rounded-lg border bg-muted/30 p-3">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Forma de pagamento <span className="text-destructive">*</span>
@@ -243,6 +247,7 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCarg
               </SelectContent>
             </Select>
           </section>
+          )}
 
           {/* Itens */}
           <section className="space-y-2">
