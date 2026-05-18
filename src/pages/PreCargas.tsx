@@ -341,8 +341,6 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
   const [expand, setExpand] = useState(false);
   const temRup = pedido.qtdRupturas > 0;
   const rupturas = temRup ? pedido.itens.filter((it) => temRuptura(it)) : [];
-  const rupturasMostrar = rupturas.slice(0, 3);
-  const rupturasExtra = rupturas.length - rupturasMostrar.length;
 
   return (
     <div className={cn("rounded-md", temRup && "bg-destructive/5")}>
@@ -404,7 +402,7 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
       {/* Chips de ruptura: largura total, abaixo da linha */}
       {temRup && (
         <div className="px-2 pb-2 -mt-1 flex flex-wrap gap-1.5">
-          {rupturasMostrar.map((it) => (
+          {rupturas.map((it) => (
             <span
               key={it.id}
               className="inline-flex items-center gap-1 max-w-full rounded border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px]"
@@ -416,11 +414,6 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
               <span className="tabular-nums shrink-0">— {formatKg(pesoNaoCarregado(it))} kg</span>
             </span>
           ))}
-          {rupturasExtra > 0 && (
-            <span className="inline-flex items-center rounded border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px]">
-              +{rupturasExtra} item{rupturasExtra === 1 ? "" : "s"}
-            </span>
-          )}
         </div>
       )}
 
