@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
+import { AlertTriangle, FileDown, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
 import { temRuptura } from "@/lib/ruptura-utils";
 import { pesoEfetivo, pesoNaoCarregado } from "@/lib/peso-utils";
 import { cn } from "@/lib/utils";
 import { EditarPedidoAprovacaoDialog } from "@/components/aprovacoes/EditarPedidoAprovacaoDialog";
+import { PreCargaPrintDialog } from "@/components/precargas/PreCargaPrintDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 type Item = Carregamento & { ruptura_sinalizada?: boolean; forma_pagamento?: string | null };
@@ -66,6 +67,7 @@ export default function PreCargas() {
   const [busca, setBusca] = useState("");
   const [editGrupo, setEditGrupo] = useState<PedidoGrupo | null>(null);
   const [editCargaCtx, setEditCargaCtx] = useState<PreCargaGrupo | null>(null);
+  const [printCarga, setPrintCarga] = useState<PreCargaGrupo | null>(null);
 
   const preCargas: PreCargaGrupo[] = useMemo(() => {
     const map = new Map<string, PreCargaGrupo>();
@@ -237,6 +239,7 @@ export default function PreCargas() {
                 key={carga.cargaId}
                 carga={carga}
                 onEditPedido={(p) => { setEditGrupo(p); setEditCargaCtx(carga); }}
+                onPrint={() => setPrintCarga(carga)}
               />
             ))}
           </div>
@@ -256,6 +259,11 @@ export default function PreCargas() {
             ordem_carga: editCargaCtx.ordemCarga,
           } : null}
         />
+        <PreCargaPrintDialog
+          open={!!printCarga}
+          onOpenChange={(o) => { if (!o) setPrintCarga(null); }}
+          carga={printCarga}
+        />
       </main>
     </Layout>
   );
@@ -273,7 +281,7 @@ function KpiTile({ label, value, sub, variant }: { label: string; value: string;
   );
 }
 
-function PreCargaCard({ carga, onEditPedido }: { carga: PreCargaGrupo; onEditPedido: (p: PedidoGrupo) => void }) {
+function PreCargaCard({ carga, onEditPedido, onPrint }: { carga: PreCargaGrupo; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void }) {
   const temRup = carga.pesoRuptura > 0;
   return (
     <Card className={cn(temRup && "border-destructive/30")}>
@@ -305,6 +313,9 @@ function PreCargaCard({ carga, onEditPedido }: { carga: PreCargaGrupo; onEditPed
             <div className="text-[11px] text-muted-foreground tabular-nums">
               {formatKg(carga.pesoEmbarcado)} kg embarcados
             </div>
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1.5" onClick={onPrint}>
+              <FileDown className="h-3.5 w-3.5" /> Baixar PDF
+            </Button>
           </div>
         </div>
       </CardHeader>
