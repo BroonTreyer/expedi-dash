@@ -137,7 +137,7 @@ export function PreCargaPrintDialog({ open, onOpenChange, carga }: Props) {
           {/* Rupturas detalhadas */}
           {rupturas.length > 0 ? (
             <div>
-              <h2 className="text-sm font-bold mb-2">Rupturas detalhadas</h2>
+              <h2 className="text-sm font-bold mb-2">Produtos em ruptura</h2>
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="border-b-2 border-foreground/20">
@@ -145,10 +145,10 @@ export function PreCargaPrintDialog({ open, onOpenChange, carga }: Props) {
                     <th className="text-left py-1.5 pr-2 font-semibold">Cliente</th>
                     <th className="text-left py-1.5 pr-2 font-semibold">Código</th>
                     <th className="text-left py-1.5 pr-2 font-semibold">Produto</th>
-                    <th className="text-left py-1.5 pr-2 font-semibold">Tipo</th>
-                    <th className="text-right py-1.5 pr-2 font-semibold">Original</th>
-                    <th className="text-right py-1.5 pr-2 font-semibold">Carregado</th>
-                    <th className="text-right py-1.5 pr-2 font-semibold">Diferença</th>
+                    <th className="text-left py-1.5 pr-2 font-semibold">Tipo de ruptura</th>
+                    <th className="text-right py-1.5 pr-2 font-semibold">Peso Total (kg)</th>
+                    <th className="text-right py-1.5 pr-2 font-semibold">Carregado (kg)</th>
+                    <th className="text-right py-1.5 pr-2 font-semibold">Ruptura (kg)</th>
                     <th className="text-left py-1.5 font-semibold">Motivo</th>
                   </tr>
                 </thead>
@@ -182,8 +182,8 @@ export function PreCargaPrintDialog({ open, onOpenChange, carga }: Props) {
           {/* Footer */}
           {rupturas.length > 0 && (
             <div className="border-t-2 border-foreground/20 pt-3 flex justify-between items-center text-sm font-bold">
-              <span>{rupturas.length} ruptura{rupturas.length === 1 ? "" : "s"}</span>
-              <span>{formatKg(carga.pesoRuptura)} kg em ruptura</span>
+              <span>Total em ruptura: {formatKg(carga.pesoRuptura)} kg</span>
+              <span>({rupturas.length} {rupturas.length === 1 ? "item" : "itens"})</span>
             </div>
           )}
         </div>

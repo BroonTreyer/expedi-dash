@@ -1,29 +1,21 @@
 ## Objetivo
 
-Simplificar o relatório PDF de pré-carga (`PreCargaPrintDialog`) para exibir **apenas** as informações essenciais da carga e os produtos que estão em ruptura, removendo a tabela completa de pedidos e os KPIs intermediários.
+Deixar mais claro, na tabela de rupturas do PDF da pré-carga, o que significa cada coluna de peso — especialmente que "Original" é o **peso total do pedido** e "Diferença" é o **peso em ruptura**.
 
-## O que muda no PDF
+## O que muda
 
-### Mantém
-- Cabeçalho com logo Frico, nome da carga e data
-- Identificação resumida (placa, motorista, transportadora, tipo, ordem, destinos)
-- Tabela de **Rupturas** (pedido, cliente, código, produto, tipo, original, carregado, diferença, motivo)
-- Rodapé simples (total de rupturas e peso em ruptura)
+Apenas labels (texto), em `src/components/precargas/PreCargaPrintDialog.tsx`, no cabeçalho da tabela de "Rupturas detalhadas":
 
-### Remove
-- Bloco de KPIs numéricos (pedidos, peso planejado, embarcado, em ruptura)
-- Tabela completa de **Pedidos** (com todos os pedidos da carga)
-- Rodapé com "X pedidos · Y rupturas"
+| Hoje | Vai virar |
+|---|---|
+| Original | Peso Total (kg) |
+| Carregado | Carregado (kg) |
+| Diferença | Ruptura (kg) |
+| Tipo | Tipo de ruptura |
 
-## Implementação
+O título da seção também muda de **"Rupturas detalhadas"** para **"Produtos em ruptura"**, e o rodapé passa de `"X rupturas / Y kg em ruptura"` para `"Total em ruptura: Y kg (X itens)"`.
 
-1. Editar `src/components/precargas/PreCargaPrintDialog.tsx`:
-   - Remover a seção `KPIs` (grid de 4 colunas com pedidos/peso planejado/embarcado/ruptura)
-   - Remover a tabela de `Pedidos` inteira (`<table>` com map de `carga.pedidos`)
-   - Simplificar o rodapé para mostrar apenas o total de rupturas e peso em ruptura
-   - Manter header, identificação e tabela de rupturas detalhadas exatamente como estão
-
-Nenhum outro arquivo precisa ser alterado.
+Nenhum cálculo muda — só os rótulos. Continua usando `pesoEfetivo` (carregado) e `pesoNaoCarregado` (ruptura), e `original = carregado + ruptura`.
 
 ## Arquivos alterados
 
