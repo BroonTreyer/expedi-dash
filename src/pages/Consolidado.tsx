@@ -22,11 +22,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
-import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado } from "@/lib/peso-utils";
+import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
+import { temRuptura } from "@/lib/ruptura-utils";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
 import { useStatusPortariaPorCarga, ETAPA_PORTARIA_ORDEM, ETAPA_PORTARIA_LABELS, type EtapaPortaria } from "@/hooks/useStatusPortariaPorCarga";
 import { PortariaStatusBadge } from "@/components/dashboard/PortariaStatusBadge";
