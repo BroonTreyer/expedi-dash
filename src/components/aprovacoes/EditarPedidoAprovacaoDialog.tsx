@@ -187,7 +187,8 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCarg
         ruptura: r.ruptura,
       })),
       removedIds,
-      aprovarAposSalvar: aprovar,
+      aprovarAposSalvar: preCargaContext ? false : aprovar,
+      preCargaContext: preCargaContext ?? null,
       });
       onOpenChange(false);
     } finally {
