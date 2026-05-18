@@ -202,9 +202,13 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCarg
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-base sm:text-lg">Editar pedido em aprovação</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg">
+            {preCargaContext ? "Editar pedido na pré-carga" : "Editar pedido em aprovação"}
+          </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            Ajuste produtos, peso, quantidade ou preços. Para trocar o cliente, devolva ao vendedor.
+            {preCargaContext
+              ? "Ajuste produtos, peso, quantidade ou preços. O pedido continua dentro da pré-carga."
+              : "Ajuste produtos, peso, quantidade ou preços. Para trocar o cliente, devolva ao vendedor."}
           </DialogDescription>
         </DialogHeader>
 
