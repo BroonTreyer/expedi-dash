@@ -182,6 +182,7 @@ export function useEditarPedidoAprovacao() {
       qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes-count"] });
       qc.invalidateQueries({ queryKey: ["carregamentos"] });
       qc.invalidateQueries({ queryKey: ["meu-painel"] });
+      qc.invalidateQueries({ queryKey: ["pre-cargas"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao salvar edição"),
   });
