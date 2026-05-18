@@ -16,11 +16,15 @@ import {
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
 
 const fmtBRL = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 const fmtKg = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(n || 0);
+const fmtRkg = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(n || 0);
+const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(1).replace(".", ",")}%`;
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("pt-BR") : "—");
 
 function StatusBadge({ s }: { s: Adiantamento["status"] }) {
@@ -44,6 +48,7 @@ export function AdiantamentosTab() {
 
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
+  const [adtManuais, setAdtManuais] = useState<Record<string, number>>({});
   const [observacoes, setObservacoes] = useState("");
 
   const [comprovantesAdt, setComprovantesAdt] = useState<Adiantamento[]>([]);
@@ -60,6 +65,13 @@ export function AdiantamentosTab() {
     }
     return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
   }, [ctes, ctesAtivos]);
+
+  // Apenas CT-es selecionáveis (disponíveis) para buscar valores de tabela
+  const ctesDisponiveis = useMemo(
+    () => [...ctesPorTransp.values()].flat(),
+    [ctesPorTransp],
+  );
+  const { data: tabelaMap } = useValoresTabelaPorCte(ctesDisponiveis);
 
   const transpInfoByName = useMemo(() => {
     const m = new Map<string, (typeof transp)[number]>();
@@ -80,21 +92,41 @@ export function AdiantamentosTab() {
       ctes: CteDacteRow[];
       total: number;
       peso: number;
+      totalTabela: number;
       percentual: number;
       adt: number;
       saldo: number;
+      manual: boolean;
     }> = [];
     for (const [nome, lista] of ctesPorTransp.entries()) {
       const escolhidos = lista.filter((c) => selecionados.has(c.id));
       if (escolhidos.length === 0) continue;
       const total = escolhidos.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
       const peso = escolhidos.reduce((s, c) => s + Number(c.peso_total || 0), 0);
+      const totalTabela = escolhidos.reduce(
+        (s, c) => s + (tabelaMap?.get(c.id)?.valorTabela ?? 0),
+        0,
+      );
       const p = getPercentual(nome);
-      const adt = +(total * (p / 100)).toFixed(2);
-      arr.push({ nome, ctes: escolhidos, total, peso, percentual: p, adt, saldo: +(total - adt).toFixed(2) });
+      const calc = +(total * (p / 100)).toFixed(2);
+      const manualVal = adtManuais[nome];
+      const manual = manualVal !== undefined && !Number.isNaN(manualVal);
+      const adt = manual ? +Number(manualVal).toFixed(2) : calc;
+      const percentualEfetivo = total > 0 ? +((adt / total) * 100).toFixed(2) : p;
+      arr.push({
+        nome,
+        ctes: escolhidos,
+        total,
+        peso,
+        totalTabela,
+        percentual: manual ? percentualEfetivo : p,
+        adt,
+        saldo: +(total - adt).toFixed(2),
+        manual,
+      });
     }
     return arr;
-  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName]);
+  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName, tabelaMap, adtManuais]);
 
   const totaisGerais = useMemo(
     () =>
@@ -103,10 +135,11 @@ export function AdiantamentosTab() {
           ctes: acc.ctes + r.ctes.length,
           total: acc.total + r.total,
           peso: acc.peso + r.peso,
+          totalTabela: acc.totalTabela + r.totalTabela,
           adt: acc.adt + r.adt,
           saldo: acc.saldo + r.saldo,
         }),
-        { ctes: 0, total: 0, peso: 0, adt: 0, saldo: 0 },
+        { ctes: 0, total: 0, peso: 0, totalTabela: 0, adt: 0, saldo: 0 },
       ),
     [resumoPorTransp],
   );
