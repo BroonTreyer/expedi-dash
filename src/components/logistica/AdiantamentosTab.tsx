@@ -383,12 +383,58 @@ export function AdiantamentosTab() {
                     <div key={r.nome} className="border rounded-md p-2 text-xs space-y-0.5">
                       <div className="font-semibold truncate">{r.nome}</div>
                       <div className="flex justify-between text-muted-foreground">
-                        <span>{r.ctes.length} CT-e · {r.percentual}%</span>
+                        <span>{r.ctes.length} CT-e · {r.percentual.toFixed(1).replace(".", ",")}%{r.manual ? " (manual)" : ""}</span>
                         <span>{fmtBRL(r.total)}</span>
+                      </div>
+                      {r.totalTabela > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Tabela:</span>
+                          <span>{fmtBRL(r.totalTabela)} · Δ <span className={r.total > r.totalTabela ? "text-destructive" : "text-emerald-600"}>{fmtPct(((r.total - r.totalTabela) / r.totalTabela) * 100)}</span></span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>R$/kg fechado:</span>
+                        <span>{r.peso > 0 ? fmtRkg(r.total / r.peso) : "—"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Adt:</span>
                         <span className="font-semibold text-primary">{fmtBRL(r.adt)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 pt-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder="Valor manual R$"
+                          value={adtManuais[r.nome] ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setAdtManuais((p) => {
+                              const n = { ...p };
+                              if (v === "") delete n[r.nome];
+                              else n[r.nome] = Number(v);
+                              return n;
+                            });
+                          }}
+                          className="h-7 text-xs"
+                        />
+                        {r.manual && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() =>
+                              setAdtManuais((p) => {
+                                const n = { ...p };
+                                delete n[r.nome];
+                                return n;
+                              })
+                            }
+                          >
+                            ↺ %
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -396,7 +442,25 @@ export function AdiantamentosTab() {
                     <div className="flex justify-between"><span>Transportadoras:</span><span className="font-medium">{resumoPorTransp.length}</span></div>
                     <div className="flex justify-between"><span>CT-es:</span><span className="font-medium">{totaisGerais.ctes}</span></div>
                     <div className="flex justify-between"><span>Peso total:</span><span className="font-medium">{fmtKg(totaisGerais.peso)} kg</span></div>
-                    <div className="flex justify-between"><span>Total fretes:</span><span className="font-medium">{fmtBRL(totaisGerais.total)}</span></div>
+                    {totaisGerais.totalTabela > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Total tabela:</span>
+                        <span className="font-medium">{fmtBRL(totaisGerais.totalTabela)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between"><span>Total fechado:</span><span className="font-medium">{fmtBRL(totaisGerais.total)}</span></div>
+                    {totaisGerais.totalTabela > 0 && (
+                      <div className="flex justify-between">
+                        <span>Diferença:</span>
+                        <span className={`font-medium ${totaisGerais.total > totaisGerais.totalTabela ? "text-destructive" : "text-emerald-600"}`}>
+                          {fmtBRL(totaisGerais.total - totaisGerais.totalTabela)} ({fmtPct(((totaisGerais.total - totaisGerais.totalTabela) / totaisGerais.totalTabela) * 100)})
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Custo médio/kg:</span>
+                      <span className="font-medium">{totaisGerais.peso > 0 ? fmtRkg(totaisGerais.total / totaisGerais.peso) : "—"}</span>
+                    </div>
                     <div className="flex justify-between"><span>Adiantamento:</span><span className="font-bold text-primary">{fmtBRL(totaisGerais.adt)}</span></div>
                     <div className="flex justify-between"><span>Saldo:</span><span className="font-medium">{fmtBRL(totaisGerais.saldo)}</span></div>
                   </div>
