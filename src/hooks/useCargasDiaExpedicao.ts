@@ -193,7 +193,12 @@ export function useCargasDiaExpedicao(dateStr: string) {
       const list = Array.from(grouped.values()).map(({ pedidos, statuses, ...rest }) => {
         const itens = itensPorCarga.get(rest.carga_id) ?? [];
         const saidaIso = saidaPorCarga.get(rest.carga_id) ?? null;
-        const dataEfetiva = computeDataEfetivaTerceirizada(itens, rest.data, saidaIso);
+        const dataEfetiva = computeDataEfetivaTerceirizada(
+          itens,
+          rest.data,
+          saidaIso,
+          new Date().toISOString().slice(0, 10),
+        );
         return {
           ...rest,
           data: dataEfetiva,
