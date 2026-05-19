@@ -518,6 +518,26 @@ export function AdiantamentosTab() {
                 <label className="text-xs font-medium">Observações</label>
                 <Input value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Aplica a todos" />
               </div>
+              <div>
+                <label className="text-xs font-medium block mb-1">Data do adiantamento</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {dataAdiantamento.toLocaleDateString("pt-BR")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dataAdiantamento}
+                      onSelect={(d) => d && setDataAdiantamento(d)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
               <Button className="w-full" disabled={resumoPorTransp.length === 0 || criar.isPending} onClick={handleGerar}>
                 <FileText className="h-4 w-4 mr-1" /> {resumoPorTransp.length > 1 ? `Gerar ${resumoPorTransp.length} adiantamentos` : "Gerar Adiantamento"}
               </Button>
