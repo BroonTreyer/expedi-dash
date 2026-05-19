@@ -193,13 +193,13 @@ export function useMarcarAdiantamentoPago() {
 export function useRegistrarQuitacao() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { ids: string[]; observacoes?: string }) => {
+    mutationFn: async (input: { ids: string[]; observacoes?: string; quitado_em?: string }) => {
       const { data: u } = await supabase.auth.getUser();
       const { error } = await (supabase as any)
         .from("adiantamentos_frete")
         .update({
           status: "quitado",
-          quitado_em: new Date().toISOString(),
+          quitado_em: input.quitado_em ?? new Date().toISOString(),
           quitado_por: u.user?.id,
           observacoes: input.observacoes ?? null,
         })
