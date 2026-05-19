@@ -1,37 +1,38 @@
-## Problema
+## Diagnóstico
 
-Quando uma pré-carga é fechada (botão "Finalizar" / FechamentoLoteDialog), a etapa muda de `pre_carga` → `logistica`. O trigger `on_carga_fechada` só reage à transição `vendas → logistica`, então nesses fechamentos:
+Carga **CF FRANGO** (data 15/05) foi fechada hoje (19/05). Walk-in do Raimundo (placa RBK7D22) foi registrado pela portaria em 17/05 e vinculado à carga no fechamento. Mesmo assim, a carga não aparece no card azul de **Portaria → Terceirizado** por dois motivos:
 
-- a portaria **não recebe notificação** "Carga fechada";
-- não é criado/atualizado o registro em `veiculos_esperados` para o veículo previsto;
-- a movimentação de chegada órfã (placa já no pátio sem carga vinculada) **não recebe** o `carga_id`.
+1. **Janela do painel é só 2 dias.** O hook `useCargasFechadasAguardando` em `src/hooks/useCarregamentos.ts` filtra `carregamentos_dia.data >= hoje - 2 dias`. CF FRANGO (`data=15/05`) cai fora.
+2. **Painel exige `movimentacoes_portaria`.** Para mostrar como "chegou aguardando liberação" (azul) o painel precisa achar uma `entrada` em `movimentacoes_portaria`. O walk-in do Raimundo não tem essa linha (foi criado por outro fluxo). Hoje sem essa movimentação a carga ficaria invisível ou no máximo laranja.
 
-A `CF FRANGO / 15/05/2026 / RBK7D22` "sumiu" porque seguiu esse caminho — o veículo só apareceu na portaria por coincidência (já existia um walk-in autorizado da mesma placa de dias atrás).
+## Correção (frontend apenas, em `src/hooks/useCarregamentos.ts`)
 
-## Correção
+**1) Ampliar a janela do painel para 7 dias.**
+Trocar `since.setDate(since.getDate() - 2)` por `- 7`. Alinha com `useCargasFechadasParaVincular` e com a janela de 7 dias já usada em outros pontos (busca de walk-ins, vínculo tardio etc.).
 
-Migration única ajustando a condição do trigger `on_carga_fechada` para também aceitar a transição vinda da pré-carga, mantendo todo o resto do comportamento:
+**2) Considerar walk-in autorizado como "chegou aguardando liberação".**
+No mesmo hook, depois de buscar as cargas fechadas, buscar `veiculos_esperados` onde:
+- `carga_id IN (cargaIds)`
+- `walk_in = true`
+- `conferido = false`
+- `status_autorizacao IN ('autorizado','aguardando_vinculo','aguardando_autorizacao')`
 
-```sql
--- de:
-IF OLD.etapa = 'vendas' AND NEW.etapa = 'logistica' AND NEW.carga_id IS NOT NULL THEN
--- para:
-IF OLD.etapa IN ('vendas','pre_carga')
-   AND NEW.etapa = 'logistica'
-   AND NEW.carga_id IS NOT NULL THEN
-```
+Se a carga não tem `entrada` em `movimentacoes_portaria` mas tem um walk-in nessas condições, marcar `chegouAguardandoLiberacao = true` e usar `autorizado_em` (ou `created_at`) como `horarioChegada`. `movimentoChegadaId` permanece `null` — o botão "Liberar entrada no pátio" usa o walk-in id como fallback (a função `liberarChegada` já tem o caminho de walk-in via `veiculos_esperados`).
 
-Nada muda em código de UI/hooks — a regra é puramente de banco.
+## O que NÃO mexer
+
+- Trigger `on_carga_fechada` (já corrigido).
+- Lógica de `finalizadaKey` (continua válida).
+- Outros hooks/painéis.
 
 ## Validação
 
-1. Após aplicar, fechar uma pré-carga de teste e conferir:
-   - aparece notificação "Carga fechada" para os papéis `portaria` e `logistica`;
-   - se a placa é nova, é criado um `veiculos_esperados` com `status='previsto'` (ou autoriza walk-in existente);
-   - se já existe uma chegada órfã com a mesma placa, ela recebe o `carga_id`.
-2. Conferir que fechamentos vindos do fluxo antigo (`vendas → logistica`) continuam funcionando igual.
+1. Recarregar `/portaria/terceirizado` — a carga **CF FRANGO / RBK7D22** deve aparecer como **card azul** com botão "Liberar entrada no pátio".
+2. Clicar em "Liberar entrada no pátio" deve criar/atualizar a movimentação e o card sair do painel para o "Pátio Atual".
+3. Cargas fechadas há até 7 dias continuam aparecendo; mais antigas continuam sumindo.
+4. Cargas fechadas hoje (`data = hoje`) com chegada registrada normalmente continuam azuis como antes (sem regressão).
 
 ## Arquivos
 
-- Nova migration em `supabase/migrations/` redefinindo `public.on_carga_fechada()`.
-- Sem alterações em arquivos do frontend.
+- `src/hooks/useCarregamentos.ts` (alterações cirúrgicas no `useCargasFechadasAguardando`).
+- Nenhum outro arquivo precisa mudar.
