@@ -17,6 +17,7 @@ import {
   useCriarAdiantamento,
   useCancelarAdiantamento,
   useMarcarAdiantamentoPago,
+  useAtualizarDataAdiantamento,
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
@@ -749,7 +750,9 @@ function ListaAdiantamentos({
                 </TableCell>
               )}
               <TableCell className="font-mono text-xs">{a.numero}</TableCell>
-              <TableCell className="text-xs">{fmtDate(a.created_at)}</TableCell>
+              <TableCell className="text-xs">
+                <DataCell adiantamento={a} />
+              </TableCell>
               <TableCell className="text-xs">{a.transportadora}</TableCell>
               <TableCell className="text-xs font-mono">{a.tipo_agrupamento === "ordem" ? a.ordem_carga ?? "—" : "Lote"}</TableCell>
               <TableCell className="text-right text-xs">{a.qtd_ctes}</TableCell>
