@@ -14,6 +14,12 @@ const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 const fmtKg = (n: number) =>
   new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(n || 0);
+const fmtDate = (iso?: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(d);
+};
 
 interface Props {
   open: boolean;
@@ -56,10 +62,18 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
   const texto = useMemo(() => {
     if (adiantamentos.length === 0) return "";
     const linhas: string[] = ["ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.", ""];
+    const datasDistintas = new Set(
+      adiantamentos.map((a) => (a.created_at ? a.created_at.slice(0, 10) : ""))
+    );
+    const dataUnica = datasDistintas.size === 1;
+    if (dataUnica) {
+      linhas.splice(1, 0, `Data: ${fmtDate(adiantamentos[0].created_at)}`);
+    }
     adiantamentos.forEach((a, idx) => {
       const ctes = (ctesQueries[idx]?.data ?? []) as AdiantamentoCte[];
       const numeros = ctes.map((r) => r.cte?.numero_cte).filter(Boolean).join("/");
-      linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE`);
+      const sufixoData = !dataUnica ? ` — ${fmtDate(a.created_at)}` : "";
+      linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE${sufixoData}`);
       if (numeros) linhas.push(numeros);
       linhas.push(`*VLR ${fmtBRL(a.valor_total_ctes)}*`);
       if (percUnico === null) {
