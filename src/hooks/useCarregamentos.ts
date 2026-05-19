@@ -470,7 +470,10 @@ export function useCargasFechadasAguardando() {
     refetchInterval: 30000,
     queryFn: async () => {
       const since = new Date();
-      since.setDate(since.getDate() - 2);
+      // Janela de 7 dias: cargas podem ser fechadas alguns dias depois da
+      // `data` planejada (ex.: pré-cargas montadas com data antiga). Janela
+      // curta demais (2d) escondia cargas legítimas do painel azul.
+      since.setDate(since.getDate() - 7);
       const sinceStr = since.toISOString().slice(0, 10);
 
       const cargasArr = await fetchAllPaginated<any>((from, to) =>
@@ -508,6 +511,22 @@ export function useCargasFechadasAguardando() {
         movsOrfaos = orfaos ?? [];
       }
       const movsAll = [...((movs ?? []) as any[]), ...movsOrfaos];
+      // Defesa adicional: alguns walk-ins chegam por fluxos que não criam
+      // `movimentacoes_portaria` (ex.: importação de planilha + autorização
+      // no fechamento). Para esses casos, consideramos o próprio
+      // `veiculos_esperados` (walk_in autorizado/aguardando, ainda não
+      // conferido) como sinal de "chegou aguardando liberação".
+      let walkInsAtivos: any[] = [];
+      {
+        const { data: ve } = await supabase
+          .from("veiculos_esperados" as any)
+          .select("id, placa, carga_id, walk_in, conferido, status_autorizacao, autorizado_em, created_at")
+          .in("carga_id", cargaIds)
+          .eq("walk_in", true)
+          .eq("conferido", false)
+          .in("status_autorizacao", ["autorizado", "aguardando_vinculo", "aguardando_autorizacao"]);
+        walkInsAtivos = (ve ?? []) as any[];
+      }
       // A presença/ausência da carga neste painel é controlada exclusivamente
       // pelas movimentações reais (`entrada.horario_entrada`). Não usamos mais
       // `veiculos_esperados.conferido` aqui porque agora ele é marcado já no
@@ -603,6 +622,30 @@ export function useCargasFechadasAguardando() {
             });
           }
         }
+      }
+      // Indexa walk-ins ativos por (carga_id + placa) para encontrar o key
+      // correspondente em `keysByCargaId`.
+      for (const w of walkInsAtivos) {
+        if (!w.carga_id) continue;
+        const candidateKeys = keysByCargaId.get(w.carga_id);
+        if (!candidateKeys) continue;
+        const placaW = norm(w.placa);
+        let matchedKey: string | null = null;
+        for (const k of candidateKeys) {
+          const placaCarga = cargaPlacaByKey.get(k);
+          if (placaCarga && placaW && placaW !== placaCarga) continue;
+          matchedKey = k;
+          if (placaCarga && placaW) break;
+        }
+        if (!matchedKey) continue;
+        if (finalizadaKey.has(matchedKey)) continue;
+        if (entradaPorKey.has(matchedKey)) continue; // já tem movimentação, não sobrescreve
+        entradaPorKey.set(matchedKey, {
+          id: w.id, // walk-in id como fallback; liberarChegada já lida com isso
+          horario_entrada: null,
+          horario_chegada: w.autorizado_em ?? w.created_at ?? null,
+          data_hora: w.autorizado_em ?? w.created_at ?? null,
+        });
       }
 
       const grouped = new Map<string, CargaFechadaAguardando>();
