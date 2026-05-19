@@ -2,10 +2,13 @@ import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, CheckCircle2, Printer } from "lucide-react";
+import { Copy, CheckCircle2, Printer, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRegistrarQuitacao, type Adiantamento } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
@@ -20,6 +23,7 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
   const { data: transp = [] } = useTransportadorasFinanceiro();
   const reg = useRegistrarQuitacao();
   const [obs, setObs] = useState("");
+  const [dataQuitacao, setDataQuitacao] = useState<Date>(new Date());
 
   const transpNome = adiantamentos[0]?.transportadora ?? "";
   const info = transp.find((t) => t.nome === transpNome) ?? null;
@@ -100,6 +104,27 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
             <label className="text-sm font-medium">Observações</label>
             <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} placeholder="Opcional — data da TED, comprovante, etc." />
           </div>
+
+          <div>
+            <label className="text-sm font-medium block mb-1">Data da quitação</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-[240px] justify-start text-left font-normal")}>
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  {dataQuitacao.toLocaleDateString("pt-BR")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dataQuitacao}
+                  onSelect={(d) => d && setDataQuitacao(d)}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         <DialogFooter className="flex-wrap gap-2">
@@ -107,9 +132,18 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
           <Button variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4 mr-1" /> Imprimir</Button>
           <Button
             onClick={async () => {
-              await reg.mutateAsync({ ids: adiantamentos.map((a) => a.id), observacoes: obs.trim() || undefined });
+              // mantém a hora atual mas usa a data escolhida
+              const now = new Date();
+              const merged = new Date(dataQuitacao);
+              merged.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+              await reg.mutateAsync({
+                ids: adiantamentos.map((a) => a.id),
+                observacoes: obs.trim() || undefined,
+                quitado_em: merged.toISOString(),
+              });
               onOpenChange(false);
               setObs("");
+              setDataQuitacao(new Date());
             }}
             disabled={reg.isPending}
           >
