@@ -706,6 +706,7 @@ function ListaAdiantamentos({
             <TableHead className="text-right">%</TableHead>
             <TableHead className="text-right">Adiantamento</TableHead>
             <TableHead className="text-right">Saldo</TableHead>
+            <TableHead>Quitado em</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="w-32" />
           </TableRow>
@@ -727,6 +728,7 @@ function ListaAdiantamentos({
               <TableCell className="text-right text-xs">{a.percentual}%</TableCell>
               <TableCell className="text-right text-xs tabular-nums font-semibold text-primary">{fmtBRL(Number(a.valor_adiantamento))}</TableCell>
               <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(a.valor_saldo))}</TableCell>
+              <TableCell className="text-xs">{fmtDate(a.quitado_em)}</TableCell>
               <TableCell><StatusBadge s={a.status} /></TableCell>
               <TableCell className="text-right">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onComprovante(a)} title="Ver comprovante">
