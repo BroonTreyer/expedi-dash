@@ -1,12 +1,17 @@
-## Problema
-A carga **CF FRANGO** tem `data = 2026-05-15` e a entrada do Raimundo foi registrada em `2026-05-19`. A função `dentroJanela` em `useCargasFechadasAguardando` (src/hooks/useCarregamentos.ts) só aceita movimentos até **+48h** após a data da carga. Como o movimento está fora dessa janela, ele não é casado com a carga, então `entradaPorKey` fica vazia e o cartão azul não é ocultado — mesmo o veículo já estando no pátio.
+## Objetivo
+Permitir escolher a data ao gerar o(s) adiantamento(s) na aba **Montar Lote** — igual ao que já existe no diálogo de Quitação. Hoje a data é sempre `now()`.
 
-## Plano
-1. Em `useCargasFechadasAguardando`, ocultar a carga do painel azul sempre que existir uma movimentação **entrada com `horario_entrada` preenchido** e não finalizada para aquele `carga_id` (+ placa, quando disponível), **ignorando a janela de data**. A janela continua válida apenas para distinguir entre "aguardando liberação" e "carga sem chegada ainda".
+## Onde mexer
 
-2. Implementação prática: depois do loop atual, fazer uma segunda passada pelas movimentações que casam por `carga_id` + placa, e marcar a `key` como "no pátio" (adicionar a `finalizadaKey` para fins de filtro do painel, já que o objetivo é só sumir).
+1. **`src/components/logistica/AdiantamentosTab.tsx`** (painel "Montar Lote")
+   - Adicionar um estado `dataAdiantamento: Date` (default = hoje).
+   - Logo acima do campo "Observações" / botão "Gerar Adiantamento", inserir um `Popover + Calendar` com label **"Data do adiantamento"** (mesmo padrão visual do `RegistrarQuitacaoDialog`).
+   - Em `handleGerar`, montar `created_at` preservando a hora atual mas com a data escolhida (mesma lógica do diálogo de quitação) e passar para `criar.mutateAsync`.
+   - Após sucesso, resetar para `new Date()`.
 
-3. Não mexer no fluxo de "Liberar entrada no pátio" — ele já não é mais necessário no caminho novo, mas continua útil para movimentações antigas que ainda estão na fase chegada.
+2. **`src/hooks/useAdiantamentos.ts`** (`useCriarAdiantamento`)
+   - Aceitar `created_at?: string` no input.
+   - Quando informado, incluir no `insert(...)` em `adiantamentos_frete` (a coluna `created_at` já existe e é gravável).
 
-## Resultado esperado
-Assim que a entrada do Raimundo é registrada (com `horario_entrada` preenchido), o cartão **CF FRANGO** desaparece do painel azul "Cargas fechadas aguardando veículo", independente da data planejada da carga.
+## Resultado
+Ao clicar em "Gerar Adiantamento" / "Gerar N adiantamentos", o usuário escolhe a data antes — útil para registros retroativos. A listagem (ordenada por `created_at`) refletirá a data escolhida.
