@@ -186,7 +186,7 @@ export default function Portaria({ categoria }: PortariaProps) {
         await createMov.mutateAsync({
           tipo_movimento: "entrada",
           categoria: "terceirizado",
-          etapa_terceirizado: "chegada",
+          etapa_terceirizado: "no_patio",
           data_hora: agora,
           placa: v.placa || null,
           motorista: v.motorista || null,
@@ -198,7 +198,7 @@ export default function Portaria({ categoria }: PortariaProps) {
           qtd_entregas: v.qtd_entregas ?? null,
           usuario_id: user?.id ?? null,
           horario_chegada: agora,
-          horario_entrada: null,
+          horario_entrada: agora,
         } as any);
       }
       // Marca o veiculo_esperado como conferido para sair da lista de Esperados.
@@ -214,7 +214,7 @@ export default function Portaria({ categoria }: PortariaProps) {
         queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] }),
         queryClient.invalidateQueries({ queryKey: ["veiculos_esperados"] }),
       ]);
-      toast.success(`Chegada de ${v.placa} registrada! Aguardando liberação no pátio.`);
+      toast.success(`Chegada de ${v.placa} registrada — veículo no pátio.`);
     } catch (e: any) {
       const msg = e?.message || e?.error_description || e?.hint || "Erro ao registrar chegada";
       toast.error(`Falha ao registrar ${v.placa}: ${msg}`);

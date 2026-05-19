@@ -151,8 +151,8 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           tipo_caminhao: tipoVeiculo,
           carga_id: cargaId,
           empresa: transportadora,
-          etapa_terceirizado: "chegada",
-          horario_entrada: null,
+          etapa_terceirizado: "no_patio",
+          horario_entrada: nowIso,
           horario_chegada: nowIso,
           data_hora: nowIso,
           usuario_id: user?.id ?? null,
@@ -190,8 +190,8 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       if (motoristaNorm) updateData.motorista = motoristaNorm;
       await supabase.from("carregamentos_dia").update(updateData).eq("carga_id", cargaId);
 
-      // NÃO marca veiculo_esperado como conferido ainda — só na liberação para o pátio.
-      // Apenas garante que está autorizado e vinculado à carga.
+      // Fluxo de 1 passo: a chegada já coloca o veículo no pátio.
+      // Marca o veiculo_esperado como conferido imediatamente para sair de Esperados.
       await supabase
         .from("veiculos_esperados" as any)
         .update({
@@ -199,6 +199,9 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           autorizado_por: user?.id ?? null,
           autorizado_em: nowIso,
           carga_id: cargaId,
+          conferido: true,
+          conferido_por: user?.id ?? null,
+          conferido_em: nowIso,
         } as any)
         .eq("carga_id", cargaId);
 
@@ -209,10 +212,10 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           duration: 6000,
         });
       } else {
-        toast.success(
-          "Chegada registrada. Quando o caminhão entrar fisicamente no pátio, clique em 'Liberar entrada no pátio' no painel.",
-          { duration: 7000 }
-        );
+        toast.success("Chegada registrada — veículo no pátio", {
+          description: "Próximo passo: registrar saída do pátio quando o caminhão sair.",
+          duration: 6000,
+        });
       }
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
       qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
