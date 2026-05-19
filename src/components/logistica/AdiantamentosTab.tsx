@@ -43,6 +43,37 @@ function StatusBadge({ s }: { s: Adiantamento["status"] }) {
   return <Badge variant={map[s]}>{label[s]}</Badge>;
 }
 
+function DataCell({ adiantamento }: { adiantamento: Adiantamento }) {
+  const atualizar = useAtualizarDataAdiantamento();
+  const [open, setOpen] = useState(false);
+  const current = adiantamento.created_at ? new Date(adiantamento.created_at) : new Date();
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 font-normal">
+          <CalendarIcon className="h-3 w-3" />
+          {fmtDate(adiantamento.created_at)}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={current}
+          onSelect={(d) => {
+            if (!d) return;
+            const merged = new Date(d);
+            merged.setHours(current.getHours(), current.getMinutes(), current.getSeconds(), current.getMilliseconds());
+            atualizar.mutate({ id: adiantamento.id, created_at: merged.toISOString() });
+            setOpen(false);
+          }}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function AdiantamentosTab() {
   const { data: ctes = [] } = useCtesDacte();
   const { data: ctesAtivos } = useCtesEmAdiantamento();
