@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Copy, Printer, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useMarcarAdiantamentoPago, type Adiantamento, type AdiantamentoCte } from "@/hooks/useAdiantamentos";
@@ -62,18 +64,10 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
   const texto = useMemo(() => {
     if (adiantamentos.length === 0) return "";
     const linhas: string[] = ["ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.", ""];
-    const datasDistintas = new Set(
-      adiantamentos.map((a) => (a.created_at ? a.created_at.slice(0, 10) : ""))
-    );
-    const dataUnica = datasDistintas.size === 1;
-    if (dataUnica) {
-      linhas.splice(1, 0, `Data: ${fmtDate(adiantamentos[0].created_at)}`);
-    }
     adiantamentos.forEach((a, idx) => {
       const ctes = (ctesQueries[idx]?.data ?? []) as AdiantamentoCte[];
       const numeros = ctes.map((r) => r.cte?.numero_cte).filter(Boolean).join("/");
-      const sufixoData = !dataUnica ? ` — ${fmtDate(a.created_at)}` : "";
-      linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE${sufixoData}`);
+      linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE`);
       if (numeros) linhas.push(numeros);
       linhas.push(`*VLR ${fmtBRL(a.valor_total_ctes)}*`);
       if (percUnico === null) {
@@ -96,6 +90,8 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
   }, [adiantamentos, ctesQueries, transp, totalCtes, totalAdt, percUnico]);
 
   const [copied, setCopied] = useState(false);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [dataPagamento, setDataPagamento] = useState<string>(todayStr);
   const copy = async () => {
     await navigator.clipboard.writeText(texto);
     setCopied(true);
@@ -106,6 +102,7 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
   if (adiantamentos.length === 0) return null;
 
   const pendentes = adiantamentos.filter((a) => a.status === "pendente");
+  const jaPagos = adiantamentos.filter((a) => a.pago_em);
   const semPix = adiantamentos.some((a) => {
     const info = transp.find((t) => t.id === a.transportadora_id);
     return !info?.pix_chave;
@@ -133,6 +130,34 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
           </p>
         )}
 
+        {pendentes.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Label htmlFor="data-pagamento" className="text-sm whitespace-nowrap">
+              Data do pagamento
+            </Label>
+            <Input
+              id="data-pagamento"
+              type="date"
+              value={dataPagamento}
+              onChange={(e) => setDataPagamento(e.target.value)}
+              className="w-auto"
+            />
+          </div>
+        )}
+        {pendentes.length === 0 && jaPagos.length > 0 && (
+          <div className="text-sm text-muted-foreground space-y-0.5">
+            {jaPagos.length === 1 ? (
+              <p>Pago em: {fmtDate(jaPagos[0].pago_em)}</p>
+            ) : (
+              jaPagos.map((a) => (
+                <p key={a.id}>
+                  {a.numero}: pago em {fmtDate(a.pago_em)}
+                </p>
+              ))
+            )}
+          </div>
+        )}
+
         <DialogFooter className="flex-wrap gap-2">
           <Button variant="outline" onClick={copy}>
             {copied ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />} Copiar texto
@@ -144,7 +169,7 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
             <Button
               onClick={async () => {
                 for (const a of pendentes) {
-                  await marcarPago.mutateAsync(a.id);
+                  await marcarPago.mutateAsync({ id: a.id, pago_em: dataPagamento });
                 }
                 onOpenChange(false);
               }}
