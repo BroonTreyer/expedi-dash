@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, XCircle, Wallet, CheckCircle2, ListChecks } from "lucide-react";
+import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { useCtesDacte, type CteDacteRow } from "@/hooks/useCtesDacte";
 import {
   useAdiantamentos,
@@ -52,6 +55,7 @@ export function AdiantamentosTab() {
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
   const [adtManuais, setAdtManuais] = useState<Record<string, number>>({});
   const [observacoes, setObservacoes] = useState("");
+  const [dataAdiantamento, setDataAdiantamento] = useState<Date>(new Date());
 
   const [comprovantesAdt, setComprovantesAdt] = useState<Adiantamento[]>([]);
   const [quitarTransp, setQuitarTransp] = useState<string | null>(null);
@@ -173,6 +177,9 @@ export function AdiantamentosTab() {
         const ocs = new Set(r.ctes.map((c) => (c.ordem_carga ?? "").trim()).filter(Boolean));
         const tipo: "ordem" | "lote" = ocs.size === 1 ? "ordem" : "lote";
         const ordem = tipo === "ordem" ? [...ocs][0] : null;
+        const now = new Date();
+        const merged = new Date(dataAdiantamento);
+        merged.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
         const novo = await criar.mutateAsync({
           transportadora: r.nome,
           transportadora_id: transpInfoByName.get(r.nome)?.id ?? null,
@@ -181,6 +188,7 @@ export function AdiantamentosTab() {
           percentual: r.percentual,
           observacoes: observacoes.trim() || null,
           valor_adiantamento_override: r.manual ? r.adt : null,
+          created_at: merged.toISOString(),
           ctes: r.ctes.map((c) => ({
             id: c.id,
             valor_frete: Number(c.valor_frete || 0),
@@ -192,6 +200,7 @@ export function AdiantamentosTab() {
       setSelecionados(new Set());
       setObservacoes("");
       setAdtManuais({});
+      setDataAdiantamento(new Date());
       if (criados.length > 0) setComprovantesAdt(criados);
     } catch {
       // toast já é exibido pelo hook
@@ -508,6 +517,26 @@ export function AdiantamentosTab() {
               <div>
                 <label className="text-xs font-medium">Observações</label>
                 <Input value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Aplica a todos" />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1">Data do adiantamento</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {dataAdiantamento.toLocaleDateString("pt-BR")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dataAdiantamento}
+                      onSelect={(d) => d && setDataAdiantamento(d)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <Button className="w-full" disabled={resumoPorTransp.length === 0 || criar.isPending} onClick={handleGerar}>
                 <FileText className="h-4 w-4 mr-1" /> {resumoPorTransp.length > 1 ? `Gerar ${resumoPorTransp.length} adiantamentos` : "Gerar Adiantamento"}

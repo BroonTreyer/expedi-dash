@@ -111,6 +111,7 @@ export function useCriarAdiantamento() {
       ctes: Array<{ id: string; valor_frete: number; peso_total: number }>;
       observacoes?: string | null;
       valor_adiantamento_override?: number | null;
+      created_at?: string;
     }) => {
       const valor_total_ctes = input.ctes.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
       const peso_total = input.ctes.reduce((s, c) => s + Number(c.peso_total || 0), 0);
@@ -145,6 +146,7 @@ export function useCriarAdiantamento() {
           status: "pendente",
           observacoes: input.observacoes ?? null,
           created_by: u.user?.id,
+          ...(input.created_at ? { created_at: input.created_at } : {}),
         })
         .select()
         .single();
