@@ -1,38 +1,41 @@
-## Diagnóstico
+## Nova regra de "data efetiva" — terceirizadas
 
-Carga **CF FRANGO** (data 15/05) foi fechada hoje (19/05). Walk-in do Raimundo (placa RBK7D22) foi registrado pela portaria em 17/05 e vinculado à carga no fechamento. Mesmo assim, a carga não aparece no card azul de **Portaria → Terceirizado** por dois motivos:
+Hoje, em `src/lib/data-efetiva.ts`, uma carga terceirizada sem `horario_saida_final` cai na data planejada original — e some do Consolidado de hoje quando a data planejada está no passado.
 
-1. **Janela do painel é só 2 dias.** O hook `useCargasFechadasAguardando` em `src/hooks/useCarregamentos.ts` filtra `carregamentos_dia.data >= hoje - 2 dias`. CF FRANGO (`data=15/05`) cai fora.
-2. **Painel exige `movimentacoes_portaria`.** Para mostrar como "chegou aguardando liberação" (azul) o painel precisa achar uma `entrada` em `movimentacoes_portaria`. O walk-in do Raimundo não tem essa linha (foi criado por outro fluxo). Hoje sem essa movimentação a carga ficaria invisível ou no máximo laranja.
+### Regra nova
 
-## Correção (frontend apenas, em `src/hooks/useCarregamentos.ts`)
+Para cargas **terceirizadas**:
+1. Se tem `horario_saida_final` (saiu pela portaria) → data efetiva = data da saída. **Fixa.**
+2. Senão (ainda não saiu) → data efetiva = **HOJE**.
+3. Se todos os itens estão `Carregado` mas sem saída registrada → continua valendo HOJE (regra 2). Não usa mais `updated_at` como hoje faz.
 
-**1) Ampliar a janela do painel para 7 dias.**
-Trocar `since.setDate(since.getDate() - 2)` por `- 7`. Alinha com `useCargasFechadasParaVincular` e com a janela de 7 dias já usada em outros pontos (busca de walk-ins, vínculo tardio etc.).
+Cargas **próprias** continuam usando a data original (não muda).
 
-**2) Considerar walk-in autorizado como "chegou aguardando liberação".**
-No mesmo hook, depois de buscar as cargas fechadas, buscar `veiculos_esperados` onde:
-- `carga_id IN (cargaIds)`
-- `walk_in = true`
-- `conferido = false`
-- `status_autorizacao IN ('autorizado','aguardando_vinculo','aguardando_autorizacao')`
+### Implementação
 
-Se a carga não tem `entrada` em `movimentacoes_portaria` mas tem um walk-in nessas condições, marcar `chegouAguardandoLiberacao = true` e usar `autorizado_em` (ou `created_at`) como `horarioChegada`. `movimentoChegadaId` permanece `null` — o botão "Liberar entrada no pátio" usa o walk-in id como fallback (a função `liberarChegada` já tem o caminho de walk-in via `veiculos_esperados`).
+**1) `src/lib/data-efetiva.ts`** — atualizar `computeDataEfetivaTerceirizada`:
+- Aceitar parâmetro extra `today: string` (formato `yyyy-MM-dd`) para evitar chamar `new Date()` dentro da função (mantém pura/testável).
+- Lógica: se terceirizada e sem `saidaPortariaIso` → retorna `today`. Se tem saída → retorna a data da saída. Se não é terceirizada → retorna `dataOriginal`.
 
-## O que NÃO mexer
+**2) `src/pages/Consolidado.tsx`** — onde chama `computeDataEfetivaTerceirizada`, passar `todayStr` (`new Date().toISOString().slice(0,10)`).
 
-- Trigger `on_carga_fechada` (já corrigido).
-- Lógica de `finalizadaKey` (continua válida).
-- Outros hooks/painéis.
+**3) Manter o carry-over** já existente em `useConsolidado` (linhas 82–116) — ele continua sendo o que traz CF FRANGO (data planejada 15/05, status ≠ Carregado) pro `rawData` quando o filtro é "hoje". Com a nova regra de data efetiva, a carga agora **passa** no filtro `dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr` (hoje = hoje ✓).
 
-## Validação
+### Efeito esperado
 
-1. Recarregar `/portaria/terceirizado` — a carga **CF FRANGO / RBK7D22** deve aparecer como **card azul** com botão "Liberar entrada no pátio".
-2. Clicar em "Liberar entrada no pátio" deve criar/atualizar a movimentação e o card sair do painel para o "Pátio Atual".
-3. Cargas fechadas há até 7 dias continuam aparecendo; mais antigas continuam sumindo.
-4. Cargas fechadas hoje (`data = hoje`) com chegada registrada normalmente continuam azuis como antes (sem regressão).
+- CF FRANGO (planejada 15/05, sem saída) → aparece no Consolidado de **19/05** (hoje).
+- Quando o motorista for expedido (saída registrada hoje) → continua aparecendo em **19/05** (data da saída).
+- Se a saída for registrada amanhã (20/05) → aparece em **20/05**, e some de 19/05 quando a página recarregar.
+- Cargas terceirizadas antigas com status `Carregado` mas sem saída registrada — hoje apareciam no dia do `updated_at`. Com a nova regra passam a aparecer "hoje" até alguém registrar a saída. Esse é um efeito colateral aceitável (poucas cargas nessa situação, e o correto é registrar a saída).
 
-## Arquivos
+### O que NÃO mexer
 
-- `src/hooks/useCarregamentos.ts` (alterações cirúrgicas no `useCargasFechadasAguardando`).
-- Nenhum outro arquivo precisa mudar.
+- Carry-over do `useConsolidado` (já funciona).
+- Cargas próprias.
+- Outras telas que importam `computeDataEfetivaTerceirizada` (vou conferir e atualizar as chamadas se houver).
+
+### Arquivos
+
+- `src/lib/data-efetiva.ts` (assinatura + lógica)
+- `src/pages/Consolidado.tsx` (passa `todayStr`)
+- Qualquer outro caller de `computeDataEfetivaTerceirizada` (a verificar)
