@@ -1,17 +1,19 @@
 ## Objetivo
-Permitir escolher a data ao gerar o(s) adiantamento(s) na aba **Montar Lote** — igual ao que já existe no diálogo de Quitação. Hoje a data é sempre `now()`.
+Permitir editar a data de qualquer adiantamento direto pela lista (não só na criação).
 
-## Onde mexer
+## Mudanças
 
-1. **`src/components/logistica/AdiantamentosTab.tsx`** (painel "Montar Lote")
-   - Adicionar um estado `dataAdiantamento: Date` (default = hoje).
-   - Logo acima do campo "Observações" / botão "Gerar Adiantamento", inserir um `Popover + Calendar` com label **"Data do adiantamento"** (mesmo padrão visual do `RegistrarQuitacaoDialog`).
-   - Em `handleGerar`, montar `created_at` preservando a hora atual mas com a data escolhida (mesma lógica do diálogo de quitação) e passar para `criar.mutateAsync`.
-   - Após sucesso, resetar para `new Date()`.
+**`src/hooks/useAdiantamentos.ts`**
+- Novo hook `useAtualizarDataAdiantamento`: mutation que faz `update({ created_at })` em `adiantamentos_frete` pelo `id` e invalida `["adiantamentos_frete", ...]`.
 
-2. **`src/hooks/useAdiantamentos.ts`** (`useCriarAdiantamento`)
-   - Aceitar `created_at?: string` no input.
-   - Quando informado, incluir no `insert(...)` em `adiantamentos_frete` (a coluna `created_at` já existe e é gravável).
+**`src/components/logistica/AdiantamentosTab.tsx` (`AdiantamentosTable`)**
+- Transformar a célula da coluna **Data** em um `Popover` com `Calendar` (mesmo padrão do "Montar Lote"):
+  - Trigger: botão `ghost` mostrando `fmtDate(a.created_at)` + `CalendarIcon`.
+  - Ao escolher data: preserva a hora original do `created_at` e chama a mutation.
+  - Disponível em todas as abas (pendente, pago, quitado), pois a coluna Data aparece em todas.
+- Toast de sucesso/erro.
 
-## Resultado
-Ao clicar em "Gerar Adiantamento" / "Gerar N adiantamentos", o usuário escolhe a data antes — útil para registros retroativos. A listagem (ordenada por `created_at`) refletirá a data escolhida.
+## Detalhes técnicos
+- `Calendar` com `className="p-3 pointer-events-auto"`, locale pt-BR no botão.
+- Sem alterar `quitado_em`/`pago_em`; apenas `created_at` (que é a "Data" exibida e usada para ordenação).
+- RLS já permite UPDATE para admin/logística/faturamento.
