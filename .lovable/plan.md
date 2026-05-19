@@ -1,19 +1,12 @@
 ## Problema
-Ao clicar em **Registrar chegada do veículo** para o Raimundo, o sistema cria uma chegada com `horario_chegada`, mas deixa `horario_entrada` vazio. Por isso ele continua fora da lista **Pátio** e depende de um segundo clique em **Liberar entrada no pátio** no painel azul.
-
-No caso do Raimundo, há também um detalhe técnico: a carga **CF FRANGO** está com data planejada antiga (`15/05`), enquanto a chegada foi registrada hoje. A regra atual do painel azul só casa movimentações até 48h após a data da carga, então o cartão pode não virar corretamente para o estado **Aguardando liberação**.
+A carga **CF FRANGO** tem `data = 2026-05-15` e a entrada do Raimundo foi registrada em `2026-05-19`. A função `dentroJanela` em `useCargasFechadasAguardando` (src/hooks/useCarregamentos.ts) só aceita movimentos até **+48h** após a data da carga. Como o movimento está fora dessa janela, ele não é casado com a carga, então `entradaPorKey` fica vazia e o cartão azul não é ocultado — mesmo o veículo já estando no pátio.
 
 ## Plano
-1. Alterar o fluxo do botão **Registrar chegada do veículo** para terceirizados vinculados a carga entrar direto no pátio:
-   - preencher `horario_chegada` e `horario_entrada` com a data/hora atual;
-   - definir `etapa_terceirizado = 'no_patio'`;
-   - manter o vínculo com `carga_id`, placa, motorista e transportadora.
+1. Em `useCargasFechadasAguardando`, ocultar a carga do painel azul sempre que existir uma movimentação **entrada com `horario_entrada` preenchido** e não finalizada para aquele `carga_id` (+ placa, quando disponível), **ignorando a janela de data**. A janela continua válida apenas para distinguir entre "aguardando liberação" e "carga sem chegada ainda".
 
-2. Marcar o veículo esperado como conferido somente após essa entrada direta, para ele sair de **Esperados** e aparecer em **Pátio**.
+2. Implementação prática: depois do loop atual, fazer uma segunda passada pelas movimentações que casam por `carga_id` + placa, e marcar a `key` como "no pátio" (adicionar a `finalizadaKey` para fins de filtro do painel, já que o objetivo é só sumir).
 
-3. Ajustar o texto/toast do botão para não falar mais em “depois libera para o pátio”, evitando confusão operacional.
-
-4. Manter o painel azul para cargas ainda sem chegada registrada, mas remover do fluxo novo a necessidade do segundo clique **Liberar entrada no pátio** para esse caso.
+3. Não mexer no fluxo de "Liberar entrada no pátio" — ele já não é mais necessário no caminho novo, mas continua útil para movimentações antigas que ainda estão na fase chegada.
 
 ## Resultado esperado
-Quando você clicar em **Registrar chegada do veículo** para o Raimundo, ele deve aparecer imediatamente na aba **Pátio**, pronto para seguir o próximo passo do fluxo de saída/finalização.
+Assim que a entrada do Raimundo é registrada (com `horario_entrada` preenchido), o cartão **CF FRANGO** desaparece do painel azul "Cargas fechadas aguardando veículo", independente da data planejada da carga.

@@ -592,6 +592,23 @@ export function useCargasFechadasAguardando() {
           candidateKeys = keysByPlaca.get(placaMov);
         }
         if (!candidateKeys) continue;
+        // Veículo já no pátio (horario_entrada preenchido, sem saída final):
+        // o cartão azul deve sumir IMEDIATAMENTE, independente da janela de
+        // data da carga. Sem isso, cargas com data planejada antiga (ex.: 15/05)
+        // e entrada hoje (19/05) ficam grudadas no painel azul.
+        const jaNoPatio = m.tipo_movimento === "entrada"
+          && !!m.horario_entrada
+          && !m.horario_saida_final
+          && m.etapa_terceirizado !== "finalizado"
+          && m.etapa_carga_propria !== "finalizado";
+        if (jaNoPatio) {
+          for (const k of candidateKeys) {
+            const placaCarga = cargaPlacaByKey.get(k);
+            if (placaCarga && placaMov && placaMov !== placaCarga) continue;
+            finalizadaKey.add(k);
+          }
+          continue;
+        }
         // Resolve qual viagem (key) este movimento pertence, casando placa
         // (quando o movimento traz placa) e janela de data ao redor de cada
         // viagem candidata. Se não há placa no movimento, casa pela janela.
