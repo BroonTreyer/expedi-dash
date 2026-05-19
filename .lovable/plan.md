@@ -1,41 +1,36 @@
-## Nova regra de "data efetiva" — terceirizadas
+## Objetivo
 
-Hoje, em `src/lib/data-efetiva.ts`, uma carga terceirizada sem `horario_saida_final` cai na data planejada original — e some do Consolidado de hoje quando a data planejada está no passado.
+Em **Logística → Adiantamentos**, permitir selecionar 1 ou mais lotes (adiantamentos) via checkbox e dar baixa em ação única — tanto em **Pendentes** (marcar como Pago) quanto em **Aguardando Quitação** (quitar só os lotes escolhidos da transportadora).
 
-### Regra nova
+## Mudanças
 
-Para cargas **terceirizadas**:
-1. Se tem `horario_saida_final` (saiu pela portaria) → data efetiva = data da saída. **Fixa.**
-2. Senão (ainda não saiu) → data efetiva = **HOJE**.
-3. Se todos os itens estão `Carregado` mas sem saída registrada → continua valendo HOJE (regra 2). Não usa mais `updated_at` como hoje faz.
+### 1. `src/components/logistica/AdiantamentosTab.tsx` — aba **Pendentes**
+- Adicionar coluna de checkbox no `ListaAdiantamentos` (header + por linha).
+- Estado local `selectedPendentes: Set<string>` no `AdiantamentosTab`.
+- Barra de ação acima da tabela quando houver seleção:
+  - `N selecionados · Total Adt: R$ X` 
+  - Botão **"Marcar como pago"** (chama `useMarcarAdiantamentoPago` para cada id) e botão **Limpar**.
+- Confirmação simples antes de disparar.
+- Após sucesso, limpa seleção.
 
-Cargas **próprias** continuam usando a data original (não muda).
+### 2. `src/components/logistica/AdiantamentosTab.tsx` — aba **Aguardando Quitação**
+- Em cada bloco de transportadora, expandir para listar os lotes com checkbox individual (mostrando nº, OC/Lote, saldo).
+- Estado `selectedPagos: Set<string>` (compartilhado entre transportadoras).
+- Botão **"Registrar Quitação"** por transportadora passa a abrir o dialog **apenas com os lotes selecionados daquela transportadora** (se nenhum selecionado → comportamento atual: todos).
+- Mostrar resumo "X de Y lotes selecionados · Saldo selecionado: R$ Z".
 
-### Implementação
+### 3. `src/components/logistica/RegistrarQuitacaoDialog.tsx`
+- Sem mudanças de assinatura: já recebe `adiantamentos[]` e quita só esses ids (`useRegistrarQuitacao` recebe `ids`).
+- Apenas confirmar que título/totais refletem a lista parcial recebida (já reflete).
 
-**1) `src/lib/data-efetiva.ts`** — atualizar `computeDataEfetivaTerceirizada`:
-- Aceitar parâmetro extra `today: string` (formato `yyyy-MM-dd`) para evitar chamar `new Date()` dentro da função (mantém pura/testável).
-- Lógica: se terceirizada e sem `saidaPortariaIso` → retorna `today`. Se tem saída → retorna a data da saída. Se não é terceirizada → retorna `dataOriginal`.
+### 4. Hook `useMarcarAdiantamentoPago` (`src/hooks/useAdiantamentos.ts`)
+- Já existe e marca 1 por vez. Para múltiplos, chamar em `Promise.all` no handler do componente — suficiente e simples; não é necessário criar variante em lote.
 
-**2) `src/pages/Consolidado.tsx`** — onde chama `computeDataEfetivaTerceirizada`, passar `todayStr` (`new Date().toISOString().slice(0,10)`).
+## Não muda
+- Banco de dados, RLS, esquema, edge functions.
+- Geração de adiantamento, comprovantes, cancelamento.
+- Aba **Quitados** continua só leitura.
 
-**3) Manter o carry-over** já existente em `useConsolidado` (linhas 82–116) — ele continua sendo o que traz CF FRANGO (data planejada 15/05, status ≠ Carregado) pro `rawData` quando o filtro é "hoje". Com a nova regra de data efetiva, a carga agora **passa** no filtro `dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr` (hoje = hoje ✓).
-
-### Efeito esperado
-
-- CF FRANGO (planejada 15/05, sem saída) → aparece no Consolidado de **19/05** (hoje).
-- Quando o motorista for expedido (saída registrada hoje) → continua aparecendo em **19/05** (data da saída).
-- Se a saída for registrada amanhã (20/05) → aparece em **20/05**, e some de 19/05 quando a página recarregar.
-- Cargas terceirizadas antigas com status `Carregado` mas sem saída registrada — hoje apareciam no dia do `updated_at`. Com a nova regra passam a aparecer "hoje" até alguém registrar a saída. Esse é um efeito colateral aceitável (poucas cargas nessa situação, e o correto é registrar a saída).
-
-### O que NÃO mexer
-
-- Carry-over do `useConsolidado` (já funciona).
-- Cargas próprias.
-- Outras telas que importam `computeDataEfetivaTerceirizada` (vou conferir e atualizar as chamadas se houver).
-
-### Arquivos
-
-- `src/lib/data-efetiva.ts` (assinatura + lógica)
-- `src/pages/Consolidado.tsx` (passa `todayStr`)
-- Qualquer outro caller de `computeDataEfetivaTerceirizada` (a verificar)
+## Resultado esperado
+- Pendentes: marcar 1, 2, N lotes como Pago de uma vez.
+- Aguardando Quitação: escolher quais lotes da transportadora entram na quitação atual, deixando os outros pendentes.

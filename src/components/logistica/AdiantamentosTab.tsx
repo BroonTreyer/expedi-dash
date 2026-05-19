@@ -13,6 +13,7 @@ import {
   useCtesEmAdiantamento,
   useCriarAdiantamento,
   useCancelarAdiantamento,
+  useMarcarAdiantamentoPago,
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
@@ -45,6 +46,7 @@ export function AdiantamentosTab() {
   const { data: adiantamentos = [] } = useAdiantamentos();
   const criar = useCriarAdiantamento();
   const cancelar = useCancelarAdiantamento();
+  const marcarPago = useMarcarAdiantamentoPago();
 
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
@@ -53,6 +55,10 @@ export function AdiantamentosTab() {
 
   const [comprovantesAdt, setComprovantesAdt] = useState<Adiantamento[]>([]);
   const [quitarTransp, setQuitarTransp] = useState<string | null>(null);
+
+  // Seleção de lotes para baixa em lote
+  const [selPendentes, setSelPendentes] = useState<Set<string>>(new Set());
+  const [selPagos, setSelPagos] = useState<Set<string>>(new Set());
 
   // CT-es disponíveis (sem adiantamento ativo) agrupados por transportadora
   const ctesPorTransp = useMemo(() => {
@@ -207,6 +213,37 @@ export function AdiantamentosTab() {
   }, [pagos]);
 
   const adiantamentosParaQuitar = quitarTransp ? pagosPorTransp.get(quitarTransp) ?? [] : [];
+
+  // Total Adt dos pendentes selecionados
+  const totalAdtSelPend = useMemo(
+    () => pendentes.filter((a) => selPendentes.has(a.id)).reduce((s, a) => s + Number(a.valor_adiantamento || 0), 0),
+    [pendentes, selPendentes],
+  );
+
+  const togglePend = (id: string) =>
+    setSelPendentes((p) => {
+      const n = new Set(p);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  const togglePago = (id: string) =>
+    setSelPagos((p) => {
+      const n = new Set(p);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
+  const handleMarcarPagoLote = async () => {
+    const ids = [...selPendentes];
+    if (ids.length === 0) return;
+    if (!confirm(`Marcar ${ids.length} adiantamento(s) como pago?`)) return;
+    try {
+      await Promise.all(ids.map((id) => marcarPago.mutateAsync(id)));
+      setSelPendentes(new Set());
+    } catch {
+      // toast no hook
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -481,13 +518,38 @@ export function AdiantamentosTab() {
 
         {/* PENDENTES */}
         <TabsContent value="pendentes">
-          <ListaAdiantamentos
-            data={pendentes}
-            onComprovante={(a) => setComprovantesAdt([a])}
-            onCancelar={(id) => {
-              if (confirm("Cancelar este adiantamento? Os CT-es voltam a ficar disponíveis.")) cancelar.mutate(id);
-            }}
-          />
+          <div className="space-y-2">
+            {selPendentes.size > 0 && (
+              <Card className="p-3 flex flex-wrap items-center justify-between gap-2 border-primary/40 bg-primary/5">
+                <div className="text-sm">
+                  <strong>{selPendentes.size}</strong> selecionado{selPendentes.size > 1 ? "s" : ""} · Total Adt:{" "}
+                  <strong className="text-primary">{fmtBRL(totalAdtSelPend)}</strong>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelPendentes(new Set())}>
+                    Limpar
+                  </Button>
+                  <Button size="sm" onClick={handleMarcarPagoLote} disabled={marcarPago.isPending}>
+                    <Wallet className="h-4 w-4 mr-1" /> Marcar como pago
+                  </Button>
+                </div>
+              </Card>
+            )}
+            <ListaAdiantamentos
+              data={pendentes}
+              selected={selPendentes}
+              onToggle={togglePend}
+              onToggleAll={() => {
+                setSelPendentes((p) =>
+                  p.size === pendentes.length ? new Set() : new Set(pendentes.map((a) => a.id)),
+                );
+              }}
+              onComprovante={(a) => setComprovantesAdt([a])}
+              onCancelar={(id) => {
+                if (confirm("Cancelar este adiantamento? Os CT-es voltam a ficar disponíveis.")) cancelar.mutate(id);
+              }}
+            />
+          </div>
         </TabsContent>
 
         {/* PAGOS */}
@@ -499,21 +561,63 @@ export function AdiantamentosTab() {
               <div className="space-y-3">
                 {[...pagosPorTransp.entries()].map(([nome, lista]) => {
                   const saldoT = lista.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
+                  const selDaTransp = lista.filter((a) => selPagos.has(a.id));
+                  const allIn = lista.length > 0 && selDaTransp.length === lista.length;
+                  const saldoSel = selDaTransp.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
                   return (
-                    <div key={nome} className="border rounded-md p-3 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="font-semibold">{nome}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {lista.length} lote(s) — Saldo total: <strong>{fmtBRL(saldoT)}</strong>
+                    <div key={nome} className="border rounded-md p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={allIn}
+                            onCheckedChange={() => {
+                              setSelPagos((p) => {
+                                const n = new Set(p);
+                                if (allIn) lista.forEach((a) => n.delete(a.id));
+                                else lista.forEach((a) => n.add(a.id));
+                                return n;
+                              });
+                            }}
+                          />
+                          <div>
+                            <div className="font-semibold">{nome}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {lista.length} lote(s) — Saldo total: <strong>{fmtBRL(saldoT)}</strong>
+                              {selDaTransp.length > 0 && (
+                                <> · {selDaTransp.length} selecionado(s): <strong className="text-primary">{fmtBRL(saldoSel)}</strong></>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setComprovantesAdt(lista)}>
+                            Ver comprovantes
+                          </Button>
+                          <Button size="sm" onClick={() => setQuitarTransp(nome)}>
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            {selDaTransp.length > 0
+                              ? `Quitar ${selDaTransp.length} selecionado(s)`
+                              : "Registrar Quitação"}
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setComprovantesAdt(lista)}>
-                          Ver comprovantes
-                        </Button>
-                        <Button size="sm" onClick={() => setQuitarTransp(nome)}>
-                          <CheckCircle2 className="h-4 w-4 mr-1" /> Registrar Quitação
-                        </Button>
+                      <div className="border-t pt-2 space-y-1">
+                        {lista.map((a) => (
+                          <label
+                            key={a.id}
+                            className="flex items-center gap-2 text-xs hover:bg-muted/40 rounded px-1 py-0.5 cursor-pointer"
+                          >
+                            <Checkbox checked={selPagos.has(a.id)} onCheckedChange={() => togglePago(a.id)} />
+                            <span className="font-mono">{a.numero}</span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="font-mono">
+                              {a.tipo_agrupamento === "ordem" ? `OC ${a.ordem_carga ?? "—"}` : "Lote"}
+                            </span>
+                            <span className="text-muted-foreground">·</span>
+                            <span>{a.qtd_ctes} CT-e</span>
+                            <span className="ml-auto tabular-nums font-semibold">{fmtBRL(Number(a.valor_saldo))}</span>
+                          </label>
+                        ))}
                       </div>
                     </div>
                   );
@@ -536,8 +640,28 @@ export function AdiantamentosTab() {
       />
       <RegistrarQuitacaoDialog
         open={!!quitarTransp}
-        onOpenChange={(o) => !o && setQuitarTransp(null)}
-        adiantamentos={adiantamentosParaQuitar}
+        onOpenChange={(o) => {
+          if (!o) {
+            // limpa seleção da transportadora que estava sendo quitada
+            if (quitarTransp) {
+              const ids = new Set((pagosPorTransp.get(quitarTransp) ?? []).map((a) => a.id));
+              setSelPagos((p) => {
+                const n = new Set(p);
+                ids.forEach((id) => n.delete(id));
+                return n;
+              });
+            }
+            setQuitarTransp(null);
+          }
+        }}
+        adiantamentos={
+          quitarTransp
+            ? (() => {
+                const sel = adiantamentosParaQuitar.filter((a) => selPagos.has(a.id));
+                return sel.length > 0 ? sel : adiantamentosParaQuitar;
+              })()
+            : []
+        }
       />
     </div>
   );
@@ -545,10 +669,16 @@ export function AdiantamentosTab() {
 
 function ListaAdiantamentos({
   data,
+  selected,
+  onToggle,
+  onToggleAll,
   onComprovante,
   onCancelar,
 }: {
   data: Adiantamento[];
+  selected?: Set<string>;
+  onToggle?: (id: string) => void;
+  onToggleAll?: () => void;
   onComprovante: (a: Adiantamento) => void;
   onCancelar?: (id: string) => void;
 }) {
@@ -556,11 +686,17 @@ function ListaAdiantamentos({
     return (
       <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum adiantamento.</Card>
     );
+  const allIn = !!selected && data.length > 0 && data.every((a) => selected.has(a.id));
   return (
     <Card className="p-0 overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
+            {selected && (
+              <TableHead className="w-8">
+                <Checkbox checked={allIn} onCheckedChange={() => onToggleAll?.()} />
+              </TableHead>
+            )}
             <TableHead>Número</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Transportadora</TableHead>
@@ -577,6 +713,11 @@ function ListaAdiantamentos({
         <TableBody>
           {data.map((a) => (
             <TableRow key={a.id}>
+              {selected && (
+                <TableCell>
+                  <Checkbox checked={selected.has(a.id)} onCheckedChange={() => onToggle?.(a.id)} />
+                </TableCell>
+              )}
               <TableCell className="font-mono text-xs">{a.numero}</TableCell>
               <TableCell className="text-xs">{fmtDate(a.created_at)}</TableCell>
               <TableCell className="text-xs">{a.transportadora}</TableCell>
