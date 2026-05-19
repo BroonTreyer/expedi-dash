@@ -58,11 +58,38 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
 
   const totalCtes = adiantamentos.reduce((s, a) => s + (a.valor_total_ctes || 0), 0);
   const totalAdt = adiantamentos.reduce((s, a) => s + (a.valor_adiantamento || 0), 0);
+  const totalSaldo = adiantamentos.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
   const percentuaisDistintos = Array.from(new Set(adiantamentos.map((a) => a.percentual)));
   const percUnico = percentuaisDistintos.length === 1 ? percentuaisDistintos[0] : null;
 
+  const modoQuitacao =
+    adiantamentos.length > 0 &&
+    adiantamentos.every((a) => a.status === "pago" || a.status === "quitado");
+
   const texto = useMemo(() => {
     if (adiantamentos.length === 0) return "";
+    if (modoQuitacao) {
+      const linhas: string[] = ["QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.", ""];
+      adiantamentos.forEach((a, idx) => {
+        const ctes = (ctesQueries[idx]?.data ?? []) as AdiantamentoCte[];
+        const numeros = ctes.map((r) => r.cte?.numero_cte).filter(Boolean).join("/");
+        linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE`);
+        if (numeros) linhas.push(numeros);
+        linhas.push(`*VLR ${fmtBRL(a.valor_total_ctes)}*`);
+        linhas.push(`Adt pago: *${fmtBRL(a.valor_adiantamento)}* (${a.percentual}%)`);
+        linhas.push(`Saldo: *${fmtBRL(Number(a.valor_saldo || 0))}*`);
+        linhas.push("");
+      });
+      linhas.push(`*Valor Total do Frete ${fmtBRL(totalCtes)}*`);
+      linhas.push(`*Total Adt pago ${fmtBRL(totalAdt)}*`);
+      linhas.push(`*Saldo a Quitar ${fmtBRL(totalSaldo)}*`, "");
+      adiantamentos.forEach((a) => {
+        const info = transp.find((t) => t.id === a.transportadora_id) ?? null;
+        linhas.push(info?.codigo ? `Código ${info.codigo} – ${info.nome}` : a.transportadora);
+        if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
+      });
+      return linhas.join("\n");
+    }
     const linhas: string[] = ["ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.", ""];
     adiantamentos.forEach((a, idx) => {
       const ctes = (ctesQueries[idx]?.data ?? []) as AdiantamentoCte[];
@@ -87,7 +114,7 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
       if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
     });
     return linhas.join("\n");
-  }, [adiantamentos, ctesQueries, transp, totalCtes, totalAdt, percUnico]);
+  }, [adiantamentos, ctesQueries, transp, totalCtes, totalAdt, totalSaldo, percUnico, modoQuitacao]);
 
   const [copied, setCopied] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -108,10 +135,11 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     return !info?.pix_chave;
   });
 
+  const prefixo = modoQuitacao ? "Quitação" : "Comprovante";
   const titulo =
     adiantamentos.length === 1
-      ? `Comprovante — ${adiantamentos[0].numero}`
-      : `Comprovante — ${adiantamentos.length} adiantamentos`;
+      ? `${prefixo} — ${adiantamentos[0].numero}`
+      : `${prefixo} — ${adiantamentos.length} adiantamentos`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

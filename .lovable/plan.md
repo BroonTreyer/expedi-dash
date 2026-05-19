@@ -1,22 +1,44 @@
-## Data de pagamento — fora do texto do comprovante
+## Texto diferente no comprovante de "Aguardando Quitação"
 
-O texto dentro do card é o que vai pro WhatsApp, então a data lá não faz sentido. O que o usuário quer é registrar **quando o adiantamento foi pago** — controle externo ao texto.
+Hoje o `ComprovanteAdiantamentoDialog` é usado em três contextos (Pendentes, Aguardando Quitação, Quitados) e sempre monta o mesmo texto começando com `ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.` mostrando o **valor do adiantamento**. Quando o adiantamento já foi pago (aba *Aguardando Quitação*) o que falta é o **saldo**, então o texto faz sentido virar uma cobrança de quitação — espelhando o que o `RegistrarQuitacaoDialog` já gera.
 
-### Mudanças em `src/components/logistica/ComprovanteAdiantamentoDialog.tsx`
+### Mudança em `src/components/logistica/ComprovanteAdiantamentoDialog.tsx`
 
-1. **Remover** a linha `Data: dd/MM/yyyy` que foi inserida no `useMemo` do `texto` (mantém só o conteúdo original do WhatsApp).
-2. **Adicionar bloco "Data do pagamento"** fora do card `font-mono`, logo acima do `DialogFooter`:
-   - Se houver pelo menos um adiantamento `pendente` no diálogo → mostrar um `<Input type="date">` com label "Data do pagamento", default = hoje (formato `yyyy-MM-dd`), estado local `dataPagamento`.
-   - Se todos os adiantamentos já estiverem `pago`/`quitado` → mostrar texto readonly "Pago em: dd/MM/yyyy" usando `pago_em` (se diferirem entre itens, listar por item).
-3. **Botão "Marcar como pago"**: passar a data escolhida para a mutation (`marcarPago.mutateAsync({ id, pago_em })`).
+Detectar o modo pelo status dos adiantamentos passados:
+- **modo `quitacao`**: todos os itens têm `status === "pago"` (ou `"quitado"`)
+- **modo `adiantamento`**: caso contrário (mantém o texto atual)
 
-### Mudanças em `src/hooks/useAdiantamentos.ts`
+No modo `quitacao`, o `useMemo` do `texto` passa a montar:
 
-- `useMarcarAdiantamentoPago.mutationFn` muda assinatura para aceitar `{ id: string; pago_em?: string }`.
-- Se `pago_em` vier preenchido, converter `yyyy-MM-dd` → ISO de meio-dia local (`new Date(${pago_em}T12:00:00).toISOString()`) para evitar mudança de dia por fuso.
-- Se vier vazio/undefined, usar `new Date().toISOString()` (comportamento atual).
+```
+QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.
+
+1.{transportadora} ({peso} Kg) CTE
+{numeros_cte}
+*VLR {valor_total_ctes}*
+Adt pago: *{valor_adiantamento}* ({percentual}%)
+Saldo: *{valor_saldo}*
+
+(... próximos itens ...)
+
+*Valor Total do Frete {totalCtes}*
+*Total Adt pago {totalAdt}*
+*Saldo a Quitar {totalSaldo}*
+
+Código {codigo} – {nome}
+Pix: {pix}
+```
+
+`valor_saldo` já existe em `Adiantamento` (usado no `RegistrarQuitacaoDialog`).
+
+### Ajustes auxiliares no mesmo arquivo
+
+- Título do dialog quando em modo quitação: `Quitação — {numero}` / `Quitação — N adiantamentos` em vez de `Comprovante — …`.
+- O bloco "Data do pagamento" só aparece quando há pendentes — já é o comportamento atual, então segue.
+- O bloco "Pago em: …" (mostrado quando não há pendentes) permanece, agora abaixo do texto de quitação — serve como referência de quando o adiantamento foi pago.
 
 ### Sem mudanças
 
-- Texto copiado para WhatsApp permanece igual ao original (sem linha de Data).
-- Outras abas e listagens não mudam.
+- `RegistrarQuitacaoDialog` segue intacto (é o fluxo de confirmar a quitação, com data + observações).
+- Aba *Quitados*: como todos os itens estão com status `quitado`, o novo modo também se aplica e o texto sai como "QUITAÇÃO ...". Se preferir manter "ADIANTAMENTO" nos já quitados, ajustar a condição para `status === "pago"` apenas — me avisa qual prefere.
+- `useAdiantamentos.ts` e demais arquivos não mudam.
