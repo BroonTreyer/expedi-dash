@@ -231,3 +231,21 @@ export function useCancelarAdiantamento() {
     onError: (e: any) => toast.error(e.message ?? "Erro"),
   });
 }
+
+export function useAtualizarDataAdiantamento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; created_at: string }) => {
+      const { error } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({ created_at: input.created_at })
+        .eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      toast.success("Data atualizada");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro"),
+  });
+}
