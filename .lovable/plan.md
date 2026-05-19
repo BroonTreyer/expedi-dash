@@ -1,15 +1,19 @@
-## Objetivo
-Esconder colunas de data irrelevantes em cada aba de adiantamentos.
+## Mostrar data dentro do card do comprovante
 
-## Mudanças
+Adicionar a data de cada adiantamento dentro do bloco `font-mono` do comprovante (o texto que vai para o WhatsApp), em `src/components/logistica/ComprovanteAdiantamentoDialog.tsx`.
 
-**`src/components/logistica/AdiantamentosTab.tsx`**
+### Comportamento
 
-1. `ListaAdiantamentos`: nova prop opcional `contexto?: "pendente" | "aguardando" | "quitado"`.
-2. Derivar `showPagoEm` (contexto !== "pendente") e `showQuitadoEm` (contexto === "quitado"). Quando `contexto` é undefined, mostra ambas (compatível com chamadas atuais sem prop).
-3. Adicionar coluna **"Pago em"** (`fmtDate(a.pago_em)`) entre Saldo e Quitado em, controlada por `showPagoEm`.
-4. Coluna **"Quitado em"** existente controlada por `showQuitadoEm`.
-5. Passar `contexto="pendente"` na lista de Pendentes (~599), `contexto="aguardando"` na lista de Aguardando Quitação, `contexto="quitado"` na lista de Quitados (~693).
+- **1 adiantamento**: adicionar uma linha `Data: dd/MM/yyyy` logo após o cabeçalho `ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.`, usando `created_at`.
+- **N adiantamentos, todos na mesma data**: mesma linha `Data: dd/MM/yyyy` única no topo.
+- **N adiantamentos com datas diferentes**: anexar a data ao final da linha de cada item, ex.: `1.TRANSPORTADORA X (1.234 Kg) CTE — dd/MM/yyyy`.
 
-**`src/hooks/useAdiantamentos.ts`**
-- Adicionar `pago_em: string | null` no tipo `Adiantamento` (já vem no SELECT *, só tipar).
+### Detalhes técnicos
+
+- Criar helper `fmtDate(iso)` usando `Intl.DateTimeFormat("pt-BR")` (apenas data, sem hora).
+- No `useMemo` que monta `texto`:
+  - Calcular `datasDistintas = new Set(adiantamentos.map(a => a.created_at?.slice(0,10)))`.
+  - Se `size === 1`: inserir `Data: ${fmtDate(adiantamentos[0].created_at)}` como segunda linha (antes da linha vazia).
+  - Caso contrário: na linha do item (`${idx + 1}.${a.transportadora}...`), anexar ` — ${fmtDate(a.created_at)}`.
+- Nenhuma mudança em copy/print — a data entra automaticamente no texto copiado.
+- Sem alterações em outros arquivos ou lógica de negócio.
