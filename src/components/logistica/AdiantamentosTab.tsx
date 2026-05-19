@@ -599,6 +599,7 @@ export function AdiantamentosTab() {
             <ListaAdiantamentos
               data={pendentes}
               selected={selPendentes}
+              contexto="pendente"
               onToggle={togglePend}
               onToggleAll={() => {
                 setSelPendentes((p) =>
@@ -690,7 +691,7 @@ export function AdiantamentosTab() {
 
         {/* QUITADOS */}
         <TabsContent value="quitados">
-          <ListaAdiantamentos data={quitados} onComprovante={(a) => setComprovantesAdt([a])} />
+          <ListaAdiantamentos data={quitados} contexto="quitado" onComprovante={(a) => setComprovantesAdt([a])} />
         </TabsContent>
       </Tabs>
 
@@ -735,6 +736,7 @@ function ListaAdiantamentos({
   onToggleAll,
   onComprovante,
   onCancelar,
+  contexto,
 }: {
   data: Adiantamento[];
   selected?: Set<string>;
@@ -742,12 +744,15 @@ function ListaAdiantamentos({
   onToggleAll?: () => void;
   onComprovante: (a: Adiantamento) => void;
   onCancelar?: (id: string) => void;
+  contexto?: "pendente" | "aguardando" | "quitado";
 }) {
   if (data.length === 0)
     return (
       <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum adiantamento.</Card>
     );
   const allIn = !!selected && data.length > 0 && data.every((a) => selected.has(a.id));
+  const showPagoEm = contexto === undefined || contexto !== "pendente";
+  const showQuitadoEm = contexto === undefined || contexto === "quitado";
   return (
     <Card className="p-0 overflow-x-auto">
       <Table>
@@ -767,7 +772,8 @@ function ListaAdiantamentos({
             <TableHead className="text-right">%</TableHead>
             <TableHead className="text-right">Adiantamento</TableHead>
             <TableHead className="text-right">Saldo</TableHead>
-            <TableHead>Quitado em</TableHead>
+            {showPagoEm && <TableHead>Pago em</TableHead>}
+            {showQuitadoEm && <TableHead>Quitado em</TableHead>}
             <TableHead>Status</TableHead>
             <TableHead className="w-32" />
           </TableRow>
@@ -791,7 +797,8 @@ function ListaAdiantamentos({
               <TableCell className="text-right text-xs">{a.percentual}%</TableCell>
               <TableCell className="text-right text-xs tabular-nums font-semibold text-primary">{fmtBRL(Number(a.valor_adiantamento))}</TableCell>
               <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(a.valor_saldo))}</TableCell>
-              <TableCell className="text-xs">{fmtDate(a.quitado_em)}</TableCell>
+              {showPagoEm && <TableCell className="text-xs">{fmtDate(a.pago_em)}</TableCell>}
+              {showQuitadoEm && <TableCell className="text-xs">{fmtDate(a.quitado_em)}</TableCell>}
               <TableCell><StatusBadge s={a.status} /></TableCell>
               <TableCell className="text-right">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onComprovante(a)} title="Ver comprovante">
