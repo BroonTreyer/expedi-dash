@@ -1,44 +1,34 @@
-## Texto diferente no comprovante de "Aguardando Quitação"
+## Problema
 
-Hoje o `ComprovanteAdiantamentoDialog` é usado em três contextos (Pendentes, Aguardando Quitação, Quitados) e sempre monta o mesmo texto começando com `ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.` mostrando o **valor do adiantamento**. Quando o adiantamento já foi pago (aba *Aguardando Quitação*) o que falta é o **saldo**, então o texto faz sentido virar uma cobrança de quitação — espelhando o que o `RegistrarQuitacaoDialog` já gera.
+Na linha da carga **CF FRANGO / Raimundo / RBK7D22** o badge da coluna **Portaria** mostra **"Aguardando chegada"**, mas o caminhão já está **no pátio** desde 19/05.
 
-### Mudança em `src/components/logistica/ComprovanteAdiantamentoDialog.tsx`
+### Causa raiz
 
-Detectar o modo pelo status dos adiantamentos passados:
-- **modo `quitacao`**: todos os itens têm `status === "pago"` (ou `"quitado"`)
-- **modo `adiantamento`**: caso contrário (mantém o texto atual)
+A carga foi cadastrada para o dia **15/05**, mas o caminhão só entrou no pátio no dia **19/05** (4 dias depois).
 
-No modo `quitacao`, o `useMemo` do `texto` passa a montar:
+O hook `useStatusPortariaPorCarga` aplica uma **janela operacional** ao buscar movimentos da portaria por `carga_id`:
 
 ```
-QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.
-
-1.{transportadora} ({peso} Kg) CTE
-{numeros_cte}
-*VLR {valor_total_ctes}*
-Adt pago: *{valor_adiantamento}* ({percentual}%)
-Saldo: *{valor_saldo}*
-
-(... próximos itens ...)
-
-*Valor Total do Frete {totalCtes}*
-*Total Adt pago {totalAdt}*
-*Saldo a Quitar {totalSaldo}*
-
-Código {codigo} – {nome}
-Pix: {pix}
+12h antes da data da carga  →  48h depois da data da carga
 ```
 
-`valor_saldo` já existe em `Adiantamento` (usado no `RegistrarQuitacaoDialog`).
+Como o movimento de entrada (19/05) está **96h depois** da data da carga (15/05), ele é **descartado** pelo filtro. Sem nenhum movimento válido, o status volta ao padrão `aguardando` → badge "Aguardando chegada".
 
-### Ajustes auxiliares no mesmo arquivo
+O mesmo bug afeta qualquer carga em que o veículo chega com mais de 2 dias de atraso em relação à data planejada — situação comum em terceirizadas que ficam alguns dias rodando antes de retornar para carregar.
 
-- Título do dialog quando em modo quitação: `Quitação — {numero}` / `Quitação — N adiantamentos` em vez de `Comprovante — …`.
-- O bloco "Data do pagamento" só aparece quando há pendentes — já é o comportamento atual, então segue.
-- O bloco "Pago em: …" (mostrado quando não há pendentes) permanece, agora abaixo do texto de quitação — serve como referência de quando o adiantamento foi pago.
+## Correção
 
-### Sem mudanças
+Em `src/hooks/useStatusPortariaPorCarga.ts`, dentro do `queryFn`:
 
-- `RegistrarQuitacaoDialog` segue intacto (é o fluxo de confirmar a quitação, com data + observações).
-- Aba *Quitados*: como todos os itens estão com status `quitado`, o novo modo também se aplica e o texto sai como "QUITAÇÃO ...". Se preferir manter "ADIANTAMENTO" nos já quitados, ajustar a condição para `status === "pago"` apenas — me avisa qual prefere.
-- `useAdiantamentos.ts` e demais arquivos não mudam.
+1. Agrupar os movimentos por `carga_id` **sem** filtro de data primeiro.
+2. Para cada carga, **tentar** filtrar pela janela 12h/48h.
+3. Se a filtragem por janela **eliminar todos os movimentos** (caso do Raimundo), usar o conjunto completo de movimentos daquela carga — assim a portaria sempre reflete o estado real, mesmo com atraso.
+4. Manter o filtro de placa (que já protege contra contaminação entre cargas distintas com o mesmo `carga_id`).
+
+Resultado: a linha do Raimundo passará a mostrar **"No pátio"** corretamente, e o comportamento original (proteção contra cargas homônimas em datas diferentes) continua valendo nos casos em que existe ao menos um movimento dentro da janela.
+
+## Arquivos alterados
+
+- `src/hooks/useStatusPortariaPorCarga.ts` (lógica do `queryFn`)
+
+Nenhuma mudança em UI ou banco.
