@@ -17,6 +17,7 @@ import {
   useCriarAdiantamento,
   useCancelarAdiantamento,
   useMarcarAdiantamentoPago,
+  useAtualizarDataAdiantamento,
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
@@ -40,6 +41,37 @@ function StatusBadge({ s }: { s: Adiantamento["status"] }) {
   };
   const label: Record<string, string> = { pendente: "Pendente", pago: "Pago", quitado: "Quitado", cancelado: "Cancelado" };
   return <Badge variant={map[s]}>{label[s]}</Badge>;
+}
+
+function DataCell({ adiantamento }: { adiantamento: Adiantamento }) {
+  const atualizar = useAtualizarDataAdiantamento();
+  const [open, setOpen] = useState(false);
+  const current = adiantamento.created_at ? new Date(adiantamento.created_at) : new Date();
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 font-normal">
+          <CalendarIcon className="h-3 w-3" />
+          {fmtDate(adiantamento.created_at)}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={current}
+          onSelect={(d) => {
+            if (!d) return;
+            const merged = new Date(d);
+            merged.setHours(current.getHours(), current.getMinutes(), current.getSeconds(), current.getMilliseconds());
+            atualizar.mutate({ id: adiantamento.id, created_at: merged.toISOString() });
+            setOpen(false);
+          }}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function AdiantamentosTab() {
@@ -749,7 +781,9 @@ function ListaAdiantamentos({
                 </TableCell>
               )}
               <TableCell className="font-mono text-xs">{a.numero}</TableCell>
-              <TableCell className="text-xs">{fmtDate(a.created_at)}</TableCell>
+              <TableCell className="text-xs">
+                <DataCell adiantamento={a} />
+              </TableCell>
               <TableCell className="text-xs">{a.transportadora}</TableCell>
               <TableCell className="text-xs font-mono">{a.tipo_agrupamento === "ordem" ? a.ordem_carga ?? "—" : "Lote"}</TableCell>
               <TableCell className="text-right text-xs">{a.qtd_ctes}</TableCell>
