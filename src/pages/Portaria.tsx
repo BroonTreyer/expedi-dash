@@ -114,13 +114,32 @@ export default function Portaria({ categoria }: PortariaProps) {
         .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
         .map((m) => m.movimento_vinculado_id!)
     );
-    // Pátio: conta apenas veículos efetivamente no pátio.
-    // Terceirizado em 'chegada' SEM carga_id (cards vermelhos "Aguardando
-    // vínculo") aparece na lista, mas NÃO é contado aqui — não está no
-    // pátio físico, está aguardando a Logística.
-    const patio = movimentacoesAtivasPatio.filter(
-      (m) => !(m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada" && !m.carga_id)
-    ).length;
+    // Pátio: alinhado com o filtro de PatioAtualTab.veiculosNoPatio.
+    // Conta apenas o que de fato aparece na lista "Veículos no Pátio":
+    //  - entradas com horario_entrada (liberadas no pátio físico), OU
+    //  - terceirizado em 'chegada' SEM carga_id (cards vermelhos "Aguardando vínculo"), OU
+    //  - carga própria legado em rota/retorno (tipo_movimento='saida' com etapa).
+    // Chegadas COM carga_id aguardando liberação ficam no painel azul
+    // "Cargas fechadas aguardando veículo" e NÃO contam aqui.
+    const saidasAtivasSet = new Set(
+      movimentacoesAtivasPatio
+        .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
+        .map((m) => m.movimento_vinculado_id!)
+    );
+    const patio = movimentacoesAtivasPatio.filter((m) => {
+      if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
+        return m.etapa_carga_propria !== "finalizado";
+      }
+      if (m.tipo_movimento !== "entrada") return false;
+      if (saidasAtivasSet.has(m.id)) return false;
+      if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+      if (m.categoria === "carga_propria" && m.etapa_carga_propria === "finalizado") return false;
+      const aguardandoVinculo =
+        m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada" && !m.carga_id;
+      if (aguardandoVinculo) return true;
+      if (m.horario_chegada && !m.horario_entrada) return false;
+      return true;
+    }).length;
     const historico = movimentacoes.length - saidasVinculadas.size;
     return { patio, historico };
   }, [movimentacoes, movimentacoesAtivasPatio]);
