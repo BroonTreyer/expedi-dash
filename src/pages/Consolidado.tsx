@@ -580,9 +580,10 @@ export default function Consolidado() {
   // dentro do intervalo selecionado. Cargas próprias mantêm a data original.
   const rawGroups = useMemo(() => {
     const out: CargaGroup[] = [];
+    const todayStr = new Date().toISOString().slice(0, 10);
     for (const g of rawGroupsBruto) {
       const saida = statusPortariaMap?.get(g.cargaId)?.saida ?? null;
-      const dataEfetiva = computeDataEfetivaTerceirizada(g.items, g.data, saida);
+      const dataEfetiva = computeDataEfetivaTerceirizada(g.items, g.data, saida, todayStr);
       const isWithin = dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr;
       if (!isWithin) continue;
       if (dataEfetiva !== g.data) {
