@@ -166,24 +166,40 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
         .in("categoria", ["terceirizado", "carga_propria"]);
       if (error) throw error;
 
-      const grouped = new Map<string, MovRow[]>();
+      // Agrupa SEM filtro de data primeiro (após filtro de placa). Depois
+      // tentamos restringir pela janela operacional; se a janela eliminar
+      // todos os movimentos de uma carga (ex.: caminhão chega vários dias
+      // após a data planejada), caímos de volta para o conjunto completo
+      // — assim o status da portaria sempre reflete a realidade.
+      const groupedAll = new Map<string, MovRow[]>();
       for (const row of (data ?? []) as (MovRow & { placa?: string | null })[]) {
         if (!row.carga_id) continue;
-        const dataCarga = dataByCarga.get(row.carga_id);
-        // C4 — Janela operacional parametrizável (default 12h antes / 48h depois)
-        if (dataCarga && row.data_hora) {
-          const base = new Date(`${dataCarga}T00:00:00`).getTime();
-          const inicio = base - janelaAntes * 3600_000;
-          const fim = base + janelaDepois * 3600_000;
-          const ts = new Date(row.data_hora).getTime();
-          if (Number.isFinite(ts) && (ts < inicio || ts >= fim)) continue;
-        }
-        // Se a carga tem placa esperada e o movimento tem placa, exigimos match.
         const placaRef = placaByCarga.get(row.carga_id);
         if (placaRef && row.placa && row.placa.trim().toUpperCase() !== placaRef) continue;
-        const arr = grouped.get(row.carga_id) ?? [];
+        const arr = groupedAll.get(row.carga_id) ?? [];
         arr.push(row);
-        grouped.set(row.carga_id, arr);
+        groupedAll.set(row.carga_id, arr);
+      }
+
+      const grouped = new Map<string, MovRow[]>();
+      for (const [cid, rows] of groupedAll.entries()) {
+        const dataCarga = dataByCarga.get(cid);
+        if (!dataCarga) {
+          grouped.set(cid, rows);
+          continue;
+        }
+        const base = new Date(`${dataCarga}T00:00:00`).getTime();
+        const inicio = base - janelaAntes * 3600_000;
+        const fim = base + janelaDepois * 3600_000;
+        const dentro = rows.filter((r) => {
+          if (!r.data_hora) return true;
+          const ts = new Date(r.data_hora).getTime();
+          if (!Number.isFinite(ts)) return true;
+          return ts >= inicio && ts < fim;
+        });
+        // Fallback: se a janela eliminar tudo, mantemos todos os movimentos
+        // da carga (atraso operacional além da janela).
+        grouped.set(cid, dentro.length > 0 ? dentro : rows);
       }
 
       const result = new Map<string, StatusPortariaInfo>();
