@@ -176,11 +176,16 @@ export function useCriarAdiantamento() {
 export function useMarcarAdiantamentoPago() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (input: string | { id: string; pago_em?: string }) => {
+      const id = typeof input === "string" ? input : input.id;
+      const pagoEmRaw = typeof input === "string" ? undefined : input.pago_em;
+      const pago_em = pagoEmRaw
+        ? new Date(`${pagoEmRaw}T12:00:00`).toISOString()
+        : new Date().toISOString();
       const { data: u } = await supabase.auth.getUser();
       const { error } = await (supabase as any)
         .from("adiantamentos_frete")
-        .update({ status: "pago", pago_em: new Date().toISOString(), pago_por: u.user?.id })
+        .update({ status: "pago", pago_em, pago_por: u.user?.id })
         .eq("id", id);
       if (error) throw error;
     },
