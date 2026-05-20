@@ -1,22 +1,29 @@
-## Plano
+## Problema
 
-1. **Corrigir a regra do card azul** em `useCargasFechadasAguardando`
-   - Hoje a carga do Raimundo volta porque a consulta só considera movimentos que batem na janela operacional da data da carga.
-   - O caso dele tem `data` da carga em 15/05, mas movimentos reais em 19/05; como a saída fica fora da janela, o card não reconhece a expedição.
-   - Ajustar a regra para que qualquer movimento finalizador da mesma `carga_id + placa` esconda a carga do card azul, mesmo fora da janela.
+O Consolidado está mostrando cargas que ainda estão em **pré-carga** (ex.: Célio). Isso é incorreto — uma carga só deve aparecer no Consolidado depois que sair da pré-carga (ou seja, quando `etapa != 'pre_carga'`).
 
-2. **Endurecer contra duplicidades e registros órfãos**
-   - Tratar como finalizado quando existir:
-     - `tipo_movimento = 'saida'` da mesma placa/carga;
-     - `etapa_terceirizado = 'finalizado'`;
-     - `horario_saida_final` preenchido;
-     - sinais equivalentes de carga própria finalizada.
-   - Priorizar match por placa para não contaminar outra viagem com mesmo `carga_id`.
+## Causa
 
-3. **Validar o caso específico**
-   - Confirmar que `CF FRANGO / RBK7D22 / RAIMUNDO` deixa de aparecer no retorno de `useCargasFechadasAguardando`.
-   - Manter visíveis apenas cargas realmente aguardando chegada/liberação.
+Em `src/pages/Consolidado.tsx`, o hook `useConsolidado` busca em `carregamentos_dia` filtrando apenas por `carga_id IS NOT NULL`, sem excluir `etapa = 'pre_carga'`. Como pré-cargas já têm `carga_id` atribuído (necessário para roteirização), elas vazam para o Consolidado.
 
-## Detalhe técnico
+A mesma falha aparece nas duas consultas auxiliares (carry-over de hoje e data efetiva de terceirizadas).
 
-A alteração fica concentrada em `src/hooks/useCarregamentos.ts`, na montagem dos sets `finalizadaKey` e `entradaPorKey`. Não precisa alterar layout nem criar tabela nova.
+## Correção
+
+Adicionar `.neq("etapa", "pre_carga")` nas três queries dentro do `useConsolidado` (`src/pages/Consolidado.tsx`):
+
+1. Query principal de `carregamentos_dia` (paginação inicial).
+2. Carry-over "hoje" — extra fetch por `carga_id IN (...)` de movimentos de portaria do dia.
+3. Data efetiva terceirizadas — extra fetch por `carga_id IN (...)` de saídas no intervalo.
+
+Nas duas auxiliares (2 e 3) o filtro também evita reintroduzir pré-cargas que por algum motivo tenham movimento de portaria associado.
+
+## Escopo
+
+- Apenas frontend / camada de query do Consolidado.
+- Não altera Expedição, PreCargas, Dashboard, Logística nem dados no banco.
+- Não muda RLS nem migrações.
+
+## Verificação
+
+Após a mudança, abrir `/consolidado` no dia atual: cargas em pré-carga (Célio, etc.) não devem mais aparecer; cargas já fechadas continuam visíveis normalmente.

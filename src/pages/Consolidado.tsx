@@ -57,7 +57,8 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
         let q = supabase
           .from("carregamentos_dia")
           .select("*, vendedores(nome_vendedor)")
-          .not("carga_id", "is", null);
+          .not("carga_id", "is", null)
+          .neq("etapa", "pre_carga");
         if (isSingleDay && dateFrom === todayStr) {
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -104,6 +105,7 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
               .from("carregamentos_dia")
               .select("*, vendedores(nome_vendedor)")
               .in("carga_id", faltantes)
+              .neq("etapa", "pre_carga")
               .lt("data", dateFrom)
               .gte("data", limitDate)
               .order("id", { ascending: true })
@@ -146,6 +148,7 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
               .from("carregamentos_dia")
               .select("*, vendedores(nome_vendedor)")
               .in("carga_id", faltantesSaida)
+              .neq("etapa", "pre_carga")
               .lt("data", dateFrom)
               .gte("data", limitDate)
               .order("id", { ascending: true })
