@@ -21,7 +21,7 @@ export function useFornecedoresMp() {
     enabled: !!session,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("fornecedores_mp")
+        .from("mp_fornecedores")
         .select("*")
         .eq("ativo", true)
         .order("nome");
@@ -38,11 +38,11 @@ export function useUpsertFornecedorMp() {
     mutationFn: async (row: Partial<FornecedorMp> & { nome: string }) => {
       const payload: any = { ...row, nome: row.nome.trim() };
       if (row.id) {
-        const { data, error } = await (supabase as any).from("fornecedores_mp").update(payload).eq("id", row.id).select().single();
+        const { data, error } = await (supabase as any).from("mp_fornecedores").update(payload).eq("id", row.id).select().single();
         if (error) throw error;
         return data;
       }
-      const { data, error } = await (supabase as any).from("fornecedores_mp").insert(payload).select().single();
+      const { data, error } = await (supabase as any).from("mp_fornecedores").insert(payload).select().single();
       if (error) throw error;
       return data;
     },
@@ -58,7 +58,7 @@ export function useDeleteFornecedorMp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("fornecedores_mp").delete().eq("id", id);
+      const { error } = await (supabase as any).from("mp_fornecedores").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

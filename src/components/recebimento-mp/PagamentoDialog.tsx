@@ -72,7 +72,7 @@ export function PagamentoDialog({ open, onOpenChange, recebimento }: Props) {
             </div>
             <div className="text-xs text-right text-muted-foreground">
               {recebimento.peso_total_ton.toLocaleString("pt-BR", { minimumFractionDigits: 3 })} ton<br />
-              × {fmtBRL(recebimento.valor_tonelada)}/ton
+              × {fmtBRL(recebimento.peso_total_ton > 0 ? recebimento.valor_total / recebimento.peso_total_ton : 0)}/ton (média)
             </div>
           </div>
 

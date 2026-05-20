@@ -4,6 +4,8 @@ import { useSession } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
+// Tabelas novas (mp_*). Mantemos os mesmos nomes de hooks/exports para compatibilidade.
+
 export type RecebimentoMp = {
   id: string;
   recibo_numero: string | null;
@@ -23,7 +25,6 @@ export type RecebimentoMp = {
   pallets_quantidade: number | null;
   pallets_devolvidos: boolean;
   peso_total_ton: number;
-  valor_tonelada: number;
   valor_total: number;
   forma_pagamento: string | null;
   pagamento_status: "pendente" | "pago";
@@ -32,6 +33,7 @@ export type RecebimentoMp = {
   comprovante_url: string | null;
   foto_nota_url: string | null;
   status_geral: "aguardando_descarga" | "descarregando" | "aguardando_pagamento" | "pago" | "liberado" | "cancelado";
+  mes_fechado: boolean;
   observacoes: string | null;
   created_at: string;
   updated_at: string;
@@ -42,15 +44,34 @@ export type RecebimentoMpItem = {
   recebimento_id: string;
   produto_id: string | null;
   nome_produto: string;
+  categoria: string | null;
   nota_fiscal: string | null;
   peso_ton: number;
-  valor_unitario: number;
+  valor_unitario: number; // ← alias amigável; no banco é valor_unitario_ton
+  peso_confirmado: boolean;
   valor_total_linha: number;
   ordem: number | null;
 };
 
-const TABLE = "recebimentos_mp" as const;
-const TABLE_ITENS = "recebimentos_mp_itens" as const;
+const TABLE = "mp_recebimentos" as const;
+const TABLE_ITENS = "mp_recebimento_itens" as const;
+const BUCKET = "recebimento-mp" as const;
+
+function mapItemFromDb(r: any): RecebimentoMpItem {
+  return {
+    id: r.id,
+    recebimento_id: r.recebimento_id,
+    produto_id: r.produto_id,
+    nome_produto: r.nome_produto,
+    categoria: r.categoria ?? null,
+    nota_fiscal: r.nota_fiscal,
+    peso_ton: Number(r.peso_ton ?? 0),
+    valor_unitario: Number(r.valor_unitario_ton ?? 0),
+    peso_confirmado: !!r.peso_confirmado,
+    valor_total_linha: Number(r.valor_total_linha ?? 0),
+    ordem: r.ordem ?? null,
+  };
+}
 
 export function useRecebimentosMp(dataISO?: string) {
   const session = useSession();
@@ -59,7 +80,7 @@ export function useRecebimentosMp(dataISO?: string) {
   useEffect(() => {
     if (!session) return;
     const ch = supabase
-      .channel("recebimentos_mp_realtime")
+      .channel("mp_recebimentos_realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, () => {
         qc.invalidateQueries({ queryKey: ["recebimentos_mp"] });
       })
@@ -96,7 +117,7 @@ export function useRecebimentoMpItens(recebimentoId?: string | null) {
         .eq("recebimento_id", recebimentoId)
         .order("ordem", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as RecebimentoMpItem[];
+      return (data ?? []).map(mapItemFromDb) as RecebimentoMpItem[];
     },
   });
 }
@@ -139,7 +160,7 @@ export function useDeleteRecebimentoMp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await (supabase as any).from(TABLE_ITENS).delete().eq("recebimento_id", id);
+      // ON DELETE CASCADE cuida dos itens, mas mantemos por segurança
       const { error } = await (supabase as any).from(TABLE).delete().eq("id", id);
       if (error) throw error;
     },
@@ -162,9 +183,11 @@ export function useSaveRecebimentoMpItens() {
         recebimento_id: recebimentoId,
         produto_id: it.produto_id ?? null,
         nome_produto: it.nome_produto ?? "",
+        categoria: it.categoria ?? null,
         nota_fiscal: it.nota_fiscal ?? null,
         peso_ton: Number(it.peso_ton ?? 0),
-        valor_unitario: Number(it.valor_unitario ?? 35),
+        valor_unitario_ton: Number(it.valor_unitario ?? 35),
+        peso_confirmado: !!it.peso_confirmado,
         ordem: idx,
       }));
       const { error } = await (supabase as any).from(TABLE_ITENS).insert(payload);
@@ -181,8 +204,8 @@ export function useSaveRecebimentoMpItens() {
 export async function uploadRecebimentoMpFile(file: File, recebimentoId: string, kind: "nota" | "comprovante") {
   const ext = file.name.split(".").pop() || "bin";
   const path = `${recebimentoId}/${kind}-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from("recebimento-mp").upload(path, file, { upsert: true });
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
   if (error) throw error;
-  const { data } = await supabase.storage.from("recebimento-mp").createSignedUrl(path, 60 * 60 * 24 * 365);
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365);
   return data?.signedUrl ?? null;
 }

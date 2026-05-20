@@ -47,7 +47,7 @@ export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: P
   const updateRec = useUpdateRecebimentoMp();
   const upsertFornecedor = useUpsertFornecedorMp();
 
-  const valorPadrao = recebimento?.valor_tonelada ?? 35;
+  const valorPadrao = 35;
 
   const [itens, setItens] = useState<ItemDraft[]>([]);
   const [fornecedorNome, setFornecedorNome] = useState("");

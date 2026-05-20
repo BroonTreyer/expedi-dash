@@ -65,7 +65,7 @@ export function HistoricoDescargasPanel() {
       Motorista: r.motorista,
       Fornecedor: r.fornecedor_nome,
       Toneladas: Number(r.peso_total_ton ?? 0),
-      "R$/ton": Number(r.valor_tonelada ?? 0),
+      "R$/ton (média)": Number(r.peso_total_ton ?? 0) > 0 ? Number(r.valor_total ?? 0) / Number(r.peso_total_ton) : 0,
       "Valor Total": Number(r.valor_total ?? 0),
       Status: r.status_geral,
       Pagamento: r.pagamento_status,

@@ -7,7 +7,9 @@ export type ProdutoMp = {
   id: string;
   codigo: string | null;
   nome: string;
+  categoria: string | null;
   unidade_padrao: string;
+  preco_referencia_ton: number;
   ativo: boolean;
 };
 
@@ -18,7 +20,7 @@ export function useProdutosMp() {
     enabled: !!session,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("produtos_mp")
+        .from("mp_produtos")
         .select("*")
         .eq("ativo", true)
         .order("nome");
@@ -35,11 +37,11 @@ export function useUpsertProdutoMp() {
     mutationFn: async (row: Partial<ProdutoMp> & { nome: string }) => {
       const payload: any = { ...row, nome: row.nome.trim(), unidade_padrao: row.unidade_padrao ?? "ton" };
       if (row.id) {
-        const { data, error } = await (supabase as any).from("produtos_mp").update(payload).eq("id", row.id).select().single();
+        const { data, error } = await (supabase as any).from("mp_produtos").update(payload).eq("id", row.id).select().single();
         if (error) throw error;
         return data;
       }
-      const { data, error } = await (supabase as any).from("produtos_mp").insert(payload).select().single();
+      const { data, error } = await (supabase as any).from("mp_produtos").insert(payload).select().single();
       if (error) throw error;
       return data;
     },
@@ -55,7 +57,7 @@ export function useDeleteProdutoMp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("produtos_mp").delete().eq("id", id);
+      const { error } = await (supabase as any).from("mp_produtos").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
