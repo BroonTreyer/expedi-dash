@@ -3,12 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle, CheckCircle2, ChevronUp, ChevronDown } from "lucide-react";
+import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle, CheckCircle2, ChevronUp, ChevronDown, Pencil } from "lucide-react";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { isRupturaParcial } from "@/lib/peso-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { EditarPedidoAprovacaoDialog } from "@/components/aprovacoes/EditarPedidoAprovacaoDialog";
 
 interface CargaGroup {
   cargaId: string;
@@ -45,8 +46,8 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [confirmDeleteCarga, setConfirmDeleteCarga] = useState(false);
   const [lookupStatus, setLookupStatus] = useState<"idle" | "searching" | "found" | "notfound">("idle");
   const [lookupInfo, setLookupInfo] = useState<string>("");
-  // Edições pontuais por item (apenas peso)
-  const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; quantidade?: number; motivo_ruptura?: string | null }>>({});
+  // Pedido (parada) selecionado para edição via EditarPedidoAprovacaoDialog
+  const [pedidoEditando, setPedidoEditando] = useState<Carregamento[] | null>(null);
   // Ordem manual por chave de cliente (codigo_cliente || nome). Inicializa do banco.
   const [ordemPorCliente, setOrdemPorCliente] = useState<Record<string, number>>({});
   // Marca true assim que o usuário reordena manualmente (passa a persistir 1..N para todas as paradas)
@@ -61,7 +62,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       setTipoCaminhao(group.tipoCaminhao ?? "");
       setTransportadora(group.items[0]?.transportadora ?? "");
       setRemovedIds(new Set());
-      setItemEdits({});
+      setPedidoEditando(null);
       // Inicializa ordem por cliente a partir dos pedidos existentes
       const map: Record<string, number> = {};
       for (const it of group.items) {
@@ -203,7 +204,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       }
       if (Object.keys(ordemUpdates).length === 0) ordemUpdates = undefined;
     }
-    onSave(group.cargaId, { nome_carga: nomeCarga, ordem_carga: ordemCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, itemEdits, ordemUpdates);
+    onSave(group.cargaId, { nome_carga: nomeCarga, ordem_carga: ordemCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, undefined, ordemUpdates);
   };
 
   const confirmRemove = () => {
