@@ -28,7 +28,7 @@ export function useMotoristasMp() {
     enabled: !!session,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("recebimentos_mp")
+        .from("mp_recebimentos")
         .select("*")
         .order("data_chegada", { ascending: false })
         .limit(5000);
