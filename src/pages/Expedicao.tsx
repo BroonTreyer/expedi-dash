@@ -200,6 +200,27 @@ export default function Expedicao() {
     return out;
   }, [cargasDoDia, statusPortariaMap]);
 
+  // Chaves (carga_id|placa upper) das cargas já expedidas — usadas para suprimi-las dos painéis
+  // "No Pátio" / "Chegou", evitando que apareçam em dois lugares ao mesmo tempo.
+  const cargasExpedidasKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of cargasExpedidasDoDia) {
+      if (c.carga_id) set.add(makeStatusKey(c.carga_id, c.placa));
+      if (c.placa) set.add(`__placa__|${String(c.placa).toUpperCase().trim()}`);
+    }
+    return set;
+  }, [cargasExpedidasDoDia]);
+
+  const movimentacoesPatio = useMemo(
+    () =>
+      movimentacoesComPeso.filter((m) => {
+        if (m.carga_id && cargasExpedidasKeys.has(makeStatusKey(m.carga_id, m.placa))) return false;
+        if (m.placa && cargasExpedidasKeys.has(`__placa__|${String(m.placa).toUpperCase().trim()}`)) return false;
+        return true;
+      }),
+    [movimentacoesComPeso, cargasExpedidasKeys]
+  );
+
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => {
@@ -209,13 +230,13 @@ export default function Expedicao() {
   }, []);
 
   const counts = useMemo(() => {
-    const noPatio = movimentacoesComPeso.filter(
+    const noPatio = movimentacoesPatio.filter(
       (m) =>
         m.tipo_movimento === "entrada" &&
         m.horario_entrada &&
         m.etapa_terceirizado !== "finalizado"
     );
-    const chegou = movimentacoesComPeso.filter(
+    const chegou = movimentacoesPatio.filter(
       (m) =>
         m.tipo_movimento === "entrada" &&
         !m.horario_entrada &&
@@ -230,7 +251,7 @@ export default function Expedicao() {
       kgACarregar: pesosKpi.kgACarregar,
       kgTotal: pesosKpi.kgTotal,
     };
-  }, [movimentacoesComPeso, veiculosAChegar, cargasExpedidasDoDia, pesosKpi]);
+  }, [movimentacoesPatio, veiculosAChegar, cargasExpedidasDoDia, pesosKpi]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
@@ -304,10 +325,10 @@ export default function Expedicao() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           <ErrorBoundary name="No Pátio">
-            <PainelNoPatio movimentacoes={movimentacoesComPeso} now={now} />
+            <PainelNoPatio movimentacoes={movimentacoesPatio} now={now} />
           </ErrorBoundary>
           <ErrorBoundary name="Chegou — aguardando">
-            <PainelChegou movimentacoes={movimentacoesComPeso} now={now} />
+            <PainelChegou movimentacoes={movimentacoesPatio} now={now} />
           </ErrorBoundary>
           <ErrorBoundary name="A chegar">
             <PainelAChegar veiculos={veiculosAChegar} hoje={hojeStr} />

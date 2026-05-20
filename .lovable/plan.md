@@ -1,39 +1,25 @@
-## Auditoria do fluxo Pré-carga → Consolidado → Expedição
+## Diagnóstico
 
-Fluxo correto:
-1. **Pré-carga** (`etapa = 'pre_carga'`): salva no `FechamentoLoteDialog` sem fechar — só aparece em `/pre-cargas`.
-2. **Fechada** (`etapa = 'logistica'`): aparece em `/` (Dashboard), `/consolidado` e `/expedicao`.
-3. **Portaria**: registra entrada/saída e finaliza.
+GLADSON aparece em **No Pátio** e em **Cargas expedidas do dia** ao mesmo tempo porque os dois painéis usam fontes de verdade diferentes:
 
-## Resultado da revisão
+- **Cargas expedidas do dia** (`Expedicao.tsx → cargasExpedidasDoDia`): considera expedida quando `status === 'Carregado'` (faturamento) **OU** `etapa portaria === 'expedido'`.
+- **No Pátio** (`PainelNoPatio`): olha só a movimentação de portaria — basta ter `horario_entrada` e `etapa_terceirizado !== 'finalizado'`.
 
-### ✅ OK
-- `usePreCargas` filtra `eq("etapa","pre_carga")`.
-- `Index.tsx` (Dashboard) descarta `c.etapa === 'pre_carga'` em filtros, KPIs e pré-cargas agrupadas.
-- `Consolidado` — já corrigido no turno anterior (`.neq("etapa","pre_carga")` nas 3 queries).
-- `PainelCargasFechadas` (`useCarregamentos.ts`) usa `eq("etapa","logistica")`.
-- `FechamentoLoteDialog` grava `etapa: 'pre_carga'` no "salvar como pré-carga" e `etapa: 'logistica'` ao fechar.
-
-### ❌ Bug encontrado — Expedição vaza pré-cargas
-
-`src/hooks/useCargasDiaExpedicao.ts` busca `carregamentos_dia` apenas com `not("carga_id","is",null)`. Se uma pré-carga já tem `transportadora` preenchida (cenário comum, pois o `FechamentoLoteDialog` permite salvar com todos os campos), ela entra na lista da Expedição — mesmo problema que tínhamos no Consolidado.
-
-Impacto: a pré-carga aparece em "Cargas do dia / a carregar", infla o KPI **kg a carregar** e o peso total da Expedição.
+No caso do GLADSON, o faturamento marcou a carga como **Carregado** (entra em "Cargas expedidas"), mas a portaria ainda não finalizou o movimento (continua em "No Pátio"). Resultado: aparece nos dois painéis.
 
 ## Correção
 
-Em `src/hooks/useCargasDiaExpedicao.ts`, adicionar `.neq("etapa","pre_carga")` em ambas as queries de `carregamentos_dia`:
+Em `src/pages/Expedicao.tsx`, depois de calcular `cargasExpedidasDoDia`, construir um `Set` de chaves `carga_id|placa(uppercase)` das cargas expedidas e filtrar `movimentacoesComPeso` antes de passá-las aos painéis **No Pátio** e **Chegou — aguardando liberação**.
 
-1. Query principal (linha ~67) — paginação por `data = dateStr`.
-2. Carry-over de data efetiva terceirizada (linha ~101) — busca por `in("carga_id", faltantes)`.
+Assim, qualquer carga já contada como expedida (seja por portaria, seja por faturamento) some dos painéis "No Pátio" / "Chegou" automaticamente — mantendo uma única fonte de verdade.
 
 ## Escopo
 
-- Apenas frontend, uma única alteração em `useCargasDiaExpedicao.ts`.
-- Não toca em RLS, migrações, Pré-cargas, Consolidado, Dashboard ou Portaria.
+- Único arquivo afetado: `src/pages/Expedicao.tsx`.
+- Não muda `PainelNoPatio`, `PainelChegou`, hooks, RLS ou banco.
+- Não altera o KPI de peso (já usa a mesma lógica de `cargasExpedidasDoDia`).
 
 ## Verificação
 
-Após aplicar:
-- Pré-carga do Célio não deve aparecer em `/expedicao` nem somar nos KPIs de kg.
-- Ao fechar a pré-carga (etapa → `logistica`), ela passa a aparecer normalmente em Consolidado e Expedição.
+- Reabrir `/expedicao`: GLADSON deve aparecer apenas em "Cargas expedidas do dia".
+- Quando a portaria finalizar a saída, o comportamento continua o mesmo (a carga sai de "No Pátio" pelos dois critérios).
