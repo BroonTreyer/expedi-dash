@@ -1,141 +1,50 @@
+## Continuação do refazer do módulo Recebimento MP
 
-# Refazer Recebimento MP do zero
+Banco novo (mp_*) e hooks já estão prontos. Falta agora a camada de UI nova, o importador e as páginas de análise por produto. Sigo nesta ordem:
 
-Reconstrução completa do módulo para destravar análise de compras por produto, fechamento mensal e tratamento correto dos dados (ton vs kg, R$/ton). Banco e UI serão refeitos; dados antigos de MP serão descartados (com snapshot de segurança antes).
+### 1. Importador e dashboard antigo
+- **`ImportarRecebimentosMpDialog.tsx`** — adaptar para o novo modelo (header `mp_recebimentos` + 1..N `mp_recebimento_itens`). Aceita planilha com colunas: data, fornecedor, motorista, placa, NF, produto, peso (kg/ton auto), valor/ton. Agrupa por (data + fornecedor + placa) num único recibo com vários itens. Mostra preview, divergências e total estimado antes de gravar.
+- **`useRecebimentosMpDashboard.ts`** — apontar para a view `mp_compras_mensal_produto` + agregados do header (toneladas/mês, R$/mês, ticket médio, top fornecedores).
 
----
+### 2. Sidebar interno + sub-rotas
+- Trocar `RecebimentoMp.tsx` (hoje Tabs) por um **shell com `SidebarProvider`** + `<Outlet />`. Sidebar `collapsible="icon"` com grupos:
+  - **Operação:** Operação do dia, Histórico
+  - **Análise:** Compras por Produto, Evolução de Preços
+  - **Fechamento:** Fechamento mensal
+  - **Cadastros:** Motoristas, Fornecedores, Produtos
+- Rotas em `App.tsx`:
+  - `/recebimento-mp` → redireciona para `/recebimento-mp/operacao`
+  - `/recebimento-mp/operacao`, `/historico`, `/compras-produto`, `/precos`, `/fechamento`, `/motoristas`, `/fornecedores`, `/produtos`
+- Manter compatibilidade com `?tab=` antigo redirecionando para a sub-rota equivalente.
 
-## Fase 1 — Banco de dados (do zero, com snapshot)
+### 3. Páginas novas de análise
+- **`ComprasProdutoPage`** (`useMpComprasProduto`)
+  - Seletor de período (mês/trimestre/ano + custom) e comparativo (mês anterior, mesmo mês ano passado).
+  - Tabela: Produto · Categoria · Peso (ton) · Valor (R$) · Preço médio/ton · Δ% vs comparativo · Sparkline 6m.
+  - Drill-down em drawer: lista de recibos do produto no período (data, fornecedor, NF, peso, R$/ton, R$ total).
+  - Botão **Exportar XLSX** (pt-BR, valores formatados, célula de total).
+- **`EvolucaoPrecosPage`** (`useMpEvolucaoPreco`)
+  - Recharts line chart, até 5 produtos selecionáveis, faixa min–max sombreada.
+  - Tabela lateral: preço mín / médio / máx do período por produto + variação vs preço de referência (`mp_produtos.preco_referencia_ton`).
+- **`FechamentoMensalPage`** (`useMpFechamentoMensal`)
+  - Cards: total ton, total R$, nº de recebimentos, % pago, pendências.
+  - Tabela por fornecedor (view `mp_fechamento_fornecedor`): ton, R$, status pagamento, ação "Marcar como pago" / "Gerar recibo consolidado" (PDF A4).
+  - Botão **Fechar mês** → marca `mes_fechado=true` em todos os recebimentos do mês (lock já implementado por trigger).
 
-### 1.1 Backup automático antes de apagar
-- Snapshot JSONB de `recebimentos_mp`, `recebimentos_mp_itens`, `fornecedores_mp`, `produtos_mp` em `data_snapshots` com descrição "Pré-refatoração Recebimento MP".
+### 4. Bibliotecas auxiliares
+- **`src/lib/mp-export.ts`** — helpers de exportação XLSX (reaproveita padrão pt-BR já usado no projeto).
+- Reaproveitar `lib/peso-mp.ts` para kg↔ton.
 
-### 1.2 Drop e recriação
-Apagar tabelas atuais e recriar com modelo enxuto, normalizado e indexado para análise mensal:
+### 5. Limpeza final
+- Remover `Tabs` de `RecebimentoMp.tsx` (vira shell com Sidebar + Outlet).
+- Painéis existentes (`OperacaoDiaPanel`, `HistoricoDescargasPanel`, `DashboardMpPanel`, `MotoristasMpPanel`, `FornecedoresMpPanel`, `ProdutosMpPanel`) passam a ser as páginas das sub-rotas correspondentes (wrappers leves).
+- Confirmar que `DashboardMpPanel` antigo é substituído pelas novas páginas de análise (mantenho como "Visão geral" opcional ou removo — recomendo **remover**, já que as 3 páginas novas cobrem tudo).
 
-- **`mp_fornecedores`** — nome, cnpj_cpf, telefone, email, cidade/uf, ativo.
-- **`mp_produtos`** — codigo, nome, **categoria** (ex: óleo, embalagem, insumo), unidade_padrao (ton/kg/un), preco_referencia_ton, ativo.
-- **`mp_recebimentos`** (cabeçalho da descarga) — recibo_numero, data_chegada, hora_chegada, data_descarga, fornecedor_id+nome, motorista, cpf, telefone, placa, tipo_veiculo, conferente, doca, pallets_qtd, pallets_devolvidos, **peso_total_ton** (calculado), **valor_total** (calculado), forma_pagamento, pagamento_status, pago_em/por, comprovante_url, foto_nota_url, status_geral, observacoes.
-- **`mp_recebimento_itens`** (linha por produto/NF) — recebimento_id, produto_id+snapshot nome+categoria, nota_fiscal, **peso_ton** (sempre em ton), **valor_unitario_ton**, **valor_total_linha** (gerado), ordem.
-- **`mp_movimentos_pagamento`** (opcional, fase 2) — para histórico de pagamentos parciais.
+### Técnico
+- Hooks novos: `useMpComprasProduto`, `useMpEvolucaoPreco`, `useMpFechamentoMensal` (usam as views já criadas na migração anterior).
+- Realtime já habilitado em `mp_recebimentos` e `mp_recebimento_itens` — as páginas se atualizam sozinhas via `useEffect` em canal supabase.
+- `enabled: !!session` em todas as queries para evitar fetch sem auth (regra do projeto).
+- Exportações XLSX no padrão pt-BR (vírgula decimal, separador de milhar, datas dd/MM/yyyy).
 
-### 1.3 Regras e automações
-- Trigger `set_recibo_numero` — sequencial diário `RECMP-YYYYMMDD-NNN`.
-- Trigger `recalc_recebimento_totais` — recalcula peso_total_ton e valor_total a partir dos itens.
-- Trigger `set_valor_total_linha` — `peso_ton * valor_unitario_ton`.
-- Trigger de validação: rejeitar `peso_ton > 100` sem flag `peso_confirmado=true` (anti-erro kg/ton).
-- Realtime ligado em `mp_recebimentos` e `mp_recebimento_itens`.
-- Índices: `(data_chegada)`, `(fornecedor_id, data_chegada)`, `(produto_id, data_chegada)`, `(pagamento_status)`.
-- RLS idêntica ao padrão atual (admin/logistica/portaria/faturamento).
-
-### 1.4 View materializável para análise
-- **VIEW `mp_compras_mensal_produto`** — agregação por (ano, mês, produto_id) com: ton, valor, nº descargas, preço médio/ton, nº fornecedores distintos.
-- **VIEW `mp_evolucao_preco_produto`** — por (data, produto_id): preço médio/ton diário, min, max, fornecedor mais barato/caro do dia.
-
----
-
-## Fase 2 — Estrutura de navegação (sidebar interno)
-
-Rota base `/recebimento-mp` vira shell com **sidebar lateral colapsável** (`SidebarProvider` shadcn) e sub-rotas:
-
-```text
-/recebimento-mp
-├── /operacao           Operação do dia (KPIs + tabela ativa + ações)
-├── /historico          Lista paginada com filtros avançados
-├── /compras-produto    NOVO — análise mensal de compras por produto
-├── /precos             NOVO — evolução de preço/ton por produto
-├── /fechamento         NOVO — fechamento mensal (consolidado p/ financeiro)
-├── /motoristas         Aggregado por motorista
-├── /fornecedores       CRUD + extrato por fornecedor
-└── /produtos           CRUD + categorias + preço referência
-```
-
-Sidebar com ícones lucide, colapsível em modo `icon`, destaque do item ativo via `NavLink`, header com `SidebarTrigger`. Em mobile vira off-canvas.
-
----
-
-## Fase 3 — Páginas principais
-
-### 3.1 Operação do dia
-- KPIs: descargas hoje, ton recebida, R$ a pagar hoje, pallets a devolver.
-- Tabela ao vivo (realtime) com ações: registrar chegada, conferir descarga, registrar pagamento, imprimir recibo.
-- Botão "Importar planilha" reaproveitando dialog atual com seletor kg/ton e auto-detecção.
-
-### 3.2 Histórico
-- Filtros: período (presets: hoje/semana/mês/mês passado/personalizado), fornecedor, produto, motorista, placa, status, faixa de valor.
-- Tabela com ordenação, paginação, totalizadores no rodapé.
-- Export XLSX completo.
-
-### 3.3 Compras por Produto (foco do pedido)
-Layout:
-- Seletor de período com **comparativo** (mês atual vs anterior vs mesmo mês ano passado).
-- Tabela mestre: **Produto × Mês** com colunas ton, R$, nº descargas, preço médio/ton, **Δ% vs período comparativo** (verde/vermelho).
-- Filtro por categoria de produto.
-- Linha clicável → drawer com extrato detalhado: todas as descargas do produto no período (data, fornecedor, motorista, NF, ton, R$/ton, R$ total).
-- Mini gráfico (sparkline) ao lado de cada produto mostrando evolução do mês.
-- Export XLSX.
-
-### 3.4 Evolução de Preços
-- Seletor de até 5 produtos para comparar.
-- Gráfico de linha (Recharts) com preço médio/ton ao longo do tempo (granularidade: dia/semana/mês).
-- Faixa min–max sombreada.
-- Tabela auxiliar: melhor preço, pior preço, preço médio, fornecedor mais econômico.
-
-### 3.5 Fechamento Mensal
-- Seletor de mês/ano.
-- Cards: total ton, total R$, total pago, total pendente, nº fornecedores, ticket médio.
-- Tabela por fornecedor: ton, valor, status pagamento, recibos do mês — botão "Gerar recibo consolidado" (PDF A4).
-- Botão "Fechar mês" → trava edições retroativas e gera snapshot.
-- Export XLSX completo do fechamento (pronto para financeiro).
-
-### 3.6 Motoristas, Fornecedores, Produtos
-- CRUDs revisados, com extrato (últimas descargas, ton total, R$ total).
-- Produtos ganha campo **categoria** e **preço de referência por tonelada** (usado para alertar desvios na conferência).
-
----
-
-## Fase 4 — Hooks e libs
-
-- `useMpRecebimentos`, `useMpRecebimentoItens` (realtime).
-- `useMpComprasProduto(periodo, comparativo)` — query nas views agregadas.
-- `useMpEvolucaoPreco(produtoIds, granularidade)`.
-- `useMpFechamentoMensal(ano, mes)`.
-- `useMpFornecedores`, `useMpProdutos`, `useMpMotoristas` (aggregado a partir de recebimentos).
-- `lib/mp-peso.ts` — utilitários `normalizarParaTon`, `detectarUnidade`, `formatarTon`, `formatarBRL` (mantém atual).
-- `lib/mp-export.ts` — geradores XLSX padronizados pt-BR.
-
----
-
-## Fase 5 — Limpeza e migração
-
-- Apagar componentes antigos: `OperacaoDiaPanel`, `HistoricoDescargasPanel`, `DashboardMpPanel`, `MotoristasMpPanel`, `FornecedoresMpPanel`, `ProdutosMpPanel`, `MotoristaMpDetalheDrawer`, hooks `useRecebimentosMp*`, `useMotoristasMp`, `useFornecedoresMp`, `useProdutosMp`.
-- Atualizar `RecebimentoMp.tsx` para virar shell com `<Outlet />`.
-- Adicionar rotas no `App.tsx`.
-- Atualizar `AppSidebar` se houver atalhos antigos para tabs.
-
----
-
-## Detalhes técnicos
-
-- **Tudo em toneladas no banco.** UI sempre normaliza input via `normalizarParaTon` antes de salvar; flag `peso_confirmado` para liberar valores >100 ton.
-- **Preço por tonelada.** `valor_unitario_ton` no item; `valor_total_linha = peso_ton * valor_unitario_ton` (gerado). Default 35,00.
-- **Categorias de produto** entram como `text` simples (não enum) para flexibilidade; UI sugere via combobox com valores já usados.
-- **Comparativo mensal** calculado client-side a partir de duas chamadas à view agregada (mês atual e comparação) — barato e cacheável.
-- **Realtime** apenas em `mp_recebimentos` e itens; análises usam staleTime de 60s.
-- **RLS** segue padrão Cloud: admin/logistica/portaria escrevem; faturamento lê tudo + atualiza pagamento.
-- **Snapshot** antes do drop garante rollback se necessário (Backups → Restaurar).
-- **Mobile**: sidebar off-canvas, tabelas viram cards empilhados, formulários em coluna única.
-
----
-
-## O que será descartado
-
-- Tabela `recebimentos_mp` e `recebimentos_mp_itens` atuais (com snapshot prévio).
-- Tabelas `fornecedores_mp` e `produtos_mp` atuais (migráveis manualmente do snapshot se quiser repovoar).
-- Componentes e hooks listados na Fase 5.
-
-## O que será preservado
-
-- Bucket de storage `recebimento-mp` (continua valendo).
-- Dialogs reutilizáveis: `RegistrarChegadaDialog`, `ConferenciaDescargaDialog`, `PagamentoDialog`, `ReciboDescargaPrintDialog`, `ImportarRecebimentosMpDialog` — serão adaptados aos novos nomes de tabela.
-- Utilitário `lib/peso-mp.ts`.
+### Pergunta antes de implementar
+Sigo com a remoção do `DashboardMpPanel` atual (substituído pelas 3 páginas novas) ou prefere manter como "Visão geral" inicial da sidebar?
