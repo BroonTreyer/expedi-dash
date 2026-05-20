@@ -30,7 +30,7 @@ import { EditarCargaDialog } from "@/components/dashboard/EditarCargaDialog";
 import { pesoEfetivo, isRupturaParcial, pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
 import { temRuptura } from "@/lib/ruptura-utils";
 import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/CargaPrintDialog";
-import { useStatusPortariaPorCarga, ETAPA_PORTARIA_ORDEM, ETAPA_PORTARIA_LABELS, type EtapaPortaria } from "@/hooks/useStatusPortariaPorCarga";
+import { useStatusPortariaPorCarga, makeStatusKey, ETAPA_PORTARIA_ORDEM, ETAPA_PORTARIA_LABELS, type EtapaPortaria } from "@/hooks/useStatusPortariaPorCarga";
 import { PortariaStatusBadge } from "@/components/dashboard/PortariaStatusBadge";
 import { computeDataEfetivaTerceirizada } from "@/lib/data-efetiva";
 
@@ -575,7 +575,8 @@ export default function Consolidado() {
   );
   const { data: statusPortariaMap } = useStatusPortariaPorCarga(cargaIds);
   const getStatusPortaria = useCallback(
-    (cargaId: string) => statusPortariaMap?.get(cargaId),
+    (cargaId: string, placa?: string | null) =>
+      statusPortariaMap?.get(makeStatusKey(cargaId, placa)),
     [statusPortariaMap],
   );
 
@@ -587,7 +588,7 @@ export default function Consolidado() {
     const out: CargaGroup[] = [];
     const todayStr = new Date().toISOString().slice(0, 10);
     for (const g of rawGroupsBruto) {
-      const saida = statusPortariaMap?.get(g.cargaId)?.saida ?? null;
+      const saida = statusPortariaMap?.get(makeStatusKey(g.cargaId, g.placa))?.saida ?? null;
       const dataEfetiva = computeDataEfetivaTerceirizada(g.items, g.data, saida, todayStr);
       const isWithin = dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr;
       if (!isWithin) continue;
@@ -603,7 +604,7 @@ export default function Consolidado() {
   const groupsWithPortariaFilter = useMemo(() => {
     if (filterEtapaPortaria === "todas") return rawGroups;
     return rawGroups.filter((g) => {
-      const info = statusPortariaMap?.get(g.cargaId);
+      const info = statusPortariaMap?.get(makeStatusKey(g.cargaId, g.placa));
       const etapa = info?.etapa ?? "aguardando";
       return etapa === filterEtapaPortaria;
     });
@@ -623,7 +624,7 @@ export default function Consolidado() {
     clientes: (g) => g.clientes.size,
     ufs: (g) => [...g.ufs].sort().join(", "),
     tipoFrete: (g) => g.tipoFrete,
-    portaria: (g) => ETAPA_PORTARIA_ORDEM[(statusPortariaMap?.get(g.cargaId)?.etapa ?? "aguardando") as EtapaPortaria],
+    portaria: (g) => ETAPA_PORTARIA_ORDEM[(statusPortariaMap?.get(makeStatusKey(g.cargaId, g.placa))?.etapa ?? "aguardando") as EtapaPortaria],
   }), [statusPortariaMap]);
 
   const groups = useMemo(() => sortData(groupsWithPortariaFilter, consolidadoAccessors), [groupsWithPortariaFilter, sortData, consolidadoAccessors]);
@@ -732,7 +733,7 @@ export default function Consolidado() {
   const portariaCounts = useMemo(() => {
     const c = { patio: 0, carregando: 0, expedido: 0, pesoCarregando: 0, pesoExpedido: 0 };
     for (const g of groups) {
-      const etapa = statusPortariaMap?.get(g.cargaId)?.etapa ?? "aguardando";
+      const etapa = statusPortariaMap?.get(makeStatusKey(g.cargaId, g.placa))?.etapa ?? "aguardando";
       const temItemCarregando = g.items.some((it) => it.status === "Carregando");
       if (etapa === "patio" || etapa === "carregando") c.patio += 1;
       if (etapa === "carregando" || temItemCarregando) {
