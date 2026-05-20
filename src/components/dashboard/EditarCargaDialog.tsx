@@ -448,6 +448,22 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
         title="Remover pedido da carga"
         description={`Deseja remover o pedido ${removeTarget?.numero_pedido ?? ""} (${removeTarget?.nome_produto ?? ""}) desta carga? O pedido voltará para a etapa de Vendas.`}
       />
+
+      <EditarPedidoAprovacaoDialog
+        open={!!pedidoEditando}
+        onOpenChange={(o) => { if (!o) setPedidoEditando(null); }}
+        grupo={pedidoEditando}
+        preCargaContext={pedidoEditando ? {
+          carga_id: group.cargaId,
+          nome_carga: group.nomeCarga,
+          placa: placa || group.placa,
+          motorista: motorista || group.motorista,
+          transportadora: transportadora || (group.items[0]?.transportadora ?? null),
+          tipo_caminhao: tipoCaminhao || group.tipoCaminhao,
+          ordem_carga: ordemCarga || group.ordemCarga,
+          etapaAlvo: group.items[0]?.etapa ?? null,
+        } : null}
+      />
     </>
   );
 }
