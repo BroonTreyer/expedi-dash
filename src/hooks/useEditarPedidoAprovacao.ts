@@ -43,6 +43,8 @@ interface EditarPedidoPayload {
     transportadora: string | null;
     tipo_caminhao: string | null;
     ordem_carga: string | null;
+    /** Etapa de destino para novos itens. Default "pre_carga". */
+    etapaAlvo?: string | null;
   } | null;
 }
 
@@ -122,7 +124,7 @@ export function useEditarPedidoAprovacao() {
           observacoes: meta.observacoes || null,
           forma_pagamento: meta.forma_pagamento || null,
           etapa: preCargaContext
-            ? "pre_carga"
+            ? (preCargaContext.etapaAlvo || "pre_carga")
             : aprovarAposSalvar
               ? "vendas"
               : "aguardando_faturamento",

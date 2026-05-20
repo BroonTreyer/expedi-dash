@@ -3,12 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle, CheckCircle2, ChevronUp, ChevronDown } from "lucide-react";
+import { AlertTriangle, X, Undo2, ArrowUpDown, MinusCircle, CheckCircle2, ChevronUp, ChevronDown, Pencil } from "lucide-react";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 import { isRupturaParcial } from "@/lib/peso-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { EditarPedidoAprovacaoDialog } from "@/components/aprovacoes/EditarPedidoAprovacaoDialog";
 
 interface CargaGroup {
   cargaId: string;
@@ -45,8 +46,8 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [confirmDeleteCarga, setConfirmDeleteCarga] = useState(false);
   const [lookupStatus, setLookupStatus] = useState<"idle" | "searching" | "found" | "notfound">("idle");
   const [lookupInfo, setLookupInfo] = useState<string>("");
-  // Edições pontuais por item (apenas peso)
-  const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; quantidade?: number; motivo_ruptura?: string | null }>>({});
+  // Pedido (parada) selecionado para edição via EditarPedidoAprovacaoDialog
+  const [pedidoEditando, setPedidoEditando] = useState<Carregamento[] | null>(null);
   // Ordem manual por chave de cliente (codigo_cliente || nome). Inicializa do banco.
   const [ordemPorCliente, setOrdemPorCliente] = useState<Record<string, number>>({});
   // Marca true assim que o usuário reordena manualmente (passa a persistir 1..N para todas as paradas)
@@ -61,7 +62,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       setTipoCaminhao(group.tipoCaminhao ?? "");
       setTransportadora(group.items[0]?.transportadora ?? "");
       setRemovedIds(new Set());
-      setItemEdits({});
+      setPedidoEditando(null);
       // Inicializa ordem por cliente a partir dos pedidos existentes
       const map: Record<string, number> = {};
       for (const it of group.items) {
@@ -203,7 +204,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       }
       if (Object.keys(ordemUpdates).length === 0) ordemUpdates = undefined;
     }
-    onSave(group.cargaId, { nome_carga: nomeCarga, ordem_carga: ordemCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, itemEdits, ordemUpdates);
+    onSave(group.cargaId, { nome_carga: nomeCarga, ordem_carga: ordemCarga, placa, motorista, tipo_caminhao: tipoCaminhao, transportadora }, ids, undefined, ordemUpdates);
   };
 
   const confirmRemove = () => {
@@ -366,83 +367,18 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                               >
                                 <X className="h-3 w-3 mr-1" /> Remover parada
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-[11px]"
+                                onClick={() => setPedidoEditando(cg.itens)}
+                                title="Editar itens deste pedido (peso, quantidade, adicionar/remover produtos)"
+                              >
+                                <Pencil className="h-3 w-3 mr-1" /> Editar pedido
+                              </Button>
                             </div>
                           );
                         })()}
-                        {/* Edição por item (peso/quantidade) — permite ajustar carga já fechada */}
-                        <div className="px-3 pb-2 space-y-1.5">
-                          {cg.itens.map((it) => {
-                            const edit = itemEdits[it.id] ?? {};
-                            const pesoAtual = edit.peso !== undefined ? edit.peso : (it.peso ?? 0);
-                            const qtdAtual = edit.quantidade !== undefined ? edit.quantidade : (it.quantidade ?? 0);
-                            const pesoOrig = it.peso_original ?? null;
-                            const alterado = edit.peso !== undefined || edit.quantidade !== undefined;
-                            return (
-                              <div key={it.id} className="grid grid-cols-12 gap-2 items-center text-[11px]">
-                                <div className="col-span-12 sm:col-span-5 min-w-0">
-                                  <div className="truncate font-medium text-foreground">
-                                    #{it.numero_pedido ?? "—"} • {it.nome_produto ?? it.codigo_produto ?? "Item"}
-                                  </div>
-                                  {pesoOrig != null && pesoOrig !== (it.peso ?? 0) && (
-                                    <div className="text-[10px] text-muted-foreground">
-                                      Original: <span className="font-mono">{Number(pesoOrig).toLocaleString("pt-BR")} kg</span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="col-span-6 sm:col-span-3">
-                                  <Label htmlFor={`peso-${it.id}`} className="text-[10px] text-muted-foreground">Peso (kg)</Label>
-                                  <Input
-                                    id={`peso-${it.id}`}
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    inputMode="decimal"
-                                    value={pesoAtual}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      const num = v === "" ? 0 : parseFloat(v);
-                                      if (Number.isNaN(num)) return;
-                                      setItemEdits((prev) => ({ ...prev, [it.id]: { ...prev[it.id], peso: num } }));
-                                    }}
-                                    className="h-7 text-xs"
-                                  />
-                                </div>
-                                <div className="col-span-6 sm:col-span-3">
-                                  <Label htmlFor={`qtd-${it.id}`} className="text-[10px] text-muted-foreground">Quantidade</Label>
-                                  <Input
-                                    id={`qtd-${it.id}`}
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    inputMode="decimal"
-                                    value={qtdAtual}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      const num = v === "" ? 0 : parseFloat(v);
-                                      if (Number.isNaN(num)) return;
-                                      setItemEdits((prev) => ({ ...prev, [it.id]: { ...prev[it.id], quantidade: num } }));
-                                    }}
-                                    className="h-7 text-xs"
-                                  />
-                                </div>
-                                <div className="col-span-12 sm:col-span-1 flex sm:justify-end">
-                                  {alterado && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 px-2 text-[10px] text-muted-foreground"
-                                      onClick={() => setItemEdits((prev) => { const n = { ...prev }; delete n[it.id]; return n; })}
-                                      title="Desfazer alteração deste item"
-                                    >
-                                      <Undo2 className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
                       </div>
                     );
                   })
@@ -511,6 +447,22 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
         onConfirm={confirmRemove}
         title="Remover pedido da carga"
         description={`Deseja remover o pedido ${removeTarget?.numero_pedido ?? ""} (${removeTarget?.nome_produto ?? ""}) desta carga? O pedido voltará para a etapa de Vendas.`}
+      />
+
+      <EditarPedidoAprovacaoDialog
+        open={!!pedidoEditando}
+        onOpenChange={(o) => { if (!o) setPedidoEditando(null); }}
+        grupo={pedidoEditando}
+        preCargaContext={pedidoEditando ? {
+          carga_id: group.cargaId,
+          nome_carga: group.nomeCarga,
+          placa: placa || group.placa,
+          motorista: motorista || group.motorista,
+          transportadora: transportadora || (group.items[0]?.transportadora ?? null),
+          tipo_caminhao: tipoCaminhao || group.tipoCaminhao,
+          ordem_carga: ordemCarga || group.ordemCarga,
+          etapaAlvo: group.items[0]?.etapa ?? null,
+        } : null}
       />
     </>
   );
