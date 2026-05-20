@@ -17,6 +17,8 @@ import {
 import { useFornecedoresMp, useUpsertFornecedorMp } from "@/hooks/useFornecedoresMp";
 import { useProdutosMp } from "@/hooks/useProdutosMp";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { normalizarParaTon, formatarTon, formatarBRL, parseNumeroBR, LIMITE_SUSPEITO_TON, type UnidadePeso } from "@/lib/peso-mp";
 
 interface Props {
   open: boolean;
@@ -30,19 +32,12 @@ type ItemDraft = {
   nota_fiscal: string;
   peso_ton: string; // string para input pt-BR
   valor_unitario: string;
+  unidade: UnidadePeso;
 };
 
-function parseNum(s: string): number {
-  if (!s) return 0;
-  const n = Number(s.replace(/\./g, "").replace(",", "."));
-  return isNaN(n) ? 0 : n;
-}
-function fmtBRL(n: number) {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-function fmtTon(n: number) {
-  return `${n.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ton`;
-}
+const parseNum = parseNumeroBR;
+const fmtBRL = formatarBRL;
+const fmtTon = formatarTon;
 
 export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: Props) {
   const { data: itensExistentes = [] } = useRecebimentoMpItens(recebimento?.id);
@@ -79,16 +74,17 @@ export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: P
         nota_fiscal: i.nota_fiscal ?? "",
         peso_ton: i.peso_ton.toString().replace(".", ","),
         valor_unitario: i.valor_unitario.toString().replace(".", ","),
+        unidade: "ton" as UnidadePeso,
       })));
     } else {
-      setItens([{ produto_id: null, nome_produto: "", nota_fiscal: "", peso_ton: "", valor_unitario: String(valorPadrao).replace(".", ",") }]);
+      setItens([{ produto_id: null, nome_produto: "", nota_fiscal: "", peso_ton: "", valor_unitario: String(valorPadrao).replace(".", ","), unidade: "ton" }]);
     }
   }, [open, recebimento, itensExistentes.length]);
 
   const totals = useMemo(() => {
     let peso = 0, valor = 0;
     for (const it of itens) {
-      const p = parseNum(it.peso_ton);
+      const p = normalizarParaTon(parseNum(it.peso_ton), it.unidade);
       const v = parseNum(it.valor_unitario);
       peso += p; valor += p * v;
     }
@@ -96,7 +92,7 @@ export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: P
   }, [itens]);
 
   function addRow() {
-    setItens([...itens, { produto_id: null, nome_produto: "", nota_fiscal: "", peso_ton: "", valor_unitario: String(valorPadrao).replace(".", ",") }]);
+    setItens([...itens, { produto_id: null, nome_produto: "", nota_fiscal: "", peso_ton: "", valor_unitario: String(valorPadrao).replace(".", ","), unidade: "ton" }]);
   }
   function delRow(i: number) {
     setItens(itens.filter((_, idx) => idx !== i));
@@ -111,6 +107,16 @@ export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: P
     if (itensValidos.length === 0) {
       toast.error("Adicione ao menos 1 produto com peso > 0");
       return;
+    }
+    // Aviso anti-erro: peso suspeito em ton (provavelmente é kg)
+    const suspeitos = itensValidos.filter((it) => it.unidade === "ton" && parseNum(it.peso_ton) > LIMITE_SUSPEITO_TON);
+    if (suspeitos.length > 0) {
+      const ok = window.confirm(
+        `Atenção: ${suspeitos.length} produto(s) com peso acima de ${LIMITE_SUSPEITO_TON} toneladas.\n` +
+        `Isso parece estar em KG. Deseja continuar mesmo assim?\n\n` +
+        `(Cancele e troque a unidade para "kg" se for o caso — o sistema converte automaticamente.)`
+      );
+      if (!ok) return;
     }
     try {
       // Upload da NF se houver
@@ -138,7 +144,7 @@ export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: P
           produto_id: it.produto_id,
           nome_produto: it.nome_produto.trim(),
           nota_fiscal: it.nota_fiscal.trim() || null,
-          peso_ton: parseNum(it.peso_ton),
+          peso_ton: normalizarParaTon(parseNum(it.peso_ton), it.unidade),
           valor_unitario: parseNum(it.valor_unitario) || valorPadrao,
         })),
       });
@@ -229,7 +235,8 @@ export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: P
                 <TableRow>
                   <TableHead>Produto</TableHead>
                   <TableHead>Nota Fiscal</TableHead>
-                  <TableHead className="w-28 text-right">Peso (ton)</TableHead>
+                <TableHead className="w-32 text-right">Peso</TableHead>
+                <TableHead className="w-20">Unid.</TableHead>
                   <TableHead className="w-28 text-right">R$/ton</TableHead>
                   <TableHead className="w-32 text-right">Total</TableHead>
                   <TableHead className="w-10"></TableHead>
@@ -237,7 +244,9 @@ export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: P
               </TableHeader>
               <TableBody>
                 {itens.map((it, i) => {
-                  const total = parseNum(it.peso_ton) * parseNum(it.valor_unitario);
+                const pesoTon = normalizarParaTon(parseNum(it.peso_ton), it.unidade);
+                const total = pesoTon * parseNum(it.valor_unitario);
+                const suspeito = it.unidade === "ton" && parseNum(it.peso_ton) > LIMITE_SUSPEITO_TON;
                   return (
                     <TableRow key={i}>
                       <TableCell>
@@ -256,7 +265,27 @@ export function ConferenciaDescargaDialog({ open, onOpenChange, recebimento }: P
                         <Input value={it.nota_fiscal} onChange={(e) => updRow(i, { nota_fiscal: e.target.value })} />
                       </TableCell>
                       <TableCell>
-                        <Input className="text-right" value={it.peso_ton} onChange={(e) => updRow(i, { peso_ton: e.target.value })} placeholder="0,000" />
+                      <Input
+                        className={`text-right ${suspeito ? "border-amber-500 ring-1 ring-amber-500" : ""}`}
+                        value={it.peso_ton}
+                        onChange={(e) => updRow(i, { peso_ton: e.target.value })}
+                        placeholder="0,000"
+                      />
+                      {it.unidade === "kg" && parseNum(it.peso_ton) > 0 && (
+                        <div className="text-[10px] text-muted-foreground text-right mt-0.5">= {fmtTon(pesoTon)}</div>
+                      )}
+                      {suspeito && (
+                        <div className="text-[10px] text-amber-600 text-right mt-0.5">Parece kg?</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Select value={it.unidade} onValueChange={(v) => updRow(i, { unidade: v as UnidadePeso })}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ton">ton</SelectItem>
+                          <SelectItem value="kg">kg</SelectItem>
+                        </SelectContent>
+                      </Select>
                       </TableCell>
                       <TableCell>
                         <Input className="text-right" value={it.valor_unitario} onChange={(e) => updRow(i, { valor_unitario: e.target.value })} />

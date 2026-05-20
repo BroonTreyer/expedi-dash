@@ -9,6 +9,8 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { Switch } from "@/components/ui/switch";
+import { detectarUnidade } from "@/lib/peso-mp";
 
 interface Props { open: boolean; onOpenChange: (v: boolean) => void; }
 
@@ -151,6 +153,7 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [parsed, setParsed] = useState<Array<{ file: string; data: Parsed }>>([]);
   const [busy, setBusy] = useState(false);
+  const [tratarComoKg, setTratarComoKg] = useState<Record<number, boolean>>({});
   const qc = useQueryClient();
 
   async function handleFiles(list: FileList | null) {
@@ -168,6 +171,13 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
       }
     }
     setParsed(out);
+    // Auto-detecta unidade por arquivo
+    const auto: Record<number, boolean> = {};
+    out.forEach((p, idx) => {
+      const u = detectarUnidade(p.data.itens.map((it) => it.peso_ton));
+      auto[idx] = u === "kg";
+    });
+    setTratarComoKg(auto);
   }
 
   async function resolveFornecedorId(nome: string | null): Promise<string | null> {
@@ -185,12 +195,15 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
     setBusy(true);
     let ok = 0, fail = 0;
     try {
-      for (const { data } of parsed) {
+      for (let i = 0; i < parsed.length; i++) {
+        const { data } = parsed[i];
+        const isKg = !!tratarComoKg[i];
+        const itensNorm = data.itens.map((it) => ({ ...it, peso_ton: isKg ? it.peso_ton / 1000 : it.peso_ton }));
         try {
           const fornecedor_id = await resolveFornecedorId(data.fornecedor_nome);
           const { data: u } = await supabase.auth.getUser();
-          const peso = data.itens.reduce((a, b) => a + b.peso_ton, 0);
-          const valor = data.itens.reduce((a, b) => a + b.peso_ton * b.valor_unitario, 0);
+          const peso = itensNorm.reduce((a, b) => a + b.peso_ton, 0);
+          const valor = itensNorm.reduce((a, b) => a + b.peso_ton * b.valor_unitario, 0);
           const { data: novo, error } = await (supabase as any).from("recebimentos_mp").insert({
             data_chegada: data.data_chegada ?? new Date().toISOString().slice(0, 10),
             hora_chegada: data.hora_chegada,
@@ -204,8 +217,8 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
             criado_por: u.user?.id,
           }).select("id").single();
           if (error) throw error;
-          if (data.itens.length) {
-            const payload = data.itens.map((it, idx) => ({
+          if (itensNorm.length) {
+            const payload = itensNorm.map((it, idx) => ({
               recebimento_id: novo.id,
               nome_produto: it.nome_produto || "MATÉRIA PRIMA",
               nota_fiscal: it.nota_fiscal,
@@ -253,18 +266,31 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
                     <div><b>Motorista:</b> {p.data.motorista ?? "—"}</div>
                     <div><b>Placa:</b> {p.data.placa ?? "—"}</div>
                   </div>
+                  <div className="flex items-center gap-2 mb-2 p-2 rounded bg-muted/40">
+                    <Switch
+                      id={`kg-${i}`}
+                      checked={!!tratarComoKg[i]}
+                      onCheckedChange={(v) => setTratarComoKg((s) => ({ ...s, [i]: v }))}
+                    />
+                    <Label htmlFor={`kg-${i}`} className="cursor-pointer text-xs">
+                      Tratar pesos como <b>kg</b> (dividir por 1000) — <span className="text-muted-foreground">{tratarComoKg[i] ? "convertendo p/ ton" : "valores serão usados como ton"}</span>
+                    </Label>
+                  </div>
                   <Table>
                     <TableHeader><TableRow><TableHead>Produto</TableHead><TableHead>NF</TableHead><TableHead className="text-right">Ton</TableHead><TableHead className="text-right">R$/ton</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {p.data.itens.map((it, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell>{it.nome_produto}</TableCell>
-                          <TableCell>{it.nota_fiscal ?? "—"}</TableCell>
-                          <TableCell className="text-right">{it.peso_ton.toLocaleString("pt-BR", { minimumFractionDigits: 3 })}</TableCell>
-                          <TableCell className="text-right">{it.valor_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
-                          <TableCell className="text-right">{(it.peso_ton * it.valor_unitario).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
-                        </TableRow>
-                      ))}
+                      {p.data.itens.map((it, idx) => {
+                        const pesoTon = tratarComoKg[i] ? it.peso_ton / 1000 : it.peso_ton;
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell>{it.nome_produto}</TableCell>
+                            <TableCell>{it.nota_fiscal ?? "—"}</TableCell>
+                            <TableCell className="text-right">{pesoTon.toLocaleString("pt-BR", { minimumFractionDigits: 3 })}</TableCell>
+                            <TableCell className="text-right">{it.valor_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                            <TableCell className="text-right">{(pesoTon * it.valor_unitario).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                          </TableRow>
+                        );
+                      })}
                       {p.data.itens.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum item detectado</TableCell></TableRow>}
                     </TableBody>
                   </Table>
