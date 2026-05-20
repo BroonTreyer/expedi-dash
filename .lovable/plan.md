@@ -1,30 +1,33 @@
 ## Contexto
 
-O botão **Editar carga** no Consolidado já abre o `EditarCargaDialog` para qualquer carga (inclusive já fechada/expedida), e a RLS de `carregamentos_dia` já permite UPDATE para `admin`, `logistica` e `faturamento`. A mutation `editCargaMut` em `Consolidado.tsx` também já aceita `itemUpdates: { peso, motivo_ruptura }` e grava com `peso_manual: true`.
+Hoje, dentro do `EditarCargaDialog` (Consolidado), cada parada (cliente) mostra peso/rupturas/parciais + botão "Remover parada" e, na implementação atual, também inputs de peso/quantidade por item — o que polui a UI quando a parada tem vários produtos.
 
-**O que falta:** o diálogo só expõe edição de cabeçalho (nome/placa/motorista/transportadora/ordem) e reordenação/remoção de paradas. Não existe campo para alterar o **peso** (nem a quantidade) de um item já fechado — por isso o caso do Galdson (800 kg) não pode ser corrigido sem desfazer a carga.
+A tela de Aprovações já tem um diálogo completo (`EditarPedidoAprovacaoDialog`) que, junto com o hook `useEditarPedidoAprovacao`, faz tudo o que precisamos por pedido: editar peso e quantidade (com cálculo bidirecional), adicionar produto, remover item, recalcular preços, e até herdar o contexto da carga via `preCargaContext` para que novos itens nasçam dentro da mesma carga.
 
 ## Mudanças
 
 ### 1. `src/components/dashboard/EditarCargaDialog.tsx`
-- Dentro do bloco "Resumo agregado da parada" (atualmente só mostra peso/rupturas/parciais), renderizar a lista de itens daquela parada com inputs editáveis:
-  - **Peso (kg)** — `Input` numérico, valor inicial = `it.peso ?? 0`.
-  - **Quantidade** — `Input` numérico, valor inicial = `it.quantidade ?? 0`, com cálculo bidirecional usando o `peso_padrao` do produto (mesma lógica já usada nas telas de Vendas — extrair util se necessário ou replicar inline a regra: alterar peso recalcula qtd e vice-versa, exceto se `peso_manual` ativo).
-  - Texto auxiliar mostrando o peso original (`peso_original`) quando diferente.
-- Cada alteração atualiza `itemEdits[it.id]` (estado já existente) com o novo `peso` (e, se necessário, adicionar `quantidade` à tipagem). Mantém ordem "Peso antes da Quantidade" conforme padrão do projeto.
-- Sem mudança no fluxo: continua salvando via `onSave`, que já marca `peso_manual: true` e não altera `etapa`/`status`.
+- **Remover** os inputs de peso/quantidade por item adicionados na rodada anterior (e o estado `itemEdits` correspondente — junto com a propagação no `onSave`).
+- No cabeçalho de cada parada (cliente), ao lado do botão "Remover parada", adicionar um botão **"Editar pedido"** (ícone `Pencil` + texto, `variant="outline"`, `size="sm"`).
+- Esse botão abre um novo `EditarPedidoAprovacaoDialog` controlado por estado local (`pedidoEditando: Carregamento[] | null`), passando:
+  - `grupo` = todos os `cg.itens` daquela parada (mesmo cliente + mesma carga).
+  - `preCargaContext` montado a partir do `group` atual (`carga_id`, `nome_carga`, `placa`, `motorista`, `transportadora`, `tipo_caminhao`, `ordem_carga`) — assim, qualquer produto adicionado entra na mesma carga já fechada sem mudar `etapa`/`status`.
+- Ao fechar o sub-diálogo, invalidar as queries do Consolidado (já tratado dentro do próprio hook `useEditarPedidoAprovacao`, que invalida `["carregamentos"]`).
 
-### 2. `src/pages/Consolidado.tsx`
-- Estender a assinatura de `itemUpdates` em `editCargaMut` para incluir `quantidade?: number` e propagar no `payload` do `UPDATE` (junto com o `peso_manual: true` já existente).
-- Sem alteração de RLS, sem mudança de etapa.
+### 2. `src/components/aprovacoes/EditarPedidoAprovacaoDialog.tsx` (ajuste mínimo)
+- Quando `preCargaContext` estiver presente, o dialog já esconde o botão "Salvar e aprovar". Verificar/garantir que o título do diálogo fique algo como "Editar pedido na carga" para o contexto de Consolidado (pode-se passar uma prop opcional `titleOverride?: string`, default mantém comportamento atual).
 
-### 3. Sem migration
-A RLS de `carregamentos_dia` (`Ops update carregamentos_dia`) já cobre `admin`, `logistica` e `faturamento` — nenhum ajuste de banco necessário.
+### 3. `src/hooks/useEditarPedidoAprovacao.ts` (ajuste pontual)
+- O hook já trata `preCargaContext` mantendo novos itens na mesma carga com `etapa: "pre_carga"`. Para o Consolidado, a carga já está em etapas posteriores (`logistica`/`portaria`/`expedida`). Estender `preCargaContext` com um campo opcional `etapaAlvo?: string` (default `"pre_carga"`); quando vier preenchido, usar esse valor no `INSERT` dos novos itens em vez de `"pre_carga"`. No `EditarCargaDialog`, passar `etapaAlvo = group.items[0].etapa` para que produtos adicionados herdem a mesma etapa dos demais da carga.
+- Sem mudança nas RLS: `admin`/`logistica`/`faturamento` já podem UPDATE/INSERT/DELETE em `carregamentos_dia`.
+
+### 4. `src/pages/Consolidado.tsx`
+- Remover a extensão `quantidade` em `itemUpdates` adicionada na rodada anterior (não é mais necessária — toda a edição de itens passa pelo hook de aprovações).
 
 ## Não muda
-- Fluxo de etapas (vendas → logística → portaria) permanece intacto.
-- Botão de editar continua visível para todos os perfis autenticados; a permissão real é garantida pela RLS no servidor.
-- Realtime + invalidate de `["consolidado"]` já existente faz a UI atualizar para os outros usuários.
+- Fluxo de etapas, portaria, expedição: nada disso é tocado.
+- A reordenação de paradas e a edição dos campos de cabeçalho da carga continuam funcionando como hoje.
+- RLS e permissões: já cobertas.
 
 ## Resultado
-Admin/Logística/Faturamento poderão abrir o pedido do Galdson no Consolidado e ajustar o peso (ex.: de 800 kg para o valor correto) diretamente, mesmo após a carga estar fechada, sem desfazer a carga nem afetar portaria.
+Cada parada do `EditarCargaDialog` ganha um botão "Editar pedido" discreto. Ao clicar, abre o mesmo diálogo de pedido usado em Aprovações, onde admin/logística/faturamento podem ajustar peso, adicionar ou remover produtos do pedido do Galdson (ou qualquer outro), sem poluir a tela de edição da carga e sem afetar o fluxo já fechado.
