@@ -1009,7 +1009,7 @@ export default function Consolidado() {
                       </div>
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-muted-foreground">Portaria:</span>
-                        <PortariaStatusBadge info={getStatusPortaria(g.cargaId)} />
+                        <PortariaStatusBadge info={getStatusPortaria(g.cargaId, g.placa)} />
                       </div>
                       {g.parcialCount > 0 && (
                         <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/60 rounded px-2 py-1 flex items-center gap-1">
@@ -1098,7 +1098,7 @@ export default function Consolidado() {
                         </TableCell>
                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-center">
-                            <PortariaStatusBadge info={getStatusPortaria(g.cargaId)} />
+                            <PortariaStatusBadge info={getStatusPortaria(g.cargaId, g.placa)} />
                           </div>
                         </TableCell>
                         <TableCell className="text-xs">{g.tipoCaminhao ?? "—"}</TableCell>
