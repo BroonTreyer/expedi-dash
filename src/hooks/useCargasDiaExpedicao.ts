@@ -69,6 +69,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
           .from("carregamentos_dia")
           .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, ruptura, data, numero_pedido, status, id, updated_at")
           .not("carga_id", "is", null)
+          .neq("etapa", "pre_carga")
           .eq("data", dateStr)
           .order("id", { ascending: true })
           .range(from, to),
@@ -103,6 +104,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
             .from("carregamentos_dia")
             .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, ruptura, data, numero_pedido, status, id, updated_at")
             .in("carga_id", faltantes)
+            .neq("etapa", "pre_carga")
             .lt("data", dateStr)
             .gte("data", limit)
             .order("id", { ascending: true })
