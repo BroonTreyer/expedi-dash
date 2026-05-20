@@ -9,6 +9,31 @@ import { useUpdateMovimentacao, type MovimentacaoPortaria, CATEGORIAS } from "@/
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+
+const TIME_FIELDS: { key: keyof MovimentacaoPortaria; label: string }[] = [
+  { key: "horario_chegada", label: "Chegada na portaria" },
+  { key: "horario_entrada", label: "Liberação para o pátio" },
+  { key: "horario_real_saida", label: "Saída para rota" },
+  { key: "horario_real_retorno", label: "Retorno da rota" },
+  { key: "horario_saida_final", label: "Saída final" },
+];
+
+function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    return format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
+  } catch {
+    return "";
+  }
+}
+
+function fromLocalInput(local: string): string | null {
+  if (!local) return null;
+  const d = new Date(local);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
 
 interface Props {
   open: boolean;
@@ -52,6 +77,7 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
   const updateMov = useUpdateMovimentacao();
   const { data: tiposCaminhao = [] } = useTiposCaminhao();
   const [values, setValues] = useState<Record<string, any>>({});
+  const [times, setTimes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open && movimento) {
@@ -60,6 +86,11 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
         initial[f.key] = movimento[f.key] ?? "";
       });
       setValues(initial);
+      const t: Record<string, string> = {};
+      TIME_FIELDS.forEach((f) => {
+        t[f.key as string] = toLocalInput(movimento[f.key] as any);
+      });
+      setTimes(t);
     }
   }, [open, movimento]);
 
@@ -97,6 +128,45 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
       }
     }
 
+    // Horários — só envia os que mudaram
+    const timeUpdates: Record<string, string | null> = {};
+    for (const f of TIME_FIELDS) {
+      const original = toLocalInput(movimento[f.key] as any);
+      const current = times[f.key as string] ?? "";
+      if (current !== original) {
+        timeUpdates[f.key as string] = fromLocalInput(current);
+      }
+    }
+
+    const finalTimes: Record<string, string | null> = {
+      horario_chegada: (timeUpdates.horario_chegada !== undefined ? timeUpdates.horario_chegada : (movimento.horario_chegada ?? null)) as any,
+      horario_entrada: (timeUpdates.horario_entrada !== undefined ? timeUpdates.horario_entrada : (movimento.horario_entrada ?? null)) as any,
+      horario_real_saida: (timeUpdates.horario_real_saida !== undefined ? timeUpdates.horario_real_saida : (movimento.horario_real_saida ?? null)) as any,
+      horario_real_retorno: (timeUpdates.horario_real_retorno !== undefined ? timeUpdates.horario_real_retorno : (movimento.horario_real_retorno ?? null)) as any,
+      horario_saida_final: (timeUpdates.horario_saida_final !== undefined ? timeUpdates.horario_saida_final : (movimento.horario_saida_final ?? null)) as any,
+    };
+
+    const nowMs = Date.now() + 5 * 60 * 1000;
+    for (const [k, v] of Object.entries(finalTimes)) {
+      if (v && new Date(v).getTime() > nowMs) {
+        toast.error(`"${TIME_FIELDS.find((f) => f.key === k)?.label}" não pode estar no futuro.`);
+        return;
+      }
+    }
+    const ordered: [string, string | null | undefined, string][] = [
+      ["horario_entrada", finalTimes.horario_chegada, "Liberação para o pátio precisa ser >= Chegada na portaria"],
+      ["horario_real_retorno", finalTimes.horario_real_saida, "Retorno precisa ser >= Saída para rota"],
+      ["horario_saida_final", finalTimes.horario_real_retorno || finalTimes.horario_entrada, "Saída final precisa ser >= Retorno / Liberação"],
+    ];
+    for (const [later, earlier, msg] of ordered) {
+      const l = finalTimes[later as keyof typeof finalTimes];
+      if (l && earlier && new Date(l).getTime() < new Date(earlier).getTime()) {
+        toast.error(msg);
+        return;
+      }
+    }
+    Object.assign(updates, timeUpdates);
+
     await updateMov.mutateAsync({ id: movimento.id, ...updates });
     onOpenChange(false);
   };
@@ -119,6 +189,19 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
     if (seen.has(f.key)) return false;
     seen.add(f.key);
     return true;
+  });
+
+  // Quais campos de horário mostrar para este movimento
+  const visibleTimeFields = TIME_FIELDS.filter((f) => {
+    if (movimento[f.key]) return true;
+    if (movimento.categoria === "carga_propria") {
+      return ["horario_chegada", "horario_entrada", "horario_real_saida", "horario_real_retorno", "horario_saida_final"].includes(f.key as string);
+    }
+    // terceirizado / outros
+    if (movimento.tipo_movimento === "entrada") {
+      return ["horario_chegada", "horario_entrada"].includes(f.key as string);
+    }
+    return ["horario_saida_final"].includes(f.key as string);
   });
 
   return (
@@ -185,6 +268,26 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
               )}
             </div>
           ))}
+
+          {visibleTimeFields.length > 0 && (
+            <div className="pt-3 mt-2 border-t space-y-3">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Horários
+              </div>
+              {visibleTimeFields.map((f) => (
+                <div key={f.key as string} className="space-y-1">
+                  <Label className="text-xs">{f.label}</Label>
+                  <Input
+                    type="datetime-local"
+                    value={times[f.key as string] ?? ""}
+                    onChange={(e) =>
+                      setTimes((prev) => ({ ...prev, [f.key as string]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
