@@ -24,7 +24,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   group: CargaGroup | null;
-  onSave: (cargaId: string, fields: { nome_carga: string; ordem_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[], itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }>, ordemUpdates?: Record<string, number>) => void;
+  onSave: (cargaId: string, fields: { nome_carga: string; ordem_carga: string; placa: string; motorista: string; tipo_caminhao: string; transportadora: string }, itemIds: string[], itemUpdates?: Record<string, { peso?: number; quantidade?: number; motivo_ruptura?: string | null }>, ordemUpdates?: Record<string, number>) => void;
   onRemoveItem: (itemId: string) => void;
   onDeleteCarga?: (cargaId: string) => void;
   onInverterOrdem?: () => void;
@@ -46,7 +46,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [lookupStatus, setLookupStatus] = useState<"idle" | "searching" | "found" | "notfound">("idle");
   const [lookupInfo, setLookupInfo] = useState<string>("");
   // Edições pontuais por item (apenas peso)
-  const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; motivo_ruptura?: string | null }>>({});
+  const [itemEdits, setItemEdits] = useState<Record<string, { peso?: number; quantidade?: number; motivo_ruptura?: string | null }>>({});
   // Ordem manual por chave de cliente (codigo_cliente || nome). Inicializa do banco.
   const [ordemPorCliente, setOrdemPorCliente] = useState<Record<string, number>>({});
   // Marca true assim que o usuário reordena manualmente (passa a persistir 1..N para todas as paradas)
