@@ -19,7 +19,7 @@ export function useRecebimentosMpHistorico(f: HistoricoFiltros) {
     enabled: !!session,
     queryFn: async () => {
       let q = (supabase as any)
-        .from("recebimentos_mp")
+        .from("mp_recebimentos")
         .select("*")
         .order("data_chegada", { ascending: false })
         .order("created_at", { ascending: false })
