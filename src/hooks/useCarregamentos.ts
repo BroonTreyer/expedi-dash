@@ -592,6 +592,25 @@ export function useCargasFechadasAguardando() {
           candidateKeys = keysByPlaca.get(placaMov);
         }
         if (!candidateKeys) continue;
+        // Detecta sinais inequívocos de finalização — saída ou etapa
+        // finalizada. Estes finalizadores PRECISAM esconder a carga do
+        // painel azul mesmo quando o movimento cai fora da janela
+        // operacional (ex.: carga planejada para 15/05 mas expedida só
+        // em 19/05). Antes, o filtro de janela descartava o movimento
+        // e a carga voltava a aparecer indevidamente.
+        const isFinalizer =
+          m.tipo_movimento === "saida" ||
+          m.etapa_terceirizado === "finalizado" ||
+          m.etapa_carga_propria === "finalizado" ||
+          !!m.horario_saida_final;
+        if (isFinalizer) {
+          for (const k of candidateKeys) {
+            const placaCarga = cargaPlacaByKey.get(k);
+            if (placaCarga && placaMov && placaMov !== placaCarga) continue;
+            finalizadaKey.add(k);
+          }
+          continue;
+        }
         // Veículo já no pátio (horario_entrada preenchido, sem saída final):
         // o cartão azul deve sumir IMEDIATAMENTE, independente da janela de
         // data da carga. Sem isso, cargas com data planejada antiga (ex.: 15/05)
