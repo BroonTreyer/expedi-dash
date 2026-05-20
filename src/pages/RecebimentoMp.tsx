@@ -1,57 +1,51 @@
 import { Layout } from "@/components/Layout";
-import { PackageOpen, ClipboardList, History, BarChart3, Contact, Building2, Boxes } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useSearchParams } from "react-router-dom";
-import { OperacaoDiaPanel } from "@/components/recebimento-mp/OperacaoDiaPanel";
-import { HistoricoDescargasPanel } from "@/components/recebimento-mp/HistoricoDescargasPanel";
-import { DashboardMpPanel } from "@/components/recebimento-mp/DashboardMpPanel";
-import { MotoristasMpPanel } from "@/components/recebimento-mp/MotoristasMpPanel";
-import { FornecedoresMpPanel } from "@/components/recebimento-mp/FornecedoresMpPanel";
-import { ProdutosMpPanel } from "@/components/recebimento-mp/ProdutosMpPanel";
+import { Outlet, useSearchParams, useNavigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { PackageOpen } from "lucide-react";
+import { RecebimentoMpSidebar } from "@/components/recebimento-mp/RecebimentoMpSidebar";
 
-const TABS = [
-  { value: "operacao", label: "Operação", icon: ClipboardList },
-  { value: "historico", label: "Histórico", icon: History },
-  { value: "dashboard", label: "Dashboard", icon: BarChart3 },
-  { value: "motoristas", label: "Motoristas", icon: Contact },
-  { value: "fornecedores", label: "Fornecedores", icon: Building2 },
-  { value: "produtos", label: "Produtos", icon: Boxes },
-];
+const LEGACY_TAB_MAP: Record<string, string> = {
+  operacao: "operacao",
+  historico: "historico",
+  dashboard: "compras-produto",
+  motoristas: "motoristas",
+  fornecedores: "fornecedores",
+  produtos: "produtos",
+};
 
 export default function RecebimentoMpPage() {
-  const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") ?? "operacao";
-  const setTab = (v: string) => { params.set("tab", v); setParams(params, { replace: true }); };
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  // Redireciona `?tab=` legado e raiz para sub-rota
+  useEffect(() => {
+    if (pathname === "/recebimento-mp" || pathname === "/recebimento-mp/") {
+      const tab = params.get("tab");
+      const sub = (tab && LEGACY_TAB_MAP[tab]) || "operacao";
+      navigate(`/recebimento-mp/${sub}`, { replace: true });
+    }
+  }, [pathname, params, navigate]);
 
   return (
     <Layout>
-      <main className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto w-full">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-primary/10"><PackageOpen className="h-6 w-6 text-primary" /></div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Recebimento de Matéria Prima</h1>
-            <p className="text-sm text-muted-foreground max-w-2xl">
-              Operação do dia, histórico, dashboard, motoristas, fornecedores e produtos.
-            </p>
-          </div>
+      <div className="flex min-h-[calc(100vh-3rem)]">
+        <RecebimentoMpSidebar />
+        <div className="flex-1 min-w-0">
+          <header className="px-4 md:px-6 py-3 border-b bg-background/60 backdrop-blur sticky top-0 z-10">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-md bg-primary/10"><PackageOpen className="h-5 w-5 text-primary" /></div>
+              <div>
+                <h1 className="text-lg font-bold tracking-tight">Recebimento de Matéria Prima</h1>
+                <p className="text-[11px] text-muted-foreground">Operação, análise por produto e fechamento mensal.</p>
+              </div>
+            </div>
+          </header>
+          <main className="p-4 md:p-6">
+            <Outlet />
+          </main>
         </div>
-
-        <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <TabsList className="flex flex-wrap h-auto">
-            {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="gap-2">
-                <t.icon className="h-4 w-4" /> <span className="hidden sm:inline">{t.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsContent value="operacao" className="mt-4"><OperacaoDiaPanel /></TabsContent>
-          <TabsContent value="historico" className="mt-4"><HistoricoDescargasPanel /></TabsContent>
-          <TabsContent value="dashboard" className="mt-4"><DashboardMpPanel /></TabsContent>
-          <TabsContent value="motoristas" className="mt-4"><MotoristasMpPanel /></TabsContent>
-          <TabsContent value="fornecedores" className="mt-4"><FornecedoresMpPanel /></TabsContent>
-          <TabsContent value="produtos" className="mt-4"><ProdutosMpPanel /></TabsContent>
-        </Tabs>
-      </main>
+      </div>
     </Layout>
   );
 }

@@ -81,6 +81,14 @@ const VendedoresPainel = lazyWithRetry("/vendedores-painel", () => import("./pag
 const Aprovacoes = lazyWithRetry("/aprovacoes", () => import("./pages/Aprovacoes"));
 const PreCargas = lazyWithRetry("/pre-cargas", () => import("./pages/PreCargas"));
 const RecebimentoMp = lazyWithRetry("/recebimento-mp", () => import("./pages/RecebimentoMp"));
+const RcbOperacao = lazyWithRetry("/recebimento-mp/operacao", () => import("./pages/recebimento-mp/OperacaoPage"));
+const RcbHistorico = lazyWithRetry("/recebimento-mp/historico", () => import("./pages/recebimento-mp/HistoricoPage"));
+const RcbCompras = lazyWithRetry("/recebimento-mp/compras-produto", () => import("./pages/recebimento-mp/ComprasProdutoPage"));
+const RcbPrecos = lazyWithRetry("/recebimento-mp/precos", () => import("./pages/recebimento-mp/EvolucaoPrecosPage"));
+const RcbFechamento = lazyWithRetry("/recebimento-mp/fechamento", () => import("./pages/recebimento-mp/FechamentoMensalPage"));
+const RcbMotoristas = lazyWithRetry("/recebimento-mp/motoristas", () => import("./pages/recebimento-mp/MotoristasPage"));
+const RcbFornecedores = lazyWithRetry("/recebimento-mp/fornecedores", () => import("./pages/recebimento-mp/FornecedoresPage"));
+const RcbProdutos = lazyWithRetry("/recebimento-mp/produtos", () => import("./pages/recebimento-mp/ProdutosPage"));
 const PoliticaPrivacidade = lazyWithRetry("/politica-de-privacidade", () => import("./pages/PoliticaPrivacidade"));
 const TermosServico = lazyWithRetry("/termos-de-servico", () => import("./pages/TermosServico"));
 const ExclusaoDados = lazyWithRetry("/dados", () => import("./pages/ExclusaoDados"));
@@ -173,7 +181,16 @@ function AppRoutes() {
           <Route path="/vendedores-painel" element={<ProtectedRoute allowedRoles={["admin"]}><VendedoresPainel /></ProtectedRoute>} />
           <Route path="/aprovacoes" element={<ProtectedRoute allowedRoles={["admin", "faturamento"]}><Aprovacoes /></ProtectedRoute>} />
           <Route path="/pre-cargas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><PreCargas /></ProtectedRoute>} />
-          <Route path="/recebimento-mp" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><RecebimentoMp /></ProtectedRoute>} />
+          <Route path="/recebimento-mp" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><RecebimentoMp /></ProtectedRoute>}>
+            <Route path="operacao" element={<RcbOperacao />} />
+            <Route path="historico" element={<RcbHistorico />} />
+            <Route path="compras-produto" element={<RcbCompras />} />
+            <Route path="precos" element={<RcbPrecos />} />
+            <Route path="fechamento" element={<RcbFechamento />} />
+            <Route path="motoristas" element={<RcbMotoristas />} />
+            <Route path="fornecedores" element={<RcbFornecedores />} />
+            <Route path="produtos" element={<RcbProdutos />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

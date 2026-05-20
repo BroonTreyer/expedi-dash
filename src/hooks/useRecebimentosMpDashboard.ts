@@ -29,7 +29,7 @@ export function useRecebimentosMpDashboard(preset: DashboardRangePreset = "30") 
       const de = new Date(); de.setDate(de.getDate() - days);
       const deISO = de.toISOString().slice(0, 10);
       const { data, error } = await (supabase as any)
-        .from("recebimentos_mp")
+        .from("mp_recebimentos")
         .select("*")
         .gte("data_chegada", deISO)
         .order("data_chegada", { ascending: true })

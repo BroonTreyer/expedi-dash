@@ -183,10 +183,10 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
   async function resolveFornecedorId(nome: string | null): Promise<string | null> {
     if (!nome) return null;
     const { data: existing } = await (supabase as any)
-      .from("fornecedores_mp").select("id").ilike("nome", nome).maybeSingle();
+      .from("mp_fornecedores").select("id").ilike("nome", nome).maybeSingle();
     if (existing?.id) return existing.id;
     const { data: created, error } = await (supabase as any)
-      .from("fornecedores_mp").insert({ nome }).select("id").single();
+      .from("mp_fornecedores").insert({ nome }).select("id").single();
     if (error) throw error;
     return created.id;
   }
@@ -204,7 +204,7 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
           const { data: u } = await supabase.auth.getUser();
           const peso = itensNorm.reduce((a, b) => a + b.peso_ton, 0);
           const valor = itensNorm.reduce((a, b) => a + b.peso_ton * b.valor_unitario, 0);
-          const { data: novo, error } = await (supabase as any).from("recebimentos_mp").insert({
+          const { data: novo, error } = await (supabase as any).from("mp_recebimentos").insert({
             data_chegada: data.data_chegada ?? new Date().toISOString().slice(0, 10),
             hora_chegada: data.hora_chegada,
             motorista: data.motorista, telefone: data.telefone, cpf: data.cpf, placa: data.placa,
@@ -223,10 +223,10 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
               nome_produto: it.nome_produto || "MATÉRIA PRIMA",
               nota_fiscal: it.nota_fiscal,
               peso_ton: it.peso_ton,
-              valor_unitario: it.valor_unitario || 35,
+              valor_unitario_ton: it.valor_unitario || 35,
               ordem: idx,
             }));
-            const { error: e2 } = await (supabase as any).from("recebimentos_mp_itens").insert(payload);
+            const { error: e2 } = await (supabase as any).from("mp_recebimento_itens").insert(payload);
             if (e2) throw e2;
           }
           ok++;
@@ -234,7 +234,7 @@ export function ImportarRecebimentosMpDialog({ open, onOpenChange }: Props) {
       }
       toast.success(`Importação concluída: ${ok} criados${fail ? `, ${fail} falharam` : ""}`);
       qc.invalidateQueries({ queryKey: ["recebimentos_mp"] });
-      qc.invalidateQueries({ queryKey: ["fornecedores_mp"] });
+      qc.invalidateQueries({ queryKey: ["mp_fornecedores"] });
       if (fail === 0) { setFiles([]); setParsed([]); onOpenChange(false); }
     } finally { setBusy(false); }
   }
