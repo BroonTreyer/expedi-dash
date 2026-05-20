@@ -11,7 +11,7 @@ import { useMovimentacoes } from "@/hooks/useMovimentacoesPortaria";
 import { useVeiculosEsperados } from "@/hooks/useVeiculosEsperados";
 import { usePesoPorCarga } from "@/hooks/usePesoPorCarga";
 import { useCargasDiaExpedicao } from "@/hooks/useCargasDiaExpedicao";
-import { useStatusPortariaPorCarga } from "@/hooks/useStatusPortariaPorCarga";
+import { useStatusPortariaPorCarga, makeStatusKey } from "@/hooks/useStatusPortariaPorCarga";
 import { ExpedicaoKpiCards } from "@/components/expedicao/ExpedicaoKpiCards";
 import { PainelNoPatio } from "@/components/expedicao/PainelNoPatio";
 import { PainelChegou } from "@/components/expedicao/PainelChegou";
@@ -165,7 +165,7 @@ export default function Expedicao() {
     let kgCarregado = 0;
     let kgACarregar = 0;
     for (const c of cargasDoDia) {
-      const etapa = statusPortariaMap?.get(c.carga_id)?.etapa ?? "aguardando";
+      const etapa = statusPortariaMap?.get(makeStatusKey(c.carga_id, c.placa))?.etapa ?? "aguardando";
       // "Carregado/em carregamento" quando:
       //  - portaria já registrou pátio/carregando/expedido OU
       //  - status do carregamento = "Carregado" (faturamento finalizou)
@@ -185,7 +185,7 @@ export default function Expedicao() {
   const cargasExpedidasDoDia = useMemo(() => {
     const out = cargasDoDia
       .map((c) => {
-        const info = statusPortariaMap?.get(c.carga_id);
+        const info = statusPortariaMap?.get(makeStatusKey(c.carga_id, c.placa));
         const expedidaPortaria = info?.etapa === "expedido";
         const expedidaFaturamento = c.status === "Carregado";
         if (!expedidaPortaria && !expedidaFaturamento) return null;

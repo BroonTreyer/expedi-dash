@@ -1,32 +1,49 @@
 ## Diagnóstico
 
-O peso do Raimundo (CF FRANGO / RBK7D22 — 15/05) aparece como **60.539,2 kg**, mas no banco a carga real tem **30.312,6 kg**. A diferença é exatamente o peso de outra carga antiga com o **mesmo `carga_id` "CF FRANGO"** feita em **29/04 pelo motorista Toni (placa JBM8E58)** = 30.226,6 kg.
+A carga do Raimundo (CF FRANGO / RBK7D22) deveria aparecer no Consolidado do dia **19/05** (saída pela portaria às 22:14), mas continua aparecendo em **15/05** (data original).
 
-```
-15/05 — RAIMUNDO  — RBK7D22 — 28 itens — 30.312,6 kg
-29/04 — TONI      — JBM8E58 — 28 itens — 30.226,6 kg
-                                      ──────────────
-                                Soma:    60.539,2 kg  ← o que aparece na tela
-```
+A causa é o efeito colateral do fix anterior:
 
-O carry-over de 30 dias do Consolidado (status ≠ Carregado) trouxe as duas e, na hora de agrupar, `groupByCarga` em `src/pages/Consolidado.tsx` agrupa **apenas por `carga_id`**. Como o nome "CF FRANGO" é reutilizado em cargas diferentes, as duas viagens viraram um único grupo — somando pesos, juntando itens e mostrando placa/motorista do primeiro item encontrado.
+- Agora existem **dois grupos** com `cargaId = "CF FRANGO"` no Consolidado (Raimundo 15/05 e Toni 29/04).
+- O hook `useStatusPortariaPorCarga` retorna um `Map` indexado **só por `carga_id`** — uma única entrada por nome de carga.
+- Internamente, ele constrói `placaByCarga` com **última placa vencendo**. Como Toni (JBM8E58) acaba sobrescrevendo Raimundo (RBK7D22), o filtro de placa elimina os movimentos do Raimundo da consulta.
+- Resultado: `statusPortariaMap.get("CF FRANGO").saida` devolve os dados do Toni (ou `null`), e `computeDataEfetivaTerceirizada` mantém a data original (15/05) para o grupo do Raimundo.
 
-O hook `useStatusPortariaPorCarga` já trata isso usando a chave `carga_id + data + placa`; a Consolidada precisa seguir o mesmo padrão.
+A mesma falha afeta o badge da etapa portaria (Raimundo poderia receber o status do Toni e vice-versa) e a Expedição, que segue o mesmo padrão de lookup `get(carga_id)`.
 
 ## Plano
 
-**Arquivo único:** `src/pages/Consolidado.tsx`
+**Mudar a chave do resultado do hook para o composto `carga_id|placa` quando placa for fornecida**, e atualizar os callers.
 
-1. **`groupByCarga` (linhas ~217-260):** trocar a chave do `Map` de `item.carga_id` para uma chave composta `${carga_id}__${data}__${placa ?? ""}`. Manter `cargaId: item.carga_id` no objeto do grupo para que filtros, links e exports continuem usando o nome amigável. Aplicar a mesma chave composta em `freteMap`.
+### 1. `src/hooks/useStatusPortariaPorCarga.ts`
 
-2. **Segundo agrupamento (linhas ~469-499):** existe um segundo bloco que também agrega por `carga_id` (usado em outra visão da página). Aplicar a mesma chave composta lá.
+- Substituir `placaByCarga: Map<carga_id, placa>` por `placasByCarga: Map<carga_id, Set<placa>>` — guarda **todas** as placas pedidas para cada `carga_id`, em vez de só a última.
+- Ao construir `groupedAll`, criar uma entrada separada para cada combinação `(carga_id, placa)`:
+  - Chave interna: `${carga_id}|${placa ?? ""}`.
+  - Linhas sem placa (ou cujo placa não bate com nenhuma das pedidas) ficam num bucket `${carga_id}|` (fallback para callers legados sem placa).
+- Aplicar a janela operacional / fallback exatamente como já está, mas por combinação.
+- O `Map` resultado passa a ser indexado por `${carga_id}|${placa ?? ""}`. Sempre incluir também a entrada agregada `${carga_id}|` (sem placa) usando todos os movimentos do `carga_id` — preserva o comportamento dos callers que ainda chamam `get(cargaId)` ou usam a forma legada `string[]`.
+- Exportar um helper `makeStatusKey(cargaId, placa?)` para os callers montarem a chave sem replicar a string.
 
-3. **`rawGroupsBruto` → `useStatusPortariaPorCarga` (linha ~568):** já passa `{ carga_id, data, placa }`, então continua funcionando — só precisamos garantir que cada grupo carrega `placa` e `data` corretos (já carrega).
+### 2. `src/pages/Consolidado.tsx`
 
-4. **Não mexer em mais nada** — KPIs, prints, exports e badges continuam consumindo `g.pesoTotal`/`g.cargaId` normalmente; só param de ver pesos somados de cargas homônimas.
+- Substituir os três `statusPortariaMap?.get(g.cargaId)` por `statusPortariaMap?.get(makeStatusKey(g.cargaId, g.placa))`:
+  - Cálculo de `saida` para `computeDataEfetivaTerceirizada` (linha ~590).
+  - Filtro por etapa da portaria (linha ~606).
+  - Accessor de sort `portaria` (linha ~626).
+  - Contadores `portariaCounts` (linha ~735).
+
+### 3. `src/pages/Expedicao.tsx`
+
+- Mesmo ajuste nos dois `statusPortariaMap?.get(c.carga_id)` (linhas ~168 e ~188) usando `makeStatusKey(c.carga_id, c.placa)`.
+
+### 4. Sem mudanças em
+
+- `PortariaStatusBadge` (consome `StatusPortariaInfo` direto, sem `.get`).
+- Banco, edge functions ou outras telas.
 
 ## Resultado esperado
 
-- A linha do Raimundo (19/05 — CF FRANGO — RBK7D22) passa a mostrar **30.312,6 kg**.
-- A carga antiga do Toni (CF FRANGO — JBM8E58 — 29/04), se entrar no recorte da tela, aparece como uma **linha separada** com seu próprio peso, em vez de ser fundida.
-- Nenhuma mudança em banco, hooks ou outras telas.
+- Raimundo (CF FRANGO / RBK7D22) passa a aparecer no Consolidado do **dia 19/05** (data da saída pela portaria), mantendo `pesoTotal = 30.312,6 kg`.
+- A carga antiga do Toni (CF FRANGO / JBM8E58) só aparece se o intervalo abranger a data de saída dela (30/04) — sem se misturar com a do Raimundo.
+- Etapa da portaria e KPIs de Expedição passam a refletir a placa certa para cada carga homônima.

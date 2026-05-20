@@ -111,6 +111,16 @@ export interface StatusPortariaOptions {
   janelaDepoisHoras?: number;
 }
 
+/**
+ * Monta a chave usada no Map devolvido pelo hook. Quando placa é
+ * passada, a chave fica `${carga_id}|${PLACA}`; sem placa, é só
+ * `${carga_id}|` — entrada agregada com TODOS os movimentos da carga
+ * (fallback para callers legados ou cargas próprias).
+ */
+export function makeStatusKey(cargaId: string, placa?: string | null): string {
+  return `${cargaId}|${(placa ?? "").trim().toUpperCase()}`;
+}
+
 export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?: StatusPortariaOptions) {
   const janelaAntes = options?.janelaAntesHoras ?? 12;
   const janelaDepois = options?.janelaDepoisHoras ?? 48;
@@ -136,10 +146,17 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
     }
     return m;
   }, [refs]);
-  const placaByCarga = useMemo(() => {
-    const m = new Map<string, string>();
+  // Todas as placas pedidas para cada carga_id (uma carga pode ser
+  // reutilizada em viagens diferentes). Cada combinação carga_id+placa
+  // vira uma entrada independente no resultado.
+  const placasByCarga = useMemo(() => {
+    const m = new Map<string, Set<string>>();
     for (const r of refs) {
-      if (r.placa) m.set(r.carga_id, r.placa.trim().toUpperCase());
+      if (!r.placa) continue;
+      const placa = r.placa.trim().toUpperCase();
+      if (!placa) continue;
+      if (!m.has(r.carga_id)) m.set(r.carga_id, new Set());
+      m.get(r.carga_id)!.add(placa);
     }
     return m;
   }, [refs]);
@@ -166,28 +183,27 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
         .in("categoria", ["terceirizado", "carga_propria"]);
       if (error) throw error;
 
-      // Agrupa SEM filtro de data primeiro (após filtro de placa). Depois
-      // tentamos restringir pela janela operacional; se a janela eliminar
-      // todos os movimentos de uma carga (ex.: caminhão chega vários dias
-      // após a data planejada), caímos de volta para o conjunto completo
-      // — assim o status da portaria sempre reflete a realidade.
-      const groupedAll = new Map<string, MovRow[]>();
+      // Agrupa por combinação (carga_id, placa). Quando o mesmo nome de
+      // carga é reutilizado em viagens diferentes (placas distintas), cada
+      // combinação tem seu próprio status — evita que a saída/etapa de uma
+      // viagem vaze para a outra.
+      //
+      // Também sempre mantém um bucket agregado por carga_id (chave com
+      // placa vazia) com TODOS os movimentos, preservando o comportamento
+      // dos callers que usam apenas `carga_id` (modo legado).
+      const rowsByCarga = new Map<string, (MovRow & { placa?: string | null })[]>();
       for (const row of (data ?? []) as (MovRow & { placa?: string | null })[]) {
         if (!row.carga_id) continue;
-        const placaRef = placaByCarga.get(row.carga_id);
-        if (placaRef && row.placa && row.placa.trim().toUpperCase() !== placaRef) continue;
-        const arr = groupedAll.get(row.carga_id) ?? [];
+        const arr = rowsByCarga.get(row.carga_id) ?? [];
         arr.push(row);
-        groupedAll.set(row.carga_id, arr);
+        rowsByCarga.set(row.carga_id, arr);
       }
 
-      const grouped = new Map<string, MovRow[]>();
-      for (const [cid, rows] of groupedAll.entries()) {
+      const result = new Map<string, StatusPortariaInfo>();
+
+      const applyJanela = (cid: string, rows: MovRow[]): MovRow[] => {
         const dataCarga = dataByCarga.get(cid);
-        if (!dataCarga) {
-          grouped.set(cid, rows);
-          continue;
-        }
+        if (!dataCarga) return rows;
         const base = new Date(`${dataCarga}T00:00:00`).getTime();
         const inicio = base - janelaAntes * 3600_000;
         const fim = base + janelaDepois * 3600_000;
@@ -197,16 +213,13 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
           if (!Number.isFinite(ts)) return true;
           return ts >= inicio && ts < fim;
         });
-        // Fallback: se a janela eliminar tudo, mantemos todos os movimentos
-        // da carga (atraso operacional além da janela).
-        grouped.set(cid, dentro.length > 0 ? dentro : rows);
-      }
+        // Fallback: se a janela eliminar tudo, mantém todos os movimentos
+        // (atraso operacional além da janela).
+        return dentro.length > 0 ? dentro : rows;
+      };
 
-      const result = new Map<string, StatusPortariaInfo>();
-      for (const id of cargaIds) {
-        const movs = grouped.get(id) ?? [];
+      const buildInfo = (movs: MovRow[]): StatusPortariaInfo => {
         const etapa = deriveEtapa(movs);
-        // Earliest entrada / latest saida for tooltip
         let chegada: string | null = null;
         let saida: string | null = null;
         for (const m of movs) {
@@ -215,7 +228,28 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
           const sai = m.horario_saida_final ?? (m.tipo_movimento === "saida" ? m.data_hora : null);
           if (sai && (!saida || sai > saida)) saida = sai;
         }
-        result.set(id, { etapa, label: LABELS[etapa], chegada, saida });
+        return { etapa, label: LABELS[etapa], chegada, saida };
+      };
+
+      for (const cid of cargaIds) {
+        const allRows = rowsByCarga.get(cid) ?? [];
+        const placas = placasByCarga.get(cid);
+
+        // Entrada agregada por carga_id (chave `${cid}|`) — sempre presente
+        // com todos os movimentos, usada por callers legados e como fallback.
+        result.set(makeStatusKey(cid), buildInfo(applyJanela(cid, allRows)));
+
+        if (placas && placas.size > 0) {
+          for (const placa of placas) {
+            const filtradas = allRows.filter(
+              (r) => r.placa && r.placa.trim().toUpperCase() === placa,
+            );
+            result.set(
+              makeStatusKey(cid, placa),
+              buildInfo(applyJanela(cid, filtradas)),
+            );
+          }
+        }
       }
       return result;
     },
