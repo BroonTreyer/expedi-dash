@@ -38,6 +38,8 @@ interface Props {
     transportadora: string | null;
     tipo_caminhao: string | null;
     ordem_carga: string | null;
+    /** Etapa para novos itens. Default "pre_carga". Usado pelo Consolidado para herdar a etapa atual da carga. */
+    etapaAlvo?: string | null;
   } | null;
 }
 
@@ -206,11 +208,11 @@ export function EditarPedidoAprovacaoDialog({ open, onOpenChange, grupo, preCarg
       <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-base sm:text-lg">
-            {preCargaContext ? "Editar pedido na pré-carga" : "Editar pedido em aprovação"}
+            {preCargaContext ? (preCargaContext.etapaAlvo && preCargaContext.etapaAlvo !== "pre_carga" ? "Editar pedido na carga" : "Editar pedido na pré-carga") : "Editar pedido em aprovação"}
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
             {preCargaContext
-              ? "Ajuste produtos, peso, quantidade ou preços. O pedido continua dentro da pré-carga."
+              ? "Ajuste produtos, peso, quantidade ou preços. O pedido continua dentro desta carga."
               : "Ajuste produtos, peso, quantidade ou preços. Para trocar o cliente, devolva ao vendedor."}
           </DialogDescription>
         </DialogHeader>
