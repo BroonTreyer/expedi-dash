@@ -80,6 +80,7 @@ const MeuPainel = lazyWithRetry("/meu-painel", () => import("./pages/MeuPainel")
 const VendedoresPainel = lazyWithRetry("/vendedores-painel", () => import("./pages/VendedoresPainel"));
 const Aprovacoes = lazyWithRetry("/aprovacoes", () => import("./pages/Aprovacoes"));
 const PreCargas = lazyWithRetry("/pre-cargas", () => import("./pages/PreCargas"));
+const RecebimentoMp = lazyWithRetry("/recebimento-mp", () => import("./pages/RecebimentoMp"));
 const PoliticaPrivacidade = lazyWithRetry("/politica-de-privacidade", () => import("./pages/PoliticaPrivacidade"));
 const TermosServico = lazyWithRetry("/termos-de-servico", () => import("./pages/TermosServico"));
 const ExclusaoDados = lazyWithRetry("/dados", () => import("./pages/ExclusaoDados"));
