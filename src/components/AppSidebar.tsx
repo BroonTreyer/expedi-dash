@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { prefetchRoute } from "@/App";
 import { forwardRef, useState, useEffect, type ReactNode } from "react";
-import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn, BookOpen, History, Trash2, ShieldCheck, User, Inbox, AlertOctagon, Monitor, PackageOpen } from "lucide-react";
+import { LayoutDashboard, Package, Users, Truck, UserCog, LogOut, AlertTriangle, Building2, ClipboardList, DoorOpen, Contact, BarChart3, FileBarChart, Database, ChevronDown, FolderCog, Search, LogIn, BookOpen, History, Trash2, ShieldCheck, User, Inbox, AlertOctagon, Monitor, PackageOpen, PackagePlus } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,7 @@ const navTree: NavNode[] = [
   { to: "/expedicao", label: "Expedição", icon: Monitor, roles: ["admin", "logistica", "portaria", "expedicao"] },
   { to: "/aprovacoes", label: "Aprovações", icon: Inbox, roles: ["admin", "faturamento"] },
   { to: "/pre-cargas", label: "Pré-cargas", icon: PackageOpen, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/recebimento-mp", label: "Recebimento MP", icon: PackagePlus, roles: ["admin", "logistica", "portaria"] },
   { to: "/consolidado", label: "Consolidado", icon: ClipboardList, roles: ["admin", "logistica", "faturamento"] },
   { to: "/rupturas", label: "Rupturas", icon: AlertTriangle, roles: ["admin", "logistica", "faturamento"] },
   { to: "/ocorrencias", label: "Ocorrências", icon: AlertOctagon, roles: ["admin", "logistica", "portaria"] },
