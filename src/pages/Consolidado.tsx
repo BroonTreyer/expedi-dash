@@ -219,7 +219,12 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
   const freteMap = new Map<string, Set<string>>();
   for (const item of data) {
     if (!item.carga_id) continue;
-    let g = map.get(item.carga_id);
+    // Chave composta: carga_id + data + placa. O mesmo nome de carga
+    // (`carga_id`) é reutilizado em viagens diferentes — sem essa chave
+    // composta, duas viagens distintas com o mesmo nome eram fundidas e o
+    // peso aparecia somado (ex.: "CF FRANGO" Raimundo + Toni).
+    const groupKey = `${item.carga_id}__${item.data ?? ""}__${item.placa ?? ""}`;
+    let g = map.get(groupKey);
     if (!g) {
       g = {
         cargaId: item.carga_id,
@@ -242,8 +247,8 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         horarioPrevisto: item.horario_previsto ?? null,
         items: [],
       };
-      map.set(item.carga_id, g);
-      freteMap.set(item.carga_id, new Set());
+      map.set(groupKey, g);
+      freteMap.set(groupKey, new Set());
     }
     if (!g.horarioPrevisto && item.horario_previsto) g.horarioPrevisto = item.horario_previsto;
     g.pesoPlanejado += item.peso ?? 0;
@@ -255,7 +260,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
     }
     if (item.codigo_cliente) g.clientes.add(item.codigo_cliente);
     if (item.uf) g.ufs.add(item.uf);
-    if (item.tipo_frete) freteMap.get(item.carga_id)!.add(item.tipo_frete);
+    if (item.tipo_frete) freteMap.get(groupKey)!.add(item.tipo_frete);
     g.items.push(item);
   }
   for (const [cargaId, g] of map.entries()) {
