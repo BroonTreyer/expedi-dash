@@ -324,7 +324,7 @@ export default function Consolidado() {
   });
 
   const editCargaMut = useMutation({
-    mutationFn: async ({ cargaId, fields, itemUpdates, ordemUpdates }: { cargaId: string; fields: Record<string, string>; itemUpdates?: Record<string, { peso?: number; motivo_ruptura?: string | null }>; ordemUpdates?: Record<string, number> }) => {
+    mutationFn: async ({ cargaId, fields, itemUpdates, ordemUpdates }: { cargaId: string; fields: Record<string, string>; itemUpdates?: Record<string, { peso?: number; quantidade?: number; motivo_ruptura?: string | null }>; ordemUpdates?: Record<string, number> }) => {
       if (!cargaId) return;
       // Cascade: propaga para TODOS os itens da carga (mesmo carga_id),
       // garantindo que cargas fechadas sejam atualizadas em todos os lugares.
@@ -335,12 +335,13 @@ export default function Consolidado() {
       if (error) throw error;
       // Updates por item (peso reduzido = ruptura parcial, motivo opcional)
       if (itemUpdates) {
-        const entries = Object.entries(itemUpdates).filter(([, v]) => v.peso !== undefined || v.motivo_ruptura !== undefined);
+        const entries = Object.entries(itemUpdates).filter(([, v]) => v.peso !== undefined || v.quantidade !== undefined || v.motivo_ruptura !== undefined);
         if (entries.length > 0) {
           await Promise.all(
             entries.map(([id, v]) => {
               const payload: Record<string, any> = {};
               if (v.peso !== undefined) { payload.peso = v.peso; payload.peso_manual = true; }
+              if (v.quantidade !== undefined) { payload.quantidade = v.quantidade; payload.peso_manual = true; }
               if (v.motivo_ruptura !== undefined) payload.motivo_ruptura = v.motivo_ruptura;
               return supabase.from("carregamentos_dia").update(payload).eq("id", id);
             })
