@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Plus, Printer, CheckCircle2, ClipboardList, Truck, PackageOpen } from "lucide-react";
+import { Plus, Printer, CheckCircle2, ClipboardList, Truck, PackageOpen, FileSpreadsheet } from "lucide-react";
 import { useRecebimentosMp, type RecebimentoMp } from "@/hooks/useRecebimentosMp";
 import { RegistrarChegadaDialog } from "@/components/recebimento-mp/RegistrarChegadaDialog";
 import { ConferenciaDescargaDialog } from "@/components/recebimento-mp/ConferenciaDescargaDialog";
 import { PagamentoDialog } from "@/components/recebimento-mp/PagamentoDialog";
 import { ReciboDescargaPrintDialog } from "@/components/recebimento-mp/ReciboDescargaPrintDialog";
+import { ImportarRecebimentosMpDialog } from "@/components/recebimento-mp/ImportarRecebimentosMpDialog";
 import { format } from "date-fns";
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -31,6 +32,7 @@ export default function RecebimentoMpPage() {
   const { data: rows = [], isLoading } = useRecebimentosMp(data || undefined);
 
   const [openRegistrar, setOpenRegistrar] = useState(false);
+  const [openImportar, setOpenImportar] = useState(false);
   const [conferencia, setConferencia] = useState<RecebimentoMp | null>(null);
   const [pagamento, setPagamento] = useState<RecebimentoMp | null>(null);
   const [reciboPrint, setReciboPrint] = useState<RecebimentoMp | null>(null);
@@ -73,7 +75,12 @@ export default function RecebimentoMpPage() {
               </p>
             </div>
           </div>
-          <Button onClick={() => setOpenRegistrar(true)}><Plus className="h-4 w-4 mr-2" /> Registrar Chegada</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setOpenImportar(true)}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Importar planilha
+            </Button>
+            <Button onClick={() => setOpenRegistrar(true)}><Plus className="h-4 w-4 mr-2" /> Registrar Chegada</Button>
+          </div>
         </div>
 
         {/* KPIs */}
@@ -135,6 +142,7 @@ export default function RecebimentoMpPage() {
         </CardContent></Card>
 
         <RegistrarChegadaDialog open={openRegistrar} onOpenChange={setOpenRegistrar} />
+        <ImportarRecebimentosMpDialog open={openImportar} onOpenChange={setOpenImportar} />
         <ConferenciaDescargaDialog open={!!conferencia} onOpenChange={(v) => !v && setConferencia(null)} recebimento={conferencia} />
         <PagamentoDialog open={!!pagamento} onOpenChange={(v) => !v && setPagamento(null)} recebimento={pagamento} />
         <ReciboDescargaPrintDialog open={!!reciboPrint} onOpenChange={(v) => !v && setReciboPrint(null)} recebimento={reciboPrint} />
