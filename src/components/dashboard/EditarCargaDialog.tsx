@@ -367,83 +367,18 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
                               >
                                 <X className="h-3 w-3 mr-1" /> Remover parada
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-[11px]"
+                                onClick={() => setPedidoEditando(cg.itens)}
+                                title="Editar itens deste pedido (peso, quantidade, adicionar/remover produtos)"
+                              >
+                                <Pencil className="h-3 w-3 mr-1" /> Editar pedido
+                              </Button>
                             </div>
                           );
                         })()}
-                        {/* Edição por item (peso/quantidade) — permite ajustar carga já fechada */}
-                        <div className="px-3 pb-2 space-y-1.5">
-                          {cg.itens.map((it) => {
-                            const edit = itemEdits[it.id] ?? {};
-                            const pesoAtual = edit.peso !== undefined ? edit.peso : (it.peso ?? 0);
-                            const qtdAtual = edit.quantidade !== undefined ? edit.quantidade : (it.quantidade ?? 0);
-                            const pesoOrig = it.peso_original ?? null;
-                            const alterado = edit.peso !== undefined || edit.quantidade !== undefined;
-                            return (
-                              <div key={it.id} className="grid grid-cols-12 gap-2 items-center text-[11px]">
-                                <div className="col-span-12 sm:col-span-5 min-w-0">
-                                  <div className="truncate font-medium text-foreground">
-                                    #{it.numero_pedido ?? "—"} • {it.nome_produto ?? it.codigo_produto ?? "Item"}
-                                  </div>
-                                  {pesoOrig != null && pesoOrig !== (it.peso ?? 0) && (
-                                    <div className="text-[10px] text-muted-foreground">
-                                      Original: <span className="font-mono">{Number(pesoOrig).toLocaleString("pt-BR")} kg</span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="col-span-6 sm:col-span-3">
-                                  <Label htmlFor={`peso-${it.id}`} className="text-[10px] text-muted-foreground">Peso (kg)</Label>
-                                  <Input
-                                    id={`peso-${it.id}`}
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    inputMode="decimal"
-                                    value={pesoAtual}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      const num = v === "" ? 0 : parseFloat(v);
-                                      if (Number.isNaN(num)) return;
-                                      setItemEdits((prev) => ({ ...prev, [it.id]: { ...prev[it.id], peso: num } }));
-                                    }}
-                                    className="h-7 text-xs"
-                                  />
-                                </div>
-                                <div className="col-span-6 sm:col-span-3">
-                                  <Label htmlFor={`qtd-${it.id}`} className="text-[10px] text-muted-foreground">Quantidade</Label>
-                                  <Input
-                                    id={`qtd-${it.id}`}
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    inputMode="decimal"
-                                    value={qtdAtual}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      const num = v === "" ? 0 : parseFloat(v);
-                                      if (Number.isNaN(num)) return;
-                                      setItemEdits((prev) => ({ ...prev, [it.id]: { ...prev[it.id], quantidade: num } }));
-                                    }}
-                                    className="h-7 text-xs"
-                                  />
-                                </div>
-                                <div className="col-span-12 sm:col-span-1 flex sm:justify-end">
-                                  {alterado && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 px-2 text-[10px] text-muted-foreground"
-                                      onClick={() => setItemEdits((prev) => { const n = { ...prev }; delete n[it.id]; return n; })}
-                                      title="Desfazer alteração deste item"
-                                    >
-                                      <Undo2 className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
                       </div>
                     );
                   })
