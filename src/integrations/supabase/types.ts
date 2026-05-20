@@ -568,45 +568,6 @@ export type Database = {
         }
         Relationships: []
       }
-      fornecedores_mp: {
-        Row: {
-          ativo: boolean
-          cidade: string | null
-          cnpj_cpf: string | null
-          created_at: string
-          email: string | null
-          id: string
-          nome: string
-          telefone: string | null
-          uf: string | null
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          cidade?: string | null
-          cnpj_cpf?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          nome: string
-          telefone?: string | null
-          uf?: string | null
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          cidade?: string | null
-          cnpj_cpf?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          nome?: string
-          telefone?: string | null
-          uf?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       geocode_cache: {
         Row: {
           cidade: string
@@ -843,6 +804,254 @@ export type Database = {
           },
         ]
       }
+      mp_fornecedores: {
+        Row: {
+          ativo: boolean
+          cidade: string | null
+          cnpj_cpf: string | null
+          created_at: string
+          email: string | null
+          id: string
+          nome: string
+          telefone: string | null
+          uf: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cidade?: string | null
+          cnpj_cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome: string
+          telefone?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cidade?: string | null
+          cnpj_cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string
+          telefone?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mp_produtos: {
+        Row: {
+          ativo: boolean
+          categoria: string | null
+          codigo: string | null
+          created_at: string
+          id: string
+          nome: string
+          preco_referencia_ton: number
+          unidade_padrao: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string | null
+          codigo?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          preco_referencia_ton?: number
+          unidade_padrao?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string | null
+          codigo?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          preco_referencia_ton?: number
+          unidade_padrao?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mp_recebimento_itens: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          id: string
+          nome_produto: string
+          nota_fiscal: string | null
+          ordem: number | null
+          peso_confirmado: boolean
+          peso_ton: number
+          produto_id: string | null
+          recebimento_id: string
+          updated_at: string
+          valor_total_linha: number
+          valor_unitario_ton: number
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          id?: string
+          nome_produto: string
+          nota_fiscal?: string | null
+          ordem?: number | null
+          peso_confirmado?: boolean
+          peso_ton?: number
+          produto_id?: string | null
+          recebimento_id: string
+          updated_at?: string
+          valor_total_linha?: number
+          valor_unitario_ton?: number
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          id?: string
+          nome_produto?: string
+          nota_fiscal?: string | null
+          ordem?: number | null
+          peso_confirmado?: boolean
+          peso_ton?: number
+          produto_id?: string | null
+          recebimento_id?: string
+          updated_at?: string
+          valor_total_linha?: number
+          valor_unitario_ton?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mp_recebimento_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "mp_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mp_recebimento_itens_recebimento_id_fkey"
+            columns: ["recebimento_id"]
+            isOneToOne: false
+            referencedRelation: "mp_recebimentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mp_recebimentos: {
+        Row: {
+          comprovante_url: string | null
+          conferente: string | null
+          cpf: string | null
+          created_at: string
+          criado_por: string | null
+          data_chegada: string
+          data_descarga: string | null
+          data_recebimento: string | null
+          doca_setor: string | null
+          forma_pagamento: string | null
+          fornecedor_id: string | null
+          fornecedor_nome: string | null
+          foto_nota_url: string | null
+          hora_chegada: string | null
+          id: string
+          mes_fechado: boolean
+          motorista: string | null
+          observacoes: string | null
+          pagamento_status: string
+          pago_em: string | null
+          pago_por: string | null
+          pallets_devolvidos: boolean | null
+          pallets_quantidade: number | null
+          peso_total_ton: number
+          placa: string | null
+          recibo_numero: string | null
+          status_geral: string
+          telefone: string | null
+          tipo_veiculo: string | null
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          comprovante_url?: string | null
+          conferente?: string | null
+          cpf?: string | null
+          created_at?: string
+          criado_por?: string | null
+          data_chegada?: string
+          data_descarga?: string | null
+          data_recebimento?: string | null
+          doca_setor?: string | null
+          forma_pagamento?: string | null
+          fornecedor_id?: string | null
+          fornecedor_nome?: string | null
+          foto_nota_url?: string | null
+          hora_chegada?: string | null
+          id?: string
+          mes_fechado?: boolean
+          motorista?: string | null
+          observacoes?: string | null
+          pagamento_status?: string
+          pago_em?: string | null
+          pago_por?: string | null
+          pallets_devolvidos?: boolean | null
+          pallets_quantidade?: number | null
+          peso_total_ton?: number
+          placa?: string | null
+          recibo_numero?: string | null
+          status_geral?: string
+          telefone?: string | null
+          tipo_veiculo?: string | null
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          comprovante_url?: string | null
+          conferente?: string | null
+          cpf?: string | null
+          created_at?: string
+          criado_por?: string | null
+          data_chegada?: string
+          data_descarga?: string | null
+          data_recebimento?: string | null
+          doca_setor?: string | null
+          forma_pagamento?: string | null
+          fornecedor_id?: string | null
+          fornecedor_nome?: string | null
+          foto_nota_url?: string | null
+          hora_chegada?: string | null
+          id?: string
+          mes_fechado?: boolean
+          motorista?: string | null
+          observacoes?: string | null
+          pagamento_status?: string
+          pago_em?: string | null
+          pago_por?: string | null
+          pallets_devolvidos?: boolean | null
+          pallets_quantidade?: number | null
+          peso_total_ton?: number
+          placa?: string | null
+          recibo_numero?: string | null
+          status_geral?: string
+          telefone?: string | null
+          tipo_veiculo?: string | null
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mp_recebimentos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "mp_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -999,36 +1208,6 @@ export type Database = {
         }
         Relationships: []
       }
-      produtos_mp: {
-        Row: {
-          ativo: boolean
-          codigo: string | null
-          created_at: string
-          id: string
-          nome: string
-          unidade_padrao: string
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          codigo?: string | null
-          created_at?: string
-          id?: string
-          nome: string
-          unidade_padrao?: string
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          codigo?: string | null
-          created_at?: string
-          id?: string
-          nome?: string
-          unidade_padrao?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string | null
@@ -1047,153 +1226,6 @@ export type Database = {
           email?: string
           id?: string
           nome?: string
-        }
-        Relationships: []
-      }
-      recebimentos_mp: {
-        Row: {
-          comprovante_url: string | null
-          conferente: string | null
-          cpf: string | null
-          created_at: string
-          criado_por: string | null
-          data_chegada: string
-          data_descarga: string | null
-          data_recebimento: string | null
-          doca_setor: string | null
-          forma_pagamento: string | null
-          fornecedor_id: string | null
-          fornecedor_nome: string | null
-          foto_nota_url: string | null
-          hora_chegada: string | null
-          id: string
-          motorista: string | null
-          observacoes: string | null
-          pagamento_status: string
-          pago_em: string | null
-          pago_por: string | null
-          pallets_devolvidos: boolean | null
-          pallets_quantidade: number | null
-          peso_total_ton: number
-          placa: string | null
-          recibo_numero: string | null
-          status_geral: string
-          telefone: string | null
-          tipo_veiculo: string | null
-          updated_at: string
-          valor_tonelada: number
-          valor_total: number
-          vinculo_movimentacao_portaria_id: string | null
-        }
-        Insert: {
-          comprovante_url?: string | null
-          conferente?: string | null
-          cpf?: string | null
-          created_at?: string
-          criado_por?: string | null
-          data_chegada?: string
-          data_descarga?: string | null
-          data_recebimento?: string | null
-          doca_setor?: string | null
-          forma_pagamento?: string | null
-          fornecedor_id?: string | null
-          fornecedor_nome?: string | null
-          foto_nota_url?: string | null
-          hora_chegada?: string | null
-          id?: string
-          motorista?: string | null
-          observacoes?: string | null
-          pagamento_status?: string
-          pago_em?: string | null
-          pago_por?: string | null
-          pallets_devolvidos?: boolean | null
-          pallets_quantidade?: number | null
-          peso_total_ton?: number
-          placa?: string | null
-          recibo_numero?: string | null
-          status_geral?: string
-          telefone?: string | null
-          tipo_veiculo?: string | null
-          updated_at?: string
-          valor_tonelada?: number
-          valor_total?: number
-          vinculo_movimentacao_portaria_id?: string | null
-        }
-        Update: {
-          comprovante_url?: string | null
-          conferente?: string | null
-          cpf?: string | null
-          created_at?: string
-          criado_por?: string | null
-          data_chegada?: string
-          data_descarga?: string | null
-          data_recebimento?: string | null
-          doca_setor?: string | null
-          forma_pagamento?: string | null
-          fornecedor_id?: string | null
-          fornecedor_nome?: string | null
-          foto_nota_url?: string | null
-          hora_chegada?: string | null
-          id?: string
-          motorista?: string | null
-          observacoes?: string | null
-          pagamento_status?: string
-          pago_em?: string | null
-          pago_por?: string | null
-          pallets_devolvidos?: boolean | null
-          pallets_quantidade?: number | null
-          peso_total_ton?: number
-          placa?: string | null
-          recibo_numero?: string | null
-          status_geral?: string
-          telefone?: string | null
-          tipo_veiculo?: string | null
-          updated_at?: string
-          valor_tonelada?: number
-          valor_total?: number
-          vinculo_movimentacao_portaria_id?: string | null
-        }
-        Relationships: []
-      }
-      recebimentos_mp_itens: {
-        Row: {
-          created_at: string
-          id: string
-          nome_produto: string
-          nota_fiscal: string | null
-          ordem: number | null
-          peso_ton: number
-          produto_id: string | null
-          recebimento_id: string
-          updated_at: string
-          valor_total_linha: number
-          valor_unitario: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          nome_produto: string
-          nota_fiscal?: string | null
-          ordem?: number | null
-          peso_ton?: number
-          produto_id?: string | null
-          recebimento_id: string
-          updated_at?: string
-          valor_total_linha?: number
-          valor_unitario?: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          nome_produto?: string
-          nota_fiscal?: string | null
-          ordem?: number | null
-          peso_ton?: number
-          produto_id?: string | null
-          recebimento_id?: string
-          updated_at?: string
-          valor_total_linha?: number
-          valor_unitario?: number
         }
         Relationships: []
       }
@@ -1773,7 +1805,72 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      mp_compras_mensal_produto: {
+        Row: {
+          ano: number | null
+          categoria: string | null
+          mes: string | null
+          mes_num: number | null
+          preco_medio_ton: number | null
+          produto_id: string | null
+          produto_nome: string | null
+          qtd_descargas: number | null
+          qtd_fornecedores: number | null
+          ton: number | null
+          valor: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mp_recebimento_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "mp_produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mp_evolucao_preco_produto: {
+        Row: {
+          dia: string | null
+          linhas: number | null
+          preco_max_ton: number | null
+          preco_medio_ton: number | null
+          preco_min_ton: number | null
+          produto_id: string | null
+          produto_nome: string | null
+          ton: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mp_recebimento_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "mp_produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mp_fechamento_fornecedor: {
+        Row: {
+          fornecedor_id: string | null
+          fornecedor_nome: string | null
+          mes: string | null
+          qtd_recebimentos: number | null
+          ton: number | null
+          valor: number | null
+          valor_pago: number | null
+          valor_pendente: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mp_recebimentos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "mp_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_my_vendedor_id: { Args: never; Returns: string }
@@ -1818,6 +1915,7 @@ export type Database = {
             }
             Returns: undefined
           }
+      mp_next_recibo: { Args: { _data: string }; Returns: string }
       next_adiantamento_numero: { Args: never; Returns: string }
       next_numero_pedido: { Args: { _data: string }; Returns: number }
       next_recibo_mp: { Args: { _data: string }; Returns: string }
