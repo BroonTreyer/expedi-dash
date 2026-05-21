@@ -1,48 +1,46 @@
-## Objetivo
+## Problema
 
-Adicionar exportação para Excel (.xlsx) na página de Pré-cargas, em dois níveis:
+Na página **Pré-cargas**, o card da carga **SEPEX / 15-05-2026** mostra apenas **1 pedido** quando na verdade existem **2 pedidos #83** com clientes diferentes:
 
-1. **Por pré-carga** — botão "Baixar Excel" ao lado do atual "Baixar PDF" em cada card.
-2. **Resumo geral** — botão "Excel resumo" no topo da página, exportando tudo que está visível (respeitando o filtro de busca).
+- **#83 — SE DISTRIBUIDORA** (cód. 11621) — 12 itens, 1 ruptura de 12.000 kg
+- **#83 — A M ASSESSORIA** (cód. 33313) — 7 itens
 
-## Arquivos a criar/alterar
+Confirmado no banco (`carregamentos_dia`, etapa `pre_carga`): mesmo `carga_id`, mesma `data`, mesmo `numero_pedido = 83`, `codigo_cliente` diferente.
 
-**Novo:** `src/lib/pre-cargas-export.ts`
-Centraliza a geração dos XLSX usando a biblioteca `xlsx` (já presente no projeto, usada em `useRelatorios.ts` e `mp-export.ts`).
+## Causa
 
-Duas funções:
+Em `src/pages/PreCargas.tsx`, o agrupamento de itens em pedidos usa **apenas `numero_pedido`** como chave do bucket:
 
-- `exportarPreCargaUnica(carga: PreCargaGrupo)` — gera 1 arquivo com 3 abas:
-  - **Resumo** — identificação (carga, data, placa, motorista, transportadora, tipo, ordem, destinos) + totais (pedidos, peso total, embarcado, ruptura).
-  - **Pedidos** — uma linha por pedido: nº, cliente, código, cidade/UF, vendedor, peso embarcado, peso ruptura, qtd itens, qtd rupturas.
-  - **Itens** — uma linha por item do pedido: nº pedido, cliente, código produto, produto, qtd, peso original, peso carregado, peso ruptura, é ruptura? (Sim/Não), tipo (Total/Parcial), motivo.
-  Nome do arquivo: `pre-carga_<nomeCarga|cargaId>_<data>.xlsx`.
+```ts
+let p = peds.get(r.numero_pedido);
+```
 
-- `exportarPreCargasResumo(cargas: PreCargaGrupo[])` — gera 1 arquivo com 4 abas consolidando todas as pré-cargas filtradas:
-  - **Resumo geral** — KPIs totais (qtd cargas, qtd pedidos, peso total, embarcado, ruptura, qtd itens em ruptura) + período coberto.
-  - **Cargas** — 1 linha por pré-carga: cargaId, nome, data, placa, motorista, transportadora, tipo, ordem, destinos, qtd pedidos, peso total, embarcado, ruptura, qtd rupturas.
-  - **Pedidos** — 1 linha por pedido de todas as cargas: carga, data, nº pedido, cliente, código, cidade/UF, vendedor, peso embarcado, peso ruptura, qtd rupturas.
-  - **Rupturas** — apenas itens em ruptura: carga, data, nº pedido, cliente, código produto, produto, tipo (Total/Parcial), peso original, disponível, ruptura, motivo.
-  Nome do arquivo: `pre-cargas_resumo_<YYYY-MM-DD>.xlsx`.
+Como o sistema permite (e os dados mostram) dois clientes diferentes com o mesmo número de pedido na mesma carga, eles colapsam em um grupo só. O card exibe um cliente apenas, soma pesos errados e o contador "X pedidos" fica subestimado.
 
-Todos os números em pt-BR (vírgula decimal nos campos de peso via formatação numérica do XLSX), datas `dd/MM/yyyy`.
+## Correção (somente front-end, escopo mínimo)
 
-**Alterar:** `src/pages/PreCargas.tsx`
-- Adicionar botão "Excel resumo" no header (ao lado do search), chamando `exportarPreCargasResumo(filtradas)`. Desabilitado quando `filtradas.length === 0`.
-- Passar nova prop `onExportXlsx` ao `PreCargaCard`.
+Alterar **apenas** `src/pages/PreCargas.tsx`:
 
-**Alterar:** dentro de `PreCargaCard` (mesmo arquivo)
-- Adicionar botão secundário "Excel" ao lado do "Baixar PDF" no canto direito do card, chamando `exportarPreCargaUnica(carga)`. Mesmo estilo `variant="outline"` `size="sm"` com ícone `FileSpreadsheet` do lucide-react.
+1. Trocar a chave do `Map<number, PedidoGrupo>` por `Map<string, PedidoGrupo>` usando uma chave composta:
+   ```
+   `${numero_pedido}::${codigo_cliente ?? cliente ?? ''}`
+   ```
+   Isso garante 1 grupo por (pedido, cliente) dentro da mesma carga.
 
-## Não-objetivos
+2. Manter `numero_pedido` como campo de exibição do `PedidoGrupo` (sem alteração de tipo).
 
-- Não altera o PDF existente.
-- Não altera o hook `usePreCargas` nem o banco.
-- Não muda layout do card além dos dois botões novos.
+3. Ajustar a ordenação dos pedidos do card para desempatar pelo nome do cliente quando o `numero_pedido` for igual:
+   ```
+   carga.pedidos.sort((a,b) =>
+     a.numero_pedido - b.numero_pedido ||
+     (a.cliente ?? '').localeCompare(b.cliente ?? '')
+   );
+   ```
 
-## Detalhes técnicos
+4. Verificar/atualizar o export XLSX (`src/lib/pre-cargas-export.ts`) para que as abas **Pedidos** e **Itens** também separem por cliente — se já consomem `carga.pedidos`, ficam corretas automaticamente após o fix.
 
-- Biblioteca: `xlsx` (já instalada).
-- Formato pt-BR aplicado via `cell.z = '#,##0.0'` para pesos e `'dd/mm/yyyy'` para datas, com `cellDates: true` quando aplicável (alternativa: enviar strings já formatadas — mais simples e suficiente para o uso atual; vou seguir essa abordagem como em `useRelatorios.ts`).
-- Larguras de coluna ajustadas via `ws['!cols']`.
-- Tudo client-side, sem chamadas extras à API.
+## Fora de escopo
+
+- Não mudar schema/triggers/RLS.
+- Não mexer no PDF (`PreCargaPrintDialog`) a menos que ele também agrupe por `numero_pedido` apenas — verificar após a correção e, se necessário, aplicar a mesma chave composta.
+- Não alterar regras de duplicidade de `numero_pedido` no banco — é comportamento aceito hoje.

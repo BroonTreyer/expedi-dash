@@ -97,12 +97,15 @@ export default function PreCargas() {
       }
     }
     // Group items into pedidos within each carga
-    const pedidoBuckets = new Map<string, Map<number, PedidoGrupo>>();
+    // Chave composta (numero_pedido + codigo_cliente|cliente) — mesmo numero
+    // de pedido pode aparecer para clientes distintos na mesma carga.
+    const pedidoBuckets = new Map<string, Map<string, PedidoGrupo>>();
     for (const r of rows as Item[]) {
       if (!r.carga_id || r.numero_pedido == null) continue;
       if (!pedidoBuckets.has(r.carga_id)) pedidoBuckets.set(r.carga_id, new Map());
       const peds = pedidoBuckets.get(r.carga_id)!;
-      let p = peds.get(r.numero_pedido);
+      const pedKey = `${r.numero_pedido}::${r.codigo_cliente ?? r.cliente ?? ''}`;
+      let p = peds.get(pedKey);
       if (!p) {
         p = {
           numero_pedido: r.numero_pedido,
@@ -117,7 +120,7 @@ export default function PreCargas() {
           pesoRuptura: 0,
           qtdRupturas: 0,
         };
-        peds.set(r.numero_pedido, p);
+        peds.set(pedKey, p);
       }
       p.itens.push(r);
     }
@@ -143,7 +146,10 @@ export default function PreCargas() {
         carga.pedidos.push(p);
         if (p.cidade) dest.add(`${p.cidade}${p.uf ? "/" + p.uf : ""}`);
       }
-      carga.pedidos.sort((a, b) => a.numero_pedido - b.numero_pedido);
+      carga.pedidos.sort((a, b) =>
+        a.numero_pedido - b.numero_pedido ||
+        (a.cliente ?? '').localeCompare(b.cliente ?? '')
+      );
       carga.qtdPedidos = carga.pedidos.length;
       carga.pesoEmbarcado = carga.pedidos.reduce((s, p) => s + p.pesoEmbarcado, 0);
       carga.pesoRuptura = carga.pedidos.reduce((s, p) => s + p.pesoRuptura, 0);
