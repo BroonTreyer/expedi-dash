@@ -131,6 +131,11 @@ export default function Index() {
           horarioPrevisto: c.horario_previsto,
           pesoTotal: 0,
           qtdPedidos: 0,
+          etapa: c.etapa,
+          nomeCarga: c.nome_carga,
+          ordemCarga: c.ordem_carga,
+          data: c.data,
+          transportadora: c.transportadora,
         });
       }
       const entry = map.get(c.carga_id)!;
