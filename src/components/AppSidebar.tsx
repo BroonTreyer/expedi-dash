@@ -34,8 +34,9 @@ const isGroup = (n: NavNode): n is NavGroup => (n as NavGroup).children !== unde
 
 const navTree: NavNode[] = [
   { to: "/meu-painel", label: "Meu Painel", icon: User, roles: ["vendedor"] },
+  // 1. Visão geral
   { to: "/", label: "Painel", icon: LayoutDashboard, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/aprovacoes", label: "Aprovações", icon: Inbox, roles: ["admin", "faturamento"] },
+  // 2. Expedição (operação de saída)
   {
     label: "Expedição",
     icon: Monitor,
@@ -48,15 +49,7 @@ const navTree: NavNode[] = [
       { to: "/motoristas-painel", label: "Painel do Motorista", icon: Contact, roles: ["admin", "logistica"] },
     ],
   },
-  { to: "/recebimento-mp", label: "Recebimento MP", icon: PackagePlus, roles: ["admin", "logistica", "portaria"] },
-  { to: "/ocorrencias", label: "Ocorrências", icon: AlertOctagon, roles: ["admin", "logistica", "portaria"] },
-  { to: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/logistica", label: "Logística", icon: Truck, roles: ["admin", "logistica"] },
-  { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "logistica", "faturamento"] },
-  { to: "/vendedores-painel", label: "Painel do Vendedor", icon: User, roles: ["admin"] },
-  { to: "/clientes", label: "Clientes", icon: Building2, roles: ["admin", "logistica", "faturamento"] },
+  // 3. Portaria (controle de fluxo)
   {
     label: "Portaria",
     icon: DoorOpen,
@@ -73,6 +66,19 @@ const navTree: NavNode[] = [
       { to: "/portaria/manual", label: "Manual", icon: BookOpen, roles: ["admin", "logistica", "portaria"] },
     ],
   },
+  // 4. Operação diária
+  { to: "/aprovacoes", label: "Aprovações", icon: Inbox, roles: ["admin", "faturamento"] },
+  { to: "/recebimento-mp", label: "Recebimento MP", icon: PackagePlus, roles: ["admin", "logistica", "portaria"] },
+  { to: "/logistica", label: "Logística", icon: Truck, roles: ["admin", "logistica"] },
+  { to: "/ocorrencias", label: "Ocorrências", icon: AlertOctagon, roles: ["admin", "logistica", "portaria"] },
+  // 5. Análise
+  { to: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "logistica", "faturamento"] },
+  // 6. Cadastros base
+  { to: "/clientes", label: "Clientes", icon: Building2, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/produtos", label: "Produtos", icon: Package, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/vendedores", label: "Vendedores", icon: Users, roles: ["admin", "logistica", "faturamento"] },
+  { to: "/vendedores-painel", label: "Painel do Vendedor", icon: User, roles: ["admin"] },
 ];
 
 const superAdminTree: NavNode[] = [
