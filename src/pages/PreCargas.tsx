@@ -324,7 +324,6 @@ function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: P
               {(carga.placa || carga.motorista || carga.transportadora) && (
                 <span className="flex items-center gap-1"><User className="h-3 w-3" />{[carga.placa, carga.motorista, carga.transportadora].filter(Boolean).join(" · ")}</span>
               )}
-              {carga.destinos && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{carga.destinos}</span>}
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -344,6 +343,12 @@ function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: P
           </div>
         </div>
       </CardHeader>
+      {carga.destinos && (
+        <div className="px-4 py-2 border-t border-border/50 bg-muted/30 text-xs text-muted-foreground flex items-start gap-2 leading-relaxed">
+          <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span className="flex-1 break-words">{carga.destinos}</span>
+        </div>
+      )}
       <CardContent className="p-4 pt-2">
         <Accordion type="single" collapsible>
           <AccordionItem value="itens" className="border-b-0">
