@@ -1,31 +1,30 @@
-## O que encontrei
+## Alteração
 
-A pré-carga **JORGE BATISTA** (`PRE-20260520-112246-8CP`, vendedor DICKSON) tinha apenas os pedidos **103** e **104**. Por volta de **11:54 (BRT)** de hoje você adicionou mais 6 pedidos a essa pré-carga via "Add Carga" — **antes** da correção que acabamos de aplicar. Por causa do bug antigo, esses pedidos foram gravados com `etapa = 'logistica'` e `nome_carga` vazio, em vez de `etapa = 'pre_carga'`. Por isso eles sumiram do painel de Pré-cargas.
+No diálogo de Comprovante de Adiantamento/Quitação (`src/components/logistica/ComprovanteAdiantamentoDialog.tsx`), os números de CTE são listados na ordem em que vêm do banco, gerando saídas como `257/250/251/253/252/254/255/256/258`.
 
-Pedidos afetados (todos com `carga_id = PRE-20260520-112246-8CP`, vendedor DICKSON):
+Vou ordená-los numericamente do menor para o maior antes de juntar com `/`, resultando em `250/251/252/253/254/255/256/257/258`.
 
-| Pedido | Cliente |
-|---|---|
-| 150 | MIX MATEUS 271 MIX FLORIANO PI |
-| 151 | HIPER MATEUS |
-| 152 | MIX MATEUS 251 MIX PARNAIBA |
-| 153 | MIX MATEUS 97 MIX TERESINA |
-| 154 | MIX MATEUS 252 MIX TERESINA NOVAFAPI |
-| 155 | MIX MATEUS 211 SUPER PIRIPIRI |
+## Detalhes técnicos
 
-## Correção proposta
+Nas duas ocorrências (linhas 75 e 96), substituir:
 
-Rodar um UPDATE direto em `carregamentos_dia` nas linhas com:
+```ts
+const numeros = ctes.map((r) => r.cte?.numero_cte).filter(Boolean).join("/");
+```
 
-- `carga_id = 'PRE-20260520-112246-8CP'`
-- `etapa = 'logistica'`
+por uma versão que ordena numericamente (com fallback alfabético para CTEs não-numéricos):
 
-setando:
+```ts
+const numeros = ctes
+  .map((r) => r.cte?.numero_cte)
+  .filter(Boolean)
+  .sort((a, b) => {
+    const na = parseInt(String(a).replace(/\D/g, ""), 10);
+    const nb = parseInt(String(b).replace(/\D/g, ""), 10);
+    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+    return String(a).localeCompare(String(b));
+  })
+  .join("/");
+```
 
-- `etapa = 'pre_carga'`
-- `nome_carga = 'JORGE BATISTA'`
-- `updated_at = now()`
-
-Não vou mexer em `data` (cada pedido mantém a sua data original — 2026-05-21), nem em placa/motorista/transportadora/ordem_carga (a pré-carga não tem esses campos preenchidos ainda).
-
-Depois disso, os 6 pedidos voltam a aparecer dentro da pré-carga JORGE BATISTA no painel principal.
+Nenhuma outra mudança de comportamento.
