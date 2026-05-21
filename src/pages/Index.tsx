@@ -131,6 +131,11 @@ export default function Index() {
           horarioPrevisto: c.horario_previsto,
           pesoTotal: 0,
           qtdPedidos: 0,
+          etapa: c.etapa,
+          nomeCarga: c.nome_carga,
+          ordemCarga: c.ordem_carga,
+          data: c.data,
+          transportadora: c.transportadora,
         });
       }
       const entry = map.get(c.carga_id)!;
@@ -524,10 +529,17 @@ export default function Index() {
     setSelectedIds((prev) => prev.filter((id) => !excludedItemIds.includes(id)));
   }, []);
 
-  const handleAdicionarCargaSubmit = useCallback(async (updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => {
+  const handleAdicionarCargaSubmit = useCallback(async (
+    updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number; nome_carga?: string | null; ordem_carga?: string | null; data?: string | null; transportadora?: string | null }[],
+    meta: { isPreCarga: boolean; cargaLabel: string }
+  ) => {
     try {
-      batchUpdateMut.mutate(updates);
-      toast.success(`${updates.length} pedido(s) adicionado(s) à carga`);
+      batchUpdateMut.mutate(updates as any);
+      toast.success(
+        meta.isPreCarga
+          ? `${updates.length} pedido(s) adicionado(s) à pré-carga ${meta.cargaLabel}`
+          : `${updates.length} pedido(s) adicionado(s) à carga ${meta.cargaLabel}`
+      );
     } catch {
       // errors handled by mutation's onError
     }
