@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Truck } from "lucide-react";
+import { Truck, Package } from "lucide-react";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 export interface CargaResumo {
@@ -22,6 +22,11 @@ export interface CargaResumo {
   horarioPrevisto: string | null;
   pesoTotal: number;
   qtdPedidos: number;
+  etapa?: string | null;
+  nomeCarga?: string | null;
+  ordemCarga?: string | null;
+  data?: string | null;
+  transportadora?: string | null;
 }
 
 interface Props {
@@ -29,7 +34,23 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   cargas: CargaResumo[];
   items: Carregamento[];
-  onSubmit: (updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number }[]) => void;
+  onSubmit: (
+    updates: {
+      id: string;
+      carga_id: string;
+      placa: string | null;
+      motorista: string | null;
+      tipo_caminhao: string | null;
+      horario_previsto: string | null;
+      etapa: string;
+      ordem_entrega: number;
+      nome_carga?: string | null;
+      ordem_carga?: string | null;
+      data?: string | null;
+      transportadora?: string | null;
+    }[],
+    meta: { isPreCarga: boolean; cargaLabel: string }
+  ) => void;
 }
 
 export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubmit }: Props) {
@@ -40,6 +61,7 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
 
   const handleConfirm = () => {
     if (!carga || items.length === 0) return;
+    const isPre = carga.etapa === "pre_carga" || carga.cargaId.startsWith("PRE-");
     const updates = items.map((item, i) => ({
       id: item.id,
       carga_id: carga.cargaId,
@@ -47,10 +69,18 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
       motorista: carga.motorista,
       tipo_caminhao: carga.tipoCaminhao,
       horario_previsto: carga.horarioPrevisto,
-      etapa: "logistica",
+      etapa: isPre ? "pre_carga" : "logistica",
       ordem_entrega: ordemInicial + i,
+      ...(isPre
+        ? {
+            nome_carga: carga.nomeCarga ?? null,
+            ordem_carga: carga.ordemCarga ?? null,
+            data: carga.data ?? undefined,
+            transportadora: carga.transportadora ?? null,
+          }
+        : {}),
     }));
-    onSubmit(updates);
+    onSubmit(updates, { isPreCarga: isPre, cargaLabel: carga.nomeCarga || carga.cargaId });
     onOpenChange(false);
     setSelectedCarga(null);
     setOrdemInicial(1);
@@ -91,8 +121,17 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-sm">{c.cargaId}</span>
+                    {c.etapa === "pre_carga" || c.cargaId.startsWith("PRE-") ? (
+                      <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    ) : (
+                      <Truck className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="font-medium text-sm">{c.nomeCarga || c.cargaId}</span>
+                    {(c.etapa === "pre_carga" || c.cargaId.startsWith("PRE-")) && (
+                      <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300">
+                        Pré-carga
+                      </Badge>
+                    )}
                   </div>
                   <Badge variant="secondary" className="text-xs">
                     {c.qtdPedidos} pedido{c.qtdPedidos > 1 ? "s" : ""}
