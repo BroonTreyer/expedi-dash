@@ -72,7 +72,16 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
       const linhas: string[] = ["QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.", ""];
       adiantamentos.forEach((a, idx) => {
         const ctes = (ctesQueries[idx]?.data ?? []) as AdiantamentoCte[];
-        const numeros = ctes.map((r) => r.cte?.numero_cte).filter(Boolean).join("/");
+        const numeros = ctes
+          .map((r) => r.cte?.numero_cte)
+          .filter(Boolean)
+          .sort((a, b) => {
+            const na = parseInt(String(a).replace(/\D/g, ""), 10);
+            const nb = parseInt(String(b).replace(/\D/g, ""), 10);
+            if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+            return String(a).localeCompare(String(b));
+          })
+          .join("/");
         linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE`);
         if (numeros) linhas.push(numeros);
         linhas.push(`*VLR ${fmtBRL(a.valor_total_ctes)}*`);
@@ -93,7 +102,16 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     const linhas: string[] = ["ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.", ""];
     adiantamentos.forEach((a, idx) => {
       const ctes = (ctesQueries[idx]?.data ?? []) as AdiantamentoCte[];
-      const numeros = ctes.map((r) => r.cte?.numero_cte).filter(Boolean).join("/");
+      const numeros = ctes
+        .map((r) => r.cte?.numero_cte)
+        .filter(Boolean)
+        .sort((a, b) => {
+          const na = parseInt(String(a).replace(/\D/g, ""), 10);
+          const nb = parseInt(String(b).replace(/\D/g, ""), 10);
+          if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+          return String(a).localeCompare(String(b));
+        })
+        .join("/");
       linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE`);
       if (numeros) linhas.push(numeros);
       linhas.push(`*VLR ${fmtBRL(a.valor_total_ctes)}*`);
