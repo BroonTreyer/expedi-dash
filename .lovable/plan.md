@@ -1,28 +1,31 @@
-## Problema
+## O que encontrei
 
-No painel principal, quando você seleciona pedidos e clica em **"Add Carga"**, o diálogo lista todas as cargas existentes — inclusive **pré-cargas (PRE-...)**. Mas a lógica de adicionar **sempre marca os pedidos como `etapa = "logistica"`** (carga fechada), além de **não copiar** `nome_carga`, `ordem_carga`, `data` e `transportadora` da pré-carga selecionada.
+A pré-carga **JORGE BATISTA** (`PRE-20260520-112246-8CP`, vendedor DICKSON) tinha apenas os pedidos **103** e **104**. Por volta de **11:54 (BRT)** de hoje você adicionou mais 6 pedidos a essa pré-carga via "Add Carga" — **antes** da correção que acabamos de aplicar. Por causa do bug antigo, esses pedidos foram gravados com `etapa = 'logistica'` e `nome_carga` vazio, em vez de `etapa = 'pre_carga'`. Por isso eles sumiram do painel de Pré-cargas.
 
-Resultado: os pedidos recebem o `carga_id` da pré-carga, mas como ficam em `etapa = logistica`, o painel de Pré-cargas (`usePreCargas`, que filtra `etapa = 'pre_carga'`) **não os exibe junto da pré-carga**. Eles "somem" da pré-carga, embora estejam vinculados a ela no banco.
+Pedidos afetados (todos com `carga_id = PRE-20260520-112246-8CP`, vendedor DICKSON):
 
-Arquivos envolvidos:
-- `src/components/dashboard/AdicionarCargaDialog.tsx` — hard-coded `etapa: "logistica"`.
-- `src/pages/Index.tsx` — monta `cargasFechadas` sem distinguir pré-carga de carga fechada e sem expor os campos extras (`nome_carga`, `ordem_carga`, `data`, `transportadora`, `etapa`).
+| Pedido | Cliente |
+|---|---|
+| 150 | MIX MATEUS 271 MIX FLORIANO PI |
+| 151 | HIPER MATEUS |
+| 152 | MIX MATEUS 251 MIX PARNAIBA |
+| 153 | MIX MATEUS 97 MIX TERESINA |
+| 154 | MIX MATEUS 252 MIX TERESINA NOVAFAPI |
+| 155 | MIX MATEUS 211 SUPER PIRIPIRI |
 
-## O que vou fazer
+## Correção proposta
 
-1. **`CargaResumo` ganha campos novos**: `etapa`, `nomeCarga`, `ordemCarga`, `data`, `transportadora`. Em `Index.tsx`, preencher esses campos a partir do primeiro item de cada `carga_id`.
+Rodar um UPDATE direto em `carregamentos_dia` nas linhas com:
 
-2. **`AdicionarCargaDialog`** passa a:
-   - Mostrar visualmente quando a opção é uma **pré-carga** (badge "Pré-carga" ao lado do nome).
-   - Ao confirmar, se o destino for pré-carga (`etapa === "pre_carga"` ou `cargaId` começa com `PRE-`), aplicar nos pedidos:
-     - `etapa: "pre_carga"` (em vez de `"logistica"`)
-     - `nome_carga`, `ordem_carga`, `data`, `transportadora` herdados da pré-carga
-   - Caso contrário, comportamento atual (`etapa: "logistica"`).
+- `carga_id = 'PRE-20260520-112246-8CP'`
+- `etapa = 'logistica'`
 
-3. **`handleAdicionarCargaSubmit`** em `Index.tsx` aceita os campos extras no payload e os repassa ao `batchUpdateMut`. Mensagem do toast diferencia "adicionado(s) à pré-carga X" vs "adicionado(s) à carga X".
+setando:
 
-Nenhuma migração de banco. Nenhuma mudança no fluxo de "Fechar Carga", "Salvar Pré-carga" ou cancelamento.
+- `etapa = 'pre_carga'`
+- `nome_carga = 'JORGE BATISTA'`
+- `updated_at = now()`
 
-## Verificação
+Não vou mexer em `data` (cada pedido mantém a sua data original — 2026-05-21), nem em placa/motorista/transportadora/ordem_carga (a pré-carga não tem esses campos preenchidos ainda).
 
-Após a mudança, ao selecionar pedidos no painel principal → "Add Carga" → escolher uma `PRE-...`, os pedidos devem aparecer **imediatamente dentro daquela pré-carga** no painel "Pré-cargas" (mesmo nome, mesma data, mesma OC), e **sumir do painel principal** (porque pré-cargas são filtradas em `filtered`). Pedidos adicionados a uma carga fechada (`CG-...`) continuam indo para `logistica` como hoje.
+Depois disso, os 6 pedidos voltam a aparecer dentro da pré-carga JORGE BATISTA no painel principal.
