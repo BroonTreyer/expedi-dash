@@ -7,12 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, FileDown, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
+import { AlertTriangle, FileDown, FileSpreadsheet, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
 import { temRuptura } from "@/lib/ruptura-utils";
 import { pesoEfetivo, pesoNaoCarregado } from "@/lib/peso-utils";
 import { cn } from "@/lib/utils";
 import { EditarPedidoAprovacaoDialog } from "@/components/aprovacoes/EditarPedidoAprovacaoDialog";
 import { PreCargaPrintDialog } from "@/components/precargas/PreCargaPrintDialog";
+import { exportarPreCargaUnica, exportarPreCargasResumo } from "@/lib/pre-cargas-export";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 type Item = Carregamento & { ruptura_sinalizada?: boolean; forma_pagamento?: string | null };
@@ -196,14 +197,26 @@ export default function PreCargas() {
               Pedidos reservados em pré-cargas, com rupturas detalhadas. Faturamento pode editar pedidos sem desfazer a pré-carga.
             </p>
           </div>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar carga, placa, cliente, pedido..."
-              className="pl-8 h-9"
-            />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-72">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar carga, placa, cliente, pedido..."
+                className="pl-8 h-9"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 gap-1 shrink-0"
+              disabled={filtradas.length === 0}
+              onClick={() => exportarPreCargasResumo(filtradas)}
+              title="Baixa um Excel com o resumo de todas as pré-cargas exibidas"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Excel resumo
+            </Button>
           </div>
         </header>
 
@@ -240,6 +253,7 @@ export default function PreCargas() {
                 carga={carga}
                 onEditPedido={(p) => { setEditGrupo(p); setEditCargaCtx(carga); }}
                 onPrint={() => setPrintCarga(carga)}
+                onExportXlsx={() => exportarPreCargaUnica(carga)}
               />
             ))}
           </div>
@@ -281,7 +295,7 @@ function KpiTile({ label, value, sub, variant }: { label: string; value: string;
   );
 }
 
-function PreCargaCard({ carga, onEditPedido, onPrint }: { carga: PreCargaGrupo; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void }) {
+function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
   const temRup = carga.pesoRuptura > 0;
   return (
     <Card className={cn(temRup && "border-destructive/30")}>
@@ -313,9 +327,14 @@ function PreCargaCard({ carga, onEditPedido, onPrint }: { carga: PreCargaGrupo; 
             <div className="text-[11px] text-muted-foreground tabular-nums">
               {formatKg(carga.pesoEmbarcado)} kg embarcados
             </div>
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1.5" onClick={onPrint}>
-              <FileDown className="h-3.5 w-3.5" /> Baixar PDF
-            </Button>
+            <div className="flex items-center justify-end gap-1 mt-1.5">
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={onPrint}>
+                <FileDown className="h-3.5 w-3.5" /> PDF
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={onExportXlsx}>
+                <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+              </Button>
+            </div>
           </div>
         </div>
       </CardHeader>
