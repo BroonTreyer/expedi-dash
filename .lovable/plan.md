@@ -1,46 +1,40 @@
 ## Problema
 
-Na página **Pré-cargas**, o card da carga **SEPEX / 15-05-2026** mostra apenas **1 pedido** quando na verdade existem **2 pedidos #83** com clientes diferentes:
-
-- **#83 — SE DISTRIBUIDORA** (cód. 11621) — 12 itens, 1 ruptura de 12.000 kg
-- **#83 — A M ASSESSORIA** (cód. 33313) — 7 itens
-
-Confirmado no banco (`carregamentos_dia`, etapa `pre_carga`): mesmo `carga_id`, mesma `data`, mesmo `numero_pedido = 83`, `codigo_cliente` diferente.
+Pedidos que já estão em **pré-carga** ou em **carga fechada** estão aparecendo na lista "Pedidos" do painel principal. Exemplo: pedido #94 (WV COSTA DISTRIBUIDORA), data 19/05, em carga fechada **ELVIS MARABA**, aparece no painel do dia 21/05.
 
 ## Causa
 
-Em `src/pages/PreCargas.tsx`, o agrupamento de itens em pedidos usa **apenas `numero_pedido`** como chave do bucket:
+Em `src/pages/Index.tsx`, dentro de `filtered` (≈ linhas 143-168):
 
 ```ts
-let p = peds.get(r.numero_pedido);
+const ehCarryOver = !!c.data && c.data < hojeStr && c.status !== "Carregado";
+if (!ehCarryOver) {
+  if (showLogistica && c.etapa !== "logistica") return false;
+  if (!showLogistica && c.etapa === "logistica") return false;
+}
 ```
 
-Como o sistema permite (e os dados mostram) dois clientes diferentes com o mesmo número de pedido na mesma carga, eles colapsam em um grupo só. O card exibe um cliente apenas, soma pesos errados e o contador "X pedidos" fica subestimado.
+Quando `ehCarryOver = true`, a regra de **carry-over** ignora o toggle de etapa e exibe o pedido. Pedidos em **carga fechada** (`etapa = "logistica"`) com status diferente de `"Carregado"` (ex.: "Pronto para carregar") caem nessa condição quando a `data` é anterior a hoje, e por isso vazam para o painel.
+
+Pré-cargas (`etapa = "pre_carga"`) já são removidas na linha 147 — então o vazamento ocorre só com cargas fechadas atrasadas.
 
 ## Correção (somente front-end, escopo mínimo)
 
-Alterar **apenas** `src/pages/PreCargas.tsx`:
+Alterar apenas `src/pages/Index.tsx`, função `filtered`:
 
-1. Trocar a chave do `Map<number, PedidoGrupo>` por `Map<string, PedidoGrupo>` usando uma chave composta:
+1. Mover a exclusão de `etapa === "logistica"` para **antes** da regra de carry-over, junto com a exclusão de `pre_carga`, respeitando o toggle `showLogistica`:
+   ```ts
+   if (c.etapa === "pre_carga") return false;
+   // Cargas fechadas só aparecem com o toggle de logística ativo —
+   // nunca via carry-over, pois já moram em Consolidado/Expedição.
+   if (c.etapa === "logistica" && !showLogistica) return false;
    ```
-   `${numero_pedido}::${codigo_cliente ?? cliente ?? ''}`
-   ```
-   Isso garante 1 grupo por (pedido, cliente) dentro da mesma carga.
-
-2. Manter `numero_pedido` como campo de exibição do `PedidoGrupo` (sem alteração de tipo).
-
-3. Ajustar a ordenação dos pedidos do card para desempatar pelo nome do cliente quando o `numero_pedido` for igual:
-   ```
-   carga.pedidos.sort((a,b) =>
-     a.numero_pedido - b.numero_pedido ||
-     (a.cliente ?? '').localeCompare(b.cliente ?? '')
-   );
-   ```
-
-4. Verificar/atualizar o export XLSX (`src/lib/pre-cargas-export.ts`) para que as abas **Pedidos** e **Itens** também separem por cliente — se já consomem `carga.pedidos`, ficam corretas automaticamente após o fix.
+2. Remover as duas linhas equivalentes de dentro do bloco `if (!ehCarryOver)`, mantendo apenas o que ainda fizer sentido (o caso `showLogistica && c.etapa !== "logistica"` continua aplicável ao toggle quando ligado).
+3. Resultado: pedidos em `pre_carga` e em `logistica` **nunca** aparecem como linha de pedido no painel — só via toggle de logística (quando explicitamente ativado) ou nas telas dedicadas (Pré-cargas, Consolidado, Expedição).
 
 ## Fora de escopo
 
-- Não mudar schema/triggers/RLS.
-- Não mexer no PDF (`PreCargaPrintDialog`) a menos que ele também agrupe por `numero_pedido` apenas — verificar após a correção e, se necessário, aplicar a mesma chave composta.
-- Não alterar regras de duplicidade de `numero_pedido` no banco — é comportamento aceito hoje.
+- Não mexer em `kpiSource`, que já ignora carry-over.
+- Não mudar `PreCargasPanel`, Consolidado ou Expedição.
+- Não tocar em hooks, RLS, schema ou triggers.
+- Comportamento de carry-over para `etapa = "vendas"` (pedidos realmente pendentes) permanece inalterado.

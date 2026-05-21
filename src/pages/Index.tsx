@@ -145,13 +145,16 @@ export default function Index() {
     return carregamentos.filter((c) => {
       // Pré-cargas aparecem em painel próprio (PreCargasPanel) — escondidas aqui.
       if (c.etapa === "pre_carga") return false;
+      // Cargas fechadas (etapa = logistica) só aparecem com o toggle de
+      // logística ativo — nunca via carry-over, pois já têm painéis próprios
+      // (Consolidado / Expedição).
+      if (c.etapa === "logistica" && !showLogistica) return false;
       // Carry-over: itens de dias passados ainda pendentes aparecem no painel
       // de hoje independentemente do toggle de etapa (logística).
       const ehCarryOver = !!c.data && c.data < hojeStr && c.status !== "Carregado";
       if (!ehCarryOver) {
         // Hide logistica-ok items unless toggle is active
         if (showLogistica && c.etapa !== "logistica") return false;
-        if (!showLogistica && c.etapa === "logistica") return false;
       }
       // Hide finalized items — they appear only in Consolidado
       if (c.carga_id != null && c.status === "Carregado") return false;
