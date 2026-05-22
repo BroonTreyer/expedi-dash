@@ -387,7 +387,7 @@ export default function Portaria({ categoria }: PortariaProps) {
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto max-w-[95vw] p-0" align="start">
                 <Calendar
                   mode="range"
                   selected={dateRange}

@@ -36,7 +36,7 @@ export default function ManualTecnico() {
 
   return (
     <>
-      <main className="min-h-screen bg-background">
+      <main className="min-h-dvh bg-background">
         <div className="border-b bg-card print:hidden">
           <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center gap-3">
             <div>

@@ -42,7 +42,7 @@ export function MultiSelectFilter({ options, selected, onChange, placeholder, cl
         <Button
           variant="outline"
           role="combobox"
-          className={cn("h-9 text-sm justify-between font-normal", className)}
+          className={cn("h-10 sm:h-9 text-sm justify-between font-normal w-full md:w-auto", className)}
         >
           <span className="truncate">{label}</span>
           {selected.length > 0 ? (
@@ -55,8 +55,8 @@ export function MultiSelectFilter({ options, selected, onChange, placeholder, cl
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0" align="start">
-        <div className="max-h-[260px] overflow-y-auto p-1">
+      <PopoverContent className="w-[min(92vw,280px)] p-0" align="start">
+        <div className="max-h-[50dvh] overflow-y-auto p-1">
           {options.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhuma opção</p>
           )}

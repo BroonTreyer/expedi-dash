@@ -16,7 +16,7 @@ const LINKS = [
 
 export function LegalLayout({ title, updatedAt, children }: Props) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-dvh bg-background text-foreground">
       <header className="border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-semibold">

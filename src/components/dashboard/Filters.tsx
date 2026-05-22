@@ -90,7 +90,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
   const DateNav = (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={cn("h-9 gap-1.5 text-xs sm:text-sm justify-start text-left font-normal min-w-[140px]", !filters.dateRange.from && "text-muted-foreground")}>
+        <Button variant="outline" size="sm" className={cn("h-10 sm:h-9 gap-1.5 text-xs sm:text-sm justify-start text-left font-normal w-full sm:w-auto sm:min-w-[140px]", !filters.dateRange.from && "text-muted-foreground")}>
           <CalendarIcon className="h-3.5 w-3.5" />
           {filters.dateRange.from ? (
             filters.dateRange.to && filters.dateRange.from.getTime() !== filters.dateRange.to.getTime() ? (
@@ -103,8 +103,8 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="range" selected={filters.dateRange} onSelect={(range) => { if (range) set("dateRange", range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
+      <PopoverContent className="w-auto max-w-[95vw] p-0" align="start">
+        <Calendar mode="range" selected={filters.dateRange} onSelect={(range) => { if (range) set("dateRange", range); }} locale={ptBR} numberOfMonths={typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 2} className={cn("p-3 pointer-events-auto")} />
         <div className="p-2 border-t flex justify-end gap-1">
           <Button variant="ghost" size="sm" className="text-xs" onClick={() => set("dateRange", { from: today, to: today })}>Hoje</Button>
           <Button variant="ghost" size="sm" className="text-xs" onClick={() => { const d = new Date(); d.setDate(d.getDate() - 6); set("dateRange", { from: d, to: today }); }}>Últimos 7 dias</Button>
@@ -173,24 +173,24 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
           vendedores={vendedores}
           clientes={clientes}
         />
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 [&>*]:min-w-0">
           {DateNav}
           <MultiSelectFilter
           options={vendedorOptions.map((v) => ({ value: v.id, label: v.nome_vendedor }))}
           selected={filters.vendedor}
           onChange={(v) => set("vendedor", v)}
           placeholder="Todos Vendedores"
-          className="w-[180px]"
+          className="sm:w-[180px]"
         />
           <MultiSelectFilter
           options={clienteOptions.map((c) => ({ value: c.codigo_cliente, label: `${c.codigo_cliente} – ${c.nome_cliente}` }))}
           selected={filters.cliente}
           onChange={(v) => set("cliente", v)}
           placeholder="Todos Clientes"
-          className="w-[200px]"
+          className="sm:w-[200px]"
         />
           <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
-          <SelectTrigger className="h-9 text-sm w-[120px]">
+          <SelectTrigger className="h-10 sm:h-9 text-sm w-full sm:w-[120px]">
             <SelectValue placeholder="UF" />
           </SelectTrigger>
           <SelectContent>
@@ -230,7 +230,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         className="md:w-[180px]"
       />
       <Select value={filters.uf} onValueChange={(v) => set("uf", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[100px]">
+        <SelectTrigger className="h-10 sm:h-9 text-sm md:w-[100px]">
           <SelectValue placeholder="UF" />
         </SelectTrigger>
         <SelectContent>
@@ -239,7 +239,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         </SelectContent>
       </Select>
       <Select value={filters.tipoCaminhao} onValueChange={(v) => set("tipoCaminhao", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[150px]">
+        <SelectTrigger className="h-10 sm:h-9 text-sm md:w-[150px]">
           <SelectValue placeholder="Tipo Caminhão" />
         </SelectTrigger>
         <SelectContent>
@@ -248,7 +248,7 @@ export function Filters({ filters, onChange, vendedores, tiposCaminhao, clientes
         </SelectContent>
       </Select>
       <Select value={filters.ruptura} onValueChange={(v) => set("ruptura", v)}>
-        <SelectTrigger className="h-9 text-sm md:w-[140px]">
+        <SelectTrigger className="h-10 sm:h-9 text-sm md:w-[140px]">
           <SelectValue placeholder="Ruptura" />
         </SelectTrigger>
         <SelectContent>
