@@ -139,10 +139,11 @@ export function useDistribuidores(dias = 45) {
 /** Util para marcar clientes como distribuidor em lote. */
 export async function marcarComoDistribuidor(codigosCliente: string[], tipo: "distribuidor" | "varejo" | "outros") {
   if (codigosCliente.length === 0) return 0;
-  const { error, count } = await supabase
+  const { data, error } = await supabase
     .from("clientes")
-    .update({ tipo } as any, { count: "exact" })
-    .in("codigo_cliente", codigosCliente);
+    .update({ tipo } as any)
+    .in("codigo_cliente", codigosCliente)
+    .select("id");
   if (error) throw error;
-  return count ?? 0;
+  return data?.length ?? 0;
 }
