@@ -152,7 +152,20 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
   // Local mutable copy so user can reorder before fechar
   const [groups, setGroups] = useState<RotaGroup[]>(initialGroups);
-  useEffect(() => { setGroups(initialGroups); }, [initialGroups]);
+  // BUGFIX (ordem perdida): só sincronizar `groups` com `initialGroups` quando o
+  // dialog ABRE. Se ressincronizássemos sempre que `initialGroups` mudasse,
+  // qualquer refetch/realtime do parent (que muda o array `items`) destruiria a
+  // reordenação que o usuário acabou de fazer dentro do dialog — exatamente o
+  // bug onde "EDIVAR ROTA" voltava para a ordem antiga no romaneio.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      setGroups(initialGroups);
+      wasOpenRef.current = true;
+    } else if (!open && wasOpenRef.current) {
+      wasOpenRef.current = false;
+    }
+  }, [open, initialGroups]);
 
   // ── Estado local da rota — começa com o que veio da Roteirização e é
   // recalculado automaticamente sempre que o usuário reordena os destinos.
@@ -380,7 +393,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       const nomeCargaFinal = nomeCarga.trim() || null;
       const ocFallback = ordemCarga.trim();
       const ocPrimeiraValida = Object.values(ordemCargaPorGrupo).map(v => v.trim()).find(v => v.length > 0) ?? "";
-      const updates = groups.flatMap((group) => {
+      const updates = groups.flatMap((group, gIdx) => {
         const groupKey = group.codigoCliente ?? `__sem__${group.ordem}`;
         const ocGrupo = (ordemCargaPorGrupo[groupKey] ?? "").trim();
         const ocFinal = (modoOc === "unica" ? ocFallback : (ocGrupo || ocPrimeiraValida)) || null;
@@ -390,7 +403,10 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           placa: placa || null,
           motorista: motorista || null,
           transportadora: transportadora || null,
-          ordem_entrega: group.ordem,
+          // BUGFIX: usar índice atual do array (1..N) garante que a ordem salva
+          // seja exatamente a ordem visual da lista no momento do save, mesmo
+          // se `group.ordem` estiver defasado por algum re-render.
+          ordem_entrega: gIdx + 1,
           etapa: "pre_carga",
           carga_id: cargaId,
           data: dataCarregamento,
@@ -422,7 +438,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     const ocFallback = ordemCarga.trim();
     const ocPrimeiraValida =
       Object.values(ordemCargaPorGrupo).map((v) => v.trim()).find((v) => v.length > 0) ?? "";
-    const updates = groups.flatMap((group) => {
+    const updates = groups.flatMap((group, gIdx) => {
       const groupKey = group.codigoCliente ?? `__sem__${group.ordem}`;
       const ocGrupo = (ordemCargaPorGrupo[groupKey] ?? "").trim();
       const ocFinal = modoOc === "unica" ? ocFallback : (ocGrupo || ocPrimeiraValida);
@@ -432,7 +448,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         placa,
         motorista,
         transportadora,
-        ordem_entrega: group.ordem,
+        ordem_entrega: gIdx + 1,
         etapa: "logistica",
         carga_id: cargaId,
         data: dataCarregamento,
