@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
@@ -44,5 +44,28 @@ export function usePreCargas() {
       return rows as (Carregamento & { ruptura_sinalizada?: boolean; forma_pagamento?: string | null })[];
     },
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Atualiza a Data do Carregamento de todos os registros de uma pré-carga (mesmo carga_id).
+ * Faturamento normalmente faz isso após confirmar com o cliente.
+ */
+export function useAtualizarDataCarga() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ cargaId, novaData }: { cargaId: string; novaData: string }) => {
+      const { error } = await supabase
+        .from("carregamentos_dia")
+        .update({ data: novaData })
+        .eq("carga_id", cargaId);
+      if (error) throw error;
+      return { cargaId, novaData };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pre-cargas"] });
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+      qc.invalidateQueries({ queryKey: ["consolidated"] });
+    },
   });
 }
