@@ -1,21 +1,24 @@
-# Destaque do campo "Data do Carregamento"
+# Data do Carregamento visível e editável na página /pre-cargas
 
-O time de Faturamento informou que esse campo é responsabilidade deles, então precisa ficar visualmente em destaque no diálogo de Fechamento de Carga (`FechamentoLoteDialog`), evitando esquecimentos.
+A alteração anterior ficou só dentro do diálogo "Fechar Carga" (no Dashboard). Na página **Pré-cargas** (onde o Faturamento normalmente vai trabalhar), a data hoje aparece como um badge pequeno (`formatDataBr`) e não pode ser alterada. Vamos torná-la grande e editável diretamente no card.
 
-## Mudanças (somente UI)
+## Mudanças
 
-Arquivo: `src/components/dashboard/FechamentoLoteDialog.tsx` (campo na linha ~802-805)
+Arquivo: `src/pages/PreCargas.tsx` (componente `PreCargaCard`, ~linha 328)
 
-1. **Promover o campo para fora do grid padrão** — renderizar "Data do Carregamento" em um bloco próprio no topo do formulário de fechamento (antes de OC / Tipo Caminhão / Motorista), ocupando largura destacada.
-2. **Estilo de destaque**:
-   - Card com borda `border-primary/40` e fundo `bg-primary/5`.
-   - Label maior (`text-sm font-semibold`) com ícone `CalendarDays` ao lado.
-   - Input `type="date"` em tamanho `h-11 text-base` (vs. os demais `h-9 text-xs`).
-   - Texto auxiliar: "Preenchido pelo Faturamento — confirme a data em que a carga será efetivamente carregada."
-3. **Validação visual**: quando vazio, borda em `border-destructive` + mensagem "Obrigatório" inline (a validação lógica já existe, só reforçar visualmente).
-4. **Sem alterações** em hooks, estado, submit, schema ou em outros campos.
+1. **Remover o badge atual** com a data ao lado do título.
+2. **Adicionar uma faixa destacada** no topo do card, logo abaixo do `CardHeader`, com:
+   - Ícone `CalendarDays` + label "Data do Carregamento".
+   - Input `type="date"` com `h-10 text-base font-semibold` exibindo `carga.data`.
+   - Texto auxiliar: "Pode ser alterada pelo Faturamento".
+   - Se a data estiver no passado em relação a hoje, borda âmbar + aviso "Data já passou".
+
+3. **Mutation de atualização**: criar `useAtualizarDataCarga` em `src/hooks/usePreCargas.ts` que faz `UPDATE carregamentos_dia SET data = $novaData WHERE carga_id = $cargaId` e invalida as queries `precargas`, `carregamentos` e `consolidated`. Debounce de 600ms no `onChange` + toast de confirmação ("Data atualizada para dd/MM/aaaa"). Em erro, reverte estado local e mostra toast destrutivo.
+
+4. **Permissão**: liberar para roles `admin`, `faturamento`, `logistica` (mesmas que já fazem update em `carregamentos_dia` pela RLS existente). Esconder o input (mostrar texto read-only) para outras roles.
 
 ## Fora do escopo
 
-- Nenhuma mudança em backend, RLS, migrations ou em outras telas.
-- Nenhuma mudança no fluxo do timeline de distribuidores criado anteriormente.
+- Não mexer no diálogo de fechamento (já está como combinado).
+- Não alterar schema, migrations ou RLS — a policy "Ops update carregamentos_dia" já cobre esses três papéis.
+- Não tocar em outras telas (Index/Dashboard, ConsolidatedView etc.) nesta rodada.
