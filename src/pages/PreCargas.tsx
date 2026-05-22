@@ -206,6 +206,7 @@ export default function PreCargas() {
       qtdPedidos: filtradas.reduce((s, c) => s + c.qtdPedidos, 0),
       pesoTotal: filtradas.reduce((s, c) => s + c.pesoTotal, 0),
       pesoRuptura: filtradas.reduce((s, c) => s + c.pesoRuptura, 0),
+      unidRuptura: filtradas.reduce((s, c) => s + c.unidRuptura, 0),
       qtdRupturas: filtradas.reduce((s, c) => s + c.qtdRupturas, 0),
     };
   }, [filtradas]);
@@ -252,9 +253,13 @@ export default function PreCargas() {
           <KpiTile label="Peso total" value={`${formatKg(kpis.pesoTotal)} kg`} />
           <KpiTile
             label="Em ruptura"
-            value={`${formatKg(kpis.pesoRuptura)} kg`}
+            value={
+              kpis.pesoRuptura > 0 || kpis.unidRuptura > 0
+                ? `${formatKg(kpis.pesoRuptura)} kg${kpis.unidRuptura > 0 ? ` · ${formatUnid(kpis.unidRuptura)} unid` : ""}`
+                : "—"
+            }
             sub={kpis.qtdRupturas > 0 ? `${kpis.qtdRupturas} item(ns)` : "—"}
-            variant={kpis.pesoRuptura > 0 ? "destructive" : "default"}
+            variant={kpis.pesoRuptura > 0 || kpis.unidRuptura > 0 ? "destructive" : "default"}
           />
         </div>
 
