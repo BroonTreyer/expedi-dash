@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical } from "lucide-react";
+import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical, CalendarDays } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -755,6 +755,35 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         {/* Transport fields */}
         <div className="border-t border-border pt-3">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Dados de Transporte</span>
+          {/* Campo destacado — preenchido pelo Faturamento */}
+          <div
+            className={`mb-3 rounded-lg border-2 p-3 transition-colors ${
+              dataCarregamento
+                ? "border-primary/50 bg-primary/5"
+                : "border-destructive/60 bg-destructive/5"
+            }`}
+          >
+            <Label
+              htmlFor="data-carregamento-destaque"
+              className="flex items-center gap-2 text-sm font-semibold mb-1.5"
+            >
+              <CalendarDays className="h-4 w-4 text-primary" />
+              Data do Carregamento <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="data-carregamento-destaque"
+              type="date"
+              value={dataCarregamento}
+              onChange={(e) => setDataCarregamento(e.target.value)}
+              className="h-11 text-base font-medium"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Preenchido pelo Faturamento — confirme a data em que a carga será efetivamente carregada.
+              {!dataCarregamento && (
+                <span className="text-destructive font-medium ml-1">Obrigatório.</span>
+              )}
+            </p>
+          </div>
           {veiculosDisponiveis.length > 0 && (
             <div className="space-y-1.5 mb-3">
               <Label className="text-xs flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" /> Vincular a veículo</Label>
@@ -798,10 +827,6 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                   Preencha a OC ao lado de cada destino na lista acima ({ocsPorGrupoValidas} de {groups.length} preenchidas).
                 </p>
               )}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Data do Carregamento *</Label>
-              <Input type="date" value={dataCarregamento} onChange={(e) => setDataCarregamento(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Tipo Caminhão *</Label>
