@@ -107,7 +107,7 @@ export default function PortalMotorista() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background">
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-3 bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">Carregando informações...</p>
       </div>
@@ -116,7 +116,7 @@ export default function PortalMotorista() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background p-4">
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-3 bg-background p-4">
         <AlertTriangle className="h-12 w-12 text-destructive" />
         <h1 className="text-xl font-bold">{error}</h1>
         <p className="text-sm text-muted-foreground text-center">
@@ -130,7 +130,7 @@ export default function PortalMotorista() {
   const EtapaIcon = etapa.icon;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
