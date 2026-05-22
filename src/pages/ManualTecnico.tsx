@@ -38,28 +38,28 @@ export default function ManualTecnico() {
     <>
       <main className="min-h-dvh bg-background">
         <div className="border-b bg-card print:hidden">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center gap-3">
-            <div>
-              <h1 className="text-xl font-bold">Manual Técnico — FricoTrack</h1>
+          <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold">Manual Técnico — FricoTrack</h1>
               <p className="text-xs text-muted-foreground">
                 Handover completo: do operacional ao código. Use <kbd className="px-1 border rounded">Ctrl/Cmd+P</kbd> para gerar PDF.
               </p>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="md:ml-auto flex items-center gap-2 flex-wrap">
               <Tabs value={modo} onValueChange={(v) => setModo(v as "leigo" | "dev")}>
                 <TabsList>
                   <TabsTrigger value="leigo">Para entender</TabsTrigger>
                   <TabsTrigger value="dev">Para o dev</TabsTrigger>
                 </TabsList>
               </Tabs>
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Button variant="outline" size="sm" onClick={() => window.print()} className="h-9">
                 <Printer className="h-4 w-4 mr-2" /> Imprimir / PDF
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6">
+        <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 md:gap-6">
           <aside className="print:hidden">
             <div className="relative mb-3">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -70,7 +70,7 @@ export default function ManualTecnico() {
                 className="pl-8"
               />
             </div>
-            <nav className="space-y-1 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
+            <nav className="space-y-1 max-h-[40dvh] md:max-h-[calc(100dvh-220px)] overflow-y-auto pr-1 scrollbar-thin">
               {filtrados.map((c) => {
                 const Icon = c.icone;
                 const active = c.id === ativo?.id;
@@ -104,12 +104,12 @@ export default function ManualTecnico() {
           <article className="min-w-0">
             <section className="print:hidden">
               {ativo && (
-                <Card className="p-6 md:p-8">
+                <Card className="p-4 sm:p-6 md:p-8">
                   <header className="mb-4 pb-4 border-b">
                     <p className="text-xs uppercase tracking-widest text-muted-foreground">
                       Capítulo {ativo.numero}
                     </p>
-                    <h2 className="text-2xl font-bold">{ativo.titulo}</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold">{ativo.titulo}</h2>
                     <p className="text-sm text-muted-foreground mt-1">{ativo.resumo}</p>
                   </header>
                   <Tabs value={modo} onValueChange={(v) => setModo(v as "leigo" | "dev")}>
