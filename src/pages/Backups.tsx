@@ -156,7 +156,7 @@ export default function Backups() {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Backups</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Backups</h1>
           <p className="text-sm text-muted-foreground">
             Crie snapshots dos dados e restaure quando necessário
           </p>
