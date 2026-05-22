@@ -152,7 +152,20 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
   // Local mutable copy so user can reorder before fechar
   const [groups, setGroups] = useState<RotaGroup[]>(initialGroups);
-  useEffect(() => { setGroups(initialGroups); }, [initialGroups]);
+  // BUGFIX (ordem perdida): só sincronizar `groups` com `initialGroups` quando o
+  // dialog ABRE. Se ressincronizássemos sempre que `initialGroups` mudasse,
+  // qualquer refetch/realtime do parent (que muda o array `items`) destruiria a
+  // reordenação que o usuário acabou de fazer dentro do dialog — exatamente o
+  // bug onde "EDIVAR ROTA" voltava para a ordem antiga no romaneio.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      setGroups(initialGroups);
+      wasOpenRef.current = true;
+    } else if (!open && wasOpenRef.current) {
+      wasOpenRef.current = false;
+    }
+  }, [open, initialGroups]);
 
   // ── Estado local da rota — começa com o que veio da Roteirização e é
   // recalculado automaticamente sempre que o usuário reordena os destinos.
