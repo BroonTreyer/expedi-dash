@@ -330,8 +330,30 @@ function KpiTile({ label, value, sub, variant }: { label: string; value: string;
   );
 }
 
-function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
+function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; canEditDate: boolean; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
   const temRup = carga.pesoRuptura > 0 || carga.unidRuptura > 0;
+  const [dataLocal, setDataLocal] = useState(carga.data);
+  useEffect(() => { setDataLocal(carga.data); }, [carga.data]);
+  const atualizarData = useAtualizarDataCarga();
+
+  const hojeIso = new Date().toISOString().slice(0, 10);
+  const dataPassada = dataLocal && dataLocal < hojeIso;
+
+  const commitData = (nova: string) => {
+    if (!nova || nova === carga.data) return;
+    const anterior = carga.data;
+    setDataLocal(nova);
+    atualizarData.mutate(
+      { cargaId: carga.cargaId, novaData: nova },
+      {
+        onSuccess: () => toast.success(`Data atualizada para ${formatDataBr(nova)}`),
+        onError: (e: any) => {
+          setDataLocal(anterior);
+          toast.error("Não foi possível atualizar a data", { description: e?.message });
+        },
+      },
+    );
+  };
   return (
     <Card className={cn(temRup && "border-destructive/30")}>
       <CardHeader className="p-4 pb-2">
@@ -340,7 +362,6 @@ function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: P
             <CardTitle className="text-base flex items-center gap-2 flex-wrap">
               <Package className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span className="truncate">{carga.nomeCarga || carga.cargaId}</span>
-              <Badge variant="outline" className="text-[10px]">{formatDataBr(carga.data)}</Badge>
               <Badge variant="secondary" className="text-[10px]">{carga.qtdPedidos} pedidos</Badge>
               {temRup && (
                 <Badge variant="destructive" className="text-[10px] gap-1">
@@ -372,6 +393,36 @@ function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: P
           </div>
         </div>
       </CardHeader>
+      {/* Data do Carregamento — destaque para o Faturamento */}
+      <div
+        className={cn(
+          "mx-4 mt-1 mb-2 rounded-md border px-3 py-2 flex flex-wrap items-center gap-3",
+          dataPassada ? "border-amber-500/60 bg-amber-500/5" : "border-primary/40 bg-primary/5",
+        )}
+      >
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <CalendarDays className="h-4 w-4 text-primary" />
+          Data do Carregamento
+        </div>
+        {canEditDate ? (
+          <Input
+            type="date"
+            value={dataLocal}
+            onChange={(e) => setDataLocal(e.target.value)}
+            onBlur={(e) => commitData(e.target.value)}
+            disabled={atualizarData.isPending}
+            className="h-9 w-auto text-sm font-semibold"
+          />
+        ) : (
+          <span className="text-sm font-semibold tabular-nums">{formatDataBr(dataLocal)}</span>
+        )}
+        <span className="text-[11px] text-muted-foreground">
+          {canEditDate
+            ? "Pode ser alterada pelo Faturamento (salva ao sair do campo)"
+            : "Definida pelo Faturamento"}
+          {dataPassada && <span className="ml-2 text-amber-700 dark:text-amber-400 font-medium">Data já passou</span>}
+        </span>
+      </div>
       {carga.destinos && (
         <div className="px-4 py-2 border-t border-border/50 bg-muted/30 text-xs text-muted-foreground flex items-start gap-2 leading-relaxed">
           <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
