@@ -17,7 +17,7 @@ export default function RegistroEntrada() {
             <LogIn className="h-6 w-6 text-primary" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight">Registro de Entrada</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Registro de Entrada</h1>
             <p className="text-sm text-muted-foreground max-w-2xl">
               Registre a entrada de veículos no pátio. A Logística poderá vincular esses veículos no fechamento de carga.
             </p>
