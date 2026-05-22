@@ -92,6 +92,7 @@ const RcbProdutos = lazyWithRetry("/recebimento-mp/produtos", () => import("./pa
 const PoliticaPrivacidade = lazyWithRetry("/politica-de-privacidade", () => import("./pages/PoliticaPrivacidade"));
 const TermosServico = lazyWithRetry("/termos-de-servico", () => import("./pages/TermosServico"));
 const ExclusaoDados = lazyWithRetry("/dados", () => import("./pages/ExclusaoDados"));
+const Distribuidores = lazyWithRetry("/distribuidores", () => import("./pages/Distribuidores"));
 
 /** Barra de progresso fina no topo (não bloqueia o layout). */
 const PageFallback = () => (
@@ -181,6 +182,7 @@ function AppRoutes() {
           <Route path="/vendedores-painel" element={<ProtectedRoute allowedRoles={["admin"]}><VendedoresPainel /></ProtectedRoute>} />
           <Route path="/aprovacoes" element={<ProtectedRoute allowedRoles={["admin", "faturamento"]}><Aprovacoes /></ProtectedRoute>} />
           <Route path="/pre-cargas" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><PreCargas /></ProtectedRoute>} />
+          <Route path="/distribuidores" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Distribuidores /></ProtectedRoute>} />
           <Route path="/recebimento-mp" element={<ProtectedRoute allowedRoles={["admin", "logistica", "portaria"]}><RecebimentoMp /></ProtectedRoute>}>
             <Route path="operacao" element={<RcbOperacao />} />
             <Route path="historico" element={<RcbHistorico />} />
