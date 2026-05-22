@@ -217,30 +217,30 @@ export default function PreCargas() {
 
   return (
     <Layout>
-      <main className="container mx-auto p-4 sm:p-6 space-y-4">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+      <main className="container mx-auto p-3 sm:p-4 md:p-6 space-y-4 max-w-full">
+        <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-              <Package className="h-5 w-5" /> Pré-cargas
+              <Package className="h-5 w-5 shrink-0" /> <span className="min-w-0 break-words">Pré-cargas</span>
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               Pedidos reservados em pré-cargas, com rupturas detalhadas. Faturamento pode editar pedidos sem desfazer a pré-carga.
             </p>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
             <div className="relative flex-1 sm:w-72">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder="Buscar carga, placa, cliente, pedido..."
-                className="pl-8 h-9"
+                className="pl-8 h-10 sm:h-9"
               />
             </div>
             <Button
               size="sm"
               variant="outline"
-              className="h-9 gap-1 shrink-0"
+              className="h-10 sm:h-9 gap-1 shrink-0 w-full sm:w-auto"
               disabled={filtradas.length === 0}
               onClick={() => exportarPreCargasResumo(filtradas)}
               title="Baixa um Excel com o resumo de todas as pré-cargas exibidas"
@@ -320,11 +320,11 @@ export default function PreCargas() {
 
 function KpiTile({ label, value, sub, variant }: { label: string; value: string; sub?: string; variant?: "default" | "destructive" }) {
   return (
-    <Card className={cn(variant === "destructive" && "border-destructive/40 bg-destructive/5")}>
-      <CardContent className="p-3">
-        <div className={cn("text-[11px] uppercase tracking-wide", variant === "destructive" ? "text-destructive" : "text-muted-foreground")}>{label}</div>
-        <div className={cn("text-lg sm:text-xl font-semibold tabular-nums mt-0.5", variant === "destructive" && "text-destructive")}>{value}</div>
-        {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
+    <Card className={cn("min-w-0", variant === "destructive" && "border-destructive/40 bg-destructive/5")}>
+      <CardContent className="p-3 min-w-0">
+        <div className={cn("text-[11px] uppercase tracking-wide truncate", variant === "destructive" ? "text-destructive" : "text-muted-foreground")}>{label}</div>
+        <div className={cn("text-base sm:text-xl font-semibold tabular-nums mt-0.5 break-words leading-tight", variant === "destructive" && "text-destructive")}>{value}</div>
+        {sub && <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</div>}
       </CardContent>
     </Card>
   );
@@ -356,37 +356,44 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
   };
   return (
     <Card className={cn(temRup && "border-destructive/30")}>
-      <CardHeader className="p-4 pb-2">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-              <Package className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span className="truncate">{carga.nomeCarga || carga.cargaId}</span>
-              <Badge variant="secondary" className="text-[10px]">{carga.qtdPedidos} pedidos</Badge>
-              {temRup && (
-                <Badge variant="destructive" className="text-[10px] gap-1">
-                  <AlertTriangle className="h-3 w-3" /> {carga.qtdRupturas} ruptura{carga.qtdRupturas === 1 ? "" : "s"} · {formatKg(carga.pesoRuptura)} kg{carga.unidRuptura > 0 ? ` · ${formatUnid(carga.unidRuptura)} unid` : ""}
-                </Badge>
-              )}
+      <CardHeader className="p-3 sm:p-4 pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-base flex items-start gap-2 min-w-0">
+              <Package className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <span className="min-w-0 break-words leading-tight">{carga.nomeCarga || carga.cargaId}</span>
+              <Badge variant="secondary" className="text-[10px] shrink-0 self-center">{carga.qtdPedidos} pedidos</Badge>
             </CardTitle>
-            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
-              {carga.tipoCaminhao && <span className="flex items-center gap-1"><Truck className="h-3 w-3" />{carga.tipoCaminhao}</span>}
+            {temRup && (
+              <div className="mt-2">
+                <Badge variant="destructive" className="text-[10px] gap-1 whitespace-normal text-left h-auto py-1 leading-snug max-w-full">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  <span className="break-words">
+                    {carga.qtdRupturas} ruptura{carga.qtdRupturas === 1 ? "" : "s"} · {formatKg(carga.pesoRuptura)} kg{carga.unidRuptura > 0 ? ` · ${formatUnid(carga.unidRuptura)} unid` : ""}
+                  </span>
+                </Badge>
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground mt-1.5 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 sm:flex-wrap">
+              {carga.tipoCaminhao && <span className="flex items-center gap-1 min-w-0"><Truck className="h-3 w-3 shrink-0" /><span className="truncate">{carga.tipoCaminhao}</span></span>}
               {(carga.placa || carga.motorista || carga.transportadora) && (
-                <span className="flex items-center gap-1"><User className="h-3 w-3" />{[carga.placa, carga.motorista, carga.transportadora].filter(Boolean).join(" · ")}</span>
+                <span className="flex items-start gap-1 min-w-0"><User className="h-3 w-3 shrink-0 mt-0.5" /><span className="break-words">{[carga.placa, carga.motorista, carga.transportadora].filter(Boolean).join(" · ")}</span></span>
               )}
             </div>
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-xs text-muted-foreground">Peso total</div>
-            <div className="text-base font-semibold tabular-nums">{formatKg(carga.pesoTotal)} kg</div>
-            <div className="text-[11px] text-muted-foreground tabular-nums">
-              {formatKg(carga.pesoEmbarcado)} kg embarcados
+          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-1 sm:text-right sm:shrink-0 border-t sm:border-0 border-border/60 pt-2 sm:pt-0">
+            <div className="min-w-0">
+              <div className="text-[11px] sm:text-xs text-muted-foreground">Peso total</div>
+              <div className="text-base font-semibold tabular-nums leading-tight">{formatKg(carga.pesoTotal)} kg</div>
+              <div className="text-[11px] text-muted-foreground tabular-nums">
+                {formatKg(carga.pesoEmbarcado)} kg embarcados
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-1 mt-1.5">
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={onPrint}>
+            <div className="flex items-center gap-1 sm:mt-1.5 shrink-0">
+              <Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs gap-1" onClick={onPrint}>
                 <FileDown className="h-3.5 w-3.5" /> PDF
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={onExportXlsx}>
+              <Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs gap-1" onClick={onExportXlsx}>
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
               </Button>
             </div>
@@ -396,11 +403,11 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
       {/* Data do Carregamento — destaque para o Faturamento */}
       <div
         className={cn(
-          "mx-4 mt-1 mb-2 rounded-md border px-3 py-2 flex flex-wrap items-center gap-3",
+          "mx-3 sm:mx-4 mt-1 mb-2 rounded-md border px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3",
           dataPassada ? "border-amber-500/60 bg-amber-500/5" : "border-primary/40 bg-primary/5",
         )}
       >
-        <div className="flex items-center gap-2 text-sm font-semibold">
+        <div className="flex items-center gap-2 text-sm font-semibold shrink-0">
           <CalendarDays className="h-4 w-4 text-primary" />
           Data do Carregamento
         </div>
@@ -411,12 +418,12 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
             onChange={(e) => setDataLocal(e.target.value)}
             onBlur={(e) => commitData(e.target.value)}
             disabled={atualizarData.isPending}
-            className="h-9 w-auto text-sm font-semibold"
+            className="h-10 sm:h-9 w-full sm:w-auto text-sm font-semibold"
           />
         ) : (
           <span className="text-sm font-semibold tabular-nums">{formatDataBr(dataLocal)}</span>
         )}
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-[11px] text-muted-foreground leading-snug">
           {canEditDate
             ? "Pode ser alterada pelo Faturamento (salva ao sair do campo)"
             : "Definida pelo Faturamento"}
@@ -424,12 +431,12 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
         </span>
       </div>
       {carga.destinos && (
-        <div className="px-4 py-2 border-t border-border/50 bg-muted/30 text-xs text-muted-foreground flex items-start gap-2 leading-relaxed">
+        <div className="px-3 sm:px-4 py-2 border-t border-border/50 bg-muted/30 text-xs text-muted-foreground flex items-start gap-2 leading-relaxed">
           <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <span className="flex-1 break-words">{carga.destinos}</span>
+          <span className="flex-1 min-w-0 break-words">{carga.destinos}</span>
         </div>
       )}
-      <CardContent className="p-4 pt-2">
+      <CardContent className="p-3 sm:p-4 pt-2">
         <Accordion type="single" collapsible>
           <AccordionItem value="itens" className="border-b-0">
             <AccordionTrigger className="py-2 text-xs uppercase tracking-wide text-muted-foreground hover:no-underline">
