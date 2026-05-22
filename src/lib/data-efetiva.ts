@@ -41,7 +41,10 @@ export function computeDataEfetivaTerceirizada(
     return toLocalDate(saidaPortariaIso);
   }
 
-  // Sem saída registrada → carga está "viva" hoje. Mantém visível no
-  // Consolidado do dia atual até a portaria registrar a saída.
-  return today ?? new Date().toISOString().slice(0, 10);
+  // Sem saída registrada → carga está "viva". Usa max(dataOriginal, hoje):
+  //  - Atrasadas (data < hoje) → puxam para hoje, continuam visíveis.
+  //  - Futuras (data > hoje, ex.: fechada para amanhã) → mantêm a data
+  //    original, aparecendo no dia planejado e não em hoje.
+  const todayStr = today ?? new Date().toISOString().slice(0, 10);
+  return dataOriginal > todayStr ? dataOriginal : todayStr;
 }
