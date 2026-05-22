@@ -268,7 +268,7 @@ export default function Expedicao() {
       <main className="space-y-4 p-4 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
               <Monitor className="h-6 w-6 md:h-7 md:w-7 text-primary shrink-0" />
               <span className="truncate">Expedição — Distribuidores</span>
             </h1>
