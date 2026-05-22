@@ -551,6 +551,20 @@ export function useCargasFechadasAguardando() {
         const t = new Date(ts).getTime();
         return Number.isFinite(t) && t >= ini && t <= fim;
       };
+      // Guarda anti-ciclo-antigo: um movimento NUNCA pode finalizar/ocultar uma
+      // carga se ele aconteceu muito antes da data planejada da carga. Sem isso,
+      // quando o mesmo `carga_id` + placa é reaproveitado em ciclos diferentes
+      // (ex.: rota recorrente "CARLOS MARABA" / placa TWD5I87), os movimentos
+      // de saída/finalização do ciclo passado escondem silenciosamente a carga
+      // nova do painel azul.
+      const doCicloAtual = (cargaData: string | undefined, ts: string | null) => {
+        if (!cargaData || !ts) return true; // sem dados, não bloqueia (comportamento antigo)
+        const base = new Date(`${cargaData}T00:00:00Z`).getTime();
+        const limiteInferior = base - 2 * 86400_000; // 2 dias antes do planejado
+        const t = new Date(ts).getTime();
+        if (!Number.isFinite(t)) return true;
+        return t >= limiteInferior;
+      };
       // Chave composta: carga_id pode ser reusado por viagens diferentes
       // (ex.: "JR" usado pelo Fagno num dia e pelo Célio em outro). Sem
       // distinguir por placa+data, os dois viravam um único item, herdando
@@ -607,6 +621,8 @@ export function useCargasFechadasAguardando() {
           for (const k of candidateKeys) {
             const placaCarga = cargaPlacaByKey.get(k);
             if (placaCarga && placaMov && placaMov !== placaCarga) continue;
+            // Ignora finalizadores de ciclos anteriores (carga_id reaproveitado).
+            if (!doCicloAtual(cargaDataByKey.get(k), m.data_hora)) continue;
             finalizadaKey.add(k);
           }
           continue;
@@ -624,6 +640,8 @@ export function useCargasFechadasAguardando() {
           for (const k of candidateKeys) {
             const placaCarga = cargaPlacaByKey.get(k);
             if (placaCarga && placaMov && placaMov !== placaCarga) continue;
+            // Entrada antiga de ciclo anterior não deve esconder carga nova.
+            if (!doCicloAtual(cargaDataByKey.get(k), m.data_hora)) continue;
             finalizadaKey.add(k);
           }
           continue;

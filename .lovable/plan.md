@@ -1,101 +1,37 @@
-Você tem razão: ainda há blocos quebrando no mobile, principalmente em Pré-cargas. Vou tratar como varredura de responsividade de verdade, não como troca pontual de classes.
+## Diagnóstico
 
-## Objetivo
-Deixar todas as telas aptas para mobile e tablet, com leitura preservada, sem cortes horizontais indevidos, sem botões esmagados, sem cards estourando e com ações usáveis em 320px, 390px, 414px, tablet e desktop.
+A carga **CARLOS MARABA** (data 23/05, placa TWD5I87, transportadora Fob) está no banco, em `etapa=logistica` e `status=Pronto para carregar` — ou seja, foi fechada corretamente. Ela **deveria** aparecer no painel azul "Cargas fechadas aguardando veículo" em `/portaria/terceirizado`, mas sumiu.
 
-## Fase 1 — Correção imediata da tela atual: Pré-cargas
+**Causa:** o `carga_id` "CARLOS MARABA" foi reutilizado. Existem movimentações antigas dessa mesma chave (com a mesma placa TWD5I87) de 04/05:
+- 1 `entrada` com `etapa_terceirizado=finalizado` + `horario_saida_final` preenchido
+- 1 `saida`
 
-### Etapa 1 — Header, busca e ações
-- Transformar o topo de Pré-cargas em layout mobile-first.
-- Em mobile: título, descrição, busca e botão “Excel resumo” empilhados corretamente.
-- Remover competição de largura entre input e botão.
-- Garantir `min-w-0`, truncamento controlado e altura mínima de toque.
+No hook `useCargasFechadasAguardando` (`src/hooks/useCarregamentos.ts`), o bloco `isFinalizer` (linhas 601–613) e o bloco `jaNoPatio` (618–630) marcam a chave como finalizada **ignorando a janela de data** — isso foi feito de propósito para cargas planejadas com data antiga e expedidas dias depois. Mas o efeito colateral é que, quando o mesmo `carga_id` + placa é reaproveitado numa nova viagem (caso de cargas/motoristas recorrentes), as movimentações da viagem anterior continuam "finalizando" a nova carga e ela desaparece do painel.
 
-### Etapa 2 — KPIs e cards de carga
-- Corrigir KPI “Em ruptura”, que hoje fica visualmente espremido.
-- Em mobile pequeno, usar cards com conteúdo fluindo em linhas seguras.
-- Evitar números longos quebrando feio ou invadindo o card.
-- Ajustar card de carga para:
-  - título longo não estourar;
-  - badge de pedidos não comprimir título;
-  - alerta de ruptura caber em linha/duas linhas;
-  - botões PDF/Excel terem largura e espaçamento consistentes;
-  - destinos longos não criarem overflow visual.
+Resultado: a carga nova de hoje (23/05) é silenciosamente escondida pelos movimentos de 19 dias atrás. Sem aparecer no painel, não há botão "Cancelar carga".
 
-### Etapa 3 — Data do carregamento e acordeões
-- Corrigir o bloco “Data do Carregamento” para ficar legível no mobile.
-- Padronizar o input de data com largura adequada e sem corte.
-- Revisar o texto auxiliar para quebrar linhas naturalmente.
-- Ajustar “Pedidos e rupturas” para abrir/fechar sem deslocamentos estranhos.
+## Plano
 
-## Fase 2 — Componentes compartilhados que afetam várias telas
+### 1. Corrigir o hook `useCargasFechadasAguardando`
+Arquivo: `src/hooks/useCarregamentos.ts` (blocos `isFinalizer` e `jaNoPatio` em ~linhas 595–630).
 
-### Etapa 4 — Componentes base
-Revisar e ajustar os componentes reutilizáveis que espalham problemas pelo sistema:
-- `CardHeader`, `CardContent` quando usados em páginas densas;
-- `DialogContent` e `SheetContent` para mobile/tablet;
-- `Tabs`, `Pagination`, `Popover`, `Select`, `Table`;
-- botões com ícone + texto;
-- inputs dentro de linhas flexíveis.
+Adicionar guarda: um movimento só finaliza/oculta a chave se sua `data_hora` for **compatível com o ciclo atual da carga** — ou seja, não pode ser de um ciclo anterior. Regra:
 
-### Etapa 5 — Regras globais de proteção contra overflow
-- Adicionar padrões seguros para:
-  - `min-w-0` em containers flex/grid;
-  - quebra de textos longos;
-  - tabelas com rolagem horizontal intencional;
-  - cards com `overflow-hidden` apenas onde não prejudica leitura;
-  - tap targets mínimos no mobile.
-- Não usar solução que esconda informação importante.
+- Se `m.data_hora` < `cargaData - 2 dias` → o movimento é de um ciclo antigo, **ignora** (não finaliza, não marca como "no pátio").
+- Mantém o comportamento atual de não exigir janela superior (carga planejada para o passado mas expedida depois continua funcionando).
 
-## Fase 3 — Telas operacionais principais
+Isso resolve exatamente o caso CARLOS MARABA (movimentos de 04/05 não podem finalizar uma carga planejada para 23/05).
 
-### Etapa 6 — Logística, Consolidado, Expedição e Rupturas
-- Revisar páginas de operação diária com foco em densidade e leitura.
-- Ajustar filtros, KPIs, tabelas, cards, menus e ações.
-- Garantir que tablet não fique com layout “meio desktop quebrado”.
+### 2. Validação
+- Recarregar `/portaria/terceirizado` — a carga CARLOS MARABA volta a aparecer no painel azul.
+- Usuário consegue clicar em "Cancelar carga" e usar o fluxo já existente (`CancelarCargaDialog`).
+- Verificar que cargas finalizadas dentro do ciclo atual continuam sumindo do painel (regressão).
 
-### Etapa 7 — Portaria e fluxos de movimentação
-- Revisar Portaria, RegistroEntrada, PortariaTerceirizado, PortariaCargaPropria e PortariaAdmin.
-- Corrigir painéis, cards de veículos, formulários, botões, histórico, fotos e diálogos.
-- Garantir uso confortável por celular na guarita.
+### Escopo
+- Apenas frontend, alteração lógica no hook.
+- Sem mudanças em DB, RLS, edge functions.
+- Sem mexer no fluxo de cancelamento (já funciona, só está inacessível hoje).
 
-## Fase 4 — Cadastros, relatórios e páginas administrativas
-
-### Etapa 8 — Cadastros e tabelas administrativas
-- Revisar Clientes, Produtos, Vendedores, Motoristas, Caminhões, Transportadoras, Usuários, Logs, Backups, Templates e Lixeira.
-- Padronizar títulos, barras de ação, filtros, tabelas e estados vazios.
-- Onde tabela for inevitável, garantir scroll horizontal claro e estável.
-
-### Etapa 9 — Relatórios, Analytics, painéis e portal
-- Revisar Relatórios, Analytics, MotoristasPainel, VendedoresPainel, PortalMotorista e Manual Técnico.
-- Corrigir gráficos, cards, rankings, listas, impressões e visualizações públicas.
-
-## Fase 5 — Validação rigorosa
-
-### Etapa 10 — Auditoria visual por breakpoints
-Validar os fluxos principais nos tamanhos:
-- 320x568;
-- 360x800;
-- 390x844;
-- 414x896;
-- 768x1024;
-- 820x1180;
-- 1024x768.
-
-Critérios de aprovação:
-- nenhum texto importante cortado;
-- nenhum botão inutilizável;
-- nenhum card invadindo outro;
-- nenhum overflow horizontal na página inteira, exceto tabelas intencionais;
-- diálogos cabem na tela e rolam corretamente;
-- menus e filtros continuam acessíveis;
-- leitura preservada em mobile e tablet.
-
-## Detalhes técnicos
-- Implementação mobile-first com Tailwind responsivo.
-- Preferir correções em componentes compartilhados quando o problema se repete.
-- Usar `min-w-0`, `break-words`, `truncate` seletivo, `grid-cols-1`, `sm:grid-cols-*`, `md:grid-cols-*`, `overflow-x-auto` apenas em tabelas reais.
-- Manter os tokens visuais existentes do projeto.
-- Não alterar regra de negócio, banco de dados ou autenticação; foco exclusivo em responsividade e usabilidade visual.
-
-Primeira entrega após aprovação: corrigir Pré-cargas completamente, porque é a tela atual onde a quebra está visível.
+### Fora de escopo
+- Bloquear reutilização de `carga_id` (mudança maior, fica para outra rodada).
+- Limpar manualmente os movimentos antigos do banco — não é necessário, a correção do filtro já basta.
