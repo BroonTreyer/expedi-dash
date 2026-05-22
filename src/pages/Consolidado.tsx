@@ -167,7 +167,9 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
       // anterior e status=Carregado somem da tela, mesmo continuando no pátio.
       // computeDataEfetivaTerceirizada já desloca a data para hoje quando
       // saida=null, então o grupo aparece naturalmente no dia atual.
-      if (isSingleDay && dateFrom === todayStr) {
+      // Carry-over de pátio aplica-se sempre que o intervalo selecionado
+      // inclui "hoje" — single-day hoje OU range que cobre hoje (ex.: 22–23).
+      if (dateFrom <= todayStr && todayStr <= dateEnd) {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const janelaEntrada = sevenDaysAgo.toISOString();
@@ -196,7 +198,7 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
               .select("*, vendedores(nome_vendedor)")
               .in("carga_id", faltantesPatio)
               .neq("etapa", "pre_carga")
-              .lt("data", dateFrom)
+              .lt("data", todayStr)
               .gte("data", limitDate)
               .order("id", { ascending: true })
               .range(from, to),
