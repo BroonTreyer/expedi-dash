@@ -117,8 +117,8 @@ export function CancelarCargaDialog({ open, onOpenChange, carga }: Props) {
         if (arr.length < 2) continue;
         // Após o UPDATE acima, todos compartilham a mesma data (hoje); ainda
         // assim mantemos o alinhamento defensivo de cliente.
-        const ref = { data: hojeStr } as { data: string };
-        const refCliente = arr.find((x) => x.cliente)?.cliente ?? ref.cliente ?? null;
+        const ref = { data: hojeStr, cliente: null as string | null };
+        const refCliente = arr.find((x) => x.cliente)?.cliente ?? ref.cliente;
         const desalinhados = arr.filter(
           (x) => x.data !== ref.data || (refCliente && x.cliente !== refCliente),
         );
