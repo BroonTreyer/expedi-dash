@@ -319,8 +319,8 @@ export default function Cadastros() {
 
         {!isBuscarMode && (
           <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <div>
+          <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0">
               <CardTitle className="text-base">Cadastro Unificado</CardTitle>
               <CardDescription>Preencha apenas as seções que deseja salvar. Os dados são gravados em tabelas separadas.</CardDescription>
             </div>
