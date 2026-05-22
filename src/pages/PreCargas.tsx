@@ -73,6 +73,8 @@ function formatDataBr(d: string) {
 
 export default function PreCargas() {
   const { data: rows = [], isLoading } = usePreCargas();
+  const { role } = useAuth();
+  const canEditDate = role === "admin" || role === "faturamento" || role === "logistica";
   const [busca, setBusca] = useState("");
   const [editGrupo, setEditGrupo] = useState<PedidoGrupo | null>(null);
   const [editCargaCtx, setEditCargaCtx] = useState<PreCargaGrupo | null>(null);
@@ -283,6 +285,7 @@ export default function PreCargas() {
               <PreCargaCard
                 key={carga.cargaId}
                 carga={carga}
+                canEditDate={canEditDate}
                 onEditPedido={(p) => { setEditGrupo(p); setEditCargaCtx(carga); }}
                 onPrint={() => setPrintCarga(carga)}
                 onExportXlsx={() => exportarPreCargaUnica(carga)}
