@@ -34,7 +34,7 @@ export function useClientes() {
 export function useCreateCliente() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: { codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; cep?: string; ativo: boolean }) => {
+    mutationFn: async (values: { codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; cep?: string; ativo: boolean; tipo?: string }) => {
       const codigo = String(values.codigo_cliente ?? "").trim();
       const nome = String(values.nome_cliente ?? "").trim();
       if (!codigo) throw new Error("Código do cliente é obrigatório");
@@ -91,7 +91,7 @@ export function useCreateCliente() {
 export function useUpdateCliente() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...values }: { id: string; codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; cep?: string; ativo: boolean }) => {
+    mutationFn: async ({ id, ...values }: { id: string; codigo_cliente: string; nome_cliente: string; cidade?: string; uf?: string; cep?: string; ativo: boolean; tipo?: string }) => {
       const { data, error } = await supabase.from("clientes").update(values).eq("id", id).select().single();
       if (error) throw error;
 
