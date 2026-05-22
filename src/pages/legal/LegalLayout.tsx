@@ -33,8 +33,8 @@ export function LegalLayout({ title, updatedAt, children }: Props) {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-10">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{title}</h1>
+      <main className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">Última atualização: {updatedAt}</p>
 
         <article className="mt-8 space-y-6 text-[0.95rem] leading-relaxed text-foreground/90 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:text-foreground [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1 [&_a]:text-primary [&_a]:underline">
