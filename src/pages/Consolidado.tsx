@@ -198,7 +198,7 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
               .select("*, vendedores(nome_vendedor)")
               .in("carga_id", faltantesPatio)
               .neq("etapa", "pre_carga")
-              .lt("data", dateFrom)
+              .lt("data", todayStr)
               .gte("data", limitDate)
               .order("id", { ascending: true })
               .range(from, to),
