@@ -326,7 +326,7 @@ function KpiTile({ label, value, sub, variant }: { label: string; value: string;
 }
 
 function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
-  const temRup = carga.pesoRuptura > 0;
+  const temRup = carga.pesoRuptura > 0 || carga.unidRuptura > 0;
   return (
     <Card className={cn(temRup && "border-destructive/30")}>
       <CardHeader className="p-4 pb-2">
@@ -339,7 +339,7 @@ function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: P
               <Badge variant="secondary" className="text-[10px]">{carga.qtdPedidos} pedidos</Badge>
               {temRup && (
                 <Badge variant="destructive" className="text-[10px] gap-1">
-                  <AlertTriangle className="h-3 w-3" /> {carga.qtdRupturas} ruptura{carga.qtdRupturas === 1 ? "" : "s"} · {formatKg(carga.pesoRuptura)} kg
+                  <AlertTriangle className="h-3 w-3" /> {carga.qtdRupturas} ruptura{carga.qtdRupturas === 1 ? "" : "s"} · {formatKg(carga.pesoRuptura)} kg{carga.unidRuptura > 0 ? ` · ${formatUnid(carga.unidRuptura)} unid` : ""}
                 </Badge>
               )}
             </CardTitle>
@@ -405,7 +405,7 @@ function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: P
 function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void }) {
   const [expand, setExpand] = useState(false);
   const temRup = pedido.qtdRupturas > 0;
-  const rupturas = temRup ? pedido.itens.filter((it) => temRuptura(it)) : [];
+  const rupturas = temRup ? pedido.itens.filter((it) => it.ruptura === true) : [];
 
   return (
     <div className={cn("rounded-md", temRup && "bg-destructive/5")}>
@@ -450,7 +450,10 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
           <span className="md:hidden text-[11px] uppercase text-muted-foreground">Ruptura</span>
           {temRup ? (
             <Badge variant="destructive" className="text-[10px] gap-1">
-              <AlertTriangle className="h-3 w-3" /> {formatKg(pedido.pesoRuptura)} kg
+              <AlertTriangle className="h-3 w-3" />
+              {pedido.pesoRuptura > 0 && <span>{formatKg(pedido.pesoRuptura)} kg</span>}
+              {pedido.pesoRuptura > 0 && pedido.unidRuptura > 0 && <span>·</span>}
+              {pedido.unidRuptura > 0 && <span>{formatUnid(pedido.unidRuptura)} unid</span>}
             </Badge>
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
@@ -476,7 +479,11 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
               <AlertTriangle className="h-3 w-3 shrink-0" />
               <span className="font-mono shrink-0">{it.codigo_produto}</span>
               <span className="truncate max-w-[220px] sm:max-w-[280px] lg:max-w-[360px]">{it.nome_produto}</span>
-              <span className="tabular-nums shrink-0">— {formatKg(pesoNaoCarregado(it))} kg</span>
+              <span className="tabular-nums shrink-0">
+                {isPorUnidade(it.nome_produto, it.codigo_produto)
+                  ? `— ${formatUnid(quantidadeNaoCarregada(it))} unid`
+                  : `— ${formatKg(pesoNaoCarregado(it))} kg`}
+              </span>
             </span>
           ))}
         </div>
