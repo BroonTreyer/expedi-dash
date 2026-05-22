@@ -495,7 +495,7 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Itens do pedido</div>
           <div className="space-y-1">
             {pedido.itens.map((it) => {
-              const rup = temRuptura(it);
+              const rup = it.ruptura === true;
               return (
                 <div
                   key={it.id}
