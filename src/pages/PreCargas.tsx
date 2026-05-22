@@ -97,6 +97,7 @@ export default function PreCargas() {
           pesoTotal: 0,
           pesoEmbarcado: 0,
           pesoRuptura: 0,
+          unidRuptura: 0,
           qtdRupturas: 0,
         };
         map.set(r.carga_id, g);
@@ -124,6 +125,7 @@ export default function PreCargas() {
           pesoTotal: 0,
           pesoEmbarcado: 0,
           pesoRuptura: 0,
+          unidRuptura: 0,
           qtdRupturas: 0,
         };
         peds.set(pedKey, p);
@@ -136,18 +138,28 @@ export default function PreCargas() {
       if (!carga) continue;
       const dest = new Set<string>();
       for (const p of peds.values()) {
-        let pTot = 0, pEmb = 0, pRup = 0, qRup = 0;
+        let pTot = 0, pEmb = 0, pRup = 0, pUnidRup = 0, qRup = 0;
         for (const it of p.itens) {
           const efet = pesoEfetivo(it);
-          const rup = pesoNaoCarregado(it);
           pEmb += efet;
-          pRup += rup;
-          pTot += efet + rup;
-          if (temRuptura(it)) qRup += 1;
+          // Peso total continua sendo o "tamanho do pedido" (embarcado + o que faltou).
+          // Para esse cálculo usamos pesoNaoCarregado (inclui parcial), pra não distorcer o peso planejado.
+          pTot += efet + pesoNaoCarregado(it);
+          // Mas o BLOCO de ruptura segue a mesma regra da tela Rupturas:
+          // só conta ruptura TOTAL (ruptura === true) e separa kg vs. unidade.
+          if (it.ruptura === true) {
+            qRup += 1;
+            if (isPorUnidade(it.nome_produto, it.codigo_produto)) {
+              pUnidRup += quantidadeNaoCarregada(it);
+            } else {
+              pRup += pesoNaoCarregado(it);
+            }
+          }
         }
         p.pesoTotal = pTot;
         p.pesoEmbarcado = pEmb;
         p.pesoRuptura = pRup;
+        p.unidRuptura = pUnidRup;
         p.qtdRupturas = qRup;
         carga.pedidos.push(p);
         if (p.cidade) dest.add(`${p.cidade}${p.uf ? "/" + p.uf : ""}`);
@@ -159,6 +171,7 @@ export default function PreCargas() {
       carga.qtdPedidos = carga.pedidos.length;
       carga.pesoEmbarcado = carga.pedidos.reduce((s, p) => s + p.pesoEmbarcado, 0);
       carga.pesoRuptura = carga.pedidos.reduce((s, p) => s + p.pesoRuptura, 0);
+      carga.unidRuptura = carga.pedidos.reduce((s, p) => s + p.unidRuptura, 0);
       carga.pesoTotal = carga.pesoEmbarcado + carga.pesoRuptura;
       carga.qtdRupturas = carga.pedidos.reduce((s, p) => s + p.qtdRupturas, 0);
       carga.destinos = Array.from(dest).join(", ");
