@@ -36,7 +36,7 @@ export default function Clientes() {
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true });
+  const [form, setForm] = useState({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true, tipo: "outros" as "distribuidor" | "varejo" | "outros" });
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -72,8 +72,8 @@ export default function Clientes() {
   const startItem = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const endItem = Math.min(page * PAGE_SIZE, filtered.length);
 
-  const openNew = () => { setEditing(null); setFormError(null); setForm({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true }); setOpen(true); };
-  const openEdit = (c: any) => { setEditing(c); setFormError(null); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, cidade: c.cidade || "", uf: c.uf || "", cep: c.cep ? maskCep(c.cep) : "", ativo: c.ativo }); setOpen(true); };
+  const openNew = () => { setEditing(null); setFormError(null); setForm({ codigo_cliente: "", nome_cliente: "", cidade: "", uf: "", cep: "", ativo: true, tipo: "outros" }); setOpen(true); };
+  const openEdit = (c: any) => { setEditing(c); setFormError(null); setForm({ codigo_cliente: c.codigo_cliente, nome_cliente: c.nome_cliente, cidade: c.cidade || "", uf: c.uf || "", cep: c.cep ? maskCep(c.cep) : "", ativo: c.ativo, tipo: (c.tipo as any) ?? "outros" }); setOpen(true); };
 
   const handleCepBlur = () => {
     const norm = normalizeCep(form.cep);
@@ -480,6 +480,19 @@ export default function Clientes() {
                 <div><Label className="text-xs">UF</Label><Input value={form.uf} onChange={(e) => setForm(f => ({ ...f, uf: e.target.value.toUpperCase() }))} maxLength={2} placeholder="Ex: SP" /></div>
               </div>
               <div><Label className="text-xs">CEP</Label><Input value={form.cep} onChange={(e) => setForm(f => ({ ...f, cep: maskCep(e.target.value) }))} onBlur={handleCepBlur} maxLength={9} placeholder="00000-000" inputMode="numeric" /></div>
+              <div>
+                <Label className="text-xs">Tipo</Label>
+                <select
+                  value={form.tipo}
+                  onChange={(e) => setForm(f => ({ ...f, tipo: e.target.value as any }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="outros">Outros</option>
+                  <option value="varejo">Varejo</option>
+                  <option value="distribuidor">Distribuidor</option>
+                </select>
+                <p className="text-[11px] text-muted-foreground mt-1">Distribuidor habilita a linha do tempo do pedido na página "Distribuidores".</p>
+              </div>
               <div className="flex items-center gap-2"><Switch checked={form.ativo} onCheckedChange={(v) => setForm(f => ({ ...f, ativo: v }))} /><Label className="text-xs">Ativo</Label></div>
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>Cancelar</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Salvando..." : editing ? "Salvar" : "Criar"}</Button></div>
             </div>
