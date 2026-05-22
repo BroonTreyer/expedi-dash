@@ -160,6 +160,53 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
         }
       }
 
+      // === Carry-over de terceirizadas paradas no pátio ===
+      // Quando estamos vendo "hoje", trazer também cargas terceirizadas que
+      // já entraram no pátio (horario_entrada NOT NULL) mas ainda não saíram
+      // (horario_saida_final NULL). Sem isso, cargas com data original
+      // anterior e status=Carregado somem da tela, mesmo continuando no pátio.
+      // computeDataEfetivaTerceirizada já desloca a data para hoje quando
+      // saida=null, então o grupo aparece naturalmente no dia atual.
+      if (isSingleDay && dateFrom === todayStr) {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const janelaEntrada = sevenDaysAgo.toISOString();
+        const { data: noPatio } = await supabase
+          .from("movimentacoes_portaria")
+          .select("carga_id")
+          .eq("categoria", "terceirizado")
+          .not("carga_id", "is", null)
+          .not("horario_entrada", "is", null)
+          .is("horario_saida_final", null)
+          .gte("horario_entrada", janelaEntrada);
+        const cargaIdsPatio = Array.from(
+          new Set(((noPatio ?? []) as { carga_id: string | null }[])
+            .map((m) => m.carga_id)
+            .filter((v): v is string => !!v))
+        );
+        const jaPresentes3 = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
+        const faltantesPatio = cargaIdsPatio.filter((cid) => !jaPresentes3.has(cid));
+        if (faltantesPatio.length > 0) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
+          const extraPatio = await fetchAllPaginated<any>((from, to) =>
+            supabase
+              .from("carregamentos_dia")
+              .select("*, vendedores(nome_vendedor)")
+              .in("carga_id", faltantesPatio)
+              .neq("etapa", "pre_carga")
+              .lt("data", dateFrom)
+              .gte("data", limitDate)
+              .order("id", { ascending: true })
+              .range(from, to),
+          );
+          if (extraPatio && extraPatio.length > 0) {
+            rows = [...rows, ...(extraPatio as Carregamento[])];
+          }
+        }
+      }
+
       return rows;
     },
     staleTime: 15_000,
