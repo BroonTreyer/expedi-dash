@@ -73,11 +73,16 @@ export function CancelarCargaDialog({ open, onOpenChange, carga }: Props) {
       // agrupamento original na tela de Vendas
       // (chave: data + codigo_cliente + numero_pedido).
       const nowIso = new Date().toISOString();
+      // Move os pedidos para a data de HOJE para que apareçam imediatamente
+      // no painel de Vendas (cujo filtro padrão é hoje). A data original da
+      // carga fica preservada no registro de Ocorrência (data_carga).
+      const hojeStr = new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD local
       const { error: e1 } = await supabase
         .from("carregamentos_dia")
         .update({
           etapa: "vendas",
           status: "Aguardando",
+          data: hojeStr,
           carga_id: null,
           nome_carga: null,
           placa: null,
@@ -110,9 +115,10 @@ export function CancelarCargaDialog({ open, onOpenChange, carga }: Props) {
       }
       for (const arr of grupos.values()) {
         if (arr.length < 2) continue;
-        // Referência: menor data do grupo + primeiro nome de cliente disponível
-        const ref = arr.reduce((acc, x) => (x.data < acc.data ? x : acc), arr[0]);
-        const refCliente = arr.find((x) => x.cliente)?.cliente ?? ref.cliente ?? null;
+        // Após o UPDATE acima, todos compartilham a mesma data (hoje); ainda
+        // assim mantemos o alinhamento defensivo de cliente.
+        const ref = { data: hojeStr, cliente: null as string | null };
+        const refCliente = arr.find((x) => x.cliente)?.cliente ?? ref.cliente;
         const desalinhados = arr.filter(
           (x) => x.data !== ref.data || (refCliente && x.cliente !== refCliente),
         );
