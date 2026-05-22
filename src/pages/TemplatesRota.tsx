@@ -30,7 +30,7 @@ export default function TemplatesRota() {
     <Layout>
       <main className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
             <Route className="h-6 w-6" /> Templates de Rota
           </h1>
           <p className="text-sm text-muted-foreground">

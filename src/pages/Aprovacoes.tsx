@@ -57,19 +57,19 @@ export default function Aprovacoes() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
               <Inbox className="h-5 w-5 text-muted-foreground" /> Aprovações
               {grupos.length > 0 && <Badge variant="secondary">{grupos.length}</Badge>}
             </h1>
             <p className="text-sm text-muted-foreground">Pedidos enviados pelos vendedores aguardando sua aprovação.</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" disabled={selectedIds.length === 0} onClick={() => setRejectOpen(true)} className="gap-1">
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" disabled={selectedIds.length === 0} onClick={() => setRejectOpen(true)} className="gap-1 flex-1 sm:flex-none h-10 sm:h-9">
               <XCircle className="h-4 w-4" /> Devolver ({selectedIds.length})
             </Button>
-            <Button disabled={selectedIds.length === 0 || aprovar.isPending} onClick={handleAprovar} className="gap-1">
+            <Button disabled={selectedIds.length === 0 || aprovar.isPending} onClick={handleAprovar} className="gap-1 flex-1 sm:flex-none h-10 sm:h-9">
               <CheckCircle2 className="h-4 w-4" /> Aprovar ({selectedIds.length})
             </Button>
           </div>

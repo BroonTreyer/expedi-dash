@@ -1162,7 +1162,7 @@ function RotasExecutadasPanel() {
     );
   }
   return (
-    <div className="rounded-lg border border-border bg-card overflow-x-auto">
+    <div className="rounded-lg border border-border bg-card overflow-x-auto scrollbar-thin touch-pan-x">
       <Table>
         <TableHeader>
           <TableRow>

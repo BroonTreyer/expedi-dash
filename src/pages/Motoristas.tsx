@@ -217,7 +217,7 @@ export default function Motoristas() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-x-auto">
+          <div className="rounded-lg border border-border bg-card overflow-x-auto scrollbar-thin touch-pan-x">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">

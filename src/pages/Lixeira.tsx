@@ -108,7 +108,7 @@ export default function Lixeira() {
     <Layout>
       <div className="p-4 md:p-6 space-y-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
             <Trash2 className="h-6 w-6" /> Lixeira
           </h1>
           <p className="text-sm text-muted-foreground">

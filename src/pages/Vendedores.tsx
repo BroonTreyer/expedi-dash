@@ -118,7 +118,7 @@ export default function Vendedores() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-x-auto">
+          <div className="rounded-lg border border-border bg-card overflow-x-auto scrollbar-thin touch-pan-x">
             <Table>
               <TableHeader><TableRow className="bg-muted/40">
                 <SortableTableHead sort={sort} sortKey="codigo_vendedor" onSort={toggleSort}>Código</SortableTableHead>

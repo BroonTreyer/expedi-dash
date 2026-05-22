@@ -79,7 +79,7 @@ export default function Logistica() {
     <Layout>
       <main className="p-4 md:p-6 space-y-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Logística</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Logística</h1>
           <p className="text-sm text-muted-foreground">Gestão de fretes, CT-es e gastos por vendedor</p>
         </div>
         <Tabs defaultValue="visao" className="space-y-4">

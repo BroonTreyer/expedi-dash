@@ -184,7 +184,7 @@ export default function Cadastros() {
     <Layout>
       <main className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{isBuscarMode ? "Buscar / Consultar" : "Cadastros"}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{isBuscarMode ? "Buscar / Consultar" : "Cadastros"}</h1>
           <p className="text-sm text-muted-foreground">
             {isBuscarMode
               ? "Verifique se um motorista, caminhão ou tipo já está cadastrado."
@@ -319,8 +319,8 @@ export default function Cadastros() {
 
         {!isBuscarMode && (
           <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <div>
+          <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0">
               <CardTitle className="text-base">Cadastro Unificado</CardTitle>
               <CardDescription>Preencha apenas as seções que deseja salvar. Os dados são gravados em tabelas separadas.</CardDescription>
             </div>
