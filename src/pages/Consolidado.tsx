@@ -881,10 +881,10 @@ export default function Consolidado() {
   return (
     <Layout>
       <div className="p-4 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs">← Painel</Button>
-            <h1 className="text-lg font-bold tracking-tight">Consolidado de Cargas</h1>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs shrink-0">← Painel</Button>
+            <h1 className="text-base sm:text-lg font-bold tracking-tight truncate">Consolidado de Cargas</h1>
           </div>
           <div>
             {groups.length > 0 && (
@@ -896,10 +896,10 @@ export default function Consolidado() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-2 [&>*]:min-w-0">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("h-9 text-xs sm:text-sm justify-start gap-2 min-w-[140px]", !dateRange.from && "text-muted-foreground")}>
+              <Button variant="outline" className={cn("h-10 sm:h-9 text-xs sm:text-sm justify-start gap-2 w-full sm:min-w-[140px] sm:w-auto col-span-2", !dateRange.from && "text-muted-foreground")}>
                 <CalendarIcon className="h-4 w-4" />
                 {dateRange.from ? (
                   dateRange.to && dateRange.from.getTime() !== dateRange.to.getTime() ? (
@@ -912,7 +912,7 @@ export default function Consolidado() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto max-w-[95vw] p-0" align="start">
               <Calendar mode="range" selected={dateRange} onSelect={(range) => { if (range) setDateRange(range); }} locale={ptBR} numberOfMonths={2} className={cn("p-3 pointer-events-auto")} />
               <div className="p-2 border-t flex justify-end gap-1">
                 <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDateRange({ from: today, to: today })}>Hoje</Button>
@@ -923,7 +923,7 @@ export default function Consolidado() {
           </Popover>
 
           <Select value={filterUf} onValueChange={setFilterUf}>
-            <SelectTrigger className="h-9 w-[100px] sm:w-[130px] text-xs sm:text-sm">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[130px] text-xs sm:text-sm">
               <SelectValue placeholder="UF" />
             </SelectTrigger>
             <SelectContent>
@@ -935,7 +935,7 @@ export default function Consolidado() {
           </Select>
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-9 w-[130px] sm:w-[180px] text-xs sm:text-sm">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[180px] text-xs sm:text-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -947,7 +947,7 @@ export default function Consolidado() {
           </Select>
 
           <Select value={filterEtapaPortaria} onValueChange={(v) => setFilterEtapaPortaria(v as typeof filterEtapaPortaria)}>
-            <SelectTrigger className="h-9 w-[150px] sm:w-[190px] text-xs sm:text-sm">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[190px] text-xs sm:text-sm col-span-2 sm:col-auto">
               <SelectValue placeholder="Etapa Portaria" />
             </SelectTrigger>
             <SelectContent>
