@@ -1,37 +1,33 @@
-## Plano: corrigir ordem da roteirização até o romaneio
+# Alinhar contagem de ruptura em Pré-cargas com a tela Rupturas
 
-Pelas imagens, a ordem que aparece no fechamento está diferente da ordem impressa no romaneio. O fluxo precisa manter a mesma sequência em todos os pontos:
+A divergência (286.100 kg + 2.301 unid vs. 287.535 kg) acontece porque a Pré-cargas: (a) soma ruptura parcial junto da total, (b) joga o peso teórico do Pão de Alho dentro do kg em vez de contar como unidade. Vou alinhar **tudo da Pré-cargas** com a regra que a Rupturas já usa.
 
-```text
-Roteirização / Fechar carga → grava ordem_entrega → Consolidado → Romaneio
-```
+## Mudanças (apenas em `src/pages/PreCargas.tsx`)
 
-### O que vou ajustar
+1. **Trocar regra de ruptura por item**
+   - Só conta ruptura quando `ruptura === true` (ruptura **total**). Parcial e `ruptura_sinalizada` deixam de entrar no KPI/badge de ruptura.
+   - Produtos por unidade (Pão de Alho via `isPorUnidade`) vão para um novo acumulador `unidRuptura` (em UNID), **não somam no kg**.
+   - Produtos por kg continuam alimentando `pesoRuptura` usando `pesoNaoCarregado`.
 
-1. **Garantir ordem estável ao fechar/salvar pré-carga**
-   - No fechamento da carga, antes de montar os updates, vou recalcular a sequência final com base na posição visual atual da lista.
-   - Cada parada receberá `ordem_entrega` sequencial (`1, 2, 3...`) exatamente na ordem mostrada na tela.
-   - Todos os itens do mesmo cliente/parada continuarão recebendo a mesma ordem.
+2. **Atualizar agregações**
+   - `PedidoGrupo` e `PreCargaGrupo` ganham campo `unidRuptura`.
+   - O loop que monta cada pedido/carga divide o item entre kg/unid antes de somar.
+   - `qtdRupturas` passa a contar só itens com `ruptura === true`.
 
-2. **Evitar reset indevido da lista no diálogo de fechamento**
-   - Vou proteger o estado local de `groups` para não ser sobrescrito por recomputações do `initialGroups` enquanto o usuário está reordenando.
-   - Isso evita o caso em que o usuário arrasta os pedidos, mas uma renderização posterior volta a ordem anterior antes de salvar.
+3. **Atualizar exibição**
+   - KPI "Em ruptura": mostra `"X kg"` no valor principal e sub-linha `"Y unid"` quando houver Pão de Alho em ruptura. Sem ruptura → `—`.
+   - Badge da carga (`PreCargaCard`): em vez de `"N rupturas · X kg"` passa a `"N rupturas · X kg · Y unid"` (a parte de unid só aparece quando >0).
+   - Linha do pedido (`PedidoRow`): badge mostra kg e/ou unid conforme tiver.
+   - Chips dos itens em ruptura: para Pão de Alho mostra `"— N unid"` em vez de `"— N kg"`.
 
-3. **Ordenar o Consolidado e o Romaneio pela ordem gravada**
-   - Ao montar o romaneio, os grupos serão ordenados por `ordem_entrega` gravada no banco.
-   - Também vou manter a renumeração visual `E:1, E:2...` apenas para exibição, sem inverter ou embaralhar a sequência salva.
+4. **Não mexer em `pesoEmbarcado` / `pesoTotal`**
+   - Continuam usando `pesoEfetivo` (peso físico real), porque servem para roteirização/limite de caminhão. Só o bloco de "ruptura" muda.
 
-4. **Melhorar consistência da busca no Consolidado**
-   - Ajustar a consulta/agrupamento para usar `ordem_entrega` como critério determinístico dentro da carga, evitando que a ordem por `id` influencie o resultado quando há múltiplos pedidos.
+## Resultado esperado
 
-### Resultado esperado
+Tela Pré-cargas passa a mostrar exatamente os mesmos números da tela Rupturas: 286.100 kg + 2.301 unid (no exemplo do print), eliminando os ~1.435 kg fantasmas.
 
-- A ordem que você organiza na roteirização/fechamento será a mesma salva no banco.
-- O Consolidado e o romaneio de entrega vão abrir nessa mesma sequência.
-- O romaneio de carregamento continua sendo o inverso da entrega, como já está descrito na legenda.
+## Fora de escopo
 
-### Arquivos envolvidos
-
-- `src/components/dashboard/FechamentoLoteDialog.tsx`
-- `src/pages/Consolidado.tsx`
-- Se necessário, ajuste pontual em `src/components/dashboard/CargaPrintDialog.tsx` apenas para garantir a ordenação visual.
+- Não muda regra de visibilidade (Pré-cargas continua mostrando cargas em etapa "logistica" — isso é proposital, já que o objetivo da página é justamente listar as pré-cargas, mesmo já avançadas).
+- Não mexe em `Rupturas.tsx`, exports, impressão, nem em backend.

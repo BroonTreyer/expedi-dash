@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, FileDown, FileSpreadsheet, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
-import { temRuptura } from "@/lib/ruptura-utils";
-import { pesoEfetivo, pesoNaoCarregado } from "@/lib/peso-utils";
+import { pesoEfetivo, pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
+import { isPorUnidade } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { EditarPedidoAprovacaoDialog } from "@/components/aprovacoes/EditarPedidoAprovacaoDialog";
 import { PreCargaPrintDialog } from "@/components/precargas/PreCargaPrintDialog";
@@ -29,6 +29,7 @@ interface PedidoGrupo {
   pesoTotal: number;
   pesoEmbarcado: number;
   pesoRuptura: number;
+  unidRuptura: number;
   qtdRupturas: number;
 }
 
@@ -47,11 +48,16 @@ interface PreCargaGrupo {
   pesoTotal: number;
   pesoEmbarcado: number;
   pesoRuptura: number;
+  unidRuptura: number;
   qtdRupturas: number;
 }
 
 function formatKg(v: number) {
   return v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
+function formatUnid(v: number) {
+  return v.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
 }
 
 function formatDataBr(d: string) {
@@ -91,6 +97,7 @@ export default function PreCargas() {
           pesoTotal: 0,
           pesoEmbarcado: 0,
           pesoRuptura: 0,
+          unidRuptura: 0,
           qtdRupturas: 0,
         };
         map.set(r.carga_id, g);
@@ -118,6 +125,7 @@ export default function PreCargas() {
           pesoTotal: 0,
           pesoEmbarcado: 0,
           pesoRuptura: 0,
+          unidRuptura: 0,
           qtdRupturas: 0,
         };
         peds.set(pedKey, p);
@@ -130,18 +138,28 @@ export default function PreCargas() {
       if (!carga) continue;
       const dest = new Set<string>();
       for (const p of peds.values()) {
-        let pTot = 0, pEmb = 0, pRup = 0, qRup = 0;
+        let pTot = 0, pEmb = 0, pRup = 0, pUnidRup = 0, qRup = 0;
         for (const it of p.itens) {
           const efet = pesoEfetivo(it);
-          const rup = pesoNaoCarregado(it);
           pEmb += efet;
-          pRup += rup;
-          pTot += efet + rup;
-          if (temRuptura(it)) qRup += 1;
+          // Peso total continua sendo o "tamanho do pedido" (embarcado + o que faltou).
+          // Para esse cálculo usamos pesoNaoCarregado (inclui parcial), pra não distorcer o peso planejado.
+          pTot += efet + pesoNaoCarregado(it);
+          // Mas o BLOCO de ruptura segue a mesma regra da tela Rupturas:
+          // só conta ruptura TOTAL (ruptura === true) e separa kg vs. unidade.
+          if (it.ruptura === true) {
+            qRup += 1;
+            if (isPorUnidade(it.nome_produto, it.codigo_produto)) {
+              pUnidRup += quantidadeNaoCarregada(it);
+            } else {
+              pRup += pesoNaoCarregado(it);
+            }
+          }
         }
         p.pesoTotal = pTot;
         p.pesoEmbarcado = pEmb;
         p.pesoRuptura = pRup;
+        p.unidRuptura = pUnidRup;
         p.qtdRupturas = qRup;
         carga.pedidos.push(p);
         if (p.cidade) dest.add(`${p.cidade}${p.uf ? "/" + p.uf : ""}`);
@@ -153,6 +171,7 @@ export default function PreCargas() {
       carga.qtdPedidos = carga.pedidos.length;
       carga.pesoEmbarcado = carga.pedidos.reduce((s, p) => s + p.pesoEmbarcado, 0);
       carga.pesoRuptura = carga.pedidos.reduce((s, p) => s + p.pesoRuptura, 0);
+      carga.unidRuptura = carga.pedidos.reduce((s, p) => s + p.unidRuptura, 0);
       carga.pesoTotal = carga.pesoEmbarcado + carga.pesoRuptura;
       carga.qtdRupturas = carga.pedidos.reduce((s, p) => s + p.qtdRupturas, 0);
       carga.destinos = Array.from(dest).join(", ");
@@ -187,6 +206,7 @@ export default function PreCargas() {
       qtdPedidos: filtradas.reduce((s, c) => s + c.qtdPedidos, 0),
       pesoTotal: filtradas.reduce((s, c) => s + c.pesoTotal, 0),
       pesoRuptura: filtradas.reduce((s, c) => s + c.pesoRuptura, 0),
+      unidRuptura: filtradas.reduce((s, c) => s + c.unidRuptura, 0),
       qtdRupturas: filtradas.reduce((s, c) => s + c.qtdRupturas, 0),
     };
   }, [filtradas]);
@@ -233,9 +253,13 @@ export default function PreCargas() {
           <KpiTile label="Peso total" value={`${formatKg(kpis.pesoTotal)} kg`} />
           <KpiTile
             label="Em ruptura"
-            value={`${formatKg(kpis.pesoRuptura)} kg`}
+            value={
+              kpis.pesoRuptura > 0 || kpis.unidRuptura > 0
+                ? `${formatKg(kpis.pesoRuptura)} kg${kpis.unidRuptura > 0 ? ` · ${formatUnid(kpis.unidRuptura)} unid` : ""}`
+                : "—"
+            }
             sub={kpis.qtdRupturas > 0 ? `${kpis.qtdRupturas} item(ns)` : "—"}
-            variant={kpis.pesoRuptura > 0 ? "destructive" : "default"}
+            variant={kpis.pesoRuptura > 0 || kpis.unidRuptura > 0 ? "destructive" : "default"}
           />
         </div>
 
@@ -302,7 +326,7 @@ function KpiTile({ label, value, sub, variant }: { label: string; value: string;
 }
 
 function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
-  const temRup = carga.pesoRuptura > 0;
+  const temRup = carga.pesoRuptura > 0 || carga.unidRuptura > 0;
   return (
     <Card className={cn(temRup && "border-destructive/30")}>
       <CardHeader className="p-4 pb-2">
@@ -315,7 +339,7 @@ function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: P
               <Badge variant="secondary" className="text-[10px]">{carga.qtdPedidos} pedidos</Badge>
               {temRup && (
                 <Badge variant="destructive" className="text-[10px] gap-1">
-                  <AlertTriangle className="h-3 w-3" /> {carga.qtdRupturas} ruptura{carga.qtdRupturas === 1 ? "" : "s"} · {formatKg(carga.pesoRuptura)} kg
+                  <AlertTriangle className="h-3 w-3" /> {carga.qtdRupturas} ruptura{carga.qtdRupturas === 1 ? "" : "s"} · {formatKg(carga.pesoRuptura)} kg{carga.unidRuptura > 0 ? ` · ${formatUnid(carga.unidRuptura)} unid` : ""}
                 </Badge>
               )}
             </CardTitle>
@@ -381,7 +405,7 @@ function PreCargaCard({ carga, onEditPedido, onPrint, onExportXlsx }: { carga: P
 function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void }) {
   const [expand, setExpand] = useState(false);
   const temRup = pedido.qtdRupturas > 0;
-  const rupturas = temRup ? pedido.itens.filter((it) => temRuptura(it)) : [];
+  const rupturas = temRup ? pedido.itens.filter((it) => it.ruptura === true) : [];
 
   return (
     <div className={cn("rounded-md", temRup && "bg-destructive/5")}>
@@ -426,7 +450,10 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
           <span className="md:hidden text-[11px] uppercase text-muted-foreground">Ruptura</span>
           {temRup ? (
             <Badge variant="destructive" className="text-[10px] gap-1">
-              <AlertTriangle className="h-3 w-3" /> {formatKg(pedido.pesoRuptura)} kg
+              <AlertTriangle className="h-3 w-3" />
+              {pedido.pesoRuptura > 0 && <span>{formatKg(pedido.pesoRuptura)} kg</span>}
+              {pedido.pesoRuptura > 0 && pedido.unidRuptura > 0 && <span>·</span>}
+              {pedido.unidRuptura > 0 && <span>{formatUnid(pedido.unidRuptura)} unid</span>}
             </Badge>
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
@@ -452,7 +479,11 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
               <AlertTriangle className="h-3 w-3 shrink-0" />
               <span className="font-mono shrink-0">{it.codigo_produto}</span>
               <span className="truncate max-w-[220px] sm:max-w-[280px] lg:max-w-[360px]">{it.nome_produto}</span>
-              <span className="tabular-nums shrink-0">— {formatKg(pesoNaoCarregado(it))} kg</span>
+              <span className="tabular-nums shrink-0">
+                {isPorUnidade(it.nome_produto, it.codigo_produto)
+                  ? `— ${formatUnid(quantidadeNaoCarregada(it))} unid`
+                  : `— ${formatKg(pesoNaoCarregado(it))} kg`}
+              </span>
             </span>
           ))}
         </div>
@@ -464,7 +495,7 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Itens do pedido</div>
           <div className="space-y-1">
             {pedido.itens.map((it) => {
-              const rup = temRuptura(it);
+              const rup = it.ruptura === true;
               return (
                 <div
                   key={it.id}
