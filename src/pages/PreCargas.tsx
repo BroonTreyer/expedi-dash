@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, FileDown, FileSpreadsheet, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
-import { temRuptura } from "@/lib/ruptura-utils";
-import { pesoEfetivo, pesoNaoCarregado } from "@/lib/peso-utils";
+import { pesoEfetivo, pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
+import { isPorUnidade } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { EditarPedidoAprovacaoDialog } from "@/components/aprovacoes/EditarPedidoAprovacaoDialog";
 import { PreCargaPrintDialog } from "@/components/precargas/PreCargaPrintDialog";
@@ -29,6 +29,7 @@ interface PedidoGrupo {
   pesoTotal: number;
   pesoEmbarcado: number;
   pesoRuptura: number;
+  unidRuptura: number;
   qtdRupturas: number;
 }
 
@@ -47,11 +48,16 @@ interface PreCargaGrupo {
   pesoTotal: number;
   pesoEmbarcado: number;
   pesoRuptura: number;
+  unidRuptura: number;
   qtdRupturas: number;
 }
 
 function formatKg(v: number) {
   return v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
+function formatUnid(v: number) {
+  return v.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
 }
 
 function formatDataBr(d: string) {
