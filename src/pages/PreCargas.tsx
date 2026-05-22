@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { usePreCargas } from "@/hooks/usePreCargas";
+import { usePreCargas, useAtualizarDataCarga } from "@/hooks/usePreCargas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, FileDown, FileSpreadsheet, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
+import { AlertTriangle, CalendarDays, FileDown, FileSpreadsheet, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import { pesoEfetivo, pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
 import { isPorUnidade } from "@/lib/constants";
 import { cn } from "@/lib/utils";
