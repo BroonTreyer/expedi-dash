@@ -258,7 +258,7 @@ export function AppSidebar({ collapsed, onNavigate }: Props) {
   return (
     <TooltipProvider delayDuration={0}>
       <aside className={cn(
-        "h-screen bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border transition-all duration-200 overflow-y-auto",
+        "h-dvh bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border transition-all duration-200 overflow-y-auto pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
         collapsed ? "w-14" : "w-60"
       )}>
         <div className={cn("border-b border-sidebar-border transition-all duration-200", collapsed ? "p-2" : "p-5")}>
