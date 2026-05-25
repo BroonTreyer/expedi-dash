@@ -500,27 +500,11 @@ export default function Index() {
       // dialog (mantendo os dados) para o usuário tentar de novo.
       await batchUpdateMut.mutateAsync(updates);
 
-      // Só agora cria a previsão de terceirizado — evita registro órfão
-      // se o batch update falhar.
-      if (meta?.transportadora) {
-        try {
-          await supabase
-            .from("veiculos_esperados")
-            .insert({
-              data_referencia: meta.dataCarregamento,
-              grupo: "TERCEIRIZADO",
-              placa: meta.placa,
-              motorista: meta.motorista || null,
-              transportadora: meta.transportadora,
-              carga_id: meta.cargaId,
-              destino: meta.destinos || null,
-              peso: meta.totalPeso || null,
-              qtd_entregas: meta.totalPedidos || null,
-            });
-        } catch (e) {
-          console.error("Falha ao criar previsão de terceirizado:", e);
-        }
-      }
+      // A previsão em veiculos_esperados é criada automaticamente pelos
+      // gatilhos do banco (on_carga_fechada / vincular_veiculo_esperado_tardio)
+      // de forma idempotente. Inserir aqui manualmente colidia com o trigger
+      // e quebrava o lote inteiro com "duplicate key" na trava única
+      // veiculos_esperados_carga_id_unique_previsto.
 
       // Refetch agressivo para garantir que pré-carga some, carga aparece
       // na portaria e o painel de logística reflete a finalização.
