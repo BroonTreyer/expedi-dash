@@ -793,6 +793,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                             <Undo2 className="h-3 w-3" /> Enviar p/ Registro
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1 h-7 text-xs text-muted-foreground hover:text-destructive"
+                          title="Saiu sem carregar (desistiu)"
+                          onClick={() => { setDesistirMov(m); setMotivoDesistir(""); }}
+                          disabled={isSaving}
+                        >
+                          <LogOut className="h-3 w-3" /> Saiu sem carregar
+                        </Button>
                         <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                           <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
                         </Button>
