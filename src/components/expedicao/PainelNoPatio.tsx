@@ -1,8 +1,27 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ParkingCircle, AlertTriangle, Weight } from "lucide-react";
+import { ParkingCircle, AlertTriangle, Weight, LogOut } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 interface Props {
   movimentacoes: MovimentacaoPortaria[];
@@ -32,6 +51,42 @@ const fmtKg = (n: number | null | undefined) =>
   n != null ? `${Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg` : null;
 
 export function PainelNoPatio({ movimentacoes, now }: Props) {
+  const { role, user } = useAuth();
+  const qc = useQueryClient();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const canDesistir = role === "admin" || role === "logistica" || role === "portaria";
+
+  const marcarSaiuSemCarregar = async (m: MovimentacaoPortaria) => {
+    setBusyId(m.id);
+    try {
+      const stamp = format(new Date(), "dd/MM/yyyy HH:mm");
+      const quem = user?.email || "sistema";
+      const linha = `[${stamp}] Saiu sem carregar — ${quem}${motivo.trim() ? `: ${motivo.trim()}` : ""}`;
+      const novasObs = [m.observacoes?.trim(), linha].filter(Boolean).join("\n");
+      const { error } = await supabase
+        .from("movimentacoes_portaria")
+        .update({
+          etapa_terceirizado: "finalizado",
+          horario_saida_final: new Date().toISOString(),
+          observacoes: novasObs,
+        })
+        .eq("id", m.id);
+      if (error) throw error;
+      toast.success("Veículo encerrado como 'Saiu sem carregar'");
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_ativas_patio"] });
+      qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
+      setOpenId(null);
+      setMotivo("");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao encerrar veículo");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const lista = movimentacoes
     .filter(
       (m) =>
@@ -96,6 +151,63 @@ export function PainelNoPatio({ movimentacoes, now }: Props) {
                   {min >= 480 && <AlertTriangle className="h-4 w-4" />}
                   {formatTempo(min)} no pátio
                 </div>
+                {canDesistir && (
+                  <AlertDialog
+                    open={openId === m.id}
+                    onOpenChange={(o) => {
+                      if (!o) { setOpenId(null); setMotivo(""); }
+                    }}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                        title="Saiu sem carregar (desistiu)"
+                        onClick={() => setOpenId(m.id)}
+                        disabled={busyId === m.id}
+                      >
+                        <LogOut className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Saiu sem carregar?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Use quando o motorista entrou no pátio mas foi embora sem carregar.
+                          O registro será encerrado (mantido no histórico) e sairá do pátio.
+                          <br />
+                          <span className="font-medium text-foreground">
+                            Placa {m.placa || "—"} · {m.motorista || "sem motorista"} · {formatTempo(min)} no pátio
+                          </span>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="space-y-2">
+                        <Label htmlFor={`motivo-${m.id}`}>Motivo (opcional)</Label>
+                        <Textarea
+                          id={`motivo-${m.id}`}
+                          value={motivo}
+                          onChange={(e) => setMotivo(e.target.value)}
+                          placeholder="Ex.: desistiu, problema mecânico, sem carga disponível..."
+                          rows={3}
+                        />
+                      </div>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={busyId === m.id}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={busyId === m.id}
+                          onClick={(e) => {
+                            if (busyId === m.id) { e.preventDefault(); return; }
+                            marcarSaiuSemCarregar(m);
+                          }}
+                          className="bg-destructive hover:bg-destructive/90"
+                        >
+                          {busyId === m.id ? "Encerrando..." : "Confirmar saída"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             );
           })
