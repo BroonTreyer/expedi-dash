@@ -11,6 +11,8 @@ Regra (`src/lib/data-efetiva.ts` → `computeDataEfetivaTerceirizada`):
 
 Consolidado: o carry-over de terceirizadas no pátio (sem saída) roda sempre que o intervalo selecionado **inclui hoje** — não só single-day hoje. Isso evita perda de peso ao expandir o filtro para 22–23.
 
+Carry-over por `carga_id` explícito (lista vinda de `movimentacoes_portaria`) NÃO usa janela de 30 dias — busca a carga em qualquer data passada. Sem isso, cargas com `data` original >30d (ex.: terceirizada parada no pátio por semanas e que sai hoje) sumiam do Consolidado mesmo com saída registrada no intervalo. Mantém só `data < dateFrom` para evitar duplicar registros já trazidos pelo fetch principal.
+
 Aplicação:
 - **Consolidado** (`useConsolidado` + `Consolidado.tsx`): query expandida para trazer cargas com saída no intervalo (mesmo se `data` for anterior); após `groupByCarga`, sobrescreve `g.data` com a data efetiva e filtra grupos fora do `[dateFrom..dateTo]`.
 - **Expedição** (`useCargasDiaExpedicao`): query expandida para trazer cargas com saída em `dateStr`; após agregar, sobrescreve `c.data` e filtra `c.data === dateStr`.
