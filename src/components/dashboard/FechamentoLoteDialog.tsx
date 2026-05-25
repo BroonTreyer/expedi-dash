@@ -415,8 +415,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           ordem_carga: ocFinal,
         }));
       });
-      onSavePreCarga(updates, { cargaId, isExisting: !!existingPreCargaId });
-      onOpenChange(false);
+      try {
+        await Promise.resolve(
+          onSavePreCarga(updates, { cargaId, isExisting: !!existingPreCargaId }) as any,
+        );
+        onOpenChange(false);
+      } catch (e) {
+        console.error("Pré-carga rejeitada pelo caller", e);
+        // mantém o dialog aberto para o usuário reagir ao erro
+      }
     } finally {
       submitGuard.current = false;
       setSavingPre(false);
