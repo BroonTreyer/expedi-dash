@@ -1,3 +1,16 @@
+
+## Carry-over de pátio ignora viagens já encerradas
+
+O bloco "Carry-over de terceirizadas paradas no pátio" no `Consolidado.tsx`
+busca `movimentacoes_portaria` com `horario_entrada NOT NULL` e
+`horario_saida_final NULL` (janela 7 dias). Como `carga_id` pode ser
+reutilizado em viagens diferentes (placas distintas), uma entrada órfã antiga
+sem saída fazia uma carga já expedida reaparecer em "hoje".
+
+Solução: também buscar `carga_ids` com `horario_saida_final NOT NULL` na
+mesma janela e remover esses do conjunto `noPatio` antes do fetch dos itens.
+Se a carga tem QUALQUER viagem encerrada no período, o registro de pátio é
+considerado órfão e ignorado.
 ---
 name: Data efetiva terceirizadas
 description: Cargas terceirizadas em Consolidado/Expedição usam data da saída pela portaria (ou finalização "Carregado"), não a data original
