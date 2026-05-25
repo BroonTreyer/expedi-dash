@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuthState, AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Auth is kept eager since it's the landing page (LCP)
 import Auth from "./pages/Auth";
@@ -148,7 +149,7 @@ function AppRoutes() {
           <Route path="/termos-de-servico" element={<TermosServico />} />
           <Route path="/dados" element={<ExclusaoDados />} />
           <Route path="/" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Index /></ProtectedRoute>} />
-          <Route path="/produtos" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Produtos /></ProtectedRoute>} />
+          <Route path="/produtos" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><ErrorBoundary name="Produtos"><Produtos /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/vendedores" element={<ProtectedRoute allowedRoles={["admin", "logistica", "faturamento"]}><Vendedores /></ProtectedRoute>} />
           <Route path="/tipos-caminhao" element={<ProtectedRoute allowedRoles={["admin", "logistica"]}><TiposCaminhao /></ProtectedRoute>} />
           <Route path="/usuarios" element={<SuperAdminRoute><Usuarios /></SuperAdminRoute>} />
