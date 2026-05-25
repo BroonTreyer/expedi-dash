@@ -15,11 +15,12 @@ import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Plus, Edit, Trash2, Search, Package } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AlertTriangle } from "lucide-react";
 
 const PAGE_SIZE = 50;
 
 export default function Produtos() {
-  const { data: produtos = [], isLoading } = useProdutos();
+  const { data: produtos = [], isLoading, error, refetch } = useProdutos();
   const createMut = useCreateProduto();
   const updateMut = useUpdateProduto();
   const deleteMut = useDeleteProduto();
@@ -89,6 +90,17 @@ export default function Produtos() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
         </div>
+
+        {error && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-2">
+              <p className="text-sm font-semibold">Erro ao carregar produtos</p>
+              <p className="text-xs text-muted-foreground break-words">{(error as any)?.message ?? String(error)}</p>
+              <Button size="sm" variant="outline" onClick={() => refetch()}>Tentar novamente</Button>
+            </div>
+          </div>
+        )}
 
         {isMobile ? (
           <div className="space-y-3">
