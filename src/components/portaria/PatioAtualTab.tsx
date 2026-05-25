@@ -105,6 +105,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [savingId, setSavingId] = useState<string | null>(null);
   const [vincularMov, setVincularMov] = useState<MovimentacaoPortaria | null>(null);
   const [editKmMov, setEditKmMov] = useState<MovimentacaoPortaria | null>(null);
+  const [desistirMov, setDesistirMov] = useState<MovimentacaoPortaria | null>(null);
+  const [motivoDesistir, setMotivoDesistir] = useState("");
+  const [desistindo, setDesistindo] = useState(false);
   const qc = useQueryClient();
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
