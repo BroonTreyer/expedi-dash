@@ -495,9 +495,13 @@ export default function Index() {
 
   const handleLoteSubmit = useCallback(async (updates: { id: string; tipo_caminhao: string; placa: string; motorista: string; transportadora: string; ordem_entrega: number; etapa: string; data: string; horario_previsto?: string; nome_carga?: string; ordem_carga?: string }[], meta?: { cargaId: string; transportadora: string; placa: string; motorista: string; dataCarregamento: string; totalPeso: number; totalPedidos: number; destinos: string; ordemCarga?: string }) => {
     try {
-      batchUpdateMut.mutate(updates);
+      // Aguarda o banco confirmar antes de qualquer side-effect ou toast.
+      // O hook joga toast vermelho em caso de erro — aqui só reabrimos o
+      // dialog (mantendo os dados) para o usuário tentar de novo.
+      await batchUpdateMut.mutateAsync(updates);
 
-      // Se tem transportadora, criar previsão de terceirizado na portaria
+      // Só agora cria a previsão de terceirizado — evita registro órfão
+      // se o batch update falhar.
       if (meta?.transportadora) {
         try {
           await supabase
@@ -513,15 +517,31 @@ export default function Index() {
               peso: meta.totalPeso || null,
               qtd_entregas: meta.totalPedidos || null,
             });
-          queryClient.invalidateQueries({ queryKey: ["veiculos_esperados"] });
-        } catch {
-          // Non-critical: don't block the main flow
+        } catch (e) {
+          console.error("Falha ao criar previsão de terceirizado:", e);
         }
       }
-    } catch {
-      // errors handled by mutation's onError
+
+      // Refetch agressivo para garantir que pré-carga some, carga aparece
+      // na portaria e o painel de logística reflete a finalização.
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["pre-cargas"] });
+      queryClient.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+
+      const nomeExibicao = meta?.cargaId ?? "Carga";
+      toast.success(
+        `${nomeExibicao} finalizada — ${meta?.totalPedidos ?? updates.length} pedido(s) em logística`,
+      );
+      setSelectedIds([]);
+      setPreCargaItems(null);
+      return;
+    } catch (e: any) {
+      // Hook já mostrou toast.error com a mensagem específica.
+      // Propaga para o dialog manter-se aberto sem perder os dados.
+      console.error("Falha ao finalizar carga", { updates, meta, error: e });
+      throw e;
     }
-    setSelectedIds([]);
   }, [batchUpdateMut, queryClient]);
 
   // When user unchecks groups inside FechamentoLoteDialog and closes it, remove those IDs from selection

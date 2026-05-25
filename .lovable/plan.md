@@ -1,47 +1,42 @@
+
 ## Problema
 
-No diálogo de **Comprovante de Adiantamento** (`ComprovanteAdiantamentoDialog.tsx`), todos os CT-es da transportadora são colapsados em **uma única linha**, mostrando o peso e valor total somados. O usuário precisa que cada **carga** apareça **separadamente** (nome da carga, peso, CT-es e valor), igual ao formato manual do WhatsApp.
+Ao clicar **Finalizar Carga** no painel "Pré-cargas" do Dashboard:
+- nenhum toast aparece (nem verde, nem vermelho),
+- a pré-carga continua no painel laranja,
+- o caminhão não aparece na Portaria.
 
-### Hoje (errado)
-```
-1.MOREIRA TRANSPORTES E LOG LTDA (89.692,76 Kg) CTE
-666/667/...682
-*VLR R$ 109.287,13*
-```
+O banco confirma que **a atualização não chegou** — só restou um carga_id colidindo com uma carga antiga homônima ("SEIKOMAR" de 11/05).
 
-### Desejado
-```
-1. Especial Mateus carro 4 (30.040,00 KG)  CTE 667/668/669-686    VLR R$ 35.146,80
-2. Especial Agile (28.000,00 KG)  CTE 670/671                     VLR R$ 31.230,00
-3. Especial Edivar Rota (36.731,30 KG)  CTE 672/673/.../682       VLR R$ 42.910,33
-```
+## O que vai ser corrigido
 
-## Solução
+### 1. `src/pages/Index.tsx` — `handleLoteSubmit`
+- Converter `batchUpdateMut.mutate(...)` em `await batchUpdateMut.mutateAsync(...)`.
+- Envelopar em try/catch real:
+  - **Sucesso** → `toast.success("Carga {nome} finalizada — {N} pedidos em logística")` e refetch obrigatório de `["carregamentos"]`, `["pre-cargas"]`, `["veiculos_esperados"]`, `["movimentacoes_portaria"]`.
+  - **Erro** → o próprio hook já mostra toast vermelho; aqui apenas re-abrir o dialog (manter dados preenchidos) chamando de volta `setLoteDialogOpen(true)` para o usuário poder corrigir/repetir, e logar no console com contexto do payload.
+- Só executar o INSERT de `veiculos_esperados` (terceirizado) **após** o batchUpdate ter sucesso (hoje roda em paralelo e pode criar registros órfãos).
 
-Agrupar os CT-es de cada adiantamento por **carga** (`carga_id` do CT-e) e renderizar uma linha por carga, usando o `nome_carga` vindo de `carregamentos_dia`.
+### 2. `src/components/dashboard/FechamentoLoteDialog.tsx` — `handleSubmit`
+- Gerar `cargaId` sempre **único** quando finalizando a partir de uma pré-carga:
+  - Se `existingPreCargaId` (começa com `PRE-`), produzir `cargaId = CG-YYYYMMDD-HHMMSS-XXX` (ignorar `nomeCarga` como id).
+  - Manter `nomeCarga` apenas como rótulo amigável em `nome_carga`.
+  - Para carga normal (sem pre): manter o comportamento atual mas adicionar **verificação anti-colisão**: se já existir `carga_id` igual no banco com `etapa = logistica`/`finalizado`, sufixar `-2`, `-3`, etc.
+- Trocar `submitting` para incluir `await` da promessa de `onSubmit` (passada de cima), e desabilitar botões até a confirmação real do servidor. Hoje a flag é liberada antes do servidor responder.
 
-### Passos
+### 3. `src/hooks/useCarregamentos.ts` — `useBatchUpdateCarregamento`
+- Adicionar `onSuccess` opcional via `mutateAsync` (já retorna), sem alterar comportamento dos outros callers que ainda usam `mutate`.
+- Nenhuma alteração em RLS, schema ou triggers.
 
-1. **Buscar nomes das cargas** — após carregar os CT-es, coletar os `carga_id` distintos e fazer um único `select carga_id, nome_carga from carregamentos_dia where carga_id in (...)`. Guardar num `Map<carga_id, nome_carga>`.
+### 4. Validação visual rápida
+- Depois das mudanças, a sequência esperada vira:
+  1. Usuário clica **Finalizar Carga** → botão fica "Finalizando…" desabilitado.
+  2. Server responde → toast verde **"SEIKOMAR finalizada — 7 pedidos em logística"**.
+  3. Painel laranja some, carga aparece em "A chegar" da Portaria, `veiculos_esperados` ganha 1 entrada.
+- Se algo falhar (RLS, trigger, rede), toast vermelho com a mensagem do hook e o dialog reabre com os dados preenchidos para repetir.
 
-2. **Agrupar CT-es por carga** dentro de cada adiantamento. Para CT-es sem `carga_id`, agrupar por `ordem_carga` como fallback; se nem isso existir, agrupar em "Sem carga".
+## Fora do escopo
 
-3. **Renderizar uma linha por carga** com numeração contínua entre transportadoras (1, 2, 3...):
-   - `N. {nome_carga ?? ordem_carga ?? "—"} ({peso} KG)  CTE {numeros}    VLR {valor}`
-   - `peso` = soma de `cte.peso_total` do grupo
-   - `numeros` = `numero_cte` ordenados numericamente, juntos por `/`
-   - `valor` = soma de `cte.valor_frete` do grupo (ou `adt_ctes.valor_frete` se preferir respeitar overrides — manter o atual: `cte.valor_frete`)
-
-4. **Rodapé** continua igual: Valor Total do Frete, % de adiantamento, valor adt, Código + PIX (uma vez por transportadora).
-
-5. **Modo quitação** recebe o mesmo agrupamento (linhas por carga, mantendo o resumo de adt pago e saldo no final do bloco da transportadora).
-
-### Arquivos
-
-- `src/components/logistica/ComprovanteAdiantamentoDialog.tsx` — única alteração; refatorar o `useMemo texto` para usar agrupamento por carga e adicionar um `useQuery` que busca `nome_carga` para os `carga_id` carregados.
-
-### Notas técnicas
-
-- Reaproveita as `ctesQueries` já existentes (não muda RLS nem schema).
-- A consulta de nomes usa `carregamentos_dia` (já permitida para admin/logística/faturamento).
-- Sem mudanças de banco, hooks ou outros componentes.
+- Não estamos mexendo em triggers do banco nem na lógica de Portaria; o problema é puramente o fluxo do dialog → mutation → feedback.
+- Não estamos alterando o painel `/pre-cargas` (a finalização não acontece de lá).
+- Não vamos tentar "reaproveitar" a pré-carga SEIKOMAR atual via SQL — depois do deploy você abre o dialog de novo, finaliza, e dessa vez vai funcionar.

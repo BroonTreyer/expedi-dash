@@ -432,8 +432,29 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
     const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
     const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
-    const cargaId = nomeCarga || `CG-${dateStr}-${timeStr}-${rand}`;
-    const nomeCargaFinal = nomeCarga || cargaId;
+    // ID interno sempre único (CG-...) — `nome_carga` é o rótulo amigável.
+    // Bug histórico: usar `nomeCarga` como `cargaId` colidia com cargas
+    // antigas homônimas (ex.: pré-carga "SEIKOMAR" → CG="SEIKOMAR" já
+    // existente de outro dia) e bagunçava os triggers de `veiculos_esperados`.
+    let cargaId = `CG-${dateStr}-${timeStr}-${rand}`;
+    // Defesa extra: se por algum motivo já existir um registro com esse id,
+    // sufixa -2, -3... (cobre relógios sincronizados em retries duplos).
+    try {
+      let suffix = 0;
+      // Tenta até 5 vezes (caso raríssimo)
+      while (suffix < 5) {
+        const candidato = suffix === 0 ? cargaId : `${cargaId}-${suffix + 1}`;
+        const { count } = await supabase
+          .from("carregamentos_dia")
+          .select("id", { count: "exact", head: true })
+          .eq("carga_id", candidato);
+        if ((count ?? 0) === 0) { cargaId = candidato; break; }
+        suffix += 1;
+      }
+    } catch (e) {
+      console.warn("Verificação anti-colisão de carga_id falhou — seguindo com id base", e);
+    }
+    const nomeCargaFinal = (nomeCarga && nomeCarga.trim()) || cargaId;
 
     const ocFallback = ordemCarga.trim();
     const ocPrimeiraValida =
@@ -505,8 +526,19 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       }
     }
 
-    onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos, ordemCarga: ordemCargaResumo });
-    onOpenChange(false);
+    // Aguarda o caller (page) terminar — o page é responsável por
+    // chamar mutateAsync, mostrar toast e refetch. Se ele rejeitar,
+    // mantemos o dialog aberto para o usuário tentar de novo.
+    try {
+      await Promise.resolve(
+        onSubmit(updates, { cargaId, transportadora, placa, motorista, dataCarregamento, totalPeso, totalPedidos, destinos, ordemCarga: ordemCargaResumo }) as any,
+      );
+      onOpenChange(false);
+    } catch (e) {
+      console.error("Finalização rejeitada pelo caller", e);
+      // não fecha o dialog
+      return;
+    }
 
     // Salva snapshot da rota planejada (km, custo, duração, ordem) para o histórico
     const kmFinal = distanciaTotalLocal ?? roteirizacao?.distanciaTotal;
@@ -878,7 +910,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             </Button>
           )}
           <Button onClick={handleSubmit} disabled={!canSubmit || submitting || savingPre}>
-            {submitting ? "Fechando carga..." : `${existingPreCargaId ? "Finalizar Carga" : "Fechar Carga"} (${totalPedidos} pedidos)`}
+            {submitting
+              ? (existingPreCargaId ? "Finalizando…" : "Fechando carga…")
+              : `${existingPreCargaId ? "Finalizar Carga" : "Fechar Carga"} (${totalPedidos} pedidos)`}
           </Button>
         </div>
       </DialogContent>
