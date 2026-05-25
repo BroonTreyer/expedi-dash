@@ -415,8 +415,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           ordem_carga: ocFinal,
         }));
       });
-      onSavePreCarga(updates, { cargaId, isExisting: !!existingPreCargaId });
-      onOpenChange(false);
+      try {
+        await Promise.resolve(
+          onSavePreCarga(updates, { cargaId, isExisting: !!existingPreCargaId }) as any,
+        );
+        onOpenChange(false);
+      } catch (e) {
+        console.error("Pré-carga rejeitada pelo caller", e);
+        // mantém o dialog aberto para o usuário reagir ao erro
+      }
     } finally {
       submitGuard.current = false;
       setSavingPre(false);
@@ -428,6 +435,44 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     submitGuard.current = true;
     setSubmitting(true);
     try {
+    // Guarda anti-duplicidade: se algum cliente desta seleção já está em uma
+    // pré-carga ativa (e estes itens NÃO são a própria pré-carga sendo
+    // finalizada), avisa o usuário e aborta para evitar SEIKOMAR-x2.
+    if (!existingPreCargaId) {
+      try {
+        const clientes = Array.from(
+          new Set(items.map((i) => i.codigo_cliente).filter((c): c is string => !!c)),
+        );
+        if (clientes.length > 0) {
+          const { data: conflitos } = await supabase
+            .from("carregamentos_dia")
+            .select("codigo_cliente, cliente, nome_carga, carga_id")
+            .eq("etapa", "pre_carga")
+            .in("codigo_cliente", clientes);
+          if (conflitos && conflitos.length > 0) {
+            const nomes = Array.from(
+              new Set(
+                conflitos.map((c: any) => c.nome_carga || c.carga_id).filter(Boolean),
+              ),
+            ).slice(0, 3).join(", ");
+            const cli = conflitos[0]?.cliente ?? "cliente";
+            const ok = window.confirm(
+              `Atenção: ${cli} já está em uma pré-carga ativa (${nomes}). ` +
+              `Fechar uma nova carga vai criar duplicidade no painel.\n\n` +
+              `Deseja continuar mesmo assim?`,
+            );
+            if (!ok) {
+              submitGuard.current = false;
+              setSubmitting(false);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Verificação anti-duplicidade falhou — seguindo", e);
+      }
+    }
+
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
     const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
