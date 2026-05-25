@@ -18,7 +18,10 @@ export function useProdutos() {
           .select("*")
           .order("nome_produto")
           .range(from, from + pageSize - 1);
-        if (error) throw error;
+        if (error) {
+          console.error("[useProdutos] erro ao buscar produtos:", error);
+          throw error;
+        }
         if (!data || data.length === 0) break;
         allData = allData.concat(data);
         if (data.length < pageSize) break;
@@ -27,6 +30,7 @@ export function useProdutos() {
       return allData;
     },
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 }
 
