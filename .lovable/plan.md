@@ -1,30 +1,47 @@
-## Adicionar "Saiu sem carregar" também na Portaria → Pátio Atual
+## Problema
 
-O botão já existe no painel da Expedição, mas o print do usuário é de outra tela: `PatioAtualTab.tsx` (rota `/portaria/terceirizado` → aba "Pátio Atual"), onde hoje só há "Enviar p/ Registro" e "Registrar Saída".
+No diálogo de **Comprovante de Adiantamento** (`ComprovanteAdiantamentoDialog.tsx`), todos os CT-es da transportadora são colapsados em **uma única linha**, mostrando o peso e valor total somados. O usuário precisa que cada **carga** apareça **separadamente** (nome da carga, peso, CT-es e valor), igual ao formato manual do WhatsApp.
 
-### Mudança
+### Hoje (errado)
+```
+1.MOREIRA TRANSPORTES E LOG LTDA (89.692,76 Kg) CTE
+666/667/...682
+*VLR R$ 109.287,13*
+```
 
-Em `src/components/portaria/PatioAtualTab.tsx`, no bloco `terceirizado | fornecedor` (linha ~522, quando não está em modo "reabrir"), adicionar um botão fantasma de ícone `LogOut` ao lado de "Registrar Saída":
+### Desejado
+```
+1. Especial Mateus carro 4 (30.040,00 KG)  CTE 667/668/669-686    VLR R$ 35.146,80
+2. Especial Agile (28.000,00 KG)  CTE 670/671                     VLR R$ 31.230,00
+3. Especial Edivar Rota (36.731,30 KG)  CTE 672/673/.../682       VLR R$ 42.910,33
+```
 
-- Tooltip: **"Saiu sem carregar (desistiu)"**.
-- Visível para `admin`, `logistica`, `portaria` (mesma regra dos outros botões da aba).
-- Ao clicar: abre `AlertDialog` mostrando placa / motorista / tempo no pátio + textarea opcional de motivo.
-- Confirmar → `update` em `movimentacoes_portaria`:
-  - `etapa_terceirizado = 'finalizado'`
-  - `horario_saida_final = now()`
-  - `observacoes` recebe linha extra `[dd/MM/yyyy HH:mm] Saiu sem carregar — <email>[: <motivo>]`
-- Invalida as queries `movimentacoes_portaria`, `movimentacoes_ativas_patio`, `cargas_fechadas_aguardando`, `patio_atual`.
+## Solução
 
-A linha some imediatamente do Pátio Atual e o registro fica no histórico marcado como "Saiu sem carregar".
+Agrupar os CT-es de cada adiantamento por **carga** (`carga_id` do CT-e) e renderizar uma linha por carga, usando o `nome_carga` vindo de `carregamentos_dia`.
 
-### Por que não deletar
+### Passos
 
-- Mantém histórico/auditoria (placa esteve no pátio).
-- Não quebra vínculo com `carga_id`.
-- Admin ainda pode apagar pela tela Admin da Portaria se for engano grosseiro.
+1. **Buscar nomes das cargas** — após carregar os CT-es, coletar os `carga_id` distintos e fazer um único `select carga_id, nome_carga from carregamentos_dia where carga_id in (...)`. Guardar num `Map<carga_id, nome_carga>`.
 
-### Arquivo afetado
+2. **Agrupar CT-es por carga** dentro de cada adiantamento. Para CT-es sem `carga_id`, agrupar por `ordem_carga` como fallback; se nem isso existir, agrupar em "Sem carga".
 
-- `src/components/portaria/PatioAtualTab.tsx` — adicionar imports (`LogOut`, AlertDialog, Textarea, Label), estado local (`desistirId`, `motivo`, `busy`), handler `marcarSaiuSemCarregar`, e renderizar o botão + dialog dentro do bloco `terceirizado/fornecedor`. Aplicar também na renderização mobile (linha ~741) se existir o mesmo botão lá.
+3. **Renderizar uma linha por carga** com numeração contínua entre transportadoras (1, 2, 3...):
+   - `N. {nome_carga ?? ordem_carga ?? "—"} ({peso} KG)  CTE {numeros}    VLR {valor}`
+   - `peso` = soma de `cte.peso_total` do grupo
+   - `numeros` = `numero_cte` ordenados numericamente, juntos por `/`
+   - `valor` = soma de `cte.valor_frete` do grupo (ou `adt_ctes.valor_frete` se preferir respeitar overrides — manter o atual: `cte.valor_frete`)
 
-Nenhuma alteração de schema, RLS ou outros componentes.
+4. **Rodapé** continua igual: Valor Total do Frete, % de adiantamento, valor adt, Código + PIX (uma vez por transportadora).
+
+5. **Modo quitação** recebe o mesmo agrupamento (linhas por carga, mantendo o resumo de adt pago e saldo no final do bloco da transportadora).
+
+### Arquivos
+
+- `src/components/logistica/ComprovanteAdiantamentoDialog.tsx` — única alteração; refatorar o `useMemo texto` para usar agrupamento por carga e adicionar um `useQuery` que busca `nome_carga` para os `carga_id` carregados.
+
+### Notas técnicas
+
+- Reaproveita as `ctesQueries` já existentes (não muda RLS nem schema).
+- A consulta de nomes usa `carregamentos_dia` (já permitida para admin/logística/faturamento).
+- Sem mudanças de banco, hooks ou outros componentes.
