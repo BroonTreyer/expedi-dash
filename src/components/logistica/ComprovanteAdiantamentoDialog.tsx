@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -56,6 +56,36 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     })),
   });
 
+  // Coleta carga_ids únicos para buscar nome_carga
+  const cargaIds = useMemo(() => {
+    const set = new Set<string>();
+    ctesQueries.forEach((q) => {
+      (q.data ?? []).forEach((r) => {
+        const cid = r.cte?.carga_id;
+        if (cid) set.add(cid);
+      });
+    });
+    return Array.from(set);
+  }, [ctesQueries]);
+
+  const { data: nomesCargas = {} } = useQuery({
+    queryKey: ["adt_nomes_cargas", cargaIds.sort().join(",")],
+    enabled: !!session && open && cargaIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("carregamentos_dia")
+        .select("carga_id, nome_carga")
+        .in("carga_id", cargaIds);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      for (const r of (data ?? []) as any[]) {
+        if (r.carga_id && r.nome_carga && !map[r.carga_id]) map[r.carga_id] = r.nome_carga;
+      }
+      return map;
+    },
+    staleTime: 60_000,
+  });
+
   const totalCtes = adiantamentos.reduce((s, a) => s + (a.valor_total_ctes || 0), 0);
   const totalAdt = adiantamentos.reduce((s, a) => s + (a.valor_adiantamento || 0), 0);
   const totalSaldo = adiantamentos.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
@@ -66,24 +96,52 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     adiantamentos.length > 0 &&
     adiantamentos.every((a) => a.status === "pago" || a.status === "quitado");
 
+  // Agrupa CT-es de um adiantamento por carga (carga_id → ordem_carga → "—")
+  const agruparPorCarga = (ctes: AdiantamentoCte[]) => {
+    const grupos = new Map<
+      string,
+      { label: string; peso: number; valor: number; numeros: string[] }
+    >();
+    for (const r of ctes) {
+      const cte = r.cte;
+      const cid = cte?.carga_id ?? null;
+      const oc = cte?.ordem_carga ?? null;
+      const key = cid ?? (oc ? `oc:${oc}` : "sem");
+      const label = (cid && nomesCargas[cid]) || oc || "Sem carga";
+      const g =
+        grupos.get(key) ?? { label, peso: 0, valor: 0, numeros: [] as string[] };
+      g.peso += Number(cte?.peso_total ?? 0);
+      g.valor += Number(r.valor_frete ?? cte?.valor_frete ?? 0);
+      if (cte?.numero_cte) g.numeros.push(cte.numero_cte);
+      grupos.set(key, g);
+    }
+    const ordCte = (a: string, b: string) => {
+      const na = parseInt(String(a).replace(/\D/g, ""), 10);
+      const nb = parseInt(String(b).replace(/\D/g, ""), 10);
+      if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+      return String(a).localeCompare(String(b));
+    };
+    return Array.from(grupos.values()).map((g) => ({
+      ...g,
+      numerosStr: g.numeros.sort(ordCte).join("/"),
+    }));
+  };
+
   const texto = useMemo(() => {
     if (adiantamentos.length === 0) return "";
+    let contador = 0;
     if (modoQuitacao) {
       const linhas: string[] = ["QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.", ""];
       adiantamentos.forEach((a, idx) => {
         const ctes = (ctesQueries[idx]?.data ?? []) as AdiantamentoCte[];
-        const numeros = ctes
-          .map((r) => r.cte?.numero_cte)
-          .filter(Boolean)
-          .sort((a, b) => {
-            const na = parseInt(String(a).replace(/\D/g, ""), 10);
-            const nb = parseInt(String(b).replace(/\D/g, ""), 10);
-            if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
-            return String(a).localeCompare(String(b));
-          })
-          .join("/");
-        linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE`);
-        if (numeros) linhas.push(numeros);
+        linhas.push(`${a.transportadora}`);
+        const grupos = agruparPorCarga(ctes);
+        for (const g of grupos) {
+          contador += 1;
+          linhas.push(
+            `${contador}. ${g.label} (${fmtKg(g.peso)} KG)  CTE ${g.numerosStr}    VLR ${fmtBRL(g.valor)}`,
+          );
+        }
         linhas.push(`*VLR ${fmtBRL(a.valor_total_ctes)}*`);
         linhas.push(`Adt pago: *${fmtBRL(a.valor_adiantamento)}* (${a.percentual}%)`);
         linhas.push(`Saldo: *${fmtBRL(Number(a.valor_saldo || 0))}*`);
@@ -102,19 +160,14 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     const linhas: string[] = ["ADIANTAMENTO DE FRETE CIF, FORA DO ESTADO.", ""];
     adiantamentos.forEach((a, idx) => {
       const ctes = (ctesQueries[idx]?.data ?? []) as AdiantamentoCte[];
-      const numeros = ctes
-        .map((r) => r.cte?.numero_cte)
-        .filter(Boolean)
-        .sort((a, b) => {
-          const na = parseInt(String(a).replace(/\D/g, ""), 10);
-          const nb = parseInt(String(b).replace(/\D/g, ""), 10);
-          if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
-          return String(a).localeCompare(String(b));
-        })
-        .join("/");
-      linhas.push(`${idx + 1}.${a.transportadora} (${fmtKg(a.peso_total)} Kg) CTE`);
-      if (numeros) linhas.push(numeros);
-      linhas.push(`*VLR ${fmtBRL(a.valor_total_ctes)}*`);
+      if (adiantamentos.length > 1) linhas.push(`${a.transportadora}`);
+      const grupos = agruparPorCarga(ctes);
+      for (const g of grupos) {
+        contador += 1;
+        linhas.push(
+          `${contador}. ${g.label} (${fmtKg(g.peso)} KG)  CTE ${g.numerosStr}    VLR ${fmtBRL(g.valor)}`,
+        );
+      }
       if (percUnico === null) {
         linhas.push(`${a.percentual}% Adt = *${fmtBRL(a.valor_adiantamento)}*`);
       }
@@ -132,7 +185,7 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
       if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
     });
     return linhas.join("\n");
-  }, [adiantamentos, ctesQueries, transp, totalCtes, totalAdt, totalSaldo, percUnico, modoQuitacao]);
+  }, [adiantamentos, ctesQueries, transp, totalCtes, totalAdt, totalSaldo, percUnico, modoQuitacao, nomesCargas]);
 
   const [copied, setCopied] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
