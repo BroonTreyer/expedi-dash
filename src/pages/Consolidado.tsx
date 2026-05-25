@@ -165,18 +165,36 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const janelaEntrada = sevenDaysAgo.toISOString();
-        const { data: noPatio } = await supabase
-          .from("movimentacoes_portaria")
-          .select("carga_id")
-          .eq("categoria", "terceirizado")
-          .not("carga_id", "is", null)
-          .not("horario_entrada", "is", null)
-          .is("horario_saida_final", null)
-          .gte("horario_entrada", janelaEntrada);
+        const [{ data: noPatio }, { data: jaFinalizadas }] = await Promise.all([
+          supabase
+            .from("movimentacoes_portaria")
+            .select("carga_id")
+            .eq("categoria", "terceirizado")
+            .not("carga_id", "is", null)
+            .not("horario_entrada", "is", null)
+            .is("horario_saida_final", null)
+            .gte("horario_entrada", janelaEntrada),
+          supabase
+            .from("movimentacoes_portaria")
+            .select("carga_id")
+            .eq("categoria", "terceirizado")
+            .not("carga_id", "is", null)
+            .not("horario_saida_final", "is", null)
+            .gte("horario_saida_final", janelaEntrada),
+        ]);
+        // Remove carga_ids que já tiveram uma viagem encerrada na janela —
+        // o "no pátio" sobrou de uma viagem antiga (mesmo nome de carga
+        // reutilizado em placa diferente). Sem isso, cargas já expedidas
+        // reaparecem em "hoje" via carry-over.
+        const finalizadasSet = new Set(
+          ((jaFinalizadas ?? []) as { carga_id: string | null }[])
+            .map((m) => m.carga_id)
+            .filter((v): v is string => !!v),
+        );
         const cargaIdsPatio = Array.from(
           new Set(((noPatio ?? []) as { carga_id: string | null }[])
             .map((m) => m.carga_id)
-            .filter((v): v is string => !!v))
+            .filter((v): v is string => !!v && !finalizadasSet.has(v)))
         );
         const jaPresentes3 = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
         const faltantesPatio = cargaIdsPatio.filter((cid) => !jaPresentes3.has(cid));
