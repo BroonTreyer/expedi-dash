@@ -355,6 +355,37 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     }
   };
 
+  const handleSaiuSemCarregar = async () => {
+    if (!desistirMov) return;
+    setDesistindo(true);
+    try {
+      const stamp = format(new Date(), "dd/MM/yyyy HH:mm");
+      const quem = user?.email || "sistema";
+      const motivo = motivoDesistir.trim();
+      const linha = `[${stamp}] Saiu sem carregar — ${quem}${motivo ? `: ${motivo}` : ""}`;
+      const novasObs = [desistirMov.observacoes?.trim(), linha].filter(Boolean).join("\n");
+      const { error } = await supabase
+        .from("movimentacoes_portaria")
+        .update({
+          etapa_terceirizado: "finalizado",
+          horario_saida_final: new Date().toISOString(),
+          observacoes: novasObs,
+        })
+        .eq("id", desistirMov.id);
+      if (error) throw error;
+      toast.success("Veículo encerrado como 'Saiu sem carregar'");
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_ativas_patio"] });
+      qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
+      setDesistirMov(null);
+      setMotivoDesistir("");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao encerrar veículo");
+    } finally {
+      setDesistindo(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
