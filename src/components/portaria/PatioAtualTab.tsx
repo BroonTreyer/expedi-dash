@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2, LogIn, Link2, Gauge } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, Clock, AlertTriangle, ParkingCircle, Loader2, Undo2, LogIn, Link2, Gauge, LogOut } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -18,6 +18,18 @@ import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { nextEtapa, etapaEfetiva, isFinalizada, type EtapaCargaPropria } from "@/lib/carga-propria-fsm";
 import { VincularMovimentoCargaDialog } from "./VincularMovimentoCargaDialog";
 import { EditarKmDialog } from "./EditarKmDialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -93,6 +105,9 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const [savingId, setSavingId] = useState<string | null>(null);
   const [vincularMov, setVincularMov] = useState<MovimentacaoPortaria | null>(null);
   const [editKmMov, setEditKmMov] = useState<MovimentacaoPortaria | null>(null);
+  const [desistirMov, setDesistirMov] = useState<MovimentacaoPortaria | null>(null);
+  const [motivoDesistir, setMotivoDesistir] = useState("");
+  const [desistindo, setDesistindo] = useState(false);
   const qc = useQueryClient();
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
@@ -340,6 +355,37 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
     }
   };
 
+  const handleSaiuSemCarregar = async () => {
+    if (!desistirMov) return;
+    setDesistindo(true);
+    try {
+      const stamp = format(new Date(), "dd/MM/yyyy HH:mm");
+      const quem = user?.email || "sistema";
+      const motivo = motivoDesistir.trim();
+      const linha = `[${stamp}] Saiu sem carregar — ${quem}${motivo ? `: ${motivo}` : ""}`;
+      const novasObs = [desistirMov.observacoes?.trim(), linha].filter(Boolean).join("\n");
+      const { error } = await supabase
+        .from("movimentacoes_portaria")
+        .update({
+          etapa_terceirizado: "finalizado",
+          horario_saida_final: new Date().toISOString(),
+          observacoes: novasObs,
+        })
+        .eq("id", desistirMov.id);
+      if (error) throw error;
+      toast.success("Veículo encerrado como 'Saiu sem carregar'");
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_ativas_patio"] });
+      qc.invalidateQueries({ queryKey: ["cargas_fechadas_aguardando"] });
+      setDesistirMov(null);
+      setMotivoDesistir("");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao encerrar veículo");
+    } finally {
+      setDesistindo(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
@@ -532,6 +578,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                             <Undo2 className="h-3 w-3" /> Enviar p/ Registro
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1 h-7 text-xs text-muted-foreground hover:text-destructive"
+                          title="Saiu sem carregar (desistiu)"
+                          onClick={() => { setDesistirMov(m); setMotivoDesistir(""); }}
+                          disabled={isSaving}
+                        >
+                          <LogOut className="h-3 w-3" /> Saiu sem carregar
+                        </Button>
                         <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                           <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
                         </Button>
@@ -737,6 +793,16 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                             <Undo2 className="h-3 w-3" /> Enviar p/ Registro
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1 h-7 text-xs text-muted-foreground hover:text-destructive"
+                          title="Saiu sem carregar (desistiu)"
+                          onClick={() => { setDesistirMov(m); setMotivoDesistir(""); }}
+                          disabled={isSaving}
+                        >
+                          <LogOut className="h-3 w-3" /> Saiu sem carregar
+                        </Button>
                         <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" onClick={() => onRegistrarSaida(m)}>
                           <ArrowUpFromLine className="h-3 w-3" /> Registrar Saída
                         </Button>
@@ -778,6 +844,51 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         onOpenChange={(o) => { if (!o) setEditKmMov(null); }}
         movimento={editKmMov}
       />
+      <AlertDialog
+        open={!!desistirMov}
+        onOpenChange={(o) => { if (!o) { setDesistirMov(null); setMotivoDesistir(""); } }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Saiu sem carregar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Use quando o motorista entrou no pátio mas foi embora sem carregar.
+              O registro será encerrado (mantido no histórico) e sairá do Pátio Atual.
+              {desistirMov && (
+                <>
+                  <br />
+                  <span className="font-medium text-foreground">
+                    Placa {desistirMov.placa || "—"} · {desistirMov.motorista || "sem motorista"}
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="motivo-desistir">Motivo (opcional)</Label>
+            <Textarea
+              id="motivo-desistir"
+              value={motivoDesistir}
+              onChange={(e) => setMotivoDesistir(e.target.value)}
+              placeholder="Ex.: desistiu, problema mecânico, sem carga disponível..."
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={desistindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={desistindo}
+              onClick={(e) => {
+                if (desistindo) { e.preventDefault(); return; }
+                handleSaiuSemCarregar();
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {desistindo ? "Encerrando..." : "Confirmar saída"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
