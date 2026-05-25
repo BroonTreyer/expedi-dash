@@ -910,7 +910,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             </Button>
           )}
           <Button onClick={handleSubmit} disabled={!canSubmit || submitting || savingPre}>
-            {submitting ? "Fechando carga..." : `${existingPreCargaId ? "Finalizar Carga" : "Fechar Carga"} (${totalPedidos} pedidos)`}
+            {submitting
+              ? (existingPreCargaId ? "Finalizando…" : "Fechando carga…")
+              : `${existingPreCargaId ? "Finalizar Carga" : "Fechar Carga"} (${totalPedidos} pedidos)`}
           </Button>
         </div>
       </DialogContent>
