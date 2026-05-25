@@ -538,10 +538,9 @@ export default function Index() {
       return;
     } catch (e: any) {
       // Hook já mostrou toast.error com a mensagem específica.
-      // Reabre o dialog para o usuário corrigir/repetir sem perder os dados.
+      // Propaga para o dialog manter-se aberto sem perder os dados.
       console.error("Falha ao finalizar carga", { updates, meta, error: e });
-      setLoteDialogOpen(true);
-      return;
+      throw e;
     }
   }, [batchUpdateMut, queryClient]);
 
