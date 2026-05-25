@@ -844,6 +844,51 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         onOpenChange={(o) => { if (!o) setEditKmMov(null); }}
         movimento={editKmMov}
       />
+      <AlertDialog
+        open={!!desistirMov}
+        onOpenChange={(o) => { if (!o) { setDesistirMov(null); setMotivoDesistir(""); } }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Saiu sem carregar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Use quando o motorista entrou no pátio mas foi embora sem carregar.
+              O registro será encerrado (mantido no histórico) e sairá do Pátio Atual.
+              {desistirMov && (
+                <>
+                  <br />
+                  <span className="font-medium text-foreground">
+                    Placa {desistirMov.placa || "—"} · {desistirMov.motorista || "sem motorista"}
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="motivo-desistir">Motivo (opcional)</Label>
+            <Textarea
+              id="motivo-desistir"
+              value={motivoDesistir}
+              onChange={(e) => setMotivoDesistir(e.target.value)}
+              placeholder="Ex.: desistiu, problema mecânico, sem carga disponível..."
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={desistindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={desistindo}
+              onClick={(e) => {
+                if (desistindo) { e.preventDefault(); return; }
+                handleSaiuSemCarregar();
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {desistindo ? "Encerrando..." : "Confirmar saída"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
