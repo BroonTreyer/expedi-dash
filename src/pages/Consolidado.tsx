@@ -97,9 +97,6 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
         const jaPresentes = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
         const faltantes = cargaIdsHoje.filter((cid) => !jaPresentes.has(cid));
         if (faltantes.length > 0) {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
           const extra = await fetchAllPaginated<any>((from, to) =>
             supabase
               .from("carregamentos_dia")
@@ -107,7 +104,6 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
               .in("carga_id", faltantes)
               .neq("etapa", "pre_carga")
               .lt("data", dateFrom)
-              .gte("data", limitDate)
               .order("id", { ascending: true })
               .range(from, to),
           );
@@ -140,9 +136,6 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
         const jaPresentes2 = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
         const faltantesSaida = cargaIdsSaida.filter((cid) => !jaPresentes2.has(cid));
         if (faltantesSaida.length > 0) {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
           const extraSaida = await fetchAllPaginated<any>((from, to) =>
             supabase
               .from("carregamentos_dia")
@@ -150,7 +143,6 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
               .in("carga_id", faltantesSaida)
               .neq("etapa", "pre_carga")
               .lt("data", dateFrom)
-              .gte("data", limitDate)
               .order("id", { ascending: true })
               .range(from, to),
           );
@@ -189,9 +181,6 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
         const jaPresentes3 = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
         const faltantesPatio = cargaIdsPatio.filter((cid) => !jaPresentes3.has(cid));
         if (faltantesPatio.length > 0) {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          const limitDate = thirtyDaysAgo.toISOString().split("T")[0];
           const extraPatio = await fetchAllPaginated<any>((from, to) =>
             supabase
               .from("carregamentos_dia")
@@ -199,7 +188,6 @@ function useConsolidado(dateFrom: string, dateTo?: string) {
               .in("carga_id", faltantesPatio)
               .neq("etapa", "pre_carga")
               .lt("data", todayStr)
-              .gte("data", limitDate)
               .order("id", { ascending: true })
               .range(from, to),
           );
