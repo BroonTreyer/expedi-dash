@@ -554,34 +554,38 @@ export default function Index() {
     meta: { isPreCarga: boolean; cargaLabel: string }
   ) => {
     try {
-      batchUpdateMut.mutate(updates as any);
+      await batchUpdateMut.mutateAsync(updates as any);
       toast.success(
         meta.isPreCarga
           ? `${updates.length} pedido(s) adicionado(s) à pré-carga ${meta.cargaLabel}`
           : `${updates.length} pedido(s) adicionado(s) à carga ${meta.cargaLabel}`
       );
-    } catch {
-      // errors handled by mutation's onError
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["pre-cargas"] });
+      setSelectedIds([]);
+    } catch (e) {
+      // errors handled by mutation's onError; rethrow para o dialog manter-se aberto
+      throw e;
     }
-    setSelectedIds([]);
-  }, [batchUpdateMut]);
+  }, [batchUpdateMut, queryClient]);
 
   // ── Pré-carga: salvar (cria ou atualiza) ─────────────────────────────────
-  const handleSavePreCarga = useCallback((
+  const handleSavePreCarga = useCallback(async (
     updates: { id: string; tipo_caminhao: string | null; placa: string | null; motorista: string | null; transportadora: string | null; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string | null; nome_carga?: string | null; ordem_carga?: string | null }[],
     meta: { cargaId: string; isExisting: boolean }
   ) => {
-    batchUpdateMut.mutate(updates as any, {
-      onSuccess: () => {
-        toast.success(meta.isExisting ? "Pré-carga atualizada" : `Pré-carga ${meta.cargaId} salva`);
-      },
-      onError: (e: any) => {
-        toast.error(e?.message || "Erro ao salvar pré-carga");
-      },
-    });
-    setSelectedIds([]);
-    setPreCargaItems(null);
-  }, [batchUpdateMut]);
+    try {
+      await batchUpdateMut.mutateAsync(updates as any);
+      toast.success(meta.isExisting ? "Pré-carga atualizada" : `Pré-carga ${meta.cargaId} salva`);
+      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["pre-cargas"] });
+      setSelectedIds([]);
+      setPreCargaItems(null);
+    } catch (e) {
+      // toast de erro já vem do hook; rethrow para o dialog não fechar
+      throw e;
+    }
+  }, [batchUpdateMut, queryClient]);
 
   // ── Pré-carga: finalizar (abre dialog para virar carga real)
   const handleFinalizePreCarga = useCallback((pc: PreCargaGroup) => {
