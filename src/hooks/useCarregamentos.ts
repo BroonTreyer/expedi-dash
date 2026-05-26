@@ -650,10 +650,17 @@ export function useCargasFechadasAguardando() {
         // (quando o movimento traz placa) e janela de data ao redor de cada
         // viagem candidata. Se não há placa no movimento, casa pela janela.
         let matchedKey: string | null = null;
+        // Quando o movimento já traz `carga_id` exato (match por carga_id, não
+        // por placa órfã), dispensamos o filtro de janela — o vínculo é direto
+        // e seguro. Sem isso, chegadas registradas vários dias após a data
+        // planejada da carga (operação atrasada) ficavam invisíveis aqui e o
+        // card permanecia em "Registrar chegada do veículo" mesmo após o
+        // INSERT ter sucesso.
+        const matchedByCargaId = !!m.carga_id && keysByCargaId.has(m.carga_id);
         for (const k of candidateKeys) {
           const dCarga = cargaDataByKey.get(k);
           if (!dCarga) continue;
-          if (!dentroJanela(dCarga, m.data_hora)) continue;
+          if (!matchedByCargaId && !dentroJanela(dCarga, m.data_hora)) continue;
           const placaCarga = cargaPlacaByKey.get(k);
           if (placaCarga && placaMov && placaMov !== placaCarga) continue;
           matchedKey = k;
