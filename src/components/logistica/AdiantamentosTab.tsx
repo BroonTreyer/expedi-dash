@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon } from "lucide-react";
@@ -86,6 +87,8 @@ export function AdiantamentosTab() {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
   const [adtManuais, setAdtManuais] = useState<Record<string, number>>({});
+  // Modo de geração por transportadora: 'individual' (1 ADT por CT-e) ou 'lote' (1 ADT agrupado)
+  const [modos, setModos] = useState<Record<string, "individual" | "lote">>({});
   const [observacoes, setObservacoes] = useState("");
   const [dataAdiantamento, setDataAdiantamento] = useState<Date>(new Date());
 
@@ -126,6 +129,9 @@ export function AdiantamentosTab() {
     return Number(transpInfoByName.get(nome)?.percentual_adiantamento_padrao ?? 50);
   };
   const setPerc = (nome: string, v: number) => setPercentuais((p) => ({ ...p, [nome]: v }));
+  const getModo = (nome: string): "individual" | "lote" => modos[nome] ?? "individual";
+  const setModo = (nome: string, m: "individual" | "lote") =>
+    setModos((p) => ({ ...p, [nome]: m }));
 
   // Resumo por transportadora (apenas as com seleção)
   const resumoPorTransp = useMemo(() => {
@@ -201,33 +207,71 @@ export function AdiantamentosTab() {
       return n;
     });
 
+  const totalAdtsAGerar = useMemo(
+    () =>
+      resumoPorTransp.reduce(
+        (s, r) => s + (getModo(r.nome) === "individual" ? r.ctes.length : 1),
+        0,
+      ),
+    [resumoPorTransp, modos],
+  );
+
   const handleGerar = async () => {
     if (resumoPorTransp.length === 0) return;
     const criados: Adiantamento[] = [];
     try {
       for (const r of resumoPorTransp) {
-        const ocs = new Set(r.ctes.map((c) => (c.ordem_carga ?? "").trim()).filter(Boolean));
-        const tipo: "ordem" | "lote" = ocs.size === 1 ? "ordem" : "lote";
-        const ordem = tipo === "ordem" ? [...ocs][0] : null;
         const now = new Date();
         const merged = new Date(dataAdiantamento);
         merged.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-        const novo = await criar.mutateAsync({
-          transportadora: r.nome,
-          transportadora_id: transpInfoByName.get(r.nome)?.id ?? null,
-          tipo_agrupamento: tipo,
-          ordem_carga: ordem,
-          percentual: r.percentual,
-          observacoes: observacoes.trim() || null,
-          valor_adiantamento_override: r.manual ? r.adt : null,
-          created_at: merged.toISOString(),
-          ctes: r.ctes.map((c) => ({
-            id: c.id,
-            valor_frete: Number(c.valor_frete || 0),
-            peso_total: Number(c.peso_total || 0),
-          })),
-        });
-        criados.push(novo);
+        const modo = getModo(r.nome);
+        if (modo === "individual") {
+          // 1 adiantamento por CT-e
+          for (const c of r.ctes) {
+            const valorCte = Number(c.valor_frete || 0);
+            const oc = (c.ordem_carga ?? "").trim() || null;
+            // Se houver override manual no card, rateia proporcional ao valor do CT-e
+            const override = r.manual && r.total > 0
+              ? +((valorCte / r.total) * r.adt).toFixed(2)
+              : null;
+            const novo = await criar.mutateAsync({
+              transportadora: r.nome,
+              transportadora_id: transpInfoByName.get(r.nome)?.id ?? null,
+              tipo_agrupamento: "ordem",
+              ordem_carga: oc,
+              percentual: r.percentual,
+              observacoes: observacoes.trim() || null,
+              valor_adiantamento_override: override,
+              created_at: merged.toISOString(),
+              ctes: [{
+                id: c.id,
+                valor_frete: valorCte,
+                peso_total: Number(c.peso_total || 0),
+              }],
+            });
+            criados.push(novo);
+          }
+        } else {
+          const ocs = new Set(r.ctes.map((c) => (c.ordem_carga ?? "").trim()).filter(Boolean));
+          const tipo: "ordem" | "lote" = ocs.size === 1 ? "ordem" : "lote";
+          const ordem = tipo === "ordem" ? [...ocs][0] : null;
+          const novo = await criar.mutateAsync({
+            transportadora: r.nome,
+            transportadora_id: transpInfoByName.get(r.nome)?.id ?? null,
+            tipo_agrupamento: tipo,
+            ordem_carga: ordem,
+            percentual: r.percentual,
+            observacoes: observacoes.trim() || null,
+            valor_adiantamento_override: r.manual ? r.adt : null,
+            created_at: merged.toISOString(),
+            ctes: r.ctes.map((c) => ({
+              id: c.id,
+              valor_frete: Number(c.valor_frete || 0),
+              peso_total: Number(c.peso_total || 0),
+            })),
+          });
+          criados.push(novo);
+        }
       }
       setSelecionados(new Set());
       setObservacoes("");
@@ -335,6 +379,14 @@ export function AdiantamentosTab() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 mr-2 rounded-md border px-2 py-1">
+                            <span className={`text-xs ${getModo(nome) === "individual" ? "font-semibold" : "text-muted-foreground"}`}>Individual</span>
+                            <Switch
+                              checked={getModo(nome) === "lote"}
+                              onCheckedChange={(v) => setModo(nome, v ? "lote" : "individual")}
+                            />
+                            <span className={`text-xs ${getModo(nome) === "lote" ? "font-semibold" : "text-muted-foreground"}`}>Lote</span>
+                          </div>
                           <label className="text-xs text-muted-foreground">% Adt:</label>
                           <Input
                             type="number"
@@ -571,7 +623,7 @@ export function AdiantamentosTab() {
                 </Popover>
               </div>
               <Button className="w-full" disabled={resumoPorTransp.length === 0 || criar.isPending} onClick={handleGerar}>
-                <FileText className="h-4 w-4 mr-1" /> {resumoPorTransp.length > 1 ? `Gerar ${resumoPorTransp.length} adiantamentos` : "Gerar Adiantamento"}
+                <FileText className="h-4 w-4 mr-1" /> {totalAdtsAGerar > 1 ? `Gerar ${totalAdtsAGerar} adiantamentos` : "Gerar Adiantamento"}
               </Button>
             </Card>
           </div>
