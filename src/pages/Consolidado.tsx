@@ -534,6 +534,7 @@ export default function Consolidado() {
       rupturaCount: number;
       ordem: number;
       ordemCarga: string | null;
+      numerosPedido: (string | number)[];
     }>();
     for (const item of group.items) {
       const key = item.codigo_cliente ?? `__sem__${item.cliente ?? "—"}`;
@@ -550,6 +551,7 @@ export default function Consolidado() {
           rupturaCount: 0,
           ordem: item.ordem_entrega ?? 9999,
           ordemCarga: null,
+          numerosPedido: [],
         };
         clienteMap.set(key, c);
       }
@@ -584,6 +586,24 @@ export default function Consolidado() {
         const key = g.codigoCliente ?? `__sem__${g.nomeCliente ?? "—"}`;
         const set = ocMap.get(key);
         g.ordemCarga = set && set.size > 0 ? Array.from(set).join("/") : null;
+      }
+    }
+    // Coleta números de pedido distintos por cliente
+    {
+      const npMap = new Map<string, Set<string>>();
+      for (const item of group.items) {
+        const key = item.codigo_cliente ?? `__sem__${item.cliente ?? "—"}`;
+        const np = item.numero_pedido;
+        if (np == null) continue;
+        if (!npMap.has(key)) npMap.set(key, new Set());
+        npMap.get(key)!.add(String(np));
+      }
+      for (const g of groupsArr) {
+        const key = g.codigoCliente ?? `__sem__${g.nomeCliente ?? "—"}`;
+        const set = npMap.get(key);
+        g.numerosPedido = set && set.size > 0
+          ? Array.from(set).sort((a, b) => Number(a) - Number(b))
+          : [];
       }
     }
 
