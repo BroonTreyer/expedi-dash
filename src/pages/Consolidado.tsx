@@ -725,11 +725,9 @@ export default function Consolidado() {
       const dataEfetiva = computeDataEfetivaTerceirizada(g.items, g.data, saida, todayStr);
       const isWithin = dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr;
       if (!isWithin) continue;
-      if (dataEfetiva !== g.data) {
-        out.push({ ...g, data: dataEfetiva });
-      } else {
-        out.push(g);
-      }
+      // Mantém g.data como a data salva (respeita edição manual no calendário).
+      // dataEfetiva é usada apenas para decidir se a carga cai no intervalo.
+      out.push(g);
     }
     return out;
   }, [rawGroupsBruto, statusPortariaMap, dateFromStr, dateToStr]);
