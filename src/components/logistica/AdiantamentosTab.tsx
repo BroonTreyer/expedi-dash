@@ -623,7 +623,7 @@ export function AdiantamentosTab() {
                 </Popover>
               </div>
               <Button className="w-full" disabled={resumoPorTransp.length === 0 || criar.isPending} onClick={handleGerar}>
-                <FileText className="h-4 w-4 mr-1" /> {resumoPorTransp.length > 1 ? `Gerar ${resumoPorTransp.length} adiantamentos` : "Gerar Adiantamento"}
+                <FileText className="h-4 w-4 mr-1" /> {totalAdtsAGerar > 1 ? `Gerar ${totalAdtsAGerar} adiantamentos` : "Gerar Adiantamento"}
               </Button>
             </Card>
           </div>
