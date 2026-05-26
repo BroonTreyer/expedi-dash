@@ -383,11 +383,49 @@ export default function Consolidado() {
 
   const updateDateMut = useMutation({
     mutationFn: async ({ cargaId, newDate }: { cargaId: string; newDate: string }) => {
+      // 1) Atualiza a data planejada de todos os itens da carga
       const { error } = await supabase
         .from("carregamentos_dia")
         .update({ data: newDate })
         .eq("carga_id", cargaId);
       if (error) throw error;
+
+      // 2) Desloca horario_inicio/horario_fim para a nova data, preservando hora local
+      const { data: rows, error: selErr } = await supabase
+        .from("carregamentos_dia")
+        .select("id, horario_inicio, horario_fim")
+        .eq("carga_id", cargaId);
+      if (selErr) throw selErr;
+
+      const rebase = (ts: string | null): string | null => {
+        if (!ts) return null;
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return ts;
+        // Mantém hora/min/seg locais; troca a parte de data por newDate (yyyy-MM-dd)
+        const [y, m, day] = newDate.split("-").map(Number);
+        const rebuilt = new Date(d);
+        rebuilt.setFullYear(y, m - 1, day);
+        return rebuilt.toISOString();
+      };
+
+      const updates = (rows ?? [])
+        .filter((r: any) => r.horario_inicio || r.horario_fim)
+        .map((r: any) => ({
+          id: r.id,
+          horario_inicio: rebase(r.horario_inicio),
+          horario_fim: rebase(r.horario_fim),
+        }));
+
+      if (updates.length > 0) {
+        await Promise.all(
+          updates.map((u) =>
+            supabase
+              .from("carregamentos_dia")
+              .update({ horario_inicio: u.horario_inicio, horario_fim: u.horario_fim })
+              .eq("id", u.id)
+          )
+        );
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["consolidado"] });
