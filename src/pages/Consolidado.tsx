@@ -1180,7 +1180,7 @@ export default function Consolidado() {
                             <PopoverTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 font-mono">
                                 <CalendarIcon className="h-3 w-3" />
-                                {format(new Date(g.data + "T12:00:00"), "dd/MM/yyyy")}
+                                {format(new Date((g.dataReal ?? g.data) + "T12:00:00"), "dd/MM/yyyy")}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
