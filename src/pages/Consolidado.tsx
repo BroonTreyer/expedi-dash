@@ -268,6 +268,8 @@ interface CargaGroup {
   ufs: Set<string>;
   status: string;
   data: string;
+  /** Data efetiva de carregamento — derivada do maior horario_fim entre os itens. */
+  dataReal: string | null;
   horarioPrevisto: string | null;
   items: Carregamento[];
 }
@@ -302,6 +304,7 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         ufs: new Set(),
         status: item.status,
         data: item.data,
+        dataReal: null,
         horarioPrevisto: item.horario_previsto ?? null,
         items: [],
       };
@@ -309,6 +312,12 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
       freteMap.set(groupKey, new Set());
     }
     if (!g.horarioPrevisto && item.horario_previsto) g.horarioPrevisto = item.horario_previsto;
+    if (item.horario_fim) {
+      if (!g.dataReal || item.horario_fim > g.dataReal) {
+        // armazena ISO completo aqui; convertemos para yyyy-MM-dd abaixo
+        g.dataReal = item.horario_fim as any;
+      }
+    }
     g.pesoPlanejado += item.peso ?? 0;
     g.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
     if (item.ruptura) g.rupturaCount += 1;
@@ -325,6 +334,13 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
     g.qtdPedidos = g.items.length;
     const fretes = freteMap.get(cargaId)!;
     g.tipoFrete = fretes.size > 0 ? [...fretes].sort().join(" / ") : "—";
+    if (g.dataReal) {
+      try {
+        g.dataReal = format(new Date(g.dataReal), "yyyy-MM-dd");
+      } catch {
+        g.dataReal = null;
+      }
+    }
   }
   return Array.from(map.values());
 }
