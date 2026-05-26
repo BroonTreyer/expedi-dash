@@ -151,8 +151,11 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           tipo_caminhao: tipoVeiculo,
           carga_id: cargaId,
           empresa: transportadora,
-          etapa_terceirizado: "no_patio",
-          horario_entrada: nowIso,
+          // Fluxo de 2 passos: chegada registra apenas a fila.
+          // A liberação para o pátio é um UPDATE posterior feito no
+          // CargasFechadasAguardandoPanel ("Liberar entrada no pátio").
+          etapa_terceirizado: "chegada",
+          horario_entrada: null,
           horario_chegada: nowIso,
           data_hora: nowIso,
           usuario_id: user?.id ?? null,
@@ -190,30 +193,44 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       if (motoristaNorm) updateData.motorista = motoristaNorm;
       await supabase.from("carregamentos_dia").update(updateData).eq("carga_id", cargaId);
 
-      // Fluxo de 1 passo: a chegada já coloca o veículo no pátio.
-      // Marca o veiculo_esperado como conferido imediatamente para sair de Esperados.
-      await supabase
-        .from("veiculos_esperados" as any)
-        .update({
-          status_autorizacao: "autorizado",
-          autorizado_por: user?.id ?? null,
-          autorizado_em: nowIso,
-          carga_id: cargaId,
-          conferido: true,
-          conferido_por: user?.id ?? null,
-          conferido_em: nowIso,
-        } as any)
-        .eq("carga_id", cargaId);
+      // Carga Própria (Varejo) é fluxo de 1 passo — entra direto no pátio.
+      // Terceirizado usa fluxo de 2 passos: a chegada NÃO marca conferido;
+      // isso acontece só no "Liberar entrada no pátio".
+      if (isCargaPropria) {
+        await supabase
+          .from("veiculos_esperados" as any)
+          .update({
+            status_autorizacao: "autorizado",
+            autorizado_por: user?.id ?? null,
+            autorizado_em: nowIso,
+            carga_id: cargaId,
+            conferido: true,
+            conferido_por: user?.id ?? null,
+            conferido_em: nowIso,
+          } as any)
+          .eq("carga_id", cargaId);
+      } else {
+        await supabase
+          .from("veiculos_esperados" as any)
+          .update({
+            status_autorizacao: "autorizado",
+            autorizado_por: user?.id ?? null,
+            autorizado_em: nowIso,
+            carga_id: cargaId,
+            // conferido permanece false — só vira true na liberação.
+          } as any)
+          .eq("carga_id", cargaId);
+      }
 
-      // B5 — toast contextual por categoria
+      // Toast contextual por categoria
       if (isCargaPropria) {
         toast.success("Chegada registrada — veículo no pátio", {
           description: "Varejo entra direto no pátio. Próximo passo: registrar saída p/ rota.",
           duration: 6000,
         });
       } else {
-        toast.success("Chegada registrada — veículo no pátio", {
-          description: "Próximo passo: registrar saída do pátio quando o caminhão sair.",
+        toast.success("Chegada registrada — aguardando liberação no pátio", {
+          description: "Próximo passo: clique em 'Liberar entrada no pátio' quando o caminhão entrar de fato.",
           duration: 6000,
         });
       }
