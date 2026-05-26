@@ -379,6 +379,14 @@ export function AdiantamentosTab() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 mr-2 rounded-md border px-2 py-1">
+                            <span className={`text-xs ${getModo(nome) === "individual" ? "font-semibold" : "text-muted-foreground"}`}>Individual</span>
+                            <Switch
+                              checked={getModo(nome) === "lote"}
+                              onCheckedChange={(v) => setModo(nome, v ? "lote" : "individual")}
+                            />
+                            <span className={`text-xs ${getModo(nome) === "lote" ? "font-semibold" : "text-muted-foreground"}`}>Lote</span>
+                          </div>
                           <label className="text-xs text-muted-foreground">% Adt:</label>
                           <Input
                             type="number"
