@@ -1,54 +1,25 @@
-## Reagrupar ADTs existentes por Ordem de Carga
+## Marcar Pendentes como Pago com data + comprovante
 
-No desmembramento anterior cada CT-e virou um ADT individual (ADT-...-A, -B, -C...). Agora queremos o nível intermediário: **um ADT por Ordem de Carga (OC)**, contendo todos os CT-es daquela OC.
+Hoje em **Pendentes**, ao selecionar e clicar **"Marcar como pago"**, abre só um `confirm()` simples e gera com a data de hoje, sem comprovante. Vou usar o mesmo padrão visual que já existe em **Aguardando Quitação** (o `ComprovanteAdiantamentoDialog`, que já mostra o texto formatado pra WhatsApp e tem campo de data) e acrescentar **upload do comprovante (PDF/imagem)**.
 
-### Exemplo (print 1)
-Hoje (errado — 1 ADT por CT-e):
-```
-ADT-20260525-004-B  OC 129858  1 CT-e  R$ 74,88
-ADT-20260525-004-C  OC 129858  1 CT-e  R$ 4.492,80
-ADT-20260525-004-D  OC 129858  1 CT-e  R$ 548,96
-ADT-20260525-004-E  OC 129858  1 CT-e  R$ 1.544,40
-ADT-20260525-004-F  OC 129858  1 CT-e  R$ 774,76
-ADT-20260525-004-A  OC 129858  1 CT-e  R$ 308,88
-```
-Depois (correto — 1 ADT por OC):
-```
-ADT-20260525-004-OC129858   OC 129858   6 CT-e   R$ 7.744,68
-ADT-20260525-004-OC129849   OC 129849   4 CT-e   R$ 7.034,36
-```
+### Mudanças
 
-### Escopo
-Os 3 lotes originais já desmembrados:
-- **ADT-20260525-004** (10 CT-es → vira N ADTs, 1 por OC)
-- **ADT-20260525-002** (17 CT-es → vira N ADTs, 1 por OC)
-- **ADT-20260511-001** (4 CT-es → vira N ADTs, 1 por OC)
+1. **Botão "Marcar como pago" em Pendentes** (`AdiantamentosTab.tsx`)
+   - Em vez de chamar `confirm()` + `marcarPago.mutateAsync` direto, **abre o `ComprovanteAdiantamentoDialog`** já existente com os ADTs pendentes selecionados.
+   - Remove `handleMarcarPagoLote` (não é mais necessário).
 
-### Como vou identificar quem pertencia a cada lote original
-Os ADTs atuais têm `numero` no formato `ADT-20260525-004-A`, `-B`, etc. Vou agrupar todos os ADTs que compartilham o mesmo prefixo (`ADT-20260525-004`) **e** mesma `ordem_carga`, fundindo-os em um único ADT.
+2. **`ComprovanteAdiantamentoDialog.tsx`**: adicionar input opcional **"Anexar comprovante"** (PDF/JPG/PNG, ≤ 5 MB).
+   - Aparece junto com o campo "Data do pagamento" (quando há pendentes).
+   - Ao clicar "Marcar como pagos": faz upload para o bucket `dacte` em `comprovantes-adt/<adt_id>/<timestamp>-<arquivo>` (uso o bucket já existente, sem nova migração) e grava a URL em `comprovante_pagamento_url` junto do `pago_em`.
+   - Se nenhum arquivo for anexado, marca como pago igual hoje (comprovante fica opcional).
 
-### Lógica da migração (SQL transacional)
-Para cada grupo (prefixo + ordem_carga):
-1. Criar **um novo** `adiantamentos_frete` com:
-   - `numero` = `<prefixo>-OC<ordem_carga>` (ex: `ADT-20260525-004-OC129858`)
-   - `tipo_agrupamento` = `'ordem'`
-   - `ordem_carga` = a OC do grupo
-   - `qtd_ctes` = soma das qtds
-   - `peso_total`, `valor_total_ctes`, `valor_adiantamento`, `valor_saldo` = somas
-   - `percentual` = recalculado (`valor_adiantamento / valor_total_ctes * 100`)
-   - `status`, `pago_em`, `pago_por`, `quitado_em`, `quitado_por`, `comprovante_pagamento_url`, `observacoes`, `created_by`, `created_at` = preservados do primeiro ADT do grupo (todos do mesmo lote tinham o mesmo status)
-2. Mover os `adiantamentos_frete_ctes` (UPDATE `adiantamento_id`) para apontarem para o novo ADT.
-3. Deletar os ADTs antigos do grupo.
+3. **`useMarcarAdiantamentoPago`** (`useAdiantamentos.ts`)
+   - Aceitar campo opcional `comprovante_pagamento_url`. Quando vier, é incluído no UPDATE.
 
-Grupos com apenas 1 CT-e/ADT permanecem como estão (ou são apenas renomeados — me confirme abaixo).
+### Detalhes técnicos
+- **Bucket de storage:** reaproveito `dacte` (privado) com prefixo `comprovantes-adt/`. Sem nova bucket nem migração de policy.
+- **URL salva:** uso `getPublicUrl` (mesmo para bucket privado, a URL fica armazenada; pra abrir depois geramos `createSignedUrl`). Isso segue o padrão já usado para CT-es no projeto.
+- **Sem alterar** o fluxo de "Aguardando Quitação" — só o ponto de entrada em "Pendentes".
 
-### Resultado esperado
-- Cada OC vira **uma única linha** com múltiplos CT-es agrupados.
-- Você ainda consegue selecionar/quitar OC por OC, mas não precisa marcar 6 linhas separadas da mesma OC.
-- Para futuros adiantamentos, o comportamento já vigente (1 ADT por OC) continua valendo.
-
-### Confirmações necessárias
-1. **Status divergente dentro da mesma OC?** Posso assumir que todos os CT-es da mesma OC dentro do mesmo lote original estão no mesmo status (`pago`/`pendente`)? Pelos seus prints sim, mas confirmo antes de rodar.
-2. **Grupos de 1 CT-e:** quando uma OC tem só 1 CT-e (ex.: OC 129791 com R$ 616,00 isolada), mantenho o ADT individual atual (sem renomear) ou também renomeio para o padrão `...-OC<num>`? Sugiro **renomear** para ficar consistente.
-
-Sem mudanças de frontend — só SQL.
+### Resultado
+Selecionar pendentes → clicar "Marcar como pago" → abre diálogo com texto pré-formatado, escolhe data, opcionalmente anexa comprovante, confirma. Estado vai para "Aguardando Quitação" com o comprovante já vinculado.

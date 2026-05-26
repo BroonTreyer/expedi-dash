@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Printer, CheckCircle2 } from "lucide-react";
+import { Copy, Printer, CheckCircle2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { useMarcarAdiantamentoPago, type Adiantamento, type AdiantamentoCte } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
@@ -190,6 +190,8 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
   const [copied, setCopied] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
   const [dataPagamento, setDataPagamento] = useState<string>(todayStr);
+  const [comprovante, setComprovante] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const copy = async () => {
     await navigator.clipboard.writeText(texto);
     setCopied(true);
@@ -230,17 +232,55 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
         )}
 
         {pendentes.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Label htmlFor="data-pagamento" className="text-sm whitespace-nowrap">
-              Data do pagamento
-            </Label>
-            <Input
-              id="data-pagamento"
-              type="date"
-              value={dataPagamento}
-              onChange={(e) => setDataPagamento(e.target.value)}
-              className="w-auto"
-            />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="data-pagamento" className="text-sm whitespace-nowrap">
+                Data do pagamento
+              </Label>
+              <Input
+                id="data-pagamento"
+                type="date"
+                value={dataPagamento}
+                onChange={(e) => setDataPagamento(e.target.value)}
+                className="w-auto"
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Label htmlFor="comprovante-adt" className="text-sm whitespace-nowrap">
+                Comprovante (opcional)
+              </Label>
+              <Input
+                id="comprovante-adt"
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  if (f && f.size > 5 * 1024 * 1024) {
+                    toast.error("Arquivo maior que 5 MB");
+                    e.target.value = "";
+                    return;
+                  }
+                  setComprovante(f);
+                }}
+                className="w-auto text-xs"
+              />
+              {comprovante && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setComprovante(null)}
+                  className="h-7 px-2"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+            {comprovante && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Paperclip className="h-3 w-3" /> {comprovante.name}
+              </p>
+            )}
           </div>
         )}
         {pendentes.length === 0 && jaPagos.length > 0 && (
@@ -267,15 +307,45 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
           {pendentes.length > 0 && (
             <Button
               onClick={async () => {
-                for (const a of pendentes) {
-                  await marcarPago.mutateAsync({ id: a.id, pago_em: dataPagamento });
+                try {
+                  setUploading(true);
+                  for (const a of pendentes) {
+                    let comprovanteUrl: string | undefined;
+                    if (comprovante) {
+                      const ext = comprovante.name.split(".").pop() || "bin";
+                      const path = `comprovantes-adt/${a.id}/${Date.now()}.${ext}`;
+                      const { error: upErr } = await supabase.storage
+                        .from("dacte")
+                        .upload(path, comprovante, {
+                          cacheControl: "3600",
+                          upsert: false,
+                          contentType: comprovante.type || undefined,
+                        });
+                      if (upErr) throw upErr;
+                      comprovanteUrl = path;
+                    }
+                    await marcarPago.mutateAsync({
+                      id: a.id,
+                      pago_em: dataPagamento,
+                      ...(comprovanteUrl ? { comprovante_pagamento_url: comprovanteUrl } : {}),
+                    });
+                  }
+                  setComprovante(null);
+                  onOpenChange(false);
+                } catch (e: any) {
+                  toast.error(e?.message ?? "Erro ao marcar como pago");
+                } finally {
+                  setUploading(false);
                 }
-                onOpenChange(false);
               }}
-              disabled={marcarPago.isPending}
+              disabled={marcarPago.isPending || uploading}
             >
               <CheckCircle2 className="h-4 w-4 mr-1" />
-              {pendentes.length === 1 ? "Marcar como pago" : `Marcar ${pendentes.length} como pagos`}
+              {uploading
+                ? "Enviando..."
+                : pendentes.length === 1
+                  ? "Marcar como pago"
+                  : `Marcar ${pendentes.length} como pagos`}
             </Button>
           )}
         </DialogFooter>

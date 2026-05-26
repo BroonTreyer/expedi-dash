@@ -318,16 +318,10 @@ export function AdiantamentosTab() {
       return n;
     });
 
-  const handleMarcarPagoLote = async () => {
-    const ids = [...selPendentes];
-    if (ids.length === 0) return;
-    if (!confirm(`Marcar ${ids.length} adiantamento(s) como pago?`)) return;
-    try {
-      await Promise.all(ids.map((id) => marcarPago.mutateAsync(id)));
-      setSelPendentes(new Set());
-    } catch {
-      // toast no hook
-    }
+  const handleMarcarPagoLote = () => {
+    const selecionados = pendentes.filter((a) => selPendentes.has(a.id));
+    if (selecionados.length === 0) return;
+    setComprovantesAdt(selecionados);
   };
 
   return (
@@ -642,7 +636,7 @@ export function AdiantamentosTab() {
                   <Button variant="outline" size="sm" onClick={() => setSelPendentes(new Set())}>
                     Limpar
                   </Button>
-                  <Button size="sm" onClick={handleMarcarPagoLote} disabled={marcarPago.isPending}>
+                  <Button size="sm" onClick={handleMarcarPagoLote}>
                     <Wallet className="h-4 w-4 mr-1" /> Marcar como pago
                   </Button>
                 </div>
@@ -749,7 +743,12 @@ export function AdiantamentosTab() {
 
       <ComprovanteAdiantamentoDialog
         open={comprovantesAdt.length > 0}
-        onOpenChange={(o) => !o && setComprovantesAdt([])}
+        onOpenChange={(o) => {
+          if (!o) {
+            setComprovantesAdt([]);
+            setSelPendentes(new Set());
+          }
+        }}
         adiantamentos={comprovantesAdt}
       />
       <RegistrarQuitacaoDialog
