@@ -383,49 +383,11 @@ export default function Consolidado() {
 
   const updateDateMut = useMutation({
     mutationFn: async ({ cargaId, newDate }: { cargaId: string; newDate: string }) => {
-      // 1) Atualiza a data planejada de todos os itens da carga
       const { error } = await supabase
         .from("carregamentos_dia")
         .update({ data: newDate })
         .eq("carga_id", cargaId);
       if (error) throw error;
-
-      // 2) Desloca horario_inicio/horario_fim para a nova data, preservando hora local
-      const { data: rows, error: selErr } = await supabase
-        .from("carregamentos_dia")
-        .select("id, horario_inicio, horario_fim")
-        .eq("carga_id", cargaId);
-      if (selErr) throw selErr;
-
-      const rebase = (ts: string | null): string | null => {
-        if (!ts) return null;
-        const d = new Date(ts);
-        if (isNaN(d.getTime())) return ts;
-        // Mantém hora/min/seg locais; troca a parte de data por newDate (yyyy-MM-dd)
-        const [y, m, day] = newDate.split("-").map(Number);
-        const rebuilt = new Date(d);
-        rebuilt.setFullYear(y, m - 1, day);
-        return rebuilt.toISOString();
-      };
-
-      const updates = (rows ?? [])
-        .filter((r: any) => r.horario_inicio || r.horario_fim)
-        .map((r: any) => ({
-          id: r.id,
-          horario_inicio: rebase(r.horario_inicio),
-          horario_fim: rebase(r.horario_fim),
-        }));
-
-      if (updates.length > 0) {
-        await Promise.all(
-          updates.map((u) =>
-            supabase
-              .from("carregamentos_dia")
-              .update({ horario_inicio: u.horario_inicio, horario_fim: u.horario_fim })
-              .eq("id", u.id)
-          )
-        );
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["consolidado"] });
@@ -725,11 +687,9 @@ export default function Consolidado() {
       const dataEfetiva = computeDataEfetivaTerceirizada(g.items, g.data, saida, todayStr);
       const isWithin = dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr;
       if (!isWithin) continue;
-      if (dataEfetiva !== g.data) {
-        out.push({ ...g, data: dataEfetiva });
-      } else {
-        out.push(g);
-      }
+      // Mantém g.data como a data salva (respeita edição manual no calendário).
+      // dataEfetiva é usada apenas para decidir se a carga cai no intervalo.
+      out.push(g);
     }
     return out;
   }, [rawGroupsBruto, statusPortariaMap, dateFromStr, dateToStr]);
@@ -1218,7 +1178,7 @@ export default function Consolidado() {
                             <PopoverTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 font-mono">
                                 <CalendarIcon className="h-3 w-3" />
-                                {format(new Date((g.dataReal ?? g.data) + "T12:00:00"), "dd/MM/yyyy")}
+                                {format(new Date(g.data + "T12:00:00"), "dd/MM/yyyy")}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
