@@ -1,29 +1,26 @@
-## Mudanças
+## Problema
 
-### 1) Número do pedido no romaneio (1º print)
+Na tela **Consolidado**, ao trocar a data da carga pelo calendário (ex.: clicar em 25/05), o toast "Data da carga atualizada" aparece, mas a célula continua mostrando **26/05/2026**.
 
-Adicionar um badge **Pedido: 12345** na linha do cliente do romaneio, ao lado dos badges `E:`, `C:` e `OC:`.
+### Causa
 
-**Onde:**
-- `src/components/dashboard/CargaPrintDialog.tsx` — adicionar `numerosPedido?: (string | number)[]` em `ClienteGroup` e renderizar como badge cinza igual aos demais. Se houver vários pedidos no mesmo cliente, mostrar `Pedido: 12345/12346`.
-- `src/pages/Consolidado.tsx` (`handleOpenRomaneio`) — coletar os `numero_pedido` distintos por cliente (mesmo padrão já usado para `ordem_carga`) e preencher `numerosPedido`.
-- `src/components/dashboard/FechamentoLoteDialog.tsx` (bloco `onPrintReady`) — `RotaGroup.items` já carrega `numeroPedido`; agregar valores distintos e enviar em `numerosPedido`.
+Na última iteração, a coluna **Data** passou a exibir `dataReal ?? g.data`, onde `dataReal` é derivado do `MAX(horario_fim)` dos itens (timestamp real do fim do carregamento). A edição de data, porém, só atualiza o campo `data` (data planejada) — `horario_fim` continua apontando para 26/05, então `dataReal` vence e a célula nunca muda.
 
-Esses dois lugares são os únicos que constroem `CargaPrintData` (já confirmado por busca).
+## Plano
 
-### 2) Data real no Consolidado (2º print)
+Ajustar `updateDateMut` em `src/pages/Consolidado.tsx` para que, ao alterar a data da carga, **também sejam deslocados** `horario_inicio` e `horario_fim` de todos os itens daquela `carga_id`, preservando o horário (hora/minuto/segundo) de cada registro.
 
-Hoje a coluna **Data** mostra `carregamentos_dia.data` (data planejada). Vamos passar a exibir a data em que a carga foi efetivamente carregada, usando o `horario_fim` mais recente entre os itens da carga; se nenhum item tiver `horario_fim`, cai de volta para `data`.
+### Passos
 
-**Onde:**
-- `src/pages/Consolidado.tsx`
-  - `interface CargaGroup`: adicionar `dataReal: string | null` (yyyy-MM-dd derivada do maior `horario_fim`).
-  - `groupByCarga`: ao iterar os itens, calcular `MAX(horario_fim)` por grupo e gravar em `dataReal`.
-  - Renderização da coluna **Data** (linhas ~1050+): exibir `group.dataReal ?? group.data` formatada em pt-BR.
-  - `handleDateChange` continua editando `data` (planejada) — sem mudança no banco.
+1. **`updateDateMut.mutationFn`** (`src/pages/Consolidado.tsx`, ~linha 384):
+   - Buscar todos os itens da carga: `id, horario_inicio, horario_fim, data` via `select`.
+   - Calcular o "shift" entre `data` antiga e `newDate` (em dias). Para cada item com `horario_inicio`/`horario_fim` não-nulos, recompor o timestamp mantendo a hora local e trocando a parte de data por `newDate` (mais robusto que somar dias, pois `data` pode variar entre itens em casos raros).
+   - Atualizar em lote:
+     - `update({ data: newDate })` para a carga inteira (como já é feito).
+     - Para cada item com horários preenchidos, `update({ horario_inicio, horario_fim })` por `id` (Promise.all).
+2. Manter o `onSuccess` atual (invalida `consolidado` e `carregamentos`, mostra toast).
+3. Nenhuma mudança em UI, schema, RLS ou em outras telas. O Painel Logístico continua filtrando por `data` (planejada) normalmente; os horários reais passam a coincidir com a nova data exibida no Consolidado.
 
-**Importante:** o filtro por intervalo de datas continua usando `data` (planejada). Não vamos alterar isso para não esconder cargas do dia esperado quando o `horario_fim` cair em outro dia. Se quiser depois inverter (filtrar por data real), basta avisar.
+### Observação
 
-### Sem mudanças no schema
-
-Tudo já está no `carregamentos_dia` (`numero_pedido`, `horario_fim`). Nenhuma migração necessária.
+Itens sem `horario_inicio`/`horario_fim` (cargas ainda não finalizadas) não recebem update de horário — só `data` é alterada. Isso preserva o estado de cargas em andamento.
