@@ -268,8 +268,6 @@ interface CargaGroup {
   ufs: Set<string>;
   status: string;
   data: string;
-  /** Data efetiva de carregamento — derivada do maior horario_fim entre os itens. */
-  dataReal: string | null;
   horarioPrevisto: string | null;
   items: Carregamento[];
 }
@@ -304,7 +302,6 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
         ufs: new Set(),
         status: item.status,
         data: item.data,
-        dataReal: null,
         horarioPrevisto: item.horario_previsto ?? null,
         items: [],
       };
@@ -312,12 +309,6 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
       freteMap.set(groupKey, new Set());
     }
     if (!g.horarioPrevisto && item.horario_previsto) g.horarioPrevisto = item.horario_previsto;
-    if (item.horario_fim) {
-      if (!g.dataReal || item.horario_fim > g.dataReal) {
-        // armazena ISO completo aqui; convertemos para yyyy-MM-dd abaixo
-        g.dataReal = item.horario_fim as any;
-      }
-    }
     g.pesoPlanejado += item.peso ?? 0;
     g.pesoTotal += pesoEfetivo({ peso: item.peso, ruptura: !!item.ruptura });
     if (item.ruptura) g.rupturaCount += 1;
@@ -334,13 +325,6 @@ function groupByCarga(data: Carregamento[]): CargaGroup[] {
     g.qtdPedidos = g.items.length;
     const fretes = freteMap.get(cargaId)!;
     g.tipoFrete = fretes.size > 0 ? [...fretes].sort().join(" / ") : "—";
-    if (g.dataReal) {
-      try {
-        g.dataReal = format(new Date(g.dataReal), "yyyy-MM-dd");
-      } catch {
-        g.dataReal = null;
-      }
-    }
   }
   return Array.from(map.values());
 }
@@ -550,7 +534,6 @@ export default function Consolidado() {
       rupturaCount: number;
       ordem: number;
       ordemCarga: string | null;
-      numerosPedido: (string | number)[];
     }>();
     for (const item of group.items) {
       const key = item.codigo_cliente ?? `__sem__${item.cliente ?? "—"}`;
@@ -567,7 +550,6 @@ export default function Consolidado() {
           rupturaCount: 0,
           ordem: item.ordem_entrega ?? 9999,
           ordemCarga: null,
-          numerosPedido: [],
         };
         clienteMap.set(key, c);
       }
@@ -602,24 +584,6 @@ export default function Consolidado() {
         const key = g.codigoCliente ?? `__sem__${g.nomeCliente ?? "—"}`;
         const set = ocMap.get(key);
         g.ordemCarga = set && set.size > 0 ? Array.from(set).join("/") : null;
-      }
-    }
-    // Coleta números de pedido distintos por cliente
-    {
-      const npMap = new Map<string, Set<string>>();
-      for (const item of group.items) {
-        const key = item.codigo_cliente ?? `__sem__${item.cliente ?? "—"}`;
-        const np = item.numero_pedido;
-        if (np == null) continue;
-        if (!npMap.has(key)) npMap.set(key, new Set());
-        npMap.get(key)!.add(String(np));
-      }
-      for (const g of groupsArr) {
-        const key = g.codigoCliente ?? `__sem__${g.nomeCliente ?? "—"}`;
-        const set = npMap.get(key);
-        g.numerosPedido = set && set.size > 0
-          ? Array.from(set).sort((a, b) => Number(a) - Number(b))
-          : [];
       }
     }
 
@@ -687,9 +651,11 @@ export default function Consolidado() {
       const dataEfetiva = computeDataEfetivaTerceirizada(g.items, g.data, saida, todayStr);
       const isWithin = dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr;
       if (!isWithin) continue;
-      // Mantém g.data como a data salva (respeita edição manual no calendário).
-      // dataEfetiva é usada apenas para decidir se a carga cai no intervalo.
-      out.push(g);
+      if (dataEfetiva !== g.data) {
+        out.push({ ...g, data: dataEfetiva });
+      } else {
+        out.push(g);
+      }
     }
     return out;
   }, [rawGroupsBruto, statusPortariaMap, dateFromStr, dateToStr]);
