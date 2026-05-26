@@ -168,6 +168,19 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
             {data.tipoFrete && (
               <div><span className="font-semibold">Tipo de Frete:</span> {data.tipoFrete}</div>
             )}
+            {(() => {
+              const ocs = Array.from(
+                new Set(
+                  displayGroups
+                    .map((g) => g.ordemCarga)
+                    .filter((v): v is string => !!v && String(v).trim() !== "")
+                )
+              );
+              if (ocs.length === 0) return null;
+              return (
+                <div><span className="font-semibold">Ordem de Carga:</span> {ocs.join(", ")}</div>
+              );
+            })()}
             {data.horarioPrevisto && (
               <div><span className="font-semibold">Horário Previsto:</span> {data.horarioPrevisto}</div>
             )}
