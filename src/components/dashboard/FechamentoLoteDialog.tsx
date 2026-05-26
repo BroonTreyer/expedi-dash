@@ -628,6 +628,11 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           const ocGrupo = modoOc === "porGrupo"
             ? (ordemCargaPorGrupo[groupKey] ?? "").trim()
             : ordemCarga.trim();
+          const numerosSet = new Set<string>();
+          for (const it of g.items) {
+            if (it.numeroPedido != null) numerosSet.add(String(it.numeroPedido));
+          }
+          const numerosPedido = Array.from(numerosSet).sort((a, b) => Number(a) - Number(b));
           return {
             codigoCliente: g.codigoCliente,
             nomeCliente: g.nomeCliente,
@@ -640,6 +645,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
             rupturaCount: g.rupturaCount,
             ordem: g.ordem,
             ordemCarga: ocGrupo || null,
+            numerosPedido,
           };
         }),
         totalPeso,
