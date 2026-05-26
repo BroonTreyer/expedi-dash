@@ -1,16 +1,14 @@
-## Apagar card vermelho da Portaria — Terceirizado
+## Reverter entrada de Carlos André (SJM9D95)
 
-O card vermelho "Aguardando vínculo" no Pátio Atual corresponde ao registro duplicado feito hoje pela portaria:
+A portaria liberou a entrada por engano. Voltar para o estado "Aguardando liberação" (chegada registrada, mas ainda fora do pátio).
 
-- **Placa:** TVC8A99
-- **Motorista:** RODRIGO SILVA DE LUCENA
-- **Empresa:** MOREIRA
-- **Chegada:** hoje 15:39
-- **ID:** `4c58fcf4-129e-4725-ab8b-2ec0d590e4be`
-- **Sem carga vinculada** (a entrada já tinha sido registrada no fechamento da carga)
+**Registro:** `98314a9b-7920-4b9e-a6c5-00acf30ca286` — SJM9D95, CARLOS ANDRE BEZERRA DA SILVA, MOREIRA TRANSPORTES, carga `CG-20260526-142907-S20`.
 
 ### Ação
 
-1. `DELETE` em `movimentacoes_portaria` do registro `4c58fcf4-129e-4725-ab8b-2ec0d590e4be`.
+`UPDATE` em `movimentacoes_portaria`:
+- `etapa_terceirizado = 'chegada'`
+- `horario_entrada = NULL`
+- Mantém `horario_chegada` (15:29).
 
-Nenhuma alteração de código. Só limpeza do dado duplicado.
+Sem alterações de código.
