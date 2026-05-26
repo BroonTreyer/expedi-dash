@@ -1,38 +1,29 @@
-## Problema
+## Mudanças
 
-A página **Produtos** (`/produtos` no menu lateral) está abrindo em branco para você. Do meu lado, não consigo ver nenhum erro:
+### 1) Número do pedido no romaneio (1º print)
 
-- Tabela `produtos` existe e tem **110 registros**
-- RLS permite SELECT para qualquer usuário autenticado
-- Nenhum erro de runtime registrado
-- Console do navegador sem erros visíveis
-- Código da página (`src/pages/Produtos.tsx`) está consistente
+Adicionar um badge **Pedido: 12345** na linha do cliente do romaneio, ao lado dos badges `E:`, `C:` e `OC:`.
 
-Sem o erro real (que está acontecendo só no seu navegador), preciso **blindar a página e instrumentar diagnósticos** para o próximo carregamento já mostrar o que está quebrando, em vez de tela branca.
+**Onde:**
+- `src/components/dashboard/CargaPrintDialog.tsx` — adicionar `numerosPedido?: (string | number)[]` em `ClienteGroup` e renderizar como badge cinza igual aos demais. Se houver vários pedidos no mesmo cliente, mostrar `Pedido: 12345/12346`.
+- `src/pages/Consolidado.tsx` (`handleOpenRomaneio`) — coletar os `numero_pedido` distintos por cliente (mesmo padrão já usado para `ordem_carga`) e preencher `numerosPedido`.
+- `src/components/dashboard/FechamentoLoteDialog.tsx` (bloco `onPrintReady`) — `RotaGroup.items` já carrega `numeroPedido`; agregar valores distintos e enviar em `numerosPedido`.
 
-## O que vou fazer
+Esses dois lugares são os únicos que constroem `CargaPrintData` (já confirmado por busca).
 
-### 1. Envolver a página Produtos em ErrorBoundary
-Hoje, se qualquer componente da página Produtos quebrar no render, a Suspense engole e mostra branco. Vou envolver `<Produtos />` em `<ErrorBoundary name="Produtos">` na `App.tsx` para mostrar uma mensagem clara com botão "Tentar novamente" em vez de branco.
+### 2) Data real no Consolidado (2º print)
 
-### 2. Tratar erro do hook `useProdutos`
-Atualmente, se a query Supabase falhar, a página apenas renderiza com `data = []` silenciosamente. Vou:
-- Expor `error` do `useQuery` e mostrar um banner vermelho com a mensagem real do erro
-- Adicionar `retry: 2` no `useQuery` para tolerar falha transitória de rede
-- Logar `console.error` com o erro para você compartilhar no próximo print
+Hoje a coluna **Data** mostra `carregamentos_dia.data` (data planejada). Vamos passar a exibir a data em que a carga foi efetivamente carregada, usando o `horario_fim` mais recente entre os itens da carga; se nenhum item tiver `horario_fim`, cai de volta para `data`.
 
-### 3. Garantir que a página nunca fique 100% vazia
-Mesmo durante `isLoading`, mostrar o cabeçalho (título "Produtos" + botão "Novo Produto" + busca), e só a tabela mostra "Carregando..." — assim você nunca vê tela 100% branca, sempre vê algo.
+**Onde:**
+- `src/pages/Consolidado.tsx`
+  - `interface CargaGroup`: adicionar `dataReal: string | null` (yyyy-MM-dd derivada do maior `horario_fim`).
+  - `groupByCarga`: ao iterar os itens, calcular `MAX(horario_fim)` por grupo e gravar em `dataReal`.
+  - Renderização da coluna **Data** (linhas ~1050+): exibir `group.dataReal ?? group.data` formatada em pt-BR.
+  - `handleDateChange` continua editando `data` (planejada) — sem mudança no banco.
 
-## Próximo passo (depois do build)
+**Importante:** o filtro por intervalo de datas continua usando `data` (planejada). Não vamos alterar isso para não esconder cargas do dia esperado quando o `horario_fim` cair em outro dia. Se quiser depois inverter (filtrar por data real), basta avisar.
 
-Após eu aplicar isso, abra `/produtos` de novo:
-- Se aparecer um **banner vermelho com mensagem de erro** → me mande o texto, conserto direto.
-- Se aparecer normalmente → era um erro transitório que o retry resolveu.
-- Se continuar branco mesmo assim → me mande print do **Console (F12)** para identificar.
+### Sem mudanças no schema
 
-## Arquivos a alterar
-
-- `src/App.tsx` — envolver `<Produtos />` em `<ErrorBoundary name="Produtos">`
-- `src/hooks/useProdutos.ts` — adicionar `retry: 2` e propagar erro
-- `src/pages/Produtos.tsx` — exibir banner de erro, garantir cabeçalho sempre visível
+Tudo já está no `carregamentos_dia` (`numero_pedido`, `horario_fim`). Nenhuma migração necessária.
