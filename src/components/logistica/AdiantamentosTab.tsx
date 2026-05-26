@@ -722,7 +722,7 @@ export function AdiantamentosTab() {
                             className="flex items-center gap-2 text-xs hover:bg-muted/40 rounded px-1 py-0.5 cursor-pointer"
                           >
                             <Checkbox checked={selPagos.has(a.id)} onCheckedChange={() => togglePago(a.id)} />
-                            <span className="font-mono">{a.numero}</span>
+                            <span className="font-mono">{a.numero.replace(/-OC\d+$/, "")}</span>
                             <span className="text-muted-foreground">·</span>
                             <span className="font-mono">
                               {a.tipo_agrupamento === "ordem" ? `OC ${a.ordem_carga ?? "—"}` : "Lote"}
