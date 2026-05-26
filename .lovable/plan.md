@@ -1,25 +1,18 @@
-## Marcar Pendentes como Pago com data + comprovante
+## Cadastro de clientes a partir dos prints
 
-Hoje em **Pendentes**, ao selecionar e clicar **"Marcar como pago"**, abre só um `confirm()` simples e gera com a data de hoje, sem comprovante. Vou usar o mesmo padrão visual que já existe em **Aguardando Quitação** (o `ComprovanteAdiantamentoDialog`, que já mostra o texto formatado pra WhatsApp e tem campo de data) e acrescentar **upload do comprovante (PDF/imagem)**.
+Verifiquei no banco e dos 6 clientes enviados, **2 já estão cadastrados**:
+- `34082` — D ITALIA FRIOS E FRANGOS ✅ já existe
+- `34084` — MANTOANI COMERCIO DE FRIOS ✅ já existe
 
-### Mudanças
+### Vou cadastrar os 4 restantes:
 
-1. **Botão "Marcar como pago" em Pendentes** (`AdiantamentosTab.tsx`)
-   - Em vez de chamar `confirm()` + `marcarPago.mutateAsync` direto, **abre o `ComprovanteAdiantamentoDialog`** já existente com os ADTs pendentes selecionados.
-   - Remove `handleMarcarPagoLote` (não é mais necessário).
+| Código | Nome | Razão Social | Cidade | UF | CEP | Telefone | E-mail |
+|---|---|---|---|---|---|---|---|
+| 34230 | F F ATACAREJO | F F ATACAREJO C. DE FRIOS ALI. E EMB. LT | ROLIM DE MOURA | RO | 76940-000 | (69) 98448-0269 | forever_net2004@hotmail.com |
+| 34223 | FRIOS DO NORTE | FRIOS DO NORTE LTDA ME | PORTO VELHO | RO | 76804-103 | (69) 99258-7977 | friosdonorte@uol.com.br |
+| 34222 | AFB RESTAURANTE | AFB RESTAURANTE LTDA | PORTO VELHO | RO | 76804-018 | (69) 98170-7711 | k1maltezo@hotmail.com |
+| 34224 | SUPERMERCADO KARISMA | SUPERMERCADO KARISMA LTDA EPP | CANDEIAS DO JAMARI | RO | 78938-000 | (69) 99210-7581 | karisma@pegpagcandeias.com |
 
-2. **`ComprovanteAdiantamentoDialog.tsx`**: adicionar input opcional **"Anexar comprovante"** (PDF/JPG/PNG, ≤ 5 MB).
-   - Aparece junto com o campo "Data do pagamento" (quando há pendentes).
-   - Ao clicar "Marcar como pagos": faz upload para o bucket `dacte` em `comprovantes-adt/<adt_id>/<timestamp>-<arquivo>` (uso o bucket já existente, sem nova migração) e grava a URL em `comprovante_pagamento_url` junto do `pago_em`.
-   - Se nenhum arquivo for anexado, marca como pago igual hoje (comprovante fica opcional).
+Todos serão criados como **ativos**, tipo Jurídica, UF inferida pelo CEP (RO).
 
-3. **`useMarcarAdiantamentoPago`** (`useAdiantamentos.ts`)
-   - Aceitar campo opcional `comprovante_pagamento_url`. Quando vier, é incluído no UPDATE.
-
-### Detalhes técnicos
-- **Bucket de storage:** reaproveito `dacte` (privado) com prefixo `comprovantes-adt/`. Sem nova bucket nem migração de policy.
-- **URL salva:** uso `getPublicUrl` (mesmo para bucket privado, a URL fica armazenada; pra abrir depois geramos `createSignedUrl`). Isso segue o padrão já usado para CT-es no projeto.
-- **Sem alterar** o fluxo de "Aguardando Quitação" — só o ponto de entrada em "Pendentes".
-
-### Resultado
-Selecionar pendentes → clicar "Marcar como pago" → abre diálogo com texto pré-formatado, escolhe data, opcionalmente anexa comprovante, confirma. Estado vai para "Aguardando Quitação" com o comprovante já vinculado.
+Sobre os 2 já existentes: **quer que eu atualize** os dados deles com as informações dos prints (telefone, e-mail, endereço) ou deixo como estão?
