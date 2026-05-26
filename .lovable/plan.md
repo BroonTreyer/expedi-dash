@@ -1,46 +1,54 @@
-## Objetivo
+## Reagrupar ADTs existentes por Ordem de Carga
 
-Converter os **3 adiantamentos em lote** existentes (2 `pago`, 1 `pendente`) em adiantamentos individuais — 1 ADT por CT-e — para que cada CT-e possa ser quitado separadamente em "Aguardando Quitação".
+No desmembramento anterior cada CT-e virou um ADT individual (ADT-...-A, -B, -C...). Agora queremos o nível intermediário: **um ADT por Ordem de Carga (OC)**, contendo todos os CT-es daquela OC.
 
-## Lotes afetados
+### Exemplo (print 1)
+Hoje (errado — 1 ADT por CT-e):
+```
+ADT-20260525-004-B  OC 129858  1 CT-e  R$ 74,88
+ADT-20260525-004-C  OC 129858  1 CT-e  R$ 4.492,80
+ADT-20260525-004-D  OC 129858  1 CT-e  R$ 548,96
+ADT-20260525-004-E  OC 129858  1 CT-e  R$ 1.544,40
+ADT-20260525-004-F  OC 129858  1 CT-e  R$ 774,76
+ADT-20260525-004-A  OC 129858  1 CT-e  R$ 308,88
+```
+Depois (correto — 1 ADT por OC):
+```
+ADT-20260525-004-OC129858   OC 129858   6 CT-e   R$ 7.744,68
+ADT-20260525-004-OC129849   OC 129849   4 CT-e   R$ 7.034,36
+```
 
-| Número | Status | Qtd CT-es | Valor ADT | Saldo |
-|---|---|---|---|---|
-| ADT-20260525-004 | pago | 10 | R$ 59.116,18 | R$ 14.779,04 |
-| ADT-20260525-002 | pago | 17 | R$ 87.429,70 | R$ 21.857,43 |
-| ADT-20260511-001 | pendente | 4 | R$ 26.223,68 | R$ 6.555,92 |
+### Escopo
+Os 3 lotes originais já desmembrados:
+- **ADT-20260525-004** (10 CT-es → vira N ADTs, 1 por OC)
+- **ADT-20260525-002** (17 CT-es → vira N ADTs, 1 por OC)
+- **ADT-20260511-001** (4 CT-es → vira N ADTs, 1 por OC)
 
-**Total:** 31 CT-es serão transformados em 31 ADTs individuais.
+### Como vou identificar quem pertencia a cada lote original
+Os ADTs atuais têm `numero` no formato `ADT-20260525-004-A`, `-B`, etc. Vou agrupar todos os ADTs que compartilham o mesmo prefixo (`ADT-20260525-004`) **e** mesma `ordem_carga`, fundindo-os em um único ADT.
 
-## Como funciona o desmembramento
+### Lógica da migração (SQL transacional)
+Para cada grupo (prefixo + ordem_carga):
+1. Criar **um novo** `adiantamentos_frete` com:
+   - `numero` = `<prefixo>-OC<ordem_carga>` (ex: `ADT-20260525-004-OC129858`)
+   - `tipo_agrupamento` = `'ordem'`
+   - `ordem_carga` = a OC do grupo
+   - `qtd_ctes` = soma das qtds
+   - `peso_total`, `valor_total_ctes`, `valor_adiantamento`, `valor_saldo` = somas
+   - `percentual` = recalculado (`valor_adiantamento / valor_total_ctes * 100`)
+   - `status`, `pago_em`, `pago_por`, `quitado_em`, `quitado_por`, `comprovante_pagamento_url`, `observacoes`, `created_by`, `created_at` = preservados do primeiro ADT do grupo (todos do mesmo lote tinham o mesmo status)
+2. Mover os `adiantamentos_frete_ctes` (UPDATE `adiantamento_id`) para apontarem para o novo ADT.
+3. Deletar os ADTs antigos do grupo.
 
-Para cada lote existente, executar via script SQL (insert tool):
+Grupos com apenas 1 CT-e/ADT permanecem como estão (ou são apenas renomeados — me confirme abaixo).
 
-1. Para **cada CT-e** dentro do lote (`adiantamentos_frete_ctes`):
-   - Criar novo registro em `adiantamentos_frete` com:
-     - `numero`: sufixo letra (`ADT-...-004-A`, `-B`, `-C`...) preservando unicidade
-     - `tipo_agrupamento`: `'ordem'`
-     - `ordem_carga`: a OC do CT-e (lida de `ctes_dacte`)
-     - `transportadora`, `transportadora_id`, `percentual`, `status`, `pago_em`, `pago_por`, `comprovante_pagamento_url`: copiados do lote pai
-     - `qtd_ctes`: 1
-     - `peso_total`: peso do CT-e
-     - `valor_total_ctes`: `valor_frete` do CT-e (da tabela `adiantamentos_frete_ctes`)
-     - `valor_adiantamento`: `valor_frete * percentual / 100`
-     - `valor_saldo`: `valor_frete - valor_adiantamento`
-     - `observacoes`: `"Desmembrado de <numero_lote_original>"`
-   - Mover a linha de `adiantamentos_frete_ctes` para apontar para o novo ADT individual
-2. Após processar todos os CT-es, **deletar o lote original** (CASCADE não é necessário pois os CT-es já foram realocados; usar DELETE simples após mover).
+### Resultado esperado
+- Cada OC vira **uma única linha** com múltiplos CT-es agrupados.
+- Você ainda consegue selecionar/quitar OC por OC, mas não precisa marcar 6 linhas separadas da mesma OC.
+- Para futuros adiantamentos, o comportamento já vigente (1 ADT por OC) continua valendo.
 
-## Detalhes técnicos
+### Confirmações necessárias
+1. **Status divergente dentro da mesma OC?** Posso assumir que todos os CT-es da mesma OC dentro do mesmo lote original estão no mesmo status (`pago`/`pendente`)? Pelos seus prints sim, mas confirmo antes de rodar.
+2. **Grupos de 1 CT-e:** quando uma OC tem só 1 CT-e (ex.: OC 129791 com R$ 616,00 isolada), mantenho o ADT individual atual (sem renomear) ou também renomeio para o padrão `...-OC<num>`? Sugiro **renomear** para ficar consistente.
 
-- Executado em **uma única transação** via insert tool (SQL com `DO $$ ... $$`).
-- Mantém integridade: `pago_em`/`pago_por` preservados nos lotes já pagos → continuam aparecendo na aba "Aguardando Quitação" com status `pago` mas agora individualmente quitáveis.
-- Não há mudança de schema — apenas dados.
-- Nenhuma alteração de código frontend necessária (a UI já suporta ADTs individuais).
-
-## Resultado
-
-Após executar:
-- Os 3 lotes desaparecem.
-- Surgem 31 ADTs individuais (10 + 17 + 4) na aba "Aguardando Quitação".
-- Cada um pode ser quitado isoladamente.
+Sem mudanças de frontend — só SQL.
