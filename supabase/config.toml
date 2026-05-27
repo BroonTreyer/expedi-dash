@@ -11,6 +11,3 @@ verify_jwt = false
 
 [functions.parse-pedido-pdf]
 verify_jwt = false
-
-[functions.combustivel-preco]
-verify_jwt = false
