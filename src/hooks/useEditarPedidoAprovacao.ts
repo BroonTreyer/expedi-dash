@@ -70,11 +70,12 @@ export function useEditarPedidoAprovacao() {
         // Se a ruptura foi desmarcada e o peso voltou ao original, limpa também
         // o flag persistente "ruptura_sinalizada" (defensivo — o trigger DB também faz).
         const limparSinalizada = !it.ruptura;
-        // Rebase do baseline (peso_original / quantidade_original) só faz sentido
-        // para itens SEM ruptura — para um item em ruptura, o "original" precisa
-        // continuar refletindo o que foi pedido, senão a aba Rupturas exibe um
-        // valor diferente do Painel (perda achatada pela última edição).
-        const rebaseBaseline = !it.ruptura;
+        // Rebase do baseline (peso_original / quantidade_original) acontece SEMPRE
+        // em Aprovações — esta é a etapa em que o vendedor redefine a demanda real
+        // do pedido. Sem rebasear quando o item está em ruptura, o card de pré-carga
+        // continua mostrando a perda baseada no pedido antigo (ex.: 6.000 kg quando
+        // o vendedor já reduziu para 700 kg). A aba Rupturas continua coerente porque
+        // a perda de uma ruptura total passa a ser igual ao novo peso_original.
         const { error } = await supabase
           .from("carregamentos_dia")
           .update({
@@ -83,11 +84,8 @@ export function useEditarPedidoAprovacao() {
             quantidade: it.quantidade,
             peso: it.peso,
             peso_manual: true,
-            // Rebase de baseline: ao editar em Aprovações, o pedido novo é a referência
-            // de demanda. Sem isso, peso_original/quantidade_original ficam com o valor
-            // antigo e a tela "Faltando agora" mostra ruptura maior do que o pedido real.
-            // Não rebasear quando o item está em ruptura — ver comentário acima.
-            ...(rebaseBaseline ? { peso_original: it.peso, quantidade_original: it.quantidade } : {}),
+            peso_original: it.peso,
+            quantidade_original: it.quantidade,
             preco_unitario: it.preco_unitario || null,
             preco_total: it.preco_total || null,
             motivo_ruptura: it.motivo_ruptura || null,
