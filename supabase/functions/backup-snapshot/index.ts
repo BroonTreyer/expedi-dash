@@ -5,6 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const SUPER_ADMIN_EMAILS = [
+  "matheuscarneiro004@gmail.com",
+  "matheuss-s@hotmail.com",
+];
+
 const TABLES = [
   "carregamentos_dia",
   "produtos",
@@ -86,7 +91,16 @@ Deno.serve(async (req) => {
     }
     const userId = user.id;
 
-    // Check admin
+    // Super-admin email gate (mirrors UI <SuperAdminRoute>)
+    const userEmail = user.email?.toLowerCase().trim();
+    if (!userEmail || !SUPER_ADMIN_EMAILS.includes(userEmail)) {
+      return new Response(JSON.stringify({ error: "Acesso restrito a Super Admins" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check admin role
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: roleData } = await admin
       .from("user_roles")
