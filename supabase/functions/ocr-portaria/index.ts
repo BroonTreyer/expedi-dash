@@ -219,6 +219,15 @@ serve(async (req) => {
       });
     }
 
+    // SSRF protection: only allow images from this project's Supabase Storage
+    const allowedPrefix = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/`;
+    if (typeof imageUrl !== "string" || !imageUrl.startsWith(allowedPrefix)) {
+      return new Response(JSON.stringify({ error: "imageUrl must be a Supabase Storage URL" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let result: { texto: string; confianca: number };
 
     if (tipo === "placa") {
