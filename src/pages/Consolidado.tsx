@@ -605,6 +605,7 @@ export default function Consolidado() {
       transportadora: group.items[0]?.transportadora ?? undefined,
       horarioPrevisto: group.items[0]?.horario_previsto ?? undefined,
       tipoFrete: group.tipoFrete ?? undefined,
+      nomeCarga: group.nomeCarga ?? null,
       groups: groupsArr,
       totalPeso,
       totalRuptura,
