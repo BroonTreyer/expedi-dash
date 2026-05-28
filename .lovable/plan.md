@@ -1,31 +1,51 @@
-## Consolidar adiantamentos por OC na tabela de Adiantamentos
+## Objetivo
 
-### Objetivo
-Quando vários adiantamentos compartilham a mesma Ordem de Carga + Transportadora, exibir como uma única linha somando valores. Hoje aparecem 3 linhas para OC 129873 e 2 linhas para 129969.
+Exibir o telefone do motorista em dois lugares:
 
-### Onde
-`src/components/logistica/AdiantamentosTab.tsx` — componente `ListaAdiantamentos` (linhas ~783-870). Mudança puramente de apresentação, sem alterar dados no banco.
+1. **Painéis da tela Portaria** (1º print): "Aguardando vínculo da Logística" e "Cargas fechadas aguardando veículo".
+2. **Romaneio de impressão** (2º print): bloco de informações do cabeçalho, ao lado de "Motorista".
 
-### Como
-1. **Função `consolidarPorOC(data)`**: agrupa por chave `transportadora + ordem_carga` (apenas quando `tipo_agrupamento === "ordem"` e há OC). Itens "Lote" ou sem OC ficam como linhas individuais.
+Hoje os componentes só recebem o nome do motorista; o telefone existe na tabela `motoristas` (campo `telefone`), mas não está sendo buscado.
 
-2. **Linha agregada** por grupo, somando:
-   - `qtd_ctes`, `valor_total_ctes`, `valor_adiantamento`, `valor_saldo`
-   - `%` = média ponderada (adiantamento/total)
-   - `numero`: se ≥2 adiantamentos, exibir `"N adiantamentos"` com tooltip listando os números; se 1, mantém o original
-   - `status`: se todos iguais → mesmo; senão → "misto" (mostra cor neutra)
-   - `pago_em` / `quitado_em`: data mais recente do grupo
-   - `data`: data mais antiga (ou range "dd/MM – dd/MM" se diferentes)
+## Como buscar o telefone
 
-3. **Expansão (chevron)**: linha agregada com `>1` adiantamento ganha botão para expandir e mostrar as linhas originais embaixo (sub-linhas com indent).
+Criar um hook leve `useTelefonesMotoristas()` em `src/hooks/useMotoristas.ts` (ou arquivo novo) que:
 
-4. **Ações por linha agregada**:
-   - **Comprovante**: abre o `ComprovanteAdiantamentoDialog` recebendo todos os adiantamentos do grupo (o dialog já agrega CT-es por transportadora, então só passar o array funciona)
-   - **Cancelar**: aparece só dentro da expansão, por adiantamento individual (segurança — evita cancelar 3 de uma vez sem querer)
-   - **Checkbox de seleção** (aba Aguardando): marca/desmarca todos os adiantamentos do grupo de uma vez
+- Faz `select('nome_completo, telefone')` em `motoristas` (uma única vez, com cache do React Query).
+- Retorna um `Map<string, string>` indexado pelo nome normalizado (uppercase + trim).
+- Helper `getTelefone(nome)` faz o lookup; retorna `null` se não encontrar.
 
-5. **Aplicar nas 3 abas** que usam `ListaAdiantamentos` (Pendentes, Aguardando, Quitados).
+Telefone exibido com a máscara já existente em `src/lib/masks.ts` (formato `(99) 99999-9999`).
 
-### Fora de escopo
-- Não altera schema, hooks, mutations, nem o dialog de comprovante.
-- Não mexe na aba "Montar Lote" (já agrupa por OC).
+## Mudanças nos arquivos
+
+### 1. `src/components/portaria/SolicitacoesPendentesPanel.tsx`
+Linha ~219, no bloco `Motorista: {v.motorista}`, acrescentar após o nome:
+```
+{telefone && <> • <span className="text-muted-foreground">Tel.:</span> {telefone}</>}
+```
+
+### 2. `src/components/portaria/CargasFechadasAguardandoPanel.tsx`
+Linha ~302, mesma adição depois de `Motorista: {c.motorista}`.
+
+### 3. `src/components/dashboard/CargaPrintDialog.tsx`
+- Adicionar campo opcional `telefoneMotorista?: string` em `CargaPrintData`.
+- Linha 165: renderizar abaixo do motorista:
+  ```
+  <div><span className="font-semibold">Telefone:</span> {data.telefoneMotorista || "—"}</div>
+  ```
+- Em `src/pages/Index.tsx` (linha ~644) e `src/pages/Consolidado.tsx` (linha ~599): preencher `telefoneMotorista` usando o mesmo lookup.
+
+### 4. (Bônus, mesmo padrão) `PainelChegou.tsx` e `PainelCargasFechadas.tsx` (Expedição)
+Se o usuário quiser que apareça também na tela Expedição, podemos aplicar a mesma lógica. **Por padrão não inclui** já que o pedido foi sobre os dois prints — confirmar se quer estender.
+
+## Sem mudanças
+
+- Sem alteração de schema.
+- Sem alteração nas mutações de criação/edição.
+- Telefone é só exibição (lookup pelo nome).
+
+## Caso o motorista não exista no cadastro
+
+Mostra apenas o nome (sem o sufixo de telefone) — silencioso, sem "—" nos painéis.
+No romaneio, mostra "—" para deixar o campo visível ao motorista de plantão.
