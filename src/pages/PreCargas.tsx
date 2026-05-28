@@ -44,6 +44,7 @@ interface PreCargaGrupo {
   tipoCaminhao: string | null;
   ordemCarga: string | null;
   data: string;
+  dataPrevista: string | null;
   pedidos: PedidoGrupo[];
   destinos: string;
   qtdPedidos: number;
@@ -95,6 +96,7 @@ export default function PreCargas() {
           tipoCaminhao: r.tipo_caminhao,
           ordemCarga: r.ordem_carga,
           data: r.data,
+          dataPrevista: (r as any).data_prevista_carregamento ?? null,
           pedidos: [],
           destinos: "",
           qtdPedidos: 0,
@@ -332,16 +334,16 @@ function KpiTile({ label, value, sub, variant }: { label: string; value: string;
 
 function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; canEditDate: boolean; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
   const temRup = carga.pesoRuptura > 0 || carga.unidRuptura > 0;
-  const [dataLocal, setDataLocal] = useState(carga.data);
-  useEffect(() => { setDataLocal(carga.data); }, [carga.data]);
+  // "Data prevista de carregamento" é controle interno do Faturamento.
+  // Não afeta filtros nem painéis. Fallback para `data` quando ainda não preenchida.
+  const dataExibida = carga.dataPrevista ?? carga.data;
+  const [dataLocal, setDataLocal] = useState(dataExibida);
+  useEffect(() => { setDataLocal(dataExibida); }, [dataExibida]);
   const atualizarData = useAtualizarDataCarga();
 
-  const hojeIso = new Date().toISOString().slice(0, 10);
-  const dataPassada = dataLocal && dataLocal < hojeIso;
-
   const commitData = (nova: string) => {
-    if (!nova || nova === carga.data) return;
-    const anterior = carga.data;
+    if (!nova || nova === dataExibida) return;
+    const anterior = dataExibida;
     setDataLocal(nova);
     atualizarData.mutate(
       { cargaId: carga.cargaId, novaData: nova },
@@ -402,10 +404,7 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
       </CardHeader>
       {/* Data do Carregamento — destaque para o Faturamento */}
       <div
-        className={cn(
-          "mx-3 sm:mx-4 mt-1 mb-2 rounded-md border px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3",
-          dataPassada ? "border-amber-500/60 bg-amber-500/5" : "border-primary/40 bg-primary/5",
-        )}
+        className="mx-3 sm:mx-4 mt-1 mb-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
       >
         <div className="flex items-center gap-2 text-sm font-semibold shrink-0">
           <CalendarDays className="h-4 w-4 text-primary" />
@@ -425,9 +424,8 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
         )}
         <span className="text-[11px] text-muted-foreground leading-snug">
           {canEditDate
-            ? "Pode ser alterada pelo Faturamento (salva ao sair do campo)"
-            : "Definida pelo Faturamento"}
-          {dataPassada && <span className="ml-2 text-amber-700 dark:text-amber-400 font-medium">Data já passou</span>}
+            ? "Controle interno do Faturamento — não afeta filtros nem painéis do sistema."
+            : "Controle interno do Faturamento."}
         </span>
       </div>
       {carga.destinos && (

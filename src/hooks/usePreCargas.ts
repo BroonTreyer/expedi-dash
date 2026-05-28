@@ -48,8 +48,11 @@ export function usePreCargas() {
 }
 
 /**
- * Atualiza a Data do Carregamento de todos os registros de uma pré-carga (mesmo carga_id).
- * Faturamento normalmente faz isso após confirmar com o cliente.
+ * Atualiza a "Data prevista de carregamento" de uma pré-carga (mesmo carga_id).
+ *
+ * IMPORTANTE: este campo é PURAMENTE INFORMATIVO (controle interno do
+ * Faturamento). Ele grava em `data_prevista_carregamento` e NÃO toca em
+ * `data`, então não afeta filtros do Painel, Rupturas, Consolidado, etc.
  */
 export function useAtualizarDataCarga() {
   const qc = useQueryClient();
@@ -57,15 +60,13 @@ export function useAtualizarDataCarga() {
     mutationFn: async ({ cargaId, novaData }: { cargaId: string; novaData: string }) => {
       const { error } = await supabase
         .from("carregamentos_dia")
-        .update({ data: novaData })
+        .update({ data_prevista_carregamento: novaData })
         .eq("carga_id", cargaId);
       if (error) throw error;
       return { cargaId, novaData };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pre-cargas"] });
-      qc.invalidateQueries({ queryKey: ["carregamentos"] });
-      qc.invalidateQueries({ queryKey: ["consolidated"] });
     },
   });
 }

@@ -252,6 +252,7 @@ export type Database = {
           codigo_produto: string | null
           created_at: string
           data: string
+          data_prevista_carregamento: string | null
           etapa: string
           forma_pagamento: string | null
           horario_fim: string | null
@@ -294,6 +295,7 @@ export type Database = {
           codigo_produto?: string | null
           created_at?: string
           data?: string
+          data_prevista_carregamento?: string | null
           etapa?: string
           forma_pagamento?: string | null
           horario_fim?: string | null
@@ -336,6 +338,7 @@ export type Database = {
           codigo_produto?: string | null
           created_at?: string
           data?: string
+          data_prevista_carregamento?: string | null
           etapa?: string
           forma_pagamento?: string | null
           horario_fim?: string | null
