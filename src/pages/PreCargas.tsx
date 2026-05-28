@@ -404,10 +404,7 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
       </CardHeader>
       {/* Data do Carregamento — destaque para o Faturamento */}
       <div
-        className={cn(
-          "mx-3 sm:mx-4 mt-1 mb-2 rounded-md border px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3",
-          dataPassada ? "border-amber-500/60 bg-amber-500/5" : "border-primary/40 bg-primary/5",
-        )}
+        className="mx-3 sm:mx-4 mt-1 mb-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
       >
         <div className="flex items-center gap-2 text-sm font-semibold shrink-0">
           <CalendarDays className="h-4 w-4 text-primary" />
@@ -427,9 +424,8 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
         )}
         <span className="text-[11px] text-muted-foreground leading-snug">
           {canEditDate
-            ? "Pode ser alterada pelo Faturamento (salva ao sair do campo)"
-            : "Definida pelo Faturamento"}
-          {dataPassada && <span className="ml-2 text-amber-700 dark:text-amber-400 font-medium">Data já passou</span>}
+            ? "Controle interno do Faturamento — não afeta filtros nem painéis do sistema."
+            : "Controle interno do Faturamento."}
         </span>
       </div>
       {carga.destinos && (
