@@ -217,6 +217,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
 
         <div className="text-xs">
           <span className="text-muted-foreground">Motorista:</span> {v.motorista || "—"}
+          {(() => { const t = getTelefone(v.motorista); return t ? <> • <span className="text-muted-foreground">Tel.:</span> {t}</> : null; })()}
           {v.transportadora && (
             <> • <span className="text-muted-foreground">Transp.:</span> {v.transportadora}</>
           )}
