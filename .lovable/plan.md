@@ -1,51 +1,34 @@
-## Objetivo
+# Correções na edição de Pré-carga
 
-Exibir o telefone do motorista em dois lugares:
+Dois ajustes no fluxo "Editar pré-carga" (diálogo `FechamentoLoteDialog` em modo pré-carga).
 
-1. **Painéis da tela Portaria** (1º print): "Aguardando vínculo da Logística" e "Cargas fechadas aguardando veículo".
-2. **Romaneio de impressão** (2º print): bloco de informações do cabeçalho, ao lado de "Motorista".
+## 1. A ordem reordenada não "volta" após salvar
 
-Hoje os componentes só recebem o nome do motorista; o telefone existe na tabela `motoristas` (campo `telefone`), mas não está sendo buscado.
+**Causa:** o `ordem_entrega` JÁ é gravado no banco quando você arrasta e clica em "Atualizar pré-carga". O problema é que, ao reabrir o diálogo de edição, os itens são lidos sem usar `ordem_entrega` para ordenar — então a lista aparece de novo na ordem original e dá a impressão de que a reordenação não foi salva.
 
-## Como buscar o telefone
+**Correção:**
+- Em `src/pages/Index.tsx` (`preCargas`): ordenar `items` de cada `PreCargaGroup` por `ordem_entrega` (com `numero_pedido` como desempate).
+- Em `src/components/dashboard/FechamentoLoteDialog.tsx` (`initialGroups`): quando os grupos são construídos a partir de `items` (caminho usado na edição de pré-carga, sem `roteirizacao`), ordenar pelo `ordem_entrega` mínimo do grupo antes de atribuir `ordem: idx + 1`.
 
-Criar um hook leve `useTelefonesMotoristas()` em `src/hooks/useMotoristas.ts` (ou arquivo novo) que:
+Com isso, a ordem salva volta a aparecer corretamente toda vez que a pré-carga é reaberta para edição.
 
-- Faz `select('nome_completo, telefone')` em `motoristas` (uma única vez, com cache do React Query).
-- Retorna um `Map<string, string>` indexado pelo nome normalizado (uppercase + trim).
-- Helper `getTelefone(nome)` faz o lookup; retorna `null` se não encontrar.
+## 2. Falta o botão "Roteirizar" no diálogo de pré-carga
 
-Telefone exibido com a máscara já existente em `src/lib/masks.ts` (formato `(99) 99999-9999`).
+Hoje o "Roteirizar" só existe na barra de seleção de pedidos (`Index.tsx`, fluxo Fechar Carga). Dentro do diálogo de edição de pré-carga não há atalho equivalente, mesmo que o mapa já mostre a rota.
 
-## Mudanças nos arquivos
+**Correção:** adicionar no header do diálogo `FechamentoLoteDialog` um botão "Roteirizar" (ícone `Route`) que:
+- fica visível sempre que houver ≥2 destinos com cidade/UF (mesmo critério atual de roteirização);
+- abre o `RoteirizacaoDialog` passando os `items` atuais do diálogo;
+- quando o `RoteirizacaoDialog` confirma, aplica o resultado de volta no `FechamentoLoteDialog` (reordena `groups` segundo `roteirizacao.groups`, atualiza `routeGeometry`, `distanciaTotalLocal`, `trechosLocal`, `rotaRapida/Economica`, `modoRota`) — mesma lógica usada quando o resultado chega pela prop `roteirizacao`.
 
-### 1. `src/components/portaria/SolicitacoesPendentesPanel.tsx`
-Linha ~219, no bloco `Motorista: {v.motorista}`, acrescentar após o nome:
-```
-{telefone && <> • <span className="text-muted-foreground">Tel.:</span> {telefone}</>}
-```
+Implementação:
+- Adicionar prop opcional `onRequestRoteirizar?: () => void` em `FechamentoLoteDialog`.
+- Em `Index.tsx`, passar um handler que abre o `RoteirizacaoDialog` com os mesmos `items` do diálogo aberto (sem fechar o `FechamentoLoteDialog`) e, no `onAdvance` desse RoteirizacaoDialog, em vez de só abrir o lote dialog, também atualizar `roteirizacaoResult` — o `FechamentoLoteDialog` já reage a mudanças em `roteirizacao` via `useEffect` (linha ~189) e reidrata a rota/grupos.
+- Manter `RoteirizacaoDialog` controlado pelo state existente (`roteirizacaoOpen`, `roteirizacaoResult`).
 
-### 2. `src/components/portaria/CargasFechadasAguardandoPanel.tsx`
-Linha ~302, mesma adição depois de `Motorista: {c.motorista}`.
+## Arquivos alterados
 
-### 3. `src/components/dashboard/CargaPrintDialog.tsx`
-- Adicionar campo opcional `telefoneMotorista?: string` em `CargaPrintData`.
-- Linha 165: renderizar abaixo do motorista:
-  ```
-  <div><span className="font-semibold">Telefone:</span> {data.telefoneMotorista || "—"}</div>
-  ```
-- Em `src/pages/Index.tsx` (linha ~644) e `src/pages/Consolidado.tsx` (linha ~599): preencher `telefoneMotorista` usando o mesmo lookup.
+- `src/pages/Index.tsx` — ordenar `items` por `ordem_entrega`; passar `onRequestRoteirizar` ao `FechamentoLoteDialog`.
+- `src/components/dashboard/FechamentoLoteDialog.tsx` — ordenar `initialGroups` por `ordem_entrega`; adicionar botão "Roteirizar" no header com a nova prop.
 
-### 4. (Bônus, mesmo padrão) `PainelChegou.tsx` e `PainelCargasFechadas.tsx` (Expedição)
-Se o usuário quiser que apareça também na tela Expedição, podemos aplicar a mesma lógica. **Por padrão não inclui** já que o pedido foi sobre os dois prints — confirmar se quer estender.
-
-## Sem mudanças
-
-- Sem alteração de schema.
-- Sem alteração nas mutações de criação/edição.
-- Telefone é só exibição (lookup pelo nome).
-
-## Caso o motorista não exista no cadastro
-
-Mostra apenas o nome (sem o sufixo de telefone) — silencioso, sem "—" nos painéis.
-No romaneio, mostra "—" para deixar o campo visível ao motorista de plantão.
+Nenhuma mudança de schema, RLS ou lógica de gravação.
