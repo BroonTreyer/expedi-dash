@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useSession } from "@/hooks/useAuth";
+import { useTelefonesMotoristas } from "@/hooks/useTelefonesMotoristas";
 import { VincularCargaDialog } from "./VincularCargaDialog";
 import { VincularMovimentoCargaDialog } from "./VincularMovimentoCargaDialog";
 import { EditarVeiculoEsperadoDialog } from "./EditarVeiculoEsperadoDialog";
@@ -30,6 +31,7 @@ interface Props {
 export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
   const { role } = useAuth();
   const session = useSession();
+  const { getTelefone } = useTelefonesMotoristas();
   const { data: ativosRaw = [], isLoading } = useVeiculosWalkInAtivos();
   const autorizar = useAutorizarChegada();
   const registrarChegada = useRegistrarChegadaPortaria();
