@@ -168,12 +168,14 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
     segundosAtras < 60 ? `há ${segundosAtras}s` :
     `há ${Math.floor(segundosAtras / 60)}min`;
 
-  // Mesmos filtros de visibilidade do Painel: ruptura aberta, fora de logística e não finalizada.
+  // Ruptura aberta enquanto o item NÃO foi efetivamente carregado.
+  // Antes excluíamos `etapa === "logistica"`, o que fazia a ruptura sumir
+  // assim que a pré-carga era fechada (virava etapa logística). Agora só
+  // saem da lista os itens realmente concluídos no portão (status Carregado).
   const todasRupturas = useMemo(
     () =>
       carregamentos.filter((c) => {
         if (c.ruptura !== true) return false;
-        if (c.etapa === "logistica") return false;
         if (c.carga_id != null && c.status === "Carregado") return false;
         return true;
       }),
