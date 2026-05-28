@@ -44,6 +44,7 @@ interface PreCargaGrupo {
   tipoCaminhao: string | null;
   ordemCarga: string | null;
   data: string;
+  dataPrevista: string | null;
   pedidos: PedidoGrupo[];
   destinos: string;
   qtdPedidos: number;
