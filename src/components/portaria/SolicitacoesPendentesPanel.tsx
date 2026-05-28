@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogIn, X, Clock, Link2, CheckCircle2, Package, ShieldCheck, Pencil } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, intervalToDuration, formatDuration } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
