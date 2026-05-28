@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical, CalendarDays } from "lucide-react";
+import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical, CalendarDays, Route } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -83,9 +83,15 @@ interface Props {
    * é relaxada (apenas exige pelo menos 1 pedido).
    */
   onSavePreCarga?: (updates: { id: string; tipo_caminhao: string | null; placa: string | null; motorista: string | null; transportadora: string | null; ordem_entrega: number; etapa: string; carga_id: string; data: string; horario_previsto?: string | null; nome_carga?: string | null; ordem_carga?: string | null }[], meta: { cargaId: string; isExisting: boolean }) => void;
+  /**
+   * Quando definido, exibe o botão "Roteirizar" no header do diálogo —
+   * útil principalmente no fluxo de edição de pré-carga, que não passa
+   * pela tela de Roteirização antes de abrir.
+   */
+  onRequestRoteirizar?: () => void;
 }
 
-export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate, roteirizacao, onSavePreCarga }: Props) {
+export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate, roteirizacao, onSavePreCarga, onRequestRoteirizar }: Props) {
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
@@ -135,7 +141,16 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       return roteirizacao.groups;
     }
     const map = new Map<string, RotaGroup>();
-    items.forEach((c) => {
+    // Preservar a ordem salva (`ordem_entrega`) ao reabrir uma pré-carga: sem
+    // isso, os grupos saem em ordem de iteração de `items` e a reordenação
+    // gravada no banco "some" visualmente no próximo Editar.
+    const itemsOrdenados = [...items].sort((a, b) => {
+      const oa = (a as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+      const ob = (b as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+      if (oa !== ob) return oa - ob;
+      return String(a.numero_pedido ?? "").localeCompare(String(b.numero_pedido ?? ""));
+    });
+    itemsOrdenados.forEach((c) => {
       const key = c.codigo_cliente ?? "__sem_cliente__";
       if (!map.has(key)) {
         map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, cidade: c.cidade, uf: c.uf, items: [], pesoTotal: 0, pesoPlanejado: 0, rupturaCount: 0, ordem: 0 });
@@ -669,7 +684,18 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
-            {existingPreCargaId ? "Pré-carga em edição" : "Fechar Carga"}
+            <span className="flex-1">{existingPreCargaId ? "Pré-carga em edição" : "Fechar Carga"}</span>
+            {onRequestRoteirizar && rotaDestinos.length >= 2 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 mr-6"
+                onClick={onRequestRoteirizar}
+              >
+                <Route className="h-3.5 w-3.5" /> Roteirizar
+              </Button>
+            )}
           </DialogTitle>
           <DialogDescription>
             {existingPreCargaId

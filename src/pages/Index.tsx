@@ -227,6 +227,13 @@ export default function Index() {
         if (it.cidade) dest.add(`${it.cidade}${it.uf ? "/" + it.uf : ""}`);
       }
       g.destinos = Array.from(dest).join(", ");
+      // Manter a ordem reordenada gravada em ordem_entrega ao reabrir a pré-carga.
+      g.items.sort((a, b) => {
+        const oa = (a as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+        const ob = (b as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+        if (oa !== ob) return oa - ob;
+        return String(a.numero_pedido ?? "").localeCompare(String(b.numero_pedido ?? ""));
+      });
     }
     return Array.from(map.values()).sort((a, b) => a.data.localeCompare(b.data));
   }, [carregamentos]);
@@ -838,7 +845,7 @@ export default function Index() {
         <RoteirizacaoDialog
           open={roteirizacaoOpen}
           onOpenChange={setRoteirizacaoOpen}
-          items={selectedItems}
+          items={preCargaItems ?? selectedItems}
           onAdvance={(result) => {
             setRoteirizacaoResult(result);
             setLoteDialogOpen(true);
@@ -859,6 +866,13 @@ export default function Index() {
           onPrintReady={handlePrintReady}
           selectedDate={dateFromStr}
           roteirizacao={roteirizacaoResult}
+          onRequestRoteirizar={() => {
+            // Abre o diálogo de Roteirização por cima do FechamentoLoteDialog;
+            // o resultado volta via `roteirizacaoResult` e o useEffect interno
+            // do FechamentoLoteDialog reidrata grupos, geometria e modos de rota.
+            setRoteirizacaoResult(null);
+            setRoteirizacaoOpen(true);
+          }}
         />
 
         <CargaPrintDialog
