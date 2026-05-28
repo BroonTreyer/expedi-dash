@@ -182,6 +182,23 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     }
   }, [open, initialGroups]);
 
+  // Quando o usuário dispara uma nova Roteirização de DENTRO do diálogo
+  // (botão "Roteirizar" no header), `roteirizacao` muda enquanto o diálogo
+  // continua aberto. Nesse caso, o useEffect acima não ressincroniza groups
+  // (wasOpenRef já é true). Aqui ressincronizamos especificamente quando a
+  // referência de `roteirizacao` muda, sem reagir a refetch de `items`.
+  const isFirstRoteirizacaoRef = useRef(true);
+  useEffect(() => {
+    if (isFirstRoteirizacaoRef.current) {
+      isFirstRoteirizacaoRef.current = false;
+      return;
+    }
+    if (open && roteirizacao) {
+      setGroups(initialGroups);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roteirizacao]);
+
   // ── Estado local da rota — começa com o que veio da Roteirização e é
   // recalculado automaticamente sempre que o usuário reordena os destinos.
   const [routeGeometry, setRouteGeometry] = useState<[number, number][] | undefined>(roteirizacao?.routeGeometry);
