@@ -182,6 +182,9 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
                 <div><span className="font-semibold">Ordem de Carga:</span> {ocs.join(", ")}</div>
               );
             })()}
+            {data.nomeCarga && (
+              <div><span className="font-semibold">Nome da Carga:</span> {data.nomeCarga}</div>
+            )}
             {data.horarioPrevisto && (
               <div><span className="font-semibold">Horário Previsto:</span> {data.horarioPrevisto}</div>
             )}
