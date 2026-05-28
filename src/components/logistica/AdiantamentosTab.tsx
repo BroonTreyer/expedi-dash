@@ -652,7 +652,7 @@ export function AdiantamentosTab() {
                   p.size === pendentes.length ? new Set() : new Set(pendentes.map((a) => a.id)),
                 );
               }}
-              onComprovante={(a) => setComprovantesAdt([a])}
+              onComprovante={(a) => setComprovantesAdt(Array.isArray(a) ? a : [a])}
               onCancelar={(id) => {
                 if (confirm("Cancelar este adiantamento? Os CT-es voltam a ficar disponíveis.")) cancelar.mutate(id);
               }}
