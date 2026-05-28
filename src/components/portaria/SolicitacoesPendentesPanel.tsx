@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogIn, X, Clock, Link2, CheckCircle2, Package, ShieldCheck, Pencil } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, intervalToDuration, formatDuration } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -187,7 +187,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
           )}
           <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
             <Clock className="h-3 w-3" />
-            Chegou {format(new Date(v.created_at), "dd/MM HH:mm", { locale: ptBR })} ({formatDistanceToNow(new Date(v.created_at), { addSuffix: true, locale: ptBR })})
+            Chegou {format(new Date(v.created_at), "dd/MM HH:mm", { locale: ptBR })} (há {formatDuration(intervalToDuration({ start: new Date(v.created_at), end: new Date() }), { format: ["days", "hours", "minutes"], locale: ptBR, zero: false }) || "menos de 1 minuto"})
           </Badge>
           {v.carga_id && (
             <Badge variant="secondary" className="text-[10px] h-5 font-mono gap-1">
