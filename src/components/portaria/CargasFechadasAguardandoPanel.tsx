@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCargasFechadasAguardando, type CargaFechadaAguardando } from "@/hooks/useCarregamentos";
-import { formatDistanceToNow } from "date-fns";
+import { intervalToDuration, formatDuration } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { RegistroEntradaDialog } from "./RegistroEntradaDialog";
 import { CancelarCargaDialog } from "./CancelarCargaDialog";
