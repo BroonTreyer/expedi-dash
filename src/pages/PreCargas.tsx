@@ -334,16 +334,16 @@ function KpiTile({ label, value, sub, variant }: { label: string; value: string;
 
 function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; canEditDate: boolean; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
   const temRup = carga.pesoRuptura > 0 || carga.unidRuptura > 0;
-  const [dataLocal, setDataLocal] = useState(carga.data);
-  useEffect(() => { setDataLocal(carga.data); }, [carga.data]);
+  // "Data prevista de carregamento" é controle interno do Faturamento.
+  // Não afeta filtros nem painéis. Fallback para `data` quando ainda não preenchida.
+  const dataExibida = carga.dataPrevista ?? carga.data;
+  const [dataLocal, setDataLocal] = useState(dataExibida);
+  useEffect(() => { setDataLocal(dataExibida); }, [dataExibida]);
   const atualizarData = useAtualizarDataCarga();
 
-  const hojeIso = new Date().toISOString().slice(0, 10);
-  const dataPassada = dataLocal && dataLocal < hojeIso;
-
   const commitData = (nova: string) => {
-    if (!nova || nova === carga.data) return;
-    const anterior = carga.data;
+    if (!nova || nova === dataExibida) return;
+    const anterior = dataExibida;
     setDataLocal(nova);
     atualizarData.mutate(
       { cargaId: carga.cargaId, novaData: nova },
