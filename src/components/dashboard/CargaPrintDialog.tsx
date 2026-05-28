@@ -26,6 +26,7 @@ export interface CargaPrintData {
   transportadora?: string;
   horarioPrevisto?: string;
   tipoFrete?: string | null;
+  nomeCarga?: string | null;
   groups: ClienteGroup[];
   totalPeso: number;
   totalRuptura?: number;
