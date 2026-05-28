@@ -160,41 +160,52 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
           </div>
 
           {/* Info grid */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-            <div><span className="font-semibold">Data:</span> {dataFormatada}</div>
-            <div><span className="font-semibold">Caminhão:</span> {data.tipoCaminhao}</div>
-            <div><span className="font-semibold">Placa:</span> {data.placa}</div>
-            <div><span className="font-semibold">Motorista:</span> {data.motorista}</div>
-            {(() => {
-              const t = getTelefone(data.motorista);
-              return t ? <div><span className="font-semibold">Telefone:</span> {t}</div> : null;
-            })()}
-            {data.transportadora && (
-              <div><span className="font-semibold">Transportadora:</span> {data.transportadora}</div>
-            )}
-            {data.tipoFrete && (
-              <div><span className="font-semibold">Tipo de Frete:</span> {data.tipoFrete}</div>
-            )}
-            {(() => {
-              const ocs = Array.from(
-                new Set(
-                  displayGroups
-                    .map((g) => g.ordemCarga)
-                    .filter((v): v is string => !!v && String(v).trim() !== "")
-                )
+          {(() => {
+            const telefone = getTelefone(data.motorista);
+            const ocs = Array.from(
+              new Set(
+                displayGroups
+                  .map((g) => g.ordemCarga)
+                  .filter((v): v is string => !!v && String(v).trim() !== "")
+              )
+            );
+            const ordemCarga = ocs.length > 0 ? ocs.join(", ") : null;
+            // Coluna esquerda: Data, Placa, Motorista, Telefone, Ordem de Carga
+            // Coluna direita: Nome da Carga, Transportadora, Tipo de Frete, Caminhão, Horário Previsto
+            const left: Array<[string, React.ReactNode]> = [
+              ["Data", dataFormatada],
+              ["Placa", data.placa],
+              ["Motorista", data.motorista],
+              ["Telefone", telefone],
+              ["Ordem de Carga", ordemCarga],
+            ];
+            const right: Array<[string, React.ReactNode]> = [
+              ["Nome da Carga", data.nomeCarga],
+              ["Transportadora", data.transportadora],
+              ["Tipo de Frete", data.tipoFrete],
+              ["Caminhão", data.tipoCaminhao],
+              ["Horário Previsto", data.horarioPrevisto],
+            ];
+            const rows = Math.max(left.length, right.length);
+            const cells: React.ReactNode[] = [];
+            for (let i = 0; i < rows; i++) {
+              const [lLabel, lVal] = left[i] ?? ["", null];
+              const [rLabel, rVal] = right[i] ?? ["", null];
+              cells.push(
+                <div key={`l-${i}`}>
+                  {lLabel && <><span className="font-semibold">{lLabel}:</span> {lVal ?? "—"}</>}
+                </div>,
+                <div key={`r-${i}`}>
+                  {rLabel && <><span className="font-semibold">{rLabel}:</span> {rVal ?? "—"}</>}
+                </div>
               );
-              if (ocs.length === 0) return null;
-              return (
-                <div><span className="font-semibold">Ordem de Carga:</span> {ocs.join(", ")}</div>
-              );
-            })()}
-            {data.nomeCarga && (
-              <div><span className="font-semibold">Nome da Carga:</span> {data.nomeCarga}</div>
-            )}
-            {data.horarioPrevisto && (
-              <div><span className="font-semibold">Horário Previsto:</span> {data.horarioPrevisto}</div>
-            )}
-          </div>
+            }
+            return (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                {cells}
+              </div>
+            );
+          })()}
 
           {/* Separator */}
           <div className="border-t border-foreground/10" />
