@@ -649,6 +649,7 @@ export default function Index() {
       motorista: first.motorista ?? "",
       transportadora: first.transportadora ?? "",
       horarioPrevisto: first.horario_previsto ?? undefined,
+      nomeCarga: (first as any).nome_carga ?? null,
       groups,
       totalPeso,
       totalPedidos: itemsInCarga.length,
