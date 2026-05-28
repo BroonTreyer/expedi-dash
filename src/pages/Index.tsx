@@ -845,7 +845,7 @@ export default function Index() {
         <RoteirizacaoDialog
           open={roteirizacaoOpen}
           onOpenChange={setRoteirizacaoOpen}
-          items={selectedItems}
+          items={preCargaItems ?? selectedItems}
           onAdvance={(result) => {
             setRoteirizacaoResult(result);
             setLoteDialogOpen(true);
