@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Truck, PackageCheck, X } from "lucide-react";
 import fricoLogo from "@/assets/frico-logo-optimized.webp";
+import { useTelefonesMotoristas } from "@/hooks/useTelefonesMotoristas";
 
 interface ClienteGroup {
   codigoCliente: string | null;
@@ -43,6 +44,7 @@ interface Props {
 
 export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
   const [modo, setModo] = useState<"entrega" | "carregamento">("entrega");
+  const { getTelefone } = useTelefonesMotoristas();
   const cleanup = useCallback(() => {
     document.body.classList.remove("printing-carga");
     const root = document.getElementById("carga-print-root");
@@ -162,7 +164,10 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
             <div><span className="font-semibold">Data:</span> {dataFormatada}</div>
             <div><span className="font-semibold">Caminhão:</span> {data.tipoCaminhao}</div>
             <div><span className="font-semibold">Placa:</span> {data.placa}</div>
-            <div><span className="font-semibold">Motorista:</span> {data.motorista}</div>
+            <div>
+              <span className="font-semibold">Motorista:</span> {data.motorista}
+              {(() => { const t = getTelefone(data.motorista); return t ? <> · <span className="font-semibold">Tel.:</span> {t}</> : null; })()}
+            </div>
             {data.transportadora && (
               <div><span className="font-semibold">Transportadora:</span> {data.transportadora}</div>
             )}
