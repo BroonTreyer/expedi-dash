@@ -266,7 +266,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                         <Hourglass className="h-3 w-3" /> Aguardando liberação
                         {c.horarioChegada && (
                           <span className="ml-1 font-mono">
-                            · {formatHora(c.horarioChegada)} ({minEspera}min)
+                            · Chegou {(() => { try { const d = new Date(c.horarioChegada); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; } catch { return ""; } })()} {formatHora(c.horarioChegada)} ({minEspera}min)
                           </span>
                         )}
                       </Badge>
@@ -285,9 +285,11 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                     <Badge variant="outline" className="text-[10px] h-5">
                       {c.peso_total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
                     </Badge>
-                    <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
-                      <Clock className="h-3 w-3" /> {c.data}
-                    </Badge>
+                    {!aguardandoLib && (
+                      <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
+                        <Clock className="h-3 w-3" /> {c.data}
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
                     {c.placa && (
