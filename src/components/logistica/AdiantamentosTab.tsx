@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon } from "lucide-react";
+import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -652,7 +652,7 @@ export function AdiantamentosTab() {
                   p.size === pendentes.length ? new Set() : new Set(pendentes.map((a) => a.id)),
                 );
               }}
-              onComprovante={(a) => setComprovantesAdt([a])}
+              onComprovante={(a) => setComprovantesAdt(Array.isArray(a) ? a : [a])}
               onCancelar={(id) => {
                 if (confirm("Cancelar este adiantamento? Os CT-es voltam a ficar disponíveis.")) cancelar.mutate(id);
               }}
@@ -737,7 +737,7 @@ export function AdiantamentosTab() {
 
         {/* QUITADOS */}
         <TabsContent value="quitados">
-          <ListaAdiantamentos data={quitados} contexto="quitado" onComprovante={(a) => setComprovantesAdt([a])} />
+          <ListaAdiantamentos data={quitados} contexto="quitado" onComprovante={(a) => setComprovantesAdt(Array.isArray(a) ? a : [a])} />
         </TabsContent>
       </Tabs>
 
@@ -780,6 +780,69 @@ export function AdiantamentosTab() {
   );
 }
 
+type GrupoAdt = {
+  key: string;
+  items: Adiantamento[];
+  rep: Adiantamento; // representativo (mais recente)
+  qtdCtes: number;
+  valorTotal: number;
+  valorAdt: number;
+  valorSaldo: number;
+  pctMedio: number;
+  statusUnico: Adiantamento["status"] | "misto";
+  dataMin: string | null;
+  dataMax: string | null;
+  pagoMax: string | null;
+  quitadoMax: string | null;
+};
+
+function consolidarPorOC(data: Adiantamento[]): GrupoAdt[] {
+  const map = new Map<string, Adiantamento[]>();
+  for (const a of data) {
+    const ocKey =
+      a.tipo_agrupamento === "ordem" && a.ordem_carga && a.ordem_carga.trim()
+        ? `OC|${a.transportadora}|${a.ordem_carga.trim()}`
+        : `SOLO|${a.id}`;
+    if (!map.has(ocKey)) map.set(ocKey, []);
+    map.get(ocKey)!.push(a);
+  }
+  const grupos: GrupoAdt[] = [];
+  for (const [key, items] of map.entries()) {
+    const sorted = [...items].sort((a, b) =>
+      (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+    );
+    const rep = sorted[0];
+    const valorTotal = items.reduce((s, a) => s + Number(a.valor_total_ctes || 0), 0);
+    const valorAdt = items.reduce((s, a) => s + Number(a.valor_adiantamento || 0), 0);
+    const valorSaldo = items.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
+    const qtdCtes = items.reduce((s, a) => s + Number(a.qtd_ctes || 0), 0);
+    const pctMedio = valorTotal > 0 ? (valorAdt / valorTotal) * 100 : 0;
+    const statuses = new Set(items.map((a) => a.status));
+    const statusUnico = statuses.size === 1 ? items[0].status : "misto";
+    const datas = items.map((a) => a.created_at).filter(Boolean) as string[];
+    const pagos = items.map((a) => a.pago_em).filter(Boolean) as string[];
+    const quitados = items.map((a) => a.quitado_em).filter(Boolean) as string[];
+    grupos.push({
+      key,
+      items,
+      rep,
+      qtdCtes,
+      valorTotal,
+      valorAdt,
+      valorSaldo,
+      pctMedio,
+      statusUnico,
+      dataMin: datas.length ? datas.slice().sort()[0] : null,
+      dataMax: datas.length ? datas.slice().sort().at(-1)! : null,
+      pagoMax: pagos.length ? pagos.slice().sort().at(-1)! : null,
+      quitadoMax: quitados.length ? quitados.slice().sort().at(-1)! : null,
+    });
+  }
+  return grupos.sort((a, b) =>
+    (b.dataMax ?? "").localeCompare(a.dataMax ?? ""),
+  );
+}
+
 function ListaAdiantamentos({
   data,
   selected,
@@ -793,10 +856,13 @@ function ListaAdiantamentos({
   selected?: Set<string>;
   onToggle?: (id: string) => void;
   onToggleAll?: () => void;
-  onComprovante: (a: Adiantamento) => void;
+  onComprovante: (a: Adiantamento | Adiantamento[]) => void;
   onCancelar?: (id: string) => void;
   contexto?: "pendente" | "aguardando" | "quitado";
 }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const grupos = useMemo(() => consolidarPorOC(data), [data]);
+
   if (data.length === 0)
     return (
       <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum adiantamento.</Card>
@@ -804,6 +870,25 @@ function ListaAdiantamentos({
   const allIn = !!selected && data.length > 0 && data.every((a) => selected.has(a.id));
   const showPagoEm = contexto === undefined || contexto !== "pendente";
   const showQuitadoEm = contexto === undefined || contexto === "quitado";
+
+  const toggleExpand = (k: string) =>
+    setExpanded((p) => {
+      const n = new Set(p);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+
+  const toggleGrupo = (g: GrupoAdt) => {
+    if (!selected || !onToggle) return;
+    const allSel = g.items.every((a) => selected.has(a.id));
+    g.items.forEach((a) => {
+      const has = selected.has(a.id);
+      if (allSel && has) onToggle(a.id);
+      else if (!allSel && !has) onToggle(a.id);
+    });
+  };
+
   return (
     <Card className="p-0 overflow-x-auto">
       <Table>
@@ -814,6 +899,7 @@ function ListaAdiantamentos({
                 <Checkbox checked={allIn} onCheckedChange={() => onToggleAll?.()} />
               </TableHead>
             )}
+            <TableHead className="w-8" />
             <TableHead>Número</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Transportadora</TableHead>
@@ -830,39 +916,146 @@ function ListaAdiantamentos({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.map((a) => (
-            <TableRow key={a.id}>
-              {selected && (
-                <TableCell>
-                  <Checkbox checked={selected.has(a.id)} onCheckedChange={() => onToggle?.(a.id)} />
-                </TableCell>
-              )}
-              <TableCell className="font-mono text-xs">{a.numero}</TableCell>
-              <TableCell className="text-xs">
-                <DataCell adiantamento={a} />
-              </TableCell>
-              <TableCell className="text-xs">{a.transportadora}</TableCell>
-              <TableCell className="text-xs font-mono">{a.tipo_agrupamento === "ordem" ? a.ordem_carga ?? "—" : "Lote"}</TableCell>
-              <TableCell className="text-right text-xs">{a.qtd_ctes}</TableCell>
-              <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(a.valor_total_ctes))}</TableCell>
-              <TableCell className="text-right text-xs">{a.percentual}%</TableCell>
-              <TableCell className="text-right text-xs tabular-nums font-semibold text-primary">{fmtBRL(Number(a.valor_adiantamento))}</TableCell>
-              <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(a.valor_saldo))}</TableCell>
-              {showPagoEm && <TableCell className="text-xs">{fmtDate(a.pago_em)}</TableCell>}
-              {showQuitadoEm && <TableCell className="text-xs">{fmtDate(a.quitado_em)}</TableCell>}
-              <TableCell><StatusBadge s={a.status} /></TableCell>
-              <TableCell className="text-right">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onComprovante(a)} title="Ver comprovante">
-                  <FileText className="h-4 w-4" />
-                </Button>
-                {onCancelar && a.status === "pendente" && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCancelar(a.id)} title="Cancelar">
-                    <XCircle className="h-4 w-4 text-destructive" />
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
+          {grupos.map((g) => {
+            const consolidado = g.items.length > 1;
+            const isExp = expanded.has(g.key);
+            const grupoAllSel = !!selected && g.items.every((a) => selected.has(a.id));
+            const grupoSomeSel = !!selected && g.items.some((a) => selected.has(a.id));
+            const dataLabel = (() => {
+              if (!consolidado) return null;
+              if (!g.dataMin || !g.dataMax) return null;
+              const min = fmtDate(g.dataMin);
+              const max = fmtDate(g.dataMax);
+              return min === max ? min : `${min} – ${max}`;
+            })();
+            return (
+              <Fragment key={g.key}>
+                <TableRow className={consolidado ? "bg-muted/30" : undefined}>
+                  {selected && (
+                    <TableCell>
+                      <Checkbox
+                        checked={grupoAllSel}
+                        onCheckedChange={() => toggleGrupo(g)}
+                        data-state={!grupoAllSel && grupoSomeSel ? "indeterminate" : undefined}
+                      />
+                    </TableCell>
+                  )}
+                  <TableCell className="w-8">
+                    {consolidado ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => toggleExpand(g.key)}
+                        title={isExp ? "Recolher" : "Expandir adiantamentos"}
+                      >
+                        {isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </Button>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {consolidado ? (
+                      <span title={g.items.map((a) => a.numero).join(", ")} className="font-semibold">
+                        {g.items.length} adiantamentos
+                      </span>
+                    ) : (
+                      g.rep.numero
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {consolidado ? (
+                      <span className="text-muted-foreground">{dataLabel}</span>
+                    ) : (
+                      <DataCell adiantamento={g.rep} />
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs">{g.rep.transportadora}</TableCell>
+                  <TableCell className="text-xs font-mono">
+                    {g.rep.tipo_agrupamento === "ordem" ? g.rep.ordem_carga ?? "—" : "Lote"}
+                  </TableCell>
+                  <TableCell className="text-right text-xs">{g.qtdCtes}</TableCell>
+                  <TableCell className="text-right text-xs tabular-nums">{fmtBRL(g.valorTotal)}</TableCell>
+                  <TableCell className="text-right text-xs">
+                    {g.pctMedio.toFixed(g.pctMedio % 1 === 0 ? 0 : 1).replace(".", ",")}%
+                  </TableCell>
+                  <TableCell className="text-right text-xs tabular-nums font-semibold text-primary">
+                    {fmtBRL(g.valorAdt)}
+                  </TableCell>
+                  <TableCell className="text-right text-xs tabular-nums">{fmtBRL(g.valorSaldo)}</TableCell>
+                  {showPagoEm && <TableCell className="text-xs">{fmtDate(g.pagoMax)}</TableCell>}
+                  {showQuitadoEm && <TableCell className="text-xs">{fmtDate(g.quitadoMax)}</TableCell>}
+                  <TableCell>
+                    {g.statusUnico === "misto" ? (
+                      <Badge variant="outline">Misto</Badge>
+                    ) : (
+                      <StatusBadge s={g.statusUnico} />
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => onComprovante(consolidado ? g.items : g.rep)}
+                      title={consolidado ? "Ver comprovante consolidado" : "Ver comprovante"}
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                    {!consolidado && onCancelar && g.rep.status === "pendente" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onCancelar(g.rep.id)}
+                        title="Cancelar"
+                      >
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+                {consolidado && isExp &&
+                  g.items.map((a) => (
+                    <TableRow key={a.id} className="bg-background/40">
+                      {selected && (
+                        <TableCell>
+                          <Checkbox checked={selected.has(a.id)} onCheckedChange={() => onToggle?.(a.id)} />
+                        </TableCell>
+                      )}
+                      <TableCell />
+                      <TableCell className="font-mono text-xs pl-6 text-muted-foreground">↳ {a.numero}</TableCell>
+                      <TableCell className="text-xs">
+                        <DataCell adiantamento={a} />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{a.transportadora}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">
+                        {a.tipo_agrupamento === "ordem" ? a.ordem_carga ?? "—" : "Lote"}
+                      </TableCell>
+                      <TableCell className="text-right text-xs">{a.qtd_ctes}</TableCell>
+                      <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(a.valor_total_ctes))}</TableCell>
+                      <TableCell className="text-right text-xs">{a.percentual}%</TableCell>
+                      <TableCell className="text-right text-xs tabular-nums text-primary">
+                        {fmtBRL(Number(a.valor_adiantamento))}
+                      </TableCell>
+                      <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(a.valor_saldo))}</TableCell>
+                      {showPagoEm && <TableCell className="text-xs">{fmtDate(a.pago_em)}</TableCell>}
+                      {showQuitadoEm && <TableCell className="text-xs">{fmtDate(a.quitado_em)}</TableCell>}
+                      <TableCell><StatusBadge s={a.status} /></TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onComprovante(a)} title="Ver comprovante">
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        {onCancelar && a.status === "pendente" && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCancelar(a.id)} title="Cancelar">
+                            <XCircle className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </Fragment>
+            );
+          })}
         </TableBody>
       </Table>
     </Card>
