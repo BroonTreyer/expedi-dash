@@ -141,7 +141,16 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       return roteirizacao.groups;
     }
     const map = new Map<string, RotaGroup>();
-    items.forEach((c) => {
+    // Preservar a ordem salva (`ordem_entrega`) ao reabrir uma pré-carga: sem
+    // isso, os grupos saem em ordem de iteração de `items` e a reordenação
+    // gravada no banco "some" visualmente no próximo Editar.
+    const itemsOrdenados = [...items].sort((a, b) => {
+      const oa = (a as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+      const ob = (b as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+      if (oa !== ob) return oa - ob;
+      return String(a.numero_pedido ?? "").localeCompare(String(b.numero_pedido ?? ""));
+    });
+    itemsOrdenados.forEach((c) => {
       const key = c.codigo_cliente ?? "__sem_cliente__";
       if (!map.has(key)) {
         map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, cidade: c.cidade, uf: c.uf, items: [], pesoTotal: 0, pesoPlanejado: 0, rupturaCount: 0, ordem: 0 });
