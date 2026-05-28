@@ -96,6 +96,7 @@ export default function PreCargas() {
           tipoCaminhao: r.tipo_caminhao,
           ordemCarga: r.ordem_carga,
           data: r.data,
+          dataPrevista: (r as any).data_prevista_carregamento ?? null,
           pedidos: [],
           destinos: "",
           qtdPedidos: 0,
