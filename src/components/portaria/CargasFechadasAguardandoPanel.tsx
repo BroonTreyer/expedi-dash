@@ -268,7 +268,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                         <Hourglass className="h-3 w-3" /> Aguardando liberação
                         {c.horarioChegada && (
                           <span className="ml-1 font-mono">
-                            · Chegou {(() => { try { const d = new Date(c.horarioChegada); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; } catch { return ""; } })()} {formatHora(c.horarioChegada)} ({formatDistanceToNow(new Date(c.horarioChegada), { addSuffix: true, locale: ptBR })})
+                            · Chegou {(() => { try { const d = new Date(c.horarioChegada); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; } catch { return ""; } })()} {formatHora(c.horarioChegada)} (há {formatDuration(intervalToDuration({ start: new Date(c.horarioChegada), end: new Date(now) }), { format: ["days", "hours", "minutes"], locale: ptBR, zero: false }) || "menos de 1 minuto"})
                           </span>
                         )}
                       </Badge>
