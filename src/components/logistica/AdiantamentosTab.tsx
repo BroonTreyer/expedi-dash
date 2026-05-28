@@ -737,7 +737,7 @@ export function AdiantamentosTab() {
 
         {/* QUITADOS */}
         <TabsContent value="quitados">
-          <ListaAdiantamentos data={quitados} contexto="quitado" onComprovante={(a) => setComprovantesAdt([a])} />
+          <ListaAdiantamentos data={quitados} contexto="quitado" onComprovante={(a) => setComprovantesAdt(Array.isArray(a) ? a : [a])} />
         </TabsContent>
       </Tabs>
 
