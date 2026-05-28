@@ -164,10 +164,11 @@ export function CargaPrintDialog({ open, onOpenChange, data }: Props) {
             <div><span className="font-semibold">Data:</span> {dataFormatada}</div>
             <div><span className="font-semibold">Caminhão:</span> {data.tipoCaminhao}</div>
             <div><span className="font-semibold">Placa:</span> {data.placa}</div>
-            <div>
-              <span className="font-semibold">Motorista:</span> {data.motorista}
-              {(() => { const t = getTelefone(data.motorista); return t ? <> · <span className="font-semibold">Tel.:</span> {t}</> : null; })()}
-            </div>
+            <div><span className="font-semibold">Motorista:</span> {data.motorista}</div>
+            {(() => {
+              const t = getTelefone(data.motorista);
+              return t ? <div><span className="font-semibold">Telefone:</span> {t}</div> : null;
+            })()}
             {data.transportadora && (
               <div><span className="font-semibold">Transportadora:</span> {data.transportadora}</div>
             )}
