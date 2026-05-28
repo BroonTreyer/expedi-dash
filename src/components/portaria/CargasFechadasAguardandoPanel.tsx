@@ -14,6 +14,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCargasFechadasAguardando, type CargaFechadaAguardando } from "@/hooks/useCarregamentos";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { RegistroEntradaDialog } from "./RegistroEntradaDialog";
 import { CancelarCargaDialog } from "./CancelarCargaDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -266,7 +268,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                         <Hourglass className="h-3 w-3" /> Aguardando liberação
                         {c.horarioChegada && (
                           <span className="ml-1 font-mono">
-                            · Chegou {(() => { try { const d = new Date(c.horarioChegada); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; } catch { return ""; } })()} {formatHora(c.horarioChegada)} ({minEspera}min)
+                            · Chegou {(() => { try { const d = new Date(c.horarioChegada); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; } catch { return ""; } })()} {formatHora(c.horarioChegada)} ({formatDistanceToNow(new Date(c.horarioChegada), { addSuffix: true, locale: ptBR })})
                           </span>
                         )}
                       </Badge>
