@@ -227,6 +227,13 @@ export default function Index() {
         if (it.cidade) dest.add(`${it.cidade}${it.uf ? "/" + it.uf : ""}`);
       }
       g.destinos = Array.from(dest).join(", ");
+      // Manter a ordem reordenada gravada em ordem_entrega ao reabrir a pré-carga.
+      g.items.sort((a, b) => {
+        const oa = (a as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+        const ob = (b as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+        if (oa !== ob) return oa - ob;
+        return String(a.numero_pedido ?? "").localeCompare(String(b.numero_pedido ?? ""));
+      });
     }
     return Array.from(map.values()).sort((a, b) => a.data.localeCompare(b.data));
   }, [carregamentos]);
