@@ -684,7 +684,18 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
-            {existingPreCargaId ? "Pré-carga em edição" : "Fechar Carga"}
+            <span className="flex-1">{existingPreCargaId ? "Pré-carga em edição" : "Fechar Carga"}</span>
+            {onRequestRoteirizar && rotaDestinos.length >= 2 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 mr-6"
+                onClick={onRequestRoteirizar}
+              >
+                <Route className="h-3.5 w-3.5" /> Roteirizar
+              </Button>
+            )}
           </DialogTitle>
           <DialogDescription>
             {existingPreCargaId
