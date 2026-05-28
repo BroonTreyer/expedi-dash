@@ -866,6 +866,13 @@ export default function Index() {
           onPrintReady={handlePrintReady}
           selectedDate={dateFromStr}
           roteirizacao={roteirizacaoResult}
+          onRequestRoteirizar={() => {
+            // Abre o diálogo de Roteirização por cima do FechamentoLoteDialog;
+            // o resultado volta via `roteirizacaoResult` e o useEffect interno
+            // do FechamentoLoteDialog reidrata grupos, geometria e modos de rota.
+            setRoteirizacaoResult(null);
+            setRoteirizacaoOpen(true);
+          }}
         />
 
         <CargaPrintDialog
