@@ -19,6 +19,7 @@ import { ptBR } from "date-fns/locale";
 import { RegistroEntradaDialog } from "./RegistroEntradaDialog";
 import { CancelarCargaDialog } from "./CancelarCargaDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useTelefonesMotoristas } from "@/hooks/useTelefonesMotoristas";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,6 +31,7 @@ interface Props {
 
 export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
   const { role, user } = useAuth();
+  const { getTelefone } = useTelefonesMotoristas();
   const qc = useQueryClient();
   const { data: cargasRaw = [], isLoading } = useCargasFechadasAguardando();
   const [prefill, setPrefill] = useState<CargaFechadaAguardando | null>(null);
@@ -300,6 +302,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                       </span>
                     )}
                     {c.motorista && <span>Motorista: <span className="text-foreground">{c.motorista}</span></span>}
+                    {(() => { const t = getTelefone(c.motorista); return t ? <span>Tel.: <span className="text-foreground">{t}</span></span> : null; })()}
                     {c.transportadora && <span>Transp.: <span className="text-foreground">{c.transportadora}</span></span>}
                     {c.tipo_caminhao && <span>Tipo: {c.tipo_caminhao}</span>}
                   </div>
