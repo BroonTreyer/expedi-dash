@@ -1,17 +1,16 @@
-## Reverter Ayalla para "Aguardando liberação"
+## Finalizar ciclo do Jairo (Varejo)
 
-A portaria liberou a entrada por engano. Vou reverter o último movimento dele para o estado de chegada (card azul / aguardando liberação no pátio).
+Jairo (placa HRS8C41) registrou saída em rota hoje (01/06) às 08:57 e não foi encontrado para fazer o retorno. Ele sumiu do Pátio Atual da aba Varejo, impedindo que a portaria registre o retorno pelo fluxo normal.
 
 ### O que será feito
 
-Migração SQL única atualizando o movimento `26993b11-fbc9-49be-8504-f0b1686d9054`:
+- UPDATE no registro `a4b5b74c-a068-4681-bcaa-ed7ca83f8dcd` em `movimentacoes_portaria`:
+  - `horario_real_retorno` → `now()`
+  - `horario_saida_final` → `now()`
+  - `etapa_carga_propria` → `'finalizado'`
 
-- `horario_entrada` → `NULL`
-- `etapa_terceirizado` → `'chegada'`
-- `veiculos_esperados.conferido` → `false` (se houver vínculo com a placa THF1E00 / carga prevista)
+Isso encerra o ciclo do Jairo para hoje, removendo o registro do Pátio Atual e marcando-o como concluído.
 
-Após isso o registro volta a aparecer em "Cargas Fechadas Aguardando" com o botão "Liberar entrada no pátio" e some do Pátio Atual.
+### Sem alterações de código
 
-### Sem mudanças de código
-
-Nenhum arquivo do front é alterado — é apenas correção de dado operacional.
+Apenas correção de dado operacional no banco. Nenhum arquivo do front é modificado.
