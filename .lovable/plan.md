@@ -1,34 +1,41 @@
-# Correções na edição de Pré-carga
+## Plano de correção
 
-Dois ajustes no fluxo "Editar pré-carga" (diálogo `FechamentoLoteDialog` em modo pré-carga).
+Vou tratar a ordem de entrega como dado crítico e preservar exatamente a sequência visual escolhida pelo usuário.
 
-## 1. A ordem reordenada não "volta" após salvar
+### 1. Corrigir a origem da ordem na Roteirização
+- Ao abrir o `RoteirizacaoDialog`, ordenar os itens/grupos pela `ordem_entrega` já salva antes de montar a lista.
+- Ao avançar da roteirização para “Fechar Carga” ou para edição de pré-carga, garantir que os grupos enviados estejam renumerados pela posição visual atual, não por estado antigo.
+- Ajustar o identificador do drag-and-drop para não colidir quando há mais de um cliente sem código ou múltiplos grupos parecidos.
 
-**Causa:** o `ordem_entrega` JÁ é gravado no banco quando você arrasta e clica em "Atualizar pré-carga". O problema é que, ao reabrir o diálogo de edição, os itens são lidos sem usar `ordem_entrega` para ordenar — então a lista aparece de novo na ordem original e dá a impressão de que a reordenação não foi salva.
+### 2. Impedir que recálculos automáticos sobrescrevam a ordem manual
+- Separar claramente dois modos:
+  - `Roteirizar/Otimizar`: pode sugerir nova ordem.
+  - `Arrastar/manual`: apenas recalcula km/linha mantendo a ordem exata escolhida.
+- Garantir que respostas atrasadas da função de rota não reordenem a lista depois que o usuário já mexeu manualmente.
 
-**Correção:**
-- Em `src/pages/Index.tsx` (`preCargas`): ordenar `items` de cada `PreCargaGroup` por `ordem_entrega` (com `numero_pedido` como desempate).
-- Em `src/components/dashboard/FechamentoLoteDialog.tsx` (`initialGroups`): quando os grupos são construídos a partir de `items` (caminho usado na edição de pré-carga, sem `roteirizacao`), ordenar pelo `ordem_entrega` mínimo do grupo antes de atribuir `ordem: idx + 1`.
+### 3. Salvar no banco exatamente a ordem visual final
+- No `FechamentoLoteDialog`, gerar `ordem_entrega` somente pela posição atual do array visual (`1, 2, 3...`).
+- Aplicar isso igualmente em:
+  - salvar pré-carga;
+  - editar pré-carga;
+  - finalizar pré-carga;
+  - fechar carga direto.
+- Antes de enviar o lote, renumerar os grupos novamente para eliminar qualquer `group.ordem` defasado.
 
-Com isso, a ordem salva volta a aparecer corretamente toda vez que a pré-carga é reaberta para edição.
+### 4. Melhorar a reabertura/visualização
+- Ao reabrir pré-carga ou carga já montada, reconstruir os grupos usando a menor `ordem_entrega` do grupo e não a ordem de criação/retorno do banco.
+- Isso evita a impressão de que “salvou diferente” quando o banco está certo mas a tela remonta errado.
 
-## 2. Falta o botão "Roteirizar" no diálogo de pré-carga
+### 5. Validação prática
+- Conferir que o payload enviado ao batch update contém sequência contínua e coerente.
+- Validar os fluxos principais:
+  - selecionar pedidos → roteirizar → arrastar → fechar carga;
+  - selecionar pedidos → salvar pré-carga → editar → arrastar → salvar;
+  - pré-carga → roteirizar → ajustar manualmente → finalizar.
 
-Hoje o "Roteirizar" só existe na barra de seleção de pedidos (`Index.tsx`, fluxo Fechar Carga). Dentro do diálogo de edição de pré-carga não há atalho equivalente, mesmo que o mapa já mostre a rota.
+## Arquivos previstos
+- `src/components/dashboard/RoteirizacaoDialog.tsx`
+- `src/components/dashboard/FechamentoLoteDialog.tsx`
+- `src/pages/Index.tsx` se precisar ajustar passagem/limpeza do resultado de roteirização.
 
-**Correção:** adicionar no header do diálogo `FechamentoLoteDialog` um botão "Roteirizar" (ícone `Route`) que:
-- fica visível sempre que houver ≥2 destinos com cidade/UF (mesmo critério atual de roteirização);
-- abre o `RoteirizacaoDialog` passando os `items` atuais do diálogo;
-- quando o `RoteirizacaoDialog` confirma, aplica o resultado de volta no `FechamentoLoteDialog` (reordena `groups` segundo `roteirizacao.groups`, atualiza `routeGeometry`, `distanciaTotalLocal`, `trechosLocal`, `rotaRapida/Economica`, `modoRota`) — mesma lógica usada quando o resultado chega pela prop `roteirizacao`.
-
-Implementação:
-- Adicionar prop opcional `onRequestRoteirizar?: () => void` em `FechamentoLoteDialog`.
-- Em `Index.tsx`, passar um handler que abre o `RoteirizacaoDialog` com os mesmos `items` do diálogo aberto (sem fechar o `FechamentoLoteDialog`) e, no `onAdvance` desse RoteirizacaoDialog, em vez de só abrir o lote dialog, também atualizar `roteirizacaoResult` — o `FechamentoLoteDialog` já reage a mudanças em `roteirizacao` via `useEffect` (linha ~189) e reidrata a rota/grupos.
-- Manter `RoteirizacaoDialog` controlado pelo state existente (`roteirizacaoOpen`, `roteirizacaoResult`).
-
-## Arquivos alterados
-
-- `src/pages/Index.tsx` — ordenar `items` por `ordem_entrega`; passar `onRequestRoteirizar` ao `FechamentoLoteDialog`.
-- `src/components/dashboard/FechamentoLoteDialog.tsx` — ordenar `initialGroups` por `ordem_entrega`; adicionar botão "Roteirizar" no header com a nova prop.
-
-Nenhuma mudança de schema, RLS ou lógica de gravação.
+Não pretendo mudar schema nem permissões do banco; a correção é no fluxo de montagem, preservação e gravação da ordem.

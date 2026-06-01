@@ -215,7 +215,21 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
   useEffect(() => {
     if (open && items.length > 0) {
       const map = new Map<string, RotaGroup>();
-      items.forEach((c) => {
+      // Preservar a ordem já salva (ordem_entrega) ao montar os grupos.
+      // Sem isso, a tela monta os destinos na ordem de iteração do array
+      // `items` e a sequência salva pelo usuário "some" visualmente toda
+      // vez que ele reabre Roteirização para revisar.
+      const itemsOrdenados = [...items].sort((a, b) => {
+        const oa = (a as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+        const ob = (b as any).ordem_entrega ?? Number.POSITIVE_INFINITY;
+        if (oa !== ob) return oa - ob;
+        return String(a.numero_pedido ?? "").localeCompare(String(b.numero_pedido ?? ""));
+      });
+      // Guarda o menor ordem_entrega de cada grupo para ordenar os grupos
+      // (e detectar se já existe uma ordem salva pra não auto-otimizar por
+      // cima dela).
+      const minOrdemPorGrupo = new Map<string, number>();
+      itemsOrdenados.forEach((c) => {
         const key = c.codigo_cliente ?? "__sem_cliente__";
         if (!map.has(key)) {
           map.set(key, { codigoCliente: c.codigo_cliente, nomeCliente: c.cliente, cidade: c.cidade, uf: c.uf, items: [], pesoTotal: 0, pesoPlanejado: 0, rupturaCount: 0, ordem: 0 });
@@ -226,15 +240,31 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
         g.pesoPlanejado += c.peso ?? 0;
         g.pesoTotal += pesoEfetivo({ peso: c.peso, ruptura });
         if (ruptura) g.rupturaCount += 1;
+        const oe = (c as any).ordem_entrega;
+        if (oe != null) {
+          const cur = minOrdemPorGrupo.get(key);
+          if (cur == null || oe < cur) minOrdemPorGrupo.set(key, oe);
+        }
       });
-      const arr = Array.from(map.values()).map((g, idx) => ({ ...g, ordem: idx + 1 }));
+      const arr = Array.from(map.entries())
+        .sort(([ka], [kb]) => {
+          const oa = minOrdemPorGrupo.get(ka) ?? Number.POSITIVE_INFINITY;
+          const ob = minOrdemPorGrupo.get(kb) ?? Number.POSITIVE_INFINITY;
+          return oa - ob;
+        })
+        .map(([, g], idx) => ({ ...g, ordem: idx + 1 }));
+      // Se QUALQUER item já tinha ordem_entrega salva, é uma pré-carga /
+      // carga em edição: NUNCA auto-otimizar (isso destruía a sequência
+      // manual do usuário). Apenas desenhamos o traçado preservando a
+      // ordem atual.
+      const temOrdemSalva = minOrdemPorGrupo.size > 0;
       setGroups(arr);
       setExcludedGroupKeys(new Set());
       setRouteGeometry(undefined);
       setDistanciaTotal(undefined);
       setTrechos(undefined);
       setBaseline(null);
-      setShouldAutoRoute(true);
+      setShouldAutoRoute(!temOrdemSalva);
     }
   }, [open, items]);
 
