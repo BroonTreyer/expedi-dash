@@ -673,7 +673,7 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
                                 onCapture={(file, viaArquivo) => handleFotoCapture(field.key, file, viaArquivo)}
                                 previewUrl={values[field.key] || null}
                                 disabled={saving}
-                                allowFileUpload={canRegularizar}
+                                allowFileUpload
                               />
                               {field.required && !values[field.key] && (
                                 <p className="text-[11px] text-destructive">* Obrigatório</p>
