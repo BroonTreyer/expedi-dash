@@ -162,6 +162,12 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
     const arr = Array.from(files).filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
     if (!arr.length) return toast.error("Selecione PDFs");
 
+    const tooBig = arr.find((f) => f.size > 10 * 1024 * 1024);
+    if (tooBig) {
+      toast.warning(`"${tooBig.name}" tem mais de 10 MB — pode falhar por timeout. Considere dividir o PDF.`);
+    }
+    const hasLarge = arr.some((f) => f.size > 5 * 1024 * 1024);
+
     const placeholders: Item[] = arr.map((f) => ({
       fileId: `${f.name}-${f.size}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       file: f,
@@ -170,8 +176,8 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
     }));
     setItems((prev) => [...prev, ...placeholders]);
 
-    // Concorrência limitada a 2 para evitar 429 do gateway de IA
-    const concurrency = 2;
+    // Concorrência: 1 quando houver PDFs grandes (>5MB) para evitar timeout; 2 caso contrário
+    const concurrency = hasLarge ? 1 : 2;
     const queue = arr.map((file, idx) => ({ file, ph: placeholders[idx] }));
     const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
       while (queue.length) {
@@ -195,10 +201,13 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
         const msg = (error as any)?.message || "";
         const ctx = (error as any)?.context;
         const status = ctx?.status ?? ctx?.response?.status;
-        const isRate = status === 429 || /rate.?limit|429|non-2xx/i.test(msg);
-        if (isRate) {
+        const isRate = status === 429 || /rate.?limit|429/i.test(msg);
+        const isTimeout = status === 504 || /timeout|504|gateway/i.test(msg);
+        if (isRate || isTimeout) {
           setItems((prev) => prev.map((p) => p.fileId === phFileId
-            ? { ...p, status: "rate_limited", error: "Limite temporário da IA — clique em Tentar novamente" } : p));
+            ? { ...p, status: "rate_limited", error: isTimeout
+                ? "Timeout da IA (PDF grande) — clique em Tentar novamente ou divida o PDF"
+                : "Limite temporário da IA — clique em Tentar novamente" } : p));
           return;
         }
         throw error;

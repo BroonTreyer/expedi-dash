@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     const dataUrl = `data:application/pdf;base64,${fileBase64}`;
 
     const gatewayBody = JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -128,25 +128,47 @@ Deno.serve(async (req) => {
     });
 
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    const waits = [1000, 3000, 7000];
+    const waits = [2000]; // 1 retry only on 429/5xx
     let aiResp: Response | null = null;
     let lastErrText = "";
-    for (let attempt = 0; attempt < waits.length; attempt++) {
-      aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: gatewayBody,
-      });
+    let timedOut = false;
+    for (let attempt = 0; attempt <= waits.length; attempt++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 90_000); // 90s por chamada
+      try {
+        aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: gatewayBody,
+          signal: ctrl.signal,
+        });
+      } catch (err: any) {
+        clearTimeout(timer);
+        const aborted = err?.name === "AbortError";
+        console.error("AI gateway fetch failed", err?.message, "aborted=", aborted, "attempt", attempt + 1);
+        if (aborted) { timedOut = true; aiResp = null; break; }
+        if (attempt === waits.length) { aiResp = null; break; }
+        await sleep(waits[attempt]);
+        continue;
+      }
+      clearTimeout(timer);
       if (aiResp.ok) break;
       const retryable = aiResp.status === 429 || aiResp.status >= 500;
       lastErrText = await aiResp.text().catch(() => "");
       console.error("AI gateway error", aiResp.status, lastErrText, "attempt", attempt + 1);
-      if (!retryable || attempt === waits.length - 1) break;
-      const jitter = Math.floor(Math.random() * 500);
-      await sleep(waits[attempt] + jitter);
+      if (!retryable || attempt === waits.length) break;
+      await sleep(waits[attempt]);
+    }
+
+    if (timedOut) {
+      return new Response(JSON.stringify({
+        error: "timeout",
+        message: "PDF muito grande ou IA lenta — divida o PDF em arquivos menores e tente novamente.",
+        retryable: true,
+      }), { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!aiResp || !aiResp.ok) {
