@@ -23,15 +23,15 @@ export const pesoEfetivo = (c: PesoItem): number =>
 
 /**
  * Peso que deixou de ser carregado em relação ao pedido original.
- *  - Ruptura total (ruptura = true): perda = peso_original (item inteiro perdido).
- *    No fluxo do sistema, peso/quantidade ficam com o valor original como referência
- *    do que foi pedido; o flag `ruptura` indica que nada foi carregado.
+ *  - Ruptura total (ruptura = true): perda = peso atual do pedido (o pedido pode
+ *    ter sido reduzido antes de ser marcado como ruptura; vale o tamanho corrente,
+ *    não o original histórico). Fallback para `peso_original` se `peso` for nulo.
  *  - Ruptura parcial (peso < peso_original): retorna a diferença.
  *  - Sem perda: 0.
  */
 export const pesoNaoCarregado = (c: PesoItem): number => {
   const original = c.peso_original ?? c.peso ?? 0;
-  if (c.ruptura) return original;
+  if (c.ruptura) return c.peso ?? original;
   const atual = c.peso ?? 0;
   return Math.max(0, original - atual);
 };
@@ -46,11 +46,12 @@ export const isRupturaParcial = (c: PesoItem): boolean => {
 
 /**
  * Quantidade que deixou de ser carregada — espelha `pesoNaoCarregado` para unidades.
- * Ruptura total: devolve `quantidade_original`. Parcial: `original - atual`. Sem perda: 0.
+ * Ruptura total: devolve `quantidade` atual do pedido (fallback `quantidade_original`).
+ * Parcial: `original - atual`. Sem perda: 0.
  */
 export const quantidadeNaoCarregada = (c: QtdItem): number => {
   const original = c.quantidade_original ?? c.quantidade ?? 0;
-  if (c.ruptura) return original;
+  if (c.ruptura) return c.quantidade ?? original;
   const atual = c.quantidade ?? 0;
   return Math.max(0, original - atual);
 };
