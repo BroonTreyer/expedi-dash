@@ -222,12 +222,9 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
       }
       g.qtdPedidos += 1;
       g.pesoCortado += perdido;
-      // Quantidade segue a mesma regra: ruptura total = quantidade_original (pedido inteiro perdido).
-      const qOriginal = c.quantidade_original ?? c.quantidade ?? 0;
-      const qPerdida = c.ruptura
-        ? qOriginal
-        : Math.max(0, qOriginal - (c.quantidade ?? 0));
-      g.qtdCortada += qPerdida;
+      // Quantidade segue a mesma regra que peso (helper unificado).
+      // Blinda contra `quantidade_original` corrompido (< quantidade) — devolve 0 nesses casos.
+      g.qtdCortada += quantidadeNaoCarregada(c);
       if (c.nome_carga) g.cargas.add(c.nome_carga);
       if (c.codigo_cliente) g.clientes.add(c.codigo_cliente);
     }
@@ -245,7 +242,13 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
       if (p.porUnidade) unidTotal += p.qtdCortada;
       else pesoTotal += p.pesoCortado;
     }
-    const pedidosUnicos = new Set(rupturas.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
+    // Conta pedidos únicos por operation_id (quando disponível) — evita inflar o
+    // contador quando há linhas duplicadas para o mesmo (operation_id, numero_pedido).
+    const pedidosUnicos = new Set(
+      rupturas
+        .map((c: any) => c.operation_id ?? (c.numero_pedido != null ? `np-${c.numero_pedido}` : null))
+        .filter((k): k is string => !!k)
+    ).size;
     return { pesoTotal, unidTotal, itens: rupturas.length, pedidos: pedidosUnicos };
   }, [productSummary, rupturas]);
 
