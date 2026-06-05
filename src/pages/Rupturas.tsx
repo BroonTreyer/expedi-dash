@@ -39,7 +39,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { isPorUnidade } from "@/lib/constants";
-import { pesoNaoCarregado } from "@/lib/peso-utils";
+import { pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
@@ -222,12 +222,9 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
       }
       g.qtdPedidos += 1;
       g.pesoCortado += perdido;
-      // Quantidade segue a mesma regra: ruptura total = quantidade_original (pedido inteiro perdido).
-      const qOriginal = c.quantidade_original ?? c.quantidade ?? 0;
-      const qPerdida = c.ruptura
-        ? qOriginal
-        : Math.max(0, qOriginal - (c.quantidade ?? 0));
-      g.qtdCortada += qPerdida;
+      // Quantidade segue a mesma regra que peso (helper unificado).
+      // Blinda contra `quantidade_original` corrompido (< quantidade) — devolve 0 nesses casos.
+      g.qtdCortada += quantidadeNaoCarregada(c);
       if (c.nome_carga) g.cargas.add(c.nome_carga);
       if (c.codigo_cliente) g.clientes.add(c.codigo_cliente);
     }
@@ -245,7 +242,13 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
       if (p.porUnidade) unidTotal += p.qtdCortada;
       else pesoTotal += p.pesoCortado;
     }
-    const pedidosUnicos = new Set(rupturas.filter(c => c.numero_pedido).map(c => c.numero_pedido)).size;
+    // Conta pedidos únicos por operation_id (quando disponível) — evita inflar o
+    // contador quando há linhas duplicadas para o mesmo (operation_id, numero_pedido).
+    const pedidosUnicos = new Set(
+      rupturas
+        .map((c: any) => c.operation_id ?? (c.numero_pedido != null ? `np-${c.numero_pedido}` : null))
+        .filter((k): k is string => !!k)
+    ).size;
     return { pesoTotal, unidTotal, itens: rupturas.length, pedidos: pedidosUnicos };
   }, [productSummary, rupturas]);
 
@@ -293,7 +296,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1 min-w-0">
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Itens marcados como ruptura total ainda em aberto. A lista atualiza automaticamente quando alguém marca ou resolve uma ruptura.
+            Itens marcados como ruptura total ainda em aberto — inclui pedidos arrastados dos últimos 30 dias que ainda não foram marcados como <strong>Carregado</strong>. A lista atualiza automaticamente quando alguém marca ou resolve uma ruptura.
           </p>
           <p className="text-[11px] text-muted-foreground/80 inline-flex items-center gap-1">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -492,9 +495,7 @@ function HistoricoMes() {
       }
       g.qtdPedidos += 1;
       g.pesoCortado += perdido;
-      const qOrig = c.quantidade_original ?? c.quantidade ?? 0;
-      const qAtual = c.ruptura ? 0 : (c.quantidade ?? 0);
-      g.qtdCortada += Math.max(0, qOrig - qAtual);
+      g.qtdCortada += quantidadeNaoCarregada(c);
       if (c.nome_carga) g.cargas.add(c.nome_carga);
       if (c.codigo_cliente) g.clientes.add(c.codigo_cliente);
       if (!g.ultimaData || (c.data && c.data > g.ultimaData)) g.ultimaData = c.data;
