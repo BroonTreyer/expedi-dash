@@ -296,7 +296,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1 min-w-0">
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Itens marcados como ruptura total ainda em aberto. A lista atualiza automaticamente quando alguém marca ou resolve uma ruptura.
+            Itens marcados como ruptura total ainda em aberto — inclui pedidos arrastados dos últimos 30 dias que ainda não foram marcados como <strong>Carregado</strong>. A lista atualiza automaticamente quando alguém marca ou resolve uma ruptura.
           </p>
           <p className="text-[11px] text-muted-foreground/80 inline-flex items-center gap-1">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
