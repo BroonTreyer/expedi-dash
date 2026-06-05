@@ -145,14 +145,46 @@ export function useMovimentacoesAtivasPatio() {
       desde.setDate(desde.getDate() - 7);
       const desdeIso = desde.toISOString();
 
-      const { data, error } = await supabase
-        .from("movimentacoes_portaria")
-        .select("*")
-        .gte("data_hora", desdeIso)
-        .order("data_hora", { ascending: false });
-      if (error) throw error;
+      // Janela 1: últimos 7 dias (comportamento padrão).
+      // Janela 2 (complementar): registros AINDA EM ABERTO dos últimos 60 dias —
+      // cobre rotas antigas que ninguém fechou na portaria (ex.: motorista saiu
+      // p/ rota e o retorno nunca foi registrado). Sem isso o card desaparece
+      // do Pátio após 7 dias e o fluxo trava — só sobra no Histórico.
+      const desdeAntigos = new Date();
+      desdeAntigos.setDate(desdeAntigos.getDate() - 60);
+      const desdeAntigosIso = desdeAntigos.toISOString();
 
-      const all = (data ?? []) as MovimentacaoPortaria[];
+      const [recentesRes, antigosAbertosRes] = await Promise.all([
+        supabase
+          .from("movimentacoes_portaria")
+          .select("*")
+          .gte("data_hora", desdeIso)
+          .order("data_hora", { ascending: false }),
+        supabase
+          .from("movimentacoes_portaria")
+          .select("*")
+          .gte("data_hora", desdeAntigosIso)
+          .lt("data_hora", desdeIso)
+          .eq("tipo_movimento", "entrada")
+          .is("horario_saida_final", null)
+          .or(
+            "and(categoria.eq.carga_propria,etapa_carga_propria.neq.finalizado),and(categoria.eq.terceirizado,etapa_terceirizado.neq.finalizado)",
+          )
+          .order("data_hora", { ascending: false }),
+      ]);
+      if (recentesRes.error) throw recentesRes.error;
+      if (antigosAbertosRes.error) throw antigosAbertosRes.error;
+
+      const seen = new Set<string>();
+      const all: MovimentacaoPortaria[] = [];
+      for (const m of [
+        ...((recentesRes.data ?? []) as MovimentacaoPortaria[]),
+        ...((antigosAbertosRes.data ?? []) as MovimentacaoPortaria[]),
+      ]) {
+        if (seen.has(m.id)) continue;
+        seen.add(m.id);
+        all.push(m);
+      }
       // Constrói set de entradas que já têm saída vinculada (não estão mais no pátio)
       const saidasVinculadas = new Set(
         all
