@@ -39,7 +39,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { isPorUnidade } from "@/lib/constants";
-import { pesoNaoCarregado } from "@/lib/peso-utils";
+import { pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RupturasPrintDialog, type RupturasPrintData } from "@/components/dashboard/RupturasPrintDialog";
