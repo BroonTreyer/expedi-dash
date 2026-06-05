@@ -1,19 +1,16 @@
-## Objetivo
-Permitir que o perfil **Portaria** (vigia) também consiga **anexar arquivo de foto** nos campos de captura, em vez de ficar restrito apenas à câmera. Hoje o botão "Enviar arquivo / Arquivo" só aparece para Admin e Logística (`canRegularizar`).
+## Problema
+O card "AGUARDANDO LIBERAÇÃO" da placa SE06H14 no painel `SolicitacoesPendentesPanel` (rota `/portaria/terceirizado`) só mostra o botão **"Vincular a carga"**. Não há botão **"Recusar"** ou **"Desfazer chegada"**, então quando o porteiro/logística não quer aceitar aquela chegada o veículo continua aparecendo na base indefinidamente.
+
+Causa: o cartão vem de um `movimentacoes_portaria` (chegada de terceirizado sem `carga_id`) — `__source === "mov"`. No render (linhas 243‑276) os botões "Editar" e "Recusar" são escondidos quando `__source === "mov"`; só são exibidos para registros vindos de `veiculos_esperados`.
 
 ## Mudança
-Arquivo: `src/components/portaria/RegistroMovimentoDialog.tsx` (linha 676)
+Arquivo: `src/components/portaria/SolicitacoesPendentesPanel.tsx`
 
-- Trocar `allowFileUpload={canRegularizar}` por `allowFileUpload` (sempre habilitado).
-
-Efeito:
-- Em todos os campos de foto do diálogo de registro (placa, documento, painel, nota, lacre, painel saída), o usuário da portaria passa a ver:
-  - Botão **"Enviar arquivo"** no estado vazio (além do "Toque para fotografar").
-  - Botão **"Arquivo"** ao lado do "Refazer" depois que já há uma foto, para substituir por um arquivo da galeria/PDF.
-- Continua aceitando colar (Ctrl+V) imagem.
-- Não altera regras de obrigatoriedade, OCR, upload para o bucket `portaria`, nem permissões de regularização (edição posterior segue restrita a Admin/Logística via `canRegularizar` na linha 179–180).
+1. Adicionar um handler `handleDesfazerMov(mov)` que faz `DELETE em movimentacoes_portaria WHERE id = mov.id AND horario_entrada IS NULL` (mesma lógica segura já usada em `PatioAtualTab.handleDesfazerChegada`), com toast e invalidate das queries `["movimentacoes_portaria"]` e `["movimentos_orfaos"]`.
+2. No bloco `__source !== "mov"` da seção "Recusar" (linha 266‑276), adicionar um ramo `else` para `__source === "mov"`: renderizar um botão **"Recusar / Desfazer chegada"** (variant destructive) que chama `handleDesfazerMov(v.__mov)`. Visível apenas para `canDecide` (admin / logística), mantendo paridade com o botão "Recusar" original.
+3. Manter o botão "Vincular a carga" intocado. Não mexer no fluxo de `veiculos_esperados` nem no dialog de motivo de recusa (esse dialog só faz sentido para `veiculos_esperados`, pois grava `motivo_recusa`; para movs não há campo equivalente, então a recusa é uma deleção direta com `toast.success("Chegada recusada")`).
 
 ## Fora de escopo
-- Não mexer em `CapturaFoto.tsx` (já suporta `allowFileUpload`).
-- Não mexer em outros lugares que usam `CapturaFoto` (ex.: `MotoristaAutocomplete` já passa `allowFileUpload`).
-- Sem mudança de banco, RLS ou edge function.
+- Não mudar permissões: porteiro continua sem decidir (só admin/logística), igual ao botão "Recusar" existente.
+- Não alterar `useVeiculosEsperados`, `VincularMovimentoCargaDialog`, RLS ou edge functions.
+- Não tocar em `PatioAtualTab` (lá o Desfazer já existe para o mesmo cenário quando o card aparece como "Aguardando vínculo").
