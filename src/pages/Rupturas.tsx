@@ -495,9 +495,7 @@ function HistoricoMes() {
       }
       g.qtdPedidos += 1;
       g.pesoCortado += perdido;
-      const qOrig = c.quantidade_original ?? c.quantidade ?? 0;
-      const qAtual = c.ruptura ? 0 : (c.quantidade ?? 0);
-      g.qtdCortada += Math.max(0, qOrig - qAtual);
+      g.qtdCortada += quantidadeNaoCarregada(c);
       if (c.nome_carga) g.cargas.add(c.nome_carga);
       if (c.codigo_cliente) g.clientes.add(c.codigo_cliente);
       if (!g.ultimaData || (c.data && c.data > g.ultimaData)) g.ultimaData = c.data;
