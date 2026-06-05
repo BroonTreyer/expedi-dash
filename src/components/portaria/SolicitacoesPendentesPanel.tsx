@@ -23,6 +23,7 @@ import { VincularCargaDialog } from "./VincularCargaDialog";
 import { VincularMovimentoCargaDialog } from "./VincularMovimentoCargaDialog";
 import { EditarVeiculoEsperadoDialog } from "./EditarVeiculoEsperadoDialog";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
+import { toast } from "sonner";
 
 interface Props {
   categoria?: "carga_propria" | "terceirizado";
@@ -41,6 +42,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
   const [vincularVeiculo, setVincularVeiculo] = useState<{ id: string; placa: string; motorista?: string | null } | null>(null);
   const [vincularMovimento, setVincularMovimento] = useState<MovimentacaoPortaria | null>(null);
   const [editarVeiculo, setEditarVeiculo] = useState<any | null>(null);
+  const [desfazendoMovId, setDesfazendoMovId] = useState<string | null>(null);
 
   const canDecide = role === "admin" || role === "logistica";
   const canRegistrarChegada = role === "admin" || role === "logistica" || role === "portaria";
@@ -170,6 +172,26 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
     setMotivoRecusa("");
   };
 
+  const handleDesfazerMov = async (mov: MovimentacaoPortaria) => {
+    if (!mov?.id) return;
+    setDesfazendoMovId(mov.id);
+    try {
+      const { error } = await supabase
+        .from("movimentacoes_portaria")
+        .delete()
+        .eq("id", mov.id)
+        .is("horario_entrada", null);
+      if (error) throw error;
+      toast.success("Chegada recusada");
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+      qc.invalidateQueries({ queryKey: ["movimentos_orfaos"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao recusar chegada");
+    } finally {
+      setDesfazendoMovId(null);
+    }
+  };
+
   const renderItem = (v: any, kind: "aguardando" | "liberado") => (
     <div
       key={v.id}
@@ -270,6 +292,17 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
                   className="h-8 text-xs gap-1"
                   onClick={() => setRecusaId(v.id)}
                   disabled={autorizar.isPending}
+                >
+                  <X className="h-3.5 w-3.5" /> Recusar
+                </Button>
+              )}
+              {v.__source === "mov" && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => handleDesfazerMov(v.__mov)}
+                  disabled={desfazendoMovId === v.id}
                 >
                   <X className="h-3.5 w-3.5" /> Recusar
                 </Button>
