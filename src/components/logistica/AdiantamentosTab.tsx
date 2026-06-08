@@ -449,7 +449,10 @@ export function AdiantamentosTab() {
                               const allInG = rows.every((r) => selecionados.has(r.id));
                               const someInG = rows.some((r) => selecionados.has(r.id)) && !allInG;
                               const totalRow = rows.reduce((s, r) => s + Number(r.valor_frete || 0), 0);
-                              const pesoRow = rows.reduce((s, r) => s + Number(r.peso_total || 0), 0);
+                              const ordemInfo = rows[0] ? pesoPorOrdem.get(ordemKeyOf(rows[0])) : undefined;
+                              const pesoRow =
+                                ordemInfo?.pesoEfetivo ??
+                                rows.reduce((s, r) => s + Number(r.peso_total || 0), 0);
                               const tabelaRow = rows.reduce(
                                 (s, r) => s + (tabelaMap?.get(r.id)?.valorTabela ?? 0),
                                 0,
