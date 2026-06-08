@@ -5,9 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, Layers, List } from "lucide-react";
-import { useCtesDacte, useDeleteCteDacte, useDeleteCtesByIds, type CteDacteRow } from "@/hooks/useCtesDacte";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, Layers, List, Pencil } from "lucide-react";
+import {
+  useCtesDacte,
+  useDeleteCteDacte,
+  useDeleteCtesByIds,
+  useSetPesoCargaManualByOrdem,
+  type CteDacteRow,
+} from "@/hooks/useCtesDacte";
 import { useCtesEmAdiantamento } from "@/hooks/useAdiantamentos";
+import { usePesoEfetivoPorOrdem, ordemKeyOf, type FontePeso } from "@/hooks/usePesoEfetivoPorOrdem";
 import { ImportarDacteDialog } from "./ImportarDacteDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
@@ -22,6 +31,8 @@ export function CtesDacteTab() {
   const { data: ctesAtivos } = useCtesEmAdiantamento();
   const del = useDeleteCteDacte();
   const delMany = useDeleteCtesByIds();
+  const setPesoManual = useSetPesoCargaManualByOrdem();
+  const pesoPorOrdem = usePesoEfetivoPorOrdem(data);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
@@ -105,7 +116,7 @@ export function CtesDacteTab() {
         map.set(key, g);
       }
       g.ctes.push(c);
-      g.peso += Number(c.peso_total ?? 0);
+      // peso é recalculado abaixo via pesoPorOrdem
       g.frete += Number(c.valor_frete ?? 0);
       if (c.transportadora && !g.transportadoras.includes(c.transportadora)) g.transportadoras.push(c.transportadora);
       if (c.placa && !g.placas.includes(c.placa)) g.placas.push(c.placa);
@@ -122,6 +133,21 @@ export function CtesDacteTab() {
     }
     return [...map.values()].sort((a, b) => (b.dataMaisRecente > a.dataMaisRecente ? 1 : -1));
   }, [filtered]);
+
+  // Anexa peso efetivo (manual / carga / cte) a cada grupo
+  const gruposComPeso = useMemo(
+    () =>
+      grupos.map((g) => {
+        const k = g.ctes[0] ? ordemKeyOf(g.ctes[0]) : null;
+        const info = k ? pesoPorOrdem.get(k) : null;
+        return {
+          ...g,
+          pesoEfetivo: info?.pesoEfetivo ?? g.ctes.reduce((s, c) => s + Number(c.peso_total ?? 0), 0),
+          fonte: (info?.fonte ?? "cte") as FontePeso,
+        };
+      }),
+    [grupos, pesoPorOrdem],
+  );
 
   const toggle = (k: string) =>
     setExpanded((p) => {
@@ -210,7 +236,7 @@ export function CtesDacteTab() {
               {grupos.length === 0 && (
                 <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
               )}
-              {grupos.map((g) => {
+              {gruposComPeso.map((g) => {
                 const isOpen = expanded.has(g.key);
                 const gIds = g.ctes.map((c) => c.id);
                 const allSel = gIds.length > 0 && gIds.every((id) => selecionados.has(id));
@@ -237,7 +263,15 @@ export function CtesDacteTab() {
                         {g.destinos.length === 0 ? "—" : g.destinos.length <= 2 ? g.destinos.join(", ") : `${g.destinos.slice(0, 2).join(", ")} +${g.destinos.length - 2}`}
                       </TableCell>
                       <TableCell className="text-right text-xs tabular-nums">{g.ctes.length}</TableCell>
-                      <TableCell className="text-right text-xs tabular-nums">{fmtKg(g.peso)}</TableCell>
+                      <TableCell className="text-right text-xs tabular-nums" onClick={(e) => e.stopPropagation()}>
+                        <PesoOrdemCell
+                          ordem={g.ordem}
+                          pesoEfetivo={g.pesoEfetivo}
+                          fonte={g.fonte}
+                          onSave={(p) => g.ordem && setPesoManual.mutate({ ordem_carga: g.ordem, peso: p })}
+                          isPending={setPesoManual.isPending}
+                        />
+                      </TableCell>
                       <TableCell className="text-right text-xs tabular-nums font-semibold">{fmtBRL(g.frete)}</TableCell>
                       <TableCell>
                         <Badge variant={g.status === "vinculado" ? "default" : g.status === "divergente" ? "destructive" : "outline"}>
