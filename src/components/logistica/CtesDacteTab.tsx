@@ -3,9 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, Layers, List } from "lucide-react";
 import { useCtesDacte, useDeleteCteDacte, useDeleteCtesByIds, type CteDacteRow } from "@/hooks/useCtesDacte";
+import { useCtesEmAdiantamento } from "@/hooks/useAdiantamentos";
 import { ImportarDacteDialog } from "./ImportarDacteDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
@@ -17,6 +19,7 @@ const fmtDate = (s: string) => new Date(s).toLocaleDateString("pt-BR");
 
 export function CtesDacteTab() {
   const { data = [], isLoading } = useCtesDacte();
+  const { data: ctesAtivos } = useCtesEmAdiantamento();
   const del = useDeleteCteDacte();
   const delMany = useDeleteCtesByIds();
   const [open, setOpen] = useState(false);
@@ -26,6 +29,36 @@ export function CtesDacteTab() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+
+  const toggleSel = (id: string) =>
+    setSelecionados((p) => {
+      const n = new Set(p);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  const toggleSelMany = (ids: string[]) =>
+    setSelecionados((p) => {
+      const n = new Set(p);
+      const allIn = ids.every((id) => n.has(id));
+      if (allIn) ids.forEach((id) => n.delete(id));
+      else ids.forEach((id) => n.add(id));
+      return n;
+    });
+
+  const apagarSelecionados = () => {
+    const ids = [...selecionados];
+    if (ids.length === 0) return;
+    const bloqueados = ids.filter((id) => ctesAtivos?.has(id));
+    if (bloqueados.length > 0) {
+      toast.error(
+        `${bloqueados.length} CT-e(s) estão vinculados a adiantamentos. Apague o adiantamento primeiro.`,
+      );
+      return;
+    }
+    if (!confirm(`Apagar ${ids.length} CT-e(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+    delMany.mutate(ids, { onSuccess: () => setSelecionados(new Set()) });
+  };
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -143,7 +176,14 @@ export function CtesDacteTab() {
             </button>
           </div>
         </div>
-        <Button onClick={() => setOpen(true)}><Upload className="h-4 w-4 mr-1" /> Importar DACTE (PDF)</Button>
+        <div className="flex gap-2">
+          {selecionados.size > 0 && (
+            <Button variant="destructive" onClick={apagarSelecionados} disabled={delMany.isPending}>
+              <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados ({selecionados.size})
+            </Button>
+          )}
+          <Button onClick={() => setOpen(true)}><Upload className="h-4 w-4 mr-1" /> Importar DACTE (PDF)</Button>
+        </div>
       </div>
 
       {isLoading ? (
