@@ -641,6 +641,16 @@ export function AdiantamentosTab() {
               <Button className="w-full" disabled={resumoPorTransp.length === 0 || criar.isPending} onClick={handleGerar}>
                 <FileText className="h-4 w-4 mr-1" /> {totalAdtsAGerar > 1 ? `Gerar ${totalAdtsAGerar} adiantamentos` : "Gerar Adiantamento"}
               </Button>
+              {selecionados.size > 0 && (
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  disabled={apagarCtes.isPending}
+                  onClick={handleApagarCtesSelecionados}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Apagar CT-es selecionados ({selecionados.size})
+                </Button>
+              )}
             </Card>
           </div>
         </TabsContent>
