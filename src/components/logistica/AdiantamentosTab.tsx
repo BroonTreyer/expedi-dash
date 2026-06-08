@@ -19,12 +19,16 @@ import {
   useCancelarAdiantamento,
   useMarcarAdiantamentoPago,
   useAtualizarDataAdiantamento,
+  useDeleteAdiantamentosComCtes,
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
+import { useDeleteCtesByIds } from "@/hooks/useCtesDacte";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
 import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 const fmtBRL = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 const fmtKg = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(n || 0);
@@ -83,6 +87,8 @@ export function AdiantamentosTab() {
   const criar = useCriarAdiantamento();
   const cancelar = useCancelarAdiantamento();
   const marcarPago = useMarcarAdiantamentoPago();
+  const apagarAdts = useDeleteAdiantamentosComCtes();
+  const apagarCtes = useDeleteCtesByIds();
 
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
@@ -98,6 +104,7 @@ export function AdiantamentosTab() {
   // Seleção de lotes para baixa em lote
   const [selPendentes, setSelPendentes] = useState<Set<string>>(new Set());
   const [selPagos, setSelPagos] = useState<Set<string>>(new Set());
+  const [selQuitados, setSelQuitados] = useState<Set<string>>(new Set());
 
   // CT-es disponíveis (sem adiantamento ativo) agrupados por transportadora
   const ctesPorTransp = useMemo(() => {
