@@ -425,3 +425,85 @@ export function CtesDacteTab() {
     </Card>
   );
 }
+
+function PesoOrdemCell({
+  ordem,
+  pesoEfetivo,
+  fonte,
+  onSave,
+  isPending,
+}: {
+  ordem: string | null;
+  pesoEfetivo: number;
+  fonte: FontePeso;
+  onSave: (peso: number | null) => void;
+  isPending: boolean;
+}) {
+  const [popOpen, setPopOpen] = useState(false);
+  const [valor, setValor] = useState<string>(
+    pesoEfetivo > 0 ? String(Math.round(pesoEfetivo)) : "",
+  );
+
+  const fonteLabel: Record<FontePeso, { label: string; cls: string; tip: string }> = {
+    manual: { label: "manual", cls: "bg-blue-500/15 text-blue-600 border-blue-500/30", tip: "Peso digitado manualmente" },
+    carga: { label: "carga", cls: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30", tip: "Peso somado dos pedidos da carga (carregamentos do dia)" },
+    cte: { label: "CT-e", cls: "bg-muted text-muted-foreground", tip: "Peso somado dos próprios CT-es (pode estar zerado por barreira)" },
+  };
+  const f = fonteLabel[fonte];
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <span>{fmtKg(pesoEfetivo)}</span>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`inline-flex items-center rounded px-1.5 py-0 text-[10px] border ${f.cls}`}>{f.label}</span>
+          </TooltipTrigger>
+          <TooltipContent>{f.tip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {ordem && (
+        <Popover open={popOpen} onOpenChange={(o) => { setPopOpen(o); if (o) setValor(pesoEfetivo > 0 ? String(Math.round(pesoEfetivo)) : ""); }}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6" title="Editar peso da carga">
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 space-y-2" align="end">
+            <div className="text-xs font-semibold">Peso da carga (kg)</div>
+            <p className="text-[11px] text-muted-foreground">
+              Override manual para toda a ordem <span className="font-mono">{ordem}</span>.
+              Use quando o CT-e foi emitido com peso zero (barreira fiscal).
+            </p>
+            <Input
+              type="number"
+              min={0}
+              step="1"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              placeholder="Ex.: 26500"
+              autoFocus
+            />
+            <div className="flex justify-between gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isPending}
+                onClick={() => { onSave(null); setPopOpen(false); }}
+              >
+                Limpar
+              </Button>
+              <Button
+                size="sm"
+                disabled={isPending || !valor || Number(valor) <= 0}
+                onClick={() => { onSave(Number(valor)); setPopOpen(false); }}
+              >
+                Salvar
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  );
+}
