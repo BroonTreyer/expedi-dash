@@ -494,6 +494,7 @@ export type Database = {
           numero_cte: string
           ordem_carga: string | null
           pdf_url: string | null
+          peso_carga_manual: number | null
           peso_total: number | null
           placa: string | null
           raw_extracao: Json | null
@@ -515,6 +516,7 @@ export type Database = {
           numero_cte: string
           ordem_carga?: string | null
           pdf_url?: string | null
+          peso_carga_manual?: number | null
           peso_total?: number | null
           placa?: string | null
           raw_extracao?: Json | null
@@ -536,6 +538,7 @@ export type Database = {
           numero_cte?: string
           ordem_carga?: string | null
           pdf_url?: string | null
+          peso_carga_manual?: number | null
           peso_total?: number | null
           placa?: string | null
           raw_extracao?: Json | null
