@@ -707,6 +707,30 @@ export function AdiantamentosTab() {
 
         {/* PAGOS */}
         <TabsContent value="pagos">
+          <div className="space-y-2">
+            {selPagos.size > 0 && (
+              <Card className="p-3 flex flex-wrap items-center justify-between gap-2 border-destructive/40 bg-destructive/5">
+                <div className="text-sm">
+                  <strong>{selPagos.size}</strong> selecionado{selPagos.size > 1 ? "s" : ""}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelPagos(new Set())}>Limpar</Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={apagarAdts.isPending}
+                    onClick={() =>
+                      apagarAdtsLote(
+                        pagos.filter((a) => selPagos.has(a.id)),
+                        () => setSelPagos(new Set()),
+                      )
+                    }
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
+                  </Button>
+                </div>
+              </Card>
+            )}
           <Card className="p-4 space-y-3">
             {pagosPorTransp.size === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Nenhum adiantamento pago aguardando quitação.</p>
@@ -778,11 +802,54 @@ export function AdiantamentosTab() {
               </div>
             )}
           </Card>
+          </div>
         </TabsContent>
 
         {/* QUITADOS */}
         <TabsContent value="quitados">
-          <ListaAdiantamentos data={quitados} contexto="quitado" onComprovante={(a) => setComprovantesAdt(Array.isArray(a) ? a : [a])} />
+          <div className="space-y-2">
+            {selQuitados.size > 0 && (
+              <Card className="p-3 flex flex-wrap items-center justify-between gap-2 border-destructive/40 bg-destructive/5">
+                <div className="text-sm">
+                  <strong>{selQuitados.size}</strong> selecionado{selQuitados.size > 1 ? "s" : ""}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelQuitados(new Set())}>Limpar</Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={apagarAdts.isPending}
+                    onClick={() =>
+                      apagarAdtsLote(
+                        quitados.filter((a) => selQuitados.has(a.id)),
+                        () => setSelQuitados(new Set()),
+                      )
+                    }
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
+                  </Button>
+                </div>
+              </Card>
+            )}
+            <ListaAdiantamentos
+              data={quitados}
+              contexto="quitado"
+              selected={selQuitados}
+              onToggle={(id) =>
+                setSelQuitados((p) => {
+                  const n = new Set(p);
+                  n.has(id) ? n.delete(id) : n.add(id);
+                  return n;
+                })
+              }
+              onToggleAll={() => {
+                setSelQuitados((p) =>
+                  p.size === quitados.length ? new Set() : new Set(quitados.map((a) => a.id)),
+                );
+              }}
+              onComprovante={(a) => setComprovantesAdt(Array.isArray(a) ? a : [a])}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 
