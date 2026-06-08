@@ -327,6 +327,12 @@ export function CtesDacteTab() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8">
+                  <Checkbox
+                    checked={filtered.length > 0 && filtered.every((r) => selecionados.has(r.id))}
+                    onCheckedChange={() => toggleSelMany(filtered.map((r) => r.id))}
+                  />
+                </TableHead>
                 <TableHead>CT-e</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Transportadora</TableHead>
@@ -342,10 +348,13 @@ export function CtesDacteTab() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
+                <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
               )}
               {filtered.map((r) => (
                 <TableRow key={r.id}>
+                  <TableCell>
+                    <Checkbox checked={selecionados.has(r.id)} onCheckedChange={() => toggleSel(r.id)} />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_cte}{r.serie ? `/${r.serie}` : ""}</TableCell>
                   <TableCell className="text-xs">{r.data_emissao ? fmtDate(r.data_emissao) : fmtDate(r.created_at)}</TableCell>
                   <TableCell className="text-xs">{r.transportadora ?? "—"}</TableCell>
