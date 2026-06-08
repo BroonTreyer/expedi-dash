@@ -671,6 +671,19 @@ export function AdiantamentosTab() {
                   <Button size="sm" onClick={handleMarcarPagoLote}>
                     <Wallet className="h-4 w-4 mr-1" /> Marcar como pago
                   </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={apagarAdts.isPending}
+                    onClick={() =>
+                      apagarAdtsLote(
+                        pendentes.filter((a) => selPendentes.has(a.id)),
+                        () => setSelPendentes(new Set()),
+                      )
+                    }
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
+                  </Button>
                 </div>
               </Card>
             )}
