@@ -15,6 +15,12 @@ export type CteDacteRow = {
   destino_cidade: string | null;
   destino_uf: string | null;
   peso_total: number | null;
+  /**
+   * Override manual do peso da carga (por ordem). Quando preenchido em
+   * qualquer CT-e da mesma `ordem_carga`, todos os cálculos de frete passam a
+   * usar esse valor (útil quando o CT-e foi emitido com peso 0 na barreira).
+   */
+  peso_carga_manual: number | null;
   notas_fiscais: string[];
   pdf_url: string | null;
   raw_extracao: any;
@@ -168,5 +174,30 @@ export function useDeleteCtesByIds() {
       toast.success(`${n} CT-e(s) removido(s)`);
     },
     onError: (e: any) => toast.error(e.message ?? "Erro"),
+  });
+}
+
+/**
+ * Define (ou limpa) o peso manual da carga para todos os CT-es de uma mesma
+ * ordem de carga. Passe `peso = null` para limpar e voltar ao peso automático.
+ */
+export function useSetPesoCargaManualByOrdem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ordem_carga, peso }: { ordem_carga: string; peso: number | null }) => {
+      const oc = (ordem_carga ?? "").trim();
+      if (!oc) throw new Error("Ordem de carga vazia");
+      const { error } = await (supabase as any)
+        .from("ctes_dacte")
+        .update({ peso_carga_manual: peso })
+        .eq("ordem_carga", oc);
+      if (error) throw error;
+      return { ordem_carga: oc, peso };
+    },
+    onSuccess: ({ peso }) => {
+      qc.invalidateQueries({ queryKey: ["ctes_dacte"] });
+      toast.success(peso == null ? "Peso manual removido" : "Peso da carga atualizado");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao salvar peso"),
   });
 }

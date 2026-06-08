@@ -25,6 +25,7 @@ import {
 import { useDeleteCtesByIds } from "@/hooks/useCtesDacte";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
 import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
+import { usePesoEfetivoPorOrdem, ordemKeyOf } from "@/hooks/usePesoEfetivoPorOrdem";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
 import { toast } from "sonner";
@@ -123,6 +124,20 @@ export function AdiantamentosTab() {
     [ctesPorTransp],
   );
   const { data: tabelaMap } = useValoresTabelaPorCte(ctesDisponiveis);
+  const pesoPorOrdem = usePesoEfetivoPorOrdem(ctesDisponiveis);
+
+  // Helper: peso efetivo somando ordens únicas presentes na seleção
+  const pesoEfetivoDeCtes = (lista: CteDacteRow[]): number => {
+    const seen = new Set<string>();
+    let total = 0;
+    for (const c of lista) {
+      const k = ordemKeyOf(c);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      total += pesoPorOrdem.get(k)?.pesoEfetivo ?? Number(c.peso_total || 0);
+    }
+    return total;
+  };
 
   const transpInfoByName = useMemo(() => {
     const m = new Map<string, (typeof transp)[number]>();
@@ -156,7 +171,7 @@ export function AdiantamentosTab() {
       const escolhidos = lista.filter((c) => selecionados.has(c.id));
       if (escolhidos.length === 0) continue;
       const total = escolhidos.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
-      const peso = escolhidos.reduce((s, c) => s + Number(c.peso_total || 0), 0);
+      const peso = pesoEfetivoDeCtes(escolhidos);
       const totalTabela = escolhidos.reduce(
         (s, c) => s + (tabelaMap?.get(c.id)?.valorTabela ?? 0),
         0,
@@ -434,7 +449,10 @@ export function AdiantamentosTab() {
                               const allInG = rows.every((r) => selecionados.has(r.id));
                               const someInG = rows.some((r) => selecionados.has(r.id)) && !allInG;
                               const totalRow = rows.reduce((s, r) => s + Number(r.valor_frete || 0), 0);
-                              const pesoRow = rows.reduce((s, r) => s + Number(r.peso_total || 0), 0);
+                              const ordemInfo = rows[0] ? pesoPorOrdem.get(ordemKeyOf(rows[0])) : undefined;
+                              const pesoRow =
+                                ordemInfo?.pesoEfetivo ??
+                                rows.reduce((s, r) => s + Number(r.peso_total || 0), 0);
                               const tabelaRow = rows.reduce(
                                 (s, r) => s + (tabelaMap?.get(r.id)?.valorTabela ?? 0),
                                 0,

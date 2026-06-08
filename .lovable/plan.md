@@ -1,30 +1,64 @@
-## Plano: apagar selecionados em Adiantamentos e CT-es
+## Problema
 
-Adicionar botão **"Apagar selecionados"** (vermelho, com confirmação modal mostrando quantidade e impacto) em três lugares, sempre só pra admin/logística/faturamento. Toda exclusão passa por `AlertDialog` com texto "Esta ação não pode ser desfeita".
+O cálculo de frete usa `ctes_dacte.peso_total`, mas os CT-es às vezes são emitidos com peso 0 (passagem em barreira fiscal). Isso zera o `valor_tabela` e distorce R$/kg, totais por ordem e comparativos com o valor real.
 
-### 1. Aba CT-es / DACTE (`CtesDacteTab.tsx`)
-- Checkbox por linha + checkbox "marcar todos".
-- Botão "Apagar selecionados (N)" no header da tabela.
-- Usa o hook existente `useDeleteCtesByIds` (já criado em `useCtesDacte.ts`).
-- Bloqueio: se algum CT-e já está em adiantamento não cancelado, mostro toast "X CT-es estão vinculados a adiantamentos. Apague o adiantamento primeiro." e cancelo a operação.
+## Solução
 
-### 2. Aba Montar Lote (em `AdiantamentosTab.tsx`)
-- Reaproveita o estado `selecionados` que já existe.
-- Botão "Apagar CT-es selecionados (N)" ao lado do botão "Gerar adiantamentos".
-- Mesma proteção da #1 (CT-es vinculados a ADT não podem ser apagados aqui).
+Calcular o frete pelo **peso da carga** (somatório dos pedidos em `carregamentos_dia` por `carga_id` + data, já com rupturas aplicadas), com possibilidade de **override manual por ordem de carga** quando o operador quiser ajustar. O valor de tabela passa a ser `peso_da_ordem × valor_kg do destino majoritário` da ordem, em vez de somar CT-e por CT-e.
 
-### 3. Abas Pendentes / Aguardando Quitação / Quitados
-- Em `ListaAdiantamentos`, junto do botão "Quitar selecionados" (que já existe na aba Aguardando), adicionar **"Apagar selecionados (N)"** disponível nas três abas.
-- Conforme sua escolha: apagar o adiantamento **E os CT-es vinculados** juntos.
-  - Ordem: `DELETE` em `ctes_dacte` pelos `cte_id` vinculados → `DELETE` em `adiantamentos_frete_ctes` (cascade) → `DELETE` em `adiantamentos_frete`.
-  - Tudo numa única `mutation` (`useDeleteAdiantamentosComCtes`) com `invalidateQueries` em `adiantamentos_frete`, `adt_ctes_ativos` e `ctes_dacte`.
-- Modal de confirmação mostra: "Vai apagar **X adiantamentos** e **Y CT-es vinculados**. Esta ação não pode ser desfeita."
+## Mudanças
 
-### Detalhes técnicos
-- Novo hook `useDeleteAdiantamentosByIds` em `useAdiantamentos.ts` que faz o cascade controlado (ctes_dacte → adiantamentos_frete; o link `adiantamentos_frete_ctes` cai junto via FK cascade existente).
-- RLS atual de `adiantamentos_frete` e `ctes_dacte` já permite `DELETE` para roles autorizadas — sem migração.
-- Não vou tocar em `audit_log`; deleções já são registradas se houver trigger.
+### 1. Banco
 
-### Fora do escopo
-- Lixeira / restore para adiantamentos (continua sendo deleção permanente, como o resto do sistema).
-- Limitar quem pode apagar adiantamentos `quitado` por permissão extra (continua aberto a admin/logística/faturamento como hoje).
+Migration adicionando `peso_carga_manual numeric` em `ctes_dacte` (nullable). Quando preenchido, vale para todos os CT-es da mesma `ordem_carga` (o app grava o mesmo valor em todas as linhas da ordem para simplicidade — sem nova tabela).
+
+### 2. Novo hook `usePesoEfetivoPorOrdem(ctes)`
+
+Para cada `ordem_carga`, retorna `{ pesoEfetivo, fonte: 'manual' | 'carga' | 'cte', destinoMajoritario: {cidade, uf} }`:
+
+1. Se qualquer CT-e da ordem tem `peso_carga_manual > 0` → usa esse valor (fonte `manual`).
+2. Senão, soma `pesoEfetivo` de `carregamentos_dia` (via `usePesoPorCarga`, já existente) pelo par `(carga_id, data)` referenciado pelos CT-es da ordem (fonte `carga`).
+3. Senão, soma `peso_total` dos CT-es (fonte `cte`, fallback atual).
+
+Destino majoritário = destino (`cidade|uf`) com maior peso de CT-es; em empate, maior número de CT-es; depois ordem alfabética.
+
+### 3. Refatorar `useValoresTabelaPorCte`
+
+Em vez de calcular CT-e a CT-e, calcula **uma vez por ordem**:
+
+- `valor_kg` = tarifa do destino majoritário (mesma cascata atual: item → genérica, por tipo de veículo da placa).
+- `valorTabelaOrdem = pesoEfetivo × valor_kg`.
+- Para preservar a UI por CT-e (colunas existentes), retorna o resultado da ordem rateado proporcionalmente ao `valor_frete` de cada CT-e (ou em partes iguais se todos os fretes da ordem forem 0). O total agregado por ordem/transportadora fica correto.
+- CT-es sem `ordem_carga` continuam no comportamento atual (peso_total do CT-e).
+
+### 4. UI
+
+**`CtesDacteTab.tsx` (visão Por Ordem)**
+
+- Coluna "Peso (kg)" passa a mostrar `pesoEfetivo` da ordem, com badge discreto: `carga` (verde), `manual` (azul) ou `CTE` (cinza, atual).
+- Botão lápis na linha-mãe da ordem abre um pequeno popover "Peso da carga (kg)" com input numérico e ações Salvar / Limpar override. Salvar faz `UPDATE ctes_dacte SET peso_carga_manual = X WHERE ordem_carga = Y` (limpar = `NULL`).
+- Tooltip no badge explica a origem do número.
+
+**`AdiantamentosTab.tsx` (Montar Lote + cards de Pendentes/Pagos/Quitados)**
+
+- `resumoPorTransp.peso` e `r.peso` passam a usar o pesoEfetivo agregado por ordem (somando ordens distintas dos CT-es selecionados).
+- `totalTabela` vem do novo cálculo (não muda nome de campo, só a fonte).
+- R$/kg exibido continua `total / pesoEfetivo`.
+
+### 5. Compatibilidade
+
+- `peso_total` dos CT-es continua intacto no banco (nada é sobrescrito).
+- Adiantamentos já criados não são afetados — somente cálculos exibidos em tela. O valor gravado em `adiantamentos_frete.peso_total` ao gerar novos passa a ser o pesoEfetivo.
+
+## Fora de escopo
+
+- Mudar o `valor_frete` dos CT-es (continua o que veio no DACTE).
+- Editar peso por CT-e individual (override é por ordem, conforme decidido).
+- Distribuição proporcional sofisticada por destino — assumimos destino majoritário por ordem.
+
+## Detalhes técnicos
+
+- Migration: `ALTER TABLE public.ctes_dacte ADD COLUMN peso_carga_manual numeric;` (RLS herda; sem GRANT extra).
+- `useCtesDacte` já faz `select *`, então o novo campo entra automático; adicionar no type `CteDacteRow`.
+- Reaproveita `usePesoPorCarga` (filtra por `carga_id+data`, evita inflar com histórico).
+- Cache do `useValoresTabelaPorCte` recalculado quando `pesoEfetivoMap` mudar (incluir no `queryKey`).

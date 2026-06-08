@@ -1,0 +1,1 @@
+ALTER TABLE public.ctes_dacte ADD COLUMN IF NOT EXISTS peso_carga_manual numeric;

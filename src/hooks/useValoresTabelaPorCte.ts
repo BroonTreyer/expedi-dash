@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useAuth";
 import type { CteDacteRow } from "@/hooks/useCtesDacte";
+import { usePesoEfetivoPorOrdem, ordemKeyOf } from "@/hooks/usePesoEfetivoPorOrdem";
 
 export type ValorTabelaInfo = {
   valorTabela: number; // R$ total (valor_kg * peso_total)
@@ -18,32 +20,29 @@ function normalizeUF(s: string | null | undefined) {
 }
 
 /**
- * Para cada CT-e, busca o valor de tabela aplicável.
+ * Calcula o valor de tabela do frete usando **peso efetivo da ordem** (não o
+ * peso individual do CT-e, que pode vir zerado por barreira fiscal):
+ * - Agrupa CT-es por `ordem_carga` (CT-es sem ordem são tratados individualmente).
+ * - Usa o destino majoritário (cidade/UF) da ordem para resolver `valor_kg`.
+ * - Total da ordem = `pesoEfetivo (manual | carga | cte) × valor_kg`.
+ * - Distribui esse total entre os CT-es da ordem proporcionalmente ao
+ *   `valor_frete` de cada um (rateio igual quando todos forem 0).
  * - Tipo de veículo é resolvido pelo cadastro do caminhão (placa → tipo_caminhao).
- * - Busca primeiro em `tabelas_frete_itens` (por destino, tabela ativa), fallback em `tabela_frete`.
  */
-export function useValoresTabelaPorCte(ctes: CteDacteRow[]) {
+type TabelasFreteFetch = {
+  placaTipo: Map<string, "bitruck" | "carreta" | null>;
+  itemMap: Map<string, { bitruck: number; carreta: number }>;
+  genMap: Map<string, { bitruck?: number; carreta?: number }>;
+};
+
+function useTabelasFreteValores(placas: string[]) {
   const session = useSession();
-  const placas = Array.from(
-    new Set(ctes.map((c) => (c.placa ?? "").trim().toUpperCase()).filter(Boolean)),
-  );
-  const destinosKey = Array.from(
-    new Set(
-      ctes
-        .filter((c) => c.destino_cidade && c.destino_uf)
-        .map((c) => `${normalizeCidade(c.destino_cidade)}|${normalizeUF(c.destino_uf)}`),
-    ),
-  ).join(",");
-
+  const placasKey = [...new Set(placas)].sort().join(",");
   return useQuery({
-    queryKey: ["valores-tabela-cte", placas.join(","), destinosKey],
-    enabled: !!session && ctes.length > 0,
+    queryKey: ["tabelas-frete-valores", placasKey],
+    enabled: !!session,
     staleTime: 60_000,
-    queryFn: async (): Promise<Map<string, ValorTabelaInfo>> => {
-      const result = new Map<string, ValorTabelaInfo>();
-      if (ctes.length === 0) return result;
-
-      // 1) Tipo de veículo por placa
+    queryFn: async (): Promise<TabelasFreteFetch> => {
       const placaTipo = new Map<string, "bitruck" | "carreta" | null>();
       if (placas.length > 0) {
         const { data: caminhoes } = await (supabase as any)
@@ -61,19 +60,16 @@ export function useValoresTabelaPorCte(ctes: CteDacteRow[]) {
         }
       }
 
-      // 2) Itens de tabela ativos (apenas tabelas ativas)
       const { data: itens } = await (supabase as any)
         .from("tabelas_frete_itens")
-        .select("destino_cidade,destino_uf,valor_kg_bitruck,valor_kg_carreta,ativo,tabela_id,tabelas_frete!inner(ativo)")
+        .select(
+          "destino_cidade,destino_uf,valor_kg_bitruck,valor_kg_carreta,ativo,tabela_id,tabelas_frete!inner(ativo)",
+        )
         .eq("ativo", true)
         .eq("tabelas_frete.ativo", true);
-      const itemMap = new Map<
-        string,
-        { bitruck: number; carreta: number }
-      >();
+      const itemMap = new Map<string, { bitruck: number; carreta: number }>();
       for (const it of itens ?? []) {
         const k = `${normalizeCidade(it.destino_cidade)}|${normalizeUF(it.destino_uf)}`;
-        // Mantém o primeiro encontrado (suficiente para comparativo)
         if (!itemMap.has(k)) {
           itemMap.set(k, {
             bitruck: Number(it.valor_kg_bitruck || 0),
@@ -82,7 +78,6 @@ export function useValoresTabelaPorCte(ctes: CteDacteRow[]) {
         }
       }
 
-      // 3) Fallback: tabela_frete genérica
       const { data: genericas } = await (supabase as any)
         .from("tabela_frete")
         .select("destino_cidade,destino_uf,tipo_veiculo,valor_kg,ativo")
@@ -96,43 +91,115 @@ export function useValoresTabelaPorCte(ctes: CteDacteRow[]) {
         genMap.set(k, cur);
       }
 
-      // 4) Resolve para cada CT-e
-      for (const c of ctes) {
-        const placa = (c.placa ?? "").toUpperCase().trim();
-        const tipo = placa ? placaTipo.get(placa) ?? null : null;
-        const peso = Number(c.peso_total ?? 0);
-        const k = `${normalizeCidade(c.destino_cidade)}|${normalizeUF(c.destino_uf)}`;
+      return { placaTipo, itemMap, genMap };
+    },
+  });
+}
 
-        let valorKg = 0;
-        let origem: ValorTabelaInfo["origem"] = "indisponivel";
+function resolveValorKg(
+  fetched: TabelasFreteFetch,
+  destino: { cidade: string | null; uf: string | null } | null,
+  tipo: "bitruck" | "carreta" | null,
+): { valorKg: number; origem: ValorTabelaInfo["origem"] } {
+  if (!destino) return { valorKg: 0, origem: "indisponivel" };
+  const k = `${normalizeCidade(destino.cidade)}|${normalizeUF(destino.uf)}`;
+  const { itemMap, genMap } = fetched;
 
-        const item = itemMap.get(k);
-        if (item && tipo) {
-          valorKg = tipo === "bitruck" ? item.bitruck : item.carreta;
-          if (valorKg > 0) origem = "item";
-        }
-        if (valorKg === 0) {
-          const gen = genMap.get(k);
-          if (gen && tipo) {
-            valorKg = (tipo === "bitruck" ? gen.bitruck : gen.carreta) ?? 0;
-            if (valorKg > 0) origem = "generica";
-          }
-        }
-        // Última tentativa: se não temos tipo, pega bitruck do item como referência
-        if (valorKg === 0 && item) {
-          valorKg = item.bitruck || item.carreta || 0;
-          if (valorKg > 0) origem = "item";
-        }
+  let valorKg = 0;
+  let origem: ValorTabelaInfo["origem"] = "indisponivel";
+  const item = itemMap.get(k);
+  if (item && tipo) {
+    valorKg = tipo === "bitruck" ? item.bitruck : item.carreta;
+    if (valorKg > 0) origem = "item";
+  }
+  if (valorKg === 0) {
+    const gen = genMap.get(k);
+    if (gen && tipo) {
+      valorKg = (tipo === "bitruck" ? gen.bitruck : gen.carreta) ?? 0;
+      if (valorKg > 0) origem = "generica";
+    }
+  }
+  if (valorKg === 0 && item) {
+    valorKg = item.bitruck || item.carreta || 0;
+    if (valorKg > 0) origem = "item";
+  }
+  return { valorKg, origem };
+}
 
+export function useValoresTabelaPorCte(ctes: CteDacteRow[]) {
+  const placas = useMemo(
+    () =>
+      Array.from(
+        new Set(ctes.map((c) => (c.placa ?? "").trim().toUpperCase()).filter(Boolean)),
+      ),
+    [ctes],
+  );
+  const { data: fetched } = useTabelasFreteValores(placas);
+  const pesoPorOrdem = usePesoEfetivoPorOrdem(ctes);
+
+  const data = useMemo<Map<string, ValorTabelaInfo> | undefined>(() => {
+    if (!fetched) return undefined;
+    const result = new Map<string, ValorTabelaInfo>();
+    // Reagrupa CT-es por ordem
+    const groups = new Map<string, CteDacteRow[]>();
+    for (const c of ctes) {
+      const k = ordemKeyOf(c);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k)!.push(c);
+    }
+
+    for (const [k, list] of groups) {
+      const info = pesoPorOrdem.get(k);
+      // Tipo: usa o tipo da placa mais comum da ordem
+      const placaCount = new Map<string, number>();
+      for (const c of list) {
+        const p = (c.placa ?? "").trim().toUpperCase();
+        if (p) placaCount.set(p, (placaCount.get(p) || 0) + 1);
+      }
+      const placaPrincipal =
+        [...placaCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      const tipo = placaPrincipal ? fetched.placaTipo.get(placaPrincipal) ?? null : null;
+
+      const { valorKg, origem } = resolveValorKg(fetched, info?.destino ?? null, tipo);
+      const peso = info?.pesoEfetivo ?? 0;
+      const totalOrdem = +(valorKg * peso).toFixed(2);
+
+      // Rateio entre os CT-es proporcional ao valor_frete (igual se todos 0)
+      const somaFrete = list.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
+      if (totalOrdem === 0 || list.length === 0) {
+        for (const c of list) {
+          result.set(c.id, {
+            valorTabela: 0,
+            valorKgTabela: valorKg,
+            tipoVeiculo: tipo,
+            origem,
+          });
+        }
+        continue;
+      }
+      let acumulado = 0;
+      list.forEach((c, idx) => {
+        let parcela: number;
+        if (idx === list.length - 1) {
+          // Última recebe o resíduo para fechar centavos
+          parcela = +(totalOrdem - acumulado).toFixed(2);
+        } else {
+          const peso =
+            somaFrete > 0 ? Number(c.valor_frete || 0) / somaFrete : 1 / list.length;
+          parcela = +(totalOrdem * peso).toFixed(2);
+          acumulado += parcela;
+        }
         result.set(c.id, {
-          valorTabela: +(valorKg * peso).toFixed(2),
+          valorTabela: parcela,
           valorKgTabela: valorKg,
           tipoVeiculo: tipo,
           origem,
         });
-      }
+      });
+    }
 
-      return result;
-    },
-  });
+    return result;
+  }, [ctes, fetched, pesoPorOrdem]);
+
+  return { data } as { data: Map<string, ValorTabelaInfo> | undefined };
 }
