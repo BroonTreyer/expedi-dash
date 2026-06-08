@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown } from "lucide-react";
+import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -19,12 +19,15 @@ import {
   useCancelarAdiantamento,
   useMarcarAdiantamentoPago,
   useAtualizarDataAdiantamento,
+  useDeleteAdiantamentosComCtes,
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
+import { useDeleteCtesByIds } from "@/hooks/useCtesDacte";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
 import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
+import { toast } from "sonner";
 
 const fmtBRL = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 const fmtKg = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(n || 0);
@@ -83,6 +86,8 @@ export function AdiantamentosTab() {
   const criar = useCriarAdiantamento();
   const cancelar = useCancelarAdiantamento();
   const marcarPago = useMarcarAdiantamentoPago();
+  const apagarAdts = useDeleteAdiantamentosComCtes();
+  const apagarCtes = useDeleteCtesByIds();
 
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
@@ -98,6 +103,7 @@ export function AdiantamentosTab() {
   // Seleção de lotes para baixa em lote
   const [selPendentes, setSelPendentes] = useState<Set<string>>(new Set());
   const [selPagos, setSelPagos] = useState<Set<string>>(new Set());
+  const [selQuitados, setSelQuitados] = useState<Set<string>>(new Set());
 
   // CT-es disponíveis (sem adiantamento ativo) agrupados por transportadora
   const ctesPorTransp = useMemo(() => {
@@ -322,6 +328,22 @@ export function AdiantamentosTab() {
     const selecionados = pendentes.filter((a) => selPendentes.has(a.id));
     if (selecionados.length === 0) return;
     setComprovantesAdt(selecionados);
+  };
+
+  const handleApagarCtesSelecionados = () => {
+    const ids = [...selecionados];
+    if (ids.length === 0) return;
+    if (!confirm(`Apagar ${ids.length} CT-e(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+    apagarCtes.mutate(ids, { onSuccess: () => setSelecionados(new Set()) });
+  };
+
+  const apagarAdtsLote = (lista: Adiantamento[], onDone: () => void) => {
+    if (lista.length === 0) return;
+    const totalCtes = lista.reduce((s, a) => s + Number(a.qtd_ctes || 0), 0);
+    if (!confirm(
+      `Apagar ${lista.length} adiantamento(s) e os ${totalCtes} CT-e(s) vinculados? Esta ação não pode ser desfeita.`,
+    )) return;
+    apagarAdts.mutate(lista.map((a) => a.id), { onSuccess: onDone });
   };
 
   return (
@@ -619,6 +641,16 @@ export function AdiantamentosTab() {
               <Button className="w-full" disabled={resumoPorTransp.length === 0 || criar.isPending} onClick={handleGerar}>
                 <FileText className="h-4 w-4 mr-1" /> {totalAdtsAGerar > 1 ? `Gerar ${totalAdtsAGerar} adiantamentos` : "Gerar Adiantamento"}
               </Button>
+              {selecionados.size > 0 && (
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  disabled={apagarCtes.isPending}
+                  onClick={handleApagarCtesSelecionados}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Apagar CT-es selecionados ({selecionados.size})
+                </Button>
+              )}
             </Card>
           </div>
         </TabsContent>
@@ -638,6 +670,19 @@ export function AdiantamentosTab() {
                   </Button>
                   <Button size="sm" onClick={handleMarcarPagoLote}>
                     <Wallet className="h-4 w-4 mr-1" /> Marcar como pago
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={apagarAdts.isPending}
+                    onClick={() =>
+                      apagarAdtsLote(
+                        pendentes.filter((a) => selPendentes.has(a.id)),
+                        () => setSelPendentes(new Set()),
+                      )
+                    }
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
                   </Button>
                 </div>
               </Card>
@@ -662,6 +707,30 @@ export function AdiantamentosTab() {
 
         {/* PAGOS */}
         <TabsContent value="pagos">
+          <div className="space-y-2">
+            {selPagos.size > 0 && (
+              <Card className="p-3 flex flex-wrap items-center justify-between gap-2 border-destructive/40 bg-destructive/5">
+                <div className="text-sm">
+                  <strong>{selPagos.size}</strong> selecionado{selPagos.size > 1 ? "s" : ""}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelPagos(new Set())}>Limpar</Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={apagarAdts.isPending}
+                    onClick={() =>
+                      apagarAdtsLote(
+                        pagos.filter((a) => selPagos.has(a.id)),
+                        () => setSelPagos(new Set()),
+                      )
+                    }
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
+                  </Button>
+                </div>
+              </Card>
+            )}
           <Card className="p-4 space-y-3">
             {pagosPorTransp.size === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Nenhum adiantamento pago aguardando quitação.</p>
@@ -733,11 +802,54 @@ export function AdiantamentosTab() {
               </div>
             )}
           </Card>
+          </div>
         </TabsContent>
 
         {/* QUITADOS */}
         <TabsContent value="quitados">
-          <ListaAdiantamentos data={quitados} contexto="quitado" onComprovante={(a) => setComprovantesAdt(Array.isArray(a) ? a : [a])} />
+          <div className="space-y-2">
+            {selQuitados.size > 0 && (
+              <Card className="p-3 flex flex-wrap items-center justify-between gap-2 border-destructive/40 bg-destructive/5">
+                <div className="text-sm">
+                  <strong>{selQuitados.size}</strong> selecionado{selQuitados.size > 1 ? "s" : ""}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelQuitados(new Set())}>Limpar</Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={apagarAdts.isPending}
+                    onClick={() =>
+                      apagarAdtsLote(
+                        quitados.filter((a) => selQuitados.has(a.id)),
+                        () => setSelQuitados(new Set()),
+                      )
+                    }
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
+                  </Button>
+                </div>
+              </Card>
+            )}
+            <ListaAdiantamentos
+              data={quitados}
+              contexto="quitado"
+              selected={selQuitados}
+              onToggle={(id) =>
+                setSelQuitados((p) => {
+                  const n = new Set(p);
+                  n.has(id) ? n.delete(id) : n.add(id);
+                  return n;
+                })
+              }
+              onToggleAll={() => {
+                setSelQuitados((p) =>
+                  p.size === quitados.length ? new Set() : new Set(quitados.map((a) => a.id)),
+                );
+              }}
+              onComprovante={(a) => setComprovantesAdt(Array.isArray(a) ? a : [a])}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 

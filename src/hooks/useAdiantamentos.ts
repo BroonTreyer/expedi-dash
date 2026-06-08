@@ -266,3 +266,46 @@ export function useAtualizarDataAdiantamento() {
     onError: (e: any) => toast.error(e.message ?? "Erro"),
   });
 }
+
+/**
+ * Apaga adiantamentos selecionados + os CT-es vinculados.
+ * Ordem: busca cte_ids vinculados → DELETE em ctes_dacte (cascateia pivot)
+ *        → DELETE em adiantamentos_frete (cascateia pivot remanescente).
+ */
+export function useDeleteAdiantamentosComCtes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return { adts: 0, ctes: 0 };
+      const { data: links, error: lErr } = await (supabase as any)
+        .from("adiantamentos_frete_ctes")
+        .select("cte_id")
+        .in("adiantamento_id", ids);
+      if (lErr) throw lErr;
+      const cteIds = Array.from(
+        new Set(((links ?? []) as any[]).map((r) => r.cte_id).filter(Boolean)),
+      ) as string[];
+
+      if (cteIds.length > 0) {
+        const { error: cErr } = await (supabase as any)
+          .from("ctes_dacte")
+          .delete()
+          .in("id", cteIds);
+        if (cErr) throw cErr;
+      }
+      const { error: aErr } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .delete()
+        .in("id", ids);
+      if (aErr) throw aErr;
+      return { adts: ids.length, ctes: cteIds.length };
+    },
+    onSuccess: ({ adts, ctes }) => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      qc.invalidateQueries({ queryKey: ["adt_ctes_ativos"] });
+      qc.invalidateQueries({ queryKey: ["ctes_dacte"] });
+      toast.success(`${adts} adiantamento(s) e ${ctes} CT-e(s) apagado(s)`);
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao apagar"),
+  });
+}

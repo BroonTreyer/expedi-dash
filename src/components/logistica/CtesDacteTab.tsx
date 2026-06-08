@@ -3,9 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, Layers, List } from "lucide-react";
 import { useCtesDacte, useDeleteCteDacte, useDeleteCtesByIds, type CteDacteRow } from "@/hooks/useCtesDacte";
+import { useCtesEmAdiantamento } from "@/hooks/useAdiantamentos";
 import { ImportarDacteDialog } from "./ImportarDacteDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
@@ -17,6 +19,7 @@ const fmtDate = (s: string) => new Date(s).toLocaleDateString("pt-BR");
 
 export function CtesDacteTab() {
   const { data = [], isLoading } = useCtesDacte();
+  const { data: ctesAtivos } = useCtesEmAdiantamento();
   const del = useDeleteCteDacte();
   const delMany = useDeleteCtesByIds();
   const [open, setOpen] = useState(false);
@@ -26,6 +29,36 @@ export function CtesDacteTab() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+
+  const toggleSel = (id: string) =>
+    setSelecionados((p) => {
+      const n = new Set(p);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  const toggleSelMany = (ids: string[]) =>
+    setSelecionados((p) => {
+      const n = new Set(p);
+      const allIn = ids.every((id) => n.has(id));
+      if (allIn) ids.forEach((id) => n.delete(id));
+      else ids.forEach((id) => n.add(id));
+      return n;
+    });
+
+  const apagarSelecionados = () => {
+    const ids = [...selecionados];
+    if (ids.length === 0) return;
+    const bloqueados = ids.filter((id) => ctesAtivos?.has(id));
+    if (bloqueados.length > 0) {
+      toast.error(
+        `${bloqueados.length} CT-e(s) estão vinculados a adiantamentos. Apague o adiantamento primeiro.`,
+      );
+      return;
+    }
+    if (!confirm(`Apagar ${ids.length} CT-e(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+    delMany.mutate(ids, { onSuccess: () => setSelecionados(new Set()) });
+  };
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -143,7 +176,14 @@ export function CtesDacteTab() {
             </button>
           </div>
         </div>
-        <Button onClick={() => setOpen(true)}><Upload className="h-4 w-4 mr-1" /> Importar DACTE (PDF)</Button>
+        <div className="flex gap-2">
+          {selecionados.size > 0 && (
+            <Button variant="destructive" onClick={apagarSelecionados} disabled={delMany.isPending}>
+              <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados ({selecionados.size})
+            </Button>
+          )}
+          <Button onClick={() => setOpen(true)}><Upload className="h-4 w-4 mr-1" /> Importar DACTE (PDF)</Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -153,6 +193,7 @@ export function CtesDacteTab() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Ordem de Carga</TableHead>
                 <TableHead>Transportadora</TableHead>
@@ -167,10 +208,13 @@ export function CtesDacteTab() {
             </TableHeader>
             <TableBody>
               {grupos.length === 0 && (
-                <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
               )}
               {grupos.map((g) => {
                 const isOpen = expanded.has(g.key);
+                const gIds = g.ctes.map((c) => c.id);
+                const allSel = gIds.length > 0 && gIds.every((id) => selecionados.has(id));
+                const someSel = gIds.some((id) => selecionados.has(id)) && !allSel;
                 return (
                   <Fragment key={g.key}>
                     <TableRow className="cursor-pointer hover:bg-muted/40" onClick={() => toggle(g.key)}>
@@ -178,6 +222,13 @@ export function CtesDacteTab() {
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); toggle(g.key); }}>
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </Button>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={allSel}
+                          data-state={someSel ? "indeterminate" : undefined}
+                          onCheckedChange={() => toggleSelMany(gIds)}
+                        />
                       </TableCell>
                       <TableCell className="font-mono text-xs font-semibold">{g.ordem ?? <span className="text-muted-foreground italic">sem ordem</span>}</TableCell>
                       <TableCell className="text-xs">{g.transportadoras.length === 0 ? "—" : g.transportadoras.length === 1 ? g.transportadoras[0] : `${g.transportadoras.length} transportadoras`}</TableCell>
@@ -211,11 +262,12 @@ export function CtesDacteTab() {
                     {isOpen && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
                         <TableCell></TableCell>
-                        <TableCell colSpan={9} className="p-0">
+                        <TableCell colSpan={10} className="p-0">
                           <div className="p-2">
                             <Table>
                               <TableHeader>
                                 <TableRow>
+                                  <TableHead className="w-8" />
                                   <TableHead>CT-e</TableHead>
                                   <TableHead>Data</TableHead>
                                   <TableHead>Destino</TableHead>
@@ -229,6 +281,12 @@ export function CtesDacteTab() {
                               <TableBody>
                                 {g.ctes.map((r) => (
                                   <TableRow key={r.id}>
+                                    <TableCell>
+                                      <Checkbox
+                                        checked={selecionados.has(r.id)}
+                                        onCheckedChange={() => toggleSel(r.id)}
+                                      />
+                                    </TableCell>
                                     <TableCell className="font-mono text-xs">{r.numero_cte}{r.serie ? `/${r.serie}` : ""}</TableCell>
                                     <TableCell className="text-xs">{r.data_emissao ? fmtDate(r.data_emissao) : fmtDate(r.created_at)}</TableCell>
                                     <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
@@ -269,6 +327,12 @@ export function CtesDacteTab() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8">
+                  <Checkbox
+                    checked={filtered.length > 0 && filtered.every((r) => selecionados.has(r.id))}
+                    onCheckedChange={() => toggleSelMany(filtered.map((r) => r.id))}
+                  />
+                </TableHead>
                 <TableHead>CT-e</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Transportadora</TableHead>
@@ -284,10 +348,13 @@ export function CtesDacteTab() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
+                <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-6">Nenhum CT-e</TableCell></TableRow>
               )}
               {filtered.map((r) => (
                 <TableRow key={r.id}>
+                  <TableCell>
+                    <Checkbox checked={selecionados.has(r.id)} onCheckedChange={() => toggleSel(r.id)} />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_cte}{r.serie ? `/${r.serie}` : ""}</TableCell>
                   <TableCell className="text-xs">{r.data_emissao ? fmtDate(r.data_emissao) : fmtDate(r.created_at)}</TableCell>
                   <TableCell className="text-xs">{r.transportadora ?? "—"}</TableCell>
