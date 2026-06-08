@@ -330,6 +330,22 @@ export function AdiantamentosTab() {
     setComprovantesAdt(selecionados);
   };
 
+  const handleApagarCtesSelecionados = () => {
+    const ids = [...selecionados];
+    if (ids.length === 0) return;
+    if (!confirm(`Apagar ${ids.length} CT-e(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+    apagarCtes.mutate(ids, { onSuccess: () => setSelecionados(new Set()) });
+  };
+
+  const apagarAdtsLote = (lista: Adiantamento[], onDone: () => void) => {
+    if (lista.length === 0) return;
+    const totalCtes = lista.reduce((s, a) => s + Number(a.qtd_ctes || 0), 0);
+    if (!confirm(
+      `Apagar ${lista.length} adiantamento(s) e os ${totalCtes} CT-e(s) vinculados? Esta ação não pode ser desfeita.`,
+    )) return;
+    apagarAdts.mutate(lista.map((a) => a.id), { onSuccess: onDone });
+  };
+
   return (
     <div className="space-y-4">
       <Tabs defaultValue="montar" className="space-y-4">
