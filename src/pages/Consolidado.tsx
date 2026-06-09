@@ -680,7 +680,8 @@ export default function Consolidado() {
     for (const g of rawGroupsBruto) {
       const saida = statusPortariaMap?.get(makeStatusKey(g.cargaId, g.placa))?.saida ?? null;
       const dataEfetiva = computeDataEfetivaTerceirizada(g.items, g.data, saida, todayStr);
-      const isWithin = dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr;
+      // Em modo busca por nº de OC, ignoramos o filtro de intervalo de datas.
+      const isWithin = !!debouncedOC || (dataEfetiva >= dateFromStr && dataEfetiva <= dateToStr);
       if (!isWithin) continue;
       if (dataEfetiva !== g.data) {
         out.push({ ...g, data: dataEfetiva });
@@ -689,7 +690,7 @@ export default function Consolidado() {
       }
     }
     return out;
-  }, [rawGroupsBruto, statusPortariaMap, dateFromStr, dateToStr]);
+  }, [rawGroupsBruto, statusPortariaMap, dateFromStr, dateToStr, debouncedOC]);
 
   const groupsWithPortariaFilter = useMemo(() => {
     if (filterEtapaPortaria === "todas") return rawGroups;
