@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Search, X } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,13 +45,35 @@ function getInitialDate() {
   return params.get("data") || getToday();
 }
 
-function useConsolidado(dateFrom: string, dateTo?: string) {
+function useConsolidado(dateFrom: string, dateTo?: string, ordemCarga?: string) {
   const dateEnd = dateTo || dateFrom;
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["consolidado", dateFrom, dateEnd],
+    queryKey: ["consolidado", dateFrom, dateEnd, ordemCarga ?? ""],
     queryFn: async () => {
+      // Modo busca por nº de ordem de carga: ignora o intervalo de datas
+      // e procura nos últimos 365 dias por ordem_carga.
+      if (ordemCarga && ordemCarga.trim().length > 0) {
+        const term = ordemCarga.trim();
+        const yearAgo = new Date();
+        yearAgo.setDate(yearAgo.getDate() - 365);
+        const limitDate = yearAgo.toISOString().split("T")[0];
+        const data = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from("carregamentos_dia")
+            .select("*, vendedores(nome_vendedor)")
+            .not("carga_id", "is", null)
+            .neq("etapa", "pre_carga")
+            .gte("data", limitDate)
+            .ilike("ordem_carga", `%${term}%`)
+            .order("data", { ascending: false })
+            .order("carga_id", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to),
+        );
+        return (data ?? []) as Carregamento[];
+      }
       const todayStr = new Date().toISOString().split("T")[0];
       const isSingleDay = dateFrom === dateEnd;
       // Paginação completa para nunca truncar pedidos da consolidada.
@@ -338,6 +362,12 @@ export default function Consolidado() {
   const [filterUf, setFilterUf] = useState("todos");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterEtapaPortaria, setFilterEtapaPortaria] = useState<"todas" | EtapaPortaria>("todas");
+  const [searchOC, setSearchOC] = useState("");
+  const [debouncedOC, setDebouncedOC] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedOC(searchOC.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchOC]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
   const [romaneioData, setRomaneioData] = useState<CargaPrintData | null>(null);
@@ -347,7 +377,7 @@ export default function Consolidado() {
   const isMobile = useIsMobile();
 
   const queryClient = useQueryClient();
-  const { data: rawData, isLoading } = useConsolidado(dateFromStr, dateToStr);
+  const { data: rawData, isLoading } = useConsolidado(dateFromStr, dateToStr, debouncedOC || undefined);
 
   const updateStatusMut = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
@@ -967,7 +997,33 @@ export default function Consolidado() {
               <SelectItem value="expedido">{ETAPA_PORTARIA_LABELS.expedido}</SelectItem>
             </SelectContent>
           </Select>
+
+          <div className="relative w-full sm:w-[200px] col-span-2 sm:col-auto">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchOC}
+              onChange={(e) => setSearchOC(e.target.value)}
+              placeholder="Buscar nº OC..."
+              className="h-10 sm:h-9 pl-7 pr-7 text-xs sm:text-sm"
+            />
+            {searchOC && (
+              <button
+                type="button"
+                onClick={() => setSearchOC("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Limpar busca"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
+
+        {debouncedOC && (
+          <p className="text-xs text-muted-foreground -mt-1">
+            Buscando "{debouncedOC}" em todo o histórico (últimos 365 dias) — filtro de período ignorado.
+          </p>
+        )}
 
         {/* KPI Cards */}
         <TooltipProvider delayDuration={300}>

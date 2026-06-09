@@ -1,17 +1,28 @@
-## Problema
+## Objetivo
 
-No diálogo "Roteirização", o resumo no topo mostra `14.671,2 kg`, que é o peso **embarcado** (exclui itens em ruptura). Já no diálogo "Fechar Carga" o número exibido como total é `embarcados + ruptura` (peso planejado), por isso os dois divergem.
+Permitir buscar uma carga antiga em `Consolidado` pelo **número da ordem de carga** (`ordem_carga`), sem precisar adivinhar a data.
 
-## Correção
+## Comportamento
 
-Arquivo único: `src/components/dashboard/RoteirizacaoDialog.tsx`
+- Adicionar um campo `Input` "Buscar OC..." na barra de filtros, ao lado dos filtros de UF/Status.
+- Enquanto o campo estiver vazio, a página funciona exatamente como hoje (intervalo de datas).
+- Quando o usuário digita um número:
+  - Ignoramos o filtro de datas e executamos uma busca direta em `carregamentos_dia` por `ordem_carga ilike %termo%`, com `carga_id not null` e `etapa neq pre_carga`, paginada via `fetchAllPaginated`.
+  - Limitamos a um máximo razoável (ex.: últimos 365 dias) para não varrer o banco inteiro; se nada for encontrado, mostramos mensagem "Nenhuma OC encontrada".
+  - Os resultados entram no mesmo pipeline atual (`groupByCarga`, agrupamento, tabela), então a UI fica idêntica.
+- Debounce de 300ms para não disparar a busca a cada tecla.
 
-1. Adicionar um memo `totalPlanejado` somando `g.pesoPlanejado ?? g.pesoTotal` dos `activeGroups` (mesma fórmula do `FechamentoLoteDialog`).
-2. No resumo (linha ~740), trocar `{totalPeso.toLocaleString("pt-BR")} kg` por `{totalPlanejado.toLocaleString("pt-BR")} kg`, para bater exatamente com o "kg total" do Fechar Carga.
-3. Se houver ruptura (`totalPlanejado > totalPeso`), exibir ao lado, em texto pequeno/muted, `↳ X kg embarcados`, mantendo a transparência já presente no Fechar Carga sem poluir o cabeçalho.
+## Arquivos
 
-Nenhuma lógica de roteirização, exportação ou cálculo de combustível é alterada — apenas o número mostrado no cabeçalho.
+`src/pages/Consolidado.tsx`:
+1. Novo estado `searchOC` (string).
+2. Em `useConsolidado`, aceitar um terceiro parâmetro opcional `ordemCarga?: string`; quando presente, trocar o filtro de data por `.ilike("ordem_carga", `%${ordemCarga}%`)` + `.gte("data", hoje-365d)`.
+3. Adicionar `Input` na barra de filtros (placeholder "Buscar nº OC..."), com ícone de lupa, limpar com X.
+4. Quando `searchOC` estiver preenchido, desabilitar visualmente o seletor de período (com tooltip explicando) e exibir um pequeno aviso "Buscando em todo o histórico".
+
+Nenhuma alteração em schema ou edge function — apenas leitura.
 
 ## Validação
 
-Abrir uma carga com itens em ruptura, comparar o "kg" do Roteirizar com o "kg total" do Fechar Carga: devem ser idênticos.
+- Buscar uma OC conhecida: aparece o registro mesmo se a data atual estiver filtrada para hoje.
+- Limpar a busca: a lista volta ao comportamento por data.
