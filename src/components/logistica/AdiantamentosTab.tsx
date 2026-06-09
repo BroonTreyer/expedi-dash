@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
+import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -105,6 +105,34 @@ export function AdiantamentosTab() {
   const [selPendentes, setSelPendentes] = useState<Set<string>>(new Set());
   const [selPagos, setSelPagos] = useState<Set<string>>(new Set());
   const [selQuitados, setSelQuitados] = useState<Set<string>>(new Set());
+
+  // Busca livre (transportadora, OC, nº adiantamento, nº CT-e, valor)
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTerm(searchInput.trim().toLowerCase()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const norm = (s: unknown) =>
+    String(s ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const matchesSearch = (a: Adiantamento): boolean => {
+    if (!searchTerm) return true;
+    const term = norm(searchTerm);
+    if (norm(a.transportadora).includes(term)) return true;
+    if (norm(a.ordem_carga).includes(term)) return true;
+    if (norm(a.numero).includes(term)) return true;
+    if ((a.cteNumbers ?? []).some((n) => norm(n).includes(term))) return true;
+    const valStr = Number(a.valor_adiantamento || 0).toFixed(2);
+    if (valStr.includes(searchTerm.replace(/[^\d.,]/g, "").replace(",", "."))) return true;
+    const valBR = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(Number(a.valor_adiantamento || 0));
+    if (norm(valBR).includes(term)) return true;
+    return false;
+  };
 
   // CT-es disponíveis (sem adiantamento ativo) agrupados por transportadora
   const ctesPorTransp = useMemo(() => {
@@ -304,9 +332,9 @@ export function AdiantamentosTab() {
     }
   };
 
-  const pendentes = adiantamentos.filter((a) => a.status === "pendente");
-  const pagos = adiantamentos.filter((a) => a.status === "pago");
-  const quitados = adiantamentos.filter((a) => a.status === "quitado");
+  const pendentes = adiantamentos.filter((a) => a.status === "pendente" && matchesSearch(a));
+  const pagos = adiantamentos.filter((a) => a.status === "pago" && matchesSearch(a));
+  const quitados = adiantamentos.filter((a) => a.status === "quitado" && matchesSearch(a));
 
   // Para o dialog de quitação: agrupa pagos por transportadora
   const pagosPorTransp = useMemo(() => {
@@ -363,6 +391,25 @@ export function AdiantamentosTab() {
 
   return (
     <div className="space-y-4">
+      <div className="relative w-full sm:w-80">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Buscar por transportadora, OC, nº CT-e ou valor..."
+          className="pl-9 pr-9"
+        />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={() => setSearchInput("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Limpar busca"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
       <Tabs defaultValue="montar" className="space-y-4">
         <TabsList>
           <TabsTrigger value="montar"><ListChecks className="h-4 w-4 mr-2" />Montar Lote</TabsTrigger>
