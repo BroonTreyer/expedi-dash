@@ -997,7 +997,33 @@ export default function Consolidado() {
               <SelectItem value="expedido">{ETAPA_PORTARIA_LABELS.expedido}</SelectItem>
             </SelectContent>
           </Select>
+
+          <div className="relative w-full sm:w-[200px] col-span-2 sm:col-auto">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchOC}
+              onChange={(e) => setSearchOC(e.target.value)}
+              placeholder="Buscar nº OC..."
+              className="h-10 sm:h-9 pl-7 pr-7 text-xs sm:text-sm"
+            />
+            {searchOC && (
+              <button
+                type="button"
+                onClick={() => setSearchOC("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Limpar busca"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
+
+        {debouncedOC && (
+          <p className="text-xs text-muted-foreground -mt-1">
+            Buscando "{debouncedOC}" em todo o histórico (últimos 365 dias) — filtro de período ignorado.
+          </p>
+        )}
 
         {/* KPI Cards */}
         <TooltipProvider delayDuration={300}>
