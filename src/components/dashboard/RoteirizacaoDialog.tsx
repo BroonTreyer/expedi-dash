@@ -295,6 +295,7 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
 
   const activeGroups = useMemo(() => groups.filter((g) => !excludedGroupKeys.has(groupKey(g))), [groups, excludedGroupKeys]);
   const totalPeso = useMemo(() => activeGroups.reduce((s, g) => s + g.pesoTotal, 0), [activeGroups]);
+  const totalPlanejado = useMemo(() => activeGroups.reduce((s, g) => s + (g.pesoPlanejado ?? g.pesoTotal), 0), [activeGroups]);
   const totalPedidos = useMemo(() => activeGroups.reduce((s, g) => s + g.items.length, 0), [activeGroups]);
   const cidadesUnicas = useMemo(() => { const set = new Set<string>(); activeGroups.forEach((g) => { if (g.cidade) set.add(g.cidade); }); return set.size; }, [activeGroups]);
   const ufsUnicas = useMemo(() => { const set = new Set<string>(); activeGroups.forEach((g) => { if (g.uf) set.add(g.uf); }); return Array.from(set).sort(); }, [activeGroups]);
@@ -737,7 +738,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
             <Package className="h-4 w-4 text-primary" />
             <span>{totalPedidos} {totalPedidos === 1 ? "pedido" : "pedidos"}</span>
           </div>
-          <span className="text-sm text-muted-foreground">{totalPeso.toLocaleString("pt-BR")} kg</span>
+          <span className="text-sm text-muted-foreground">
+            {totalPlanejado.toLocaleString("pt-BR")} kg
+            {totalPlanejado > totalPeso && (
+              <span className="ml-1 text-xs opacity-70">
+                (↳ {totalPeso.toLocaleString("pt-BR")} kg embarcados)
+              </span>
+            )}
+          </span>
           <div className="flex gap-1 flex-wrap">
             {ufsUnicas.map((uf) => <Badge key={uf} variant="secondary" className="text-xs font-bold">{uf}</Badge>)}
           </div>
