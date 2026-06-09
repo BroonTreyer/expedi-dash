@@ -45,13 +45,35 @@ function getInitialDate() {
   return params.get("data") || getToday();
 }
 
-function useConsolidado(dateFrom: string, dateTo?: string) {
+function useConsolidado(dateFrom: string, dateTo?: string, ordemCarga?: string) {
   const dateEnd = dateTo || dateFrom;
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["consolidado", dateFrom, dateEnd],
+    queryKey: ["consolidado", dateFrom, dateEnd, ordemCarga ?? ""],
     queryFn: async () => {
+      // Modo busca por nº de ordem de carga: ignora o intervalo de datas
+      // e procura nos últimos 365 dias por ordem_carga.
+      if (ordemCarga && ordemCarga.trim().length > 0) {
+        const term = ordemCarga.trim();
+        const yearAgo = new Date();
+        yearAgo.setDate(yearAgo.getDate() - 365);
+        const limitDate = yearAgo.toISOString().split("T")[0];
+        const data = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from("carregamentos_dia")
+            .select("*, vendedores(nome_vendedor)")
+            .not("carga_id", "is", null)
+            .neq("etapa", "pre_carga")
+            .gte("data", limitDate)
+            .ilike("ordem_carga", `%${term}%`)
+            .order("data", { ascending: false })
+            .order("carga_id", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to),
+        );
+        return (data ?? []) as Carregamento[];
+      }
       const todayStr = new Date().toISOString().split("T")[0];
       const isSingleDay = dateFrom === dateEnd;
       // Paginação completa para nunca truncar pedidos da consolidada.
