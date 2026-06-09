@@ -439,7 +439,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
                             </div>
                             <p className="text-[10px] text-muted-foreground">
                               Pedido #{c.numero_pedido ?? "—"} · Carga {c.nome_carga ?? "—"}
-                              {c.vendedor ? ` · ${c.vendedor}` : ""}
+                              {c.vendedores ? ` · ${c.vendedores}` : ""}
                             </p>
                           </div>
                         );
@@ -522,7 +522,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
                                         <TableCell className="py-1.5 text-xs">{c.cidade ?? "—"}/{c.uf ?? "—"}</TableCell>
                                         <TableCell className="py-1.5 text-xs tabular-nums">#{c.numero_pedido ?? "—"}</TableCell>
                                         <TableCell className="py-1.5 text-xs">{c.nome_carga ?? "—"}</TableCell>
-                                        <TableCell className="py-1.5 text-xs text-muted-foreground">{c.vendedor ?? "—"}</TableCell>
+                                        <TableCell className="py-1.5 text-xs text-muted-foreground">{c.vendedores ?? "—"}</TableCell>
                                         <TableCell className="py-1.5 text-xs text-right">
                                           <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400">
                                             {p.porUnidade ? fmtUnid(falt) : fmtKg(falt)}
