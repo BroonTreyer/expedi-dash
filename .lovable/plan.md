@@ -1,28 +1,29 @@
-## Objetivo
-Trocar o formato do Excel de pré-carga (individual) para o MESMO layout usado no fechamento de carga (`RoteirizacaoDialog.handleExportExcel`): uma única aba, agrupada por cliente, com colunas `#, CÓDIGO, NOME, CIDADE, UF, PESO, VENDEDOR` + linha de total ao final.
+## Sanfonado de clientes por produto em ruptura
 
-## Mudanças
+Em **Rupturas → Faltando Agora**, cada linha de produto vira **expansível** (sanfonado). Ao clicar, abre abaixo a lista de clientes que estão com aquele produto em ruptura.
 
-### `src/lib/pre-cargas-export.ts` — função `exportarPreCargaUnica`
-Substituir as 3 abas atuais (Resumo / Pedidos / Itens) por uma única aba no padrão do print:
+### Onde
+- Arquivo: `src/pages/Rupturas.tsx`, componente `FaltandoAgora` (tabela desktop + cards mobile). Aba "Faltando agora" apenas. Histórico permanece como está.
 
-- Header: `["#", "CÓDIGO", "NOME", "CIDADE", "UF", "PESO", "VENDEDOR"]`.
-- Agrupar `carga.pedidos` por `codigo_cliente` (fallback: nome do cliente quando código vier vazio), somando `pesoEmbarcado` (= `pesoEfetivo` por item, igual à lógica do fechamento). Cada grupo = 1 linha.
-- Ordem dos clientes: mesma ordem em que aparecem em `carga.pedidos` (já preservada pelo agrupador no `Index.tsx` e `PreCargas.tsx`).
-- Coluna `#`: `"1º"`, `"2º"`, … igual ao fechamento.
-- Coluna `VENDEDOR`: união dos vendedores dos itens do cliente, juntada com `", "`.
-- Linha final: `["", "", "", "", "", totalPeso, ""]`.
-- Larguras de coluna idênticas às do `RoteirizacaoDialog` (5, 10, 35, 22, 5, 10, 15).
-- Nome da aba: `"Pré-carga"`. Nome do arquivo: `pre-carga_${nome}_${data}.xlsx` (mantém).
+### Comportamento
+- Estado local `expandido: string | null` guarda a chave do produto aberto (uma de cada vez, como já existe em `HistoricoMes`).
+- Click em qualquer lugar da linha do produto (ou em um chevron à esquerda do código) alterna abrir/fechar.
+- Linha aberta mostra abaixo uma sub-tabela com, para cada pedido do produto em ruptura:
+  - **Cliente** (`cliente`) + código (`codigo_cliente`)
+  - **Cidade/UF** (`cidade`/`uf`)
+  - **Pedido** (`numero_pedido`)
+  - **Carga** (`nome_carga` ou "—")
+  - **Faltando** — `pesoNaoCarregado(c)` em kg, ou `quantidadeNaoCarregada(c)` em UNID se `isPorUnidade`
+  - **Vendedor** (`vendedor`) — discreto
+- Dados vêm do array `rupturas` já filtrado (sem nova query); agrupados por `codigo_produto || nome_produto` igual ao `productSummary`.
+- Linhas internas ordenadas por peso/qtd faltando desc.
 
-A função `exportarPreCargasResumo` (botão "Excel resumo" da página `/precargas`) **não muda** — é o resumo agregado de várias cargas, escopo diferente.
+### UI desktop
+- Adicionar coluna "indicador" (chevron) no início. Linha do produto fica `cursor-pointer hover:bg-muted/40`.
+- Quando expandido, inserir um `<TableRow>` com `<TableCell colSpan={6}>` contendo uma tabela compacta (text-xs, padding reduzido, fundo `bg-rose-50/30 dark:bg-rose-950/10`).
 
-## Onde isso reflete
-- Botão Excel do painel amarelo do Dashboard (`PreCargasPanel`) → já chama `exportarPreCargaUnica`.
-- Botão Excel individual de cada card na página `/precargas` (`PreCargaCard`) → já chama `exportarPreCargaUnica`.
-Ambos passam a baixar o novo layout, alinhado com o fechamento de carga.
+### UI mobile
+- Card do produto ganha botão "Ver clientes (N)" no rodapé. Quando aberto, lista vertical de mini-cards com Cliente · Cidade/UF · Pedido · Carga · Faltando.
 
-## Fora de escopo
-- Não mexer em `RoteirizacaoDialog` (é a referência).
-- Não mexer no botão "Excel resumo" da página `/precargas`.
-- Sem mudança de hooks, dados ou cálculo de peso.
+### Fora de escopo
+- Histórico do mês, exports, KPIs, hooks de dados. Sem mudança de schema ou query.
