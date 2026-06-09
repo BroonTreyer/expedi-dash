@@ -332,9 +332,9 @@ export function AdiantamentosTab() {
     }
   };
 
-  const pendentes = adiantamentos.filter((a) => a.status === "pendente");
-  const pagos = adiantamentos.filter((a) => a.status === "pago");
-  const quitados = adiantamentos.filter((a) => a.status === "quitado");
+  const pendentes = adiantamentos.filter((a) => a.status === "pendente" && matchesSearch(a));
+  const pagos = adiantamentos.filter((a) => a.status === "pago" && matchesSearch(a));
+  const quitados = adiantamentos.filter((a) => a.status === "quitado" && matchesSearch(a));
 
   // Para o dialog de quitação: agrupa pagos por transportadora
   const pagosPorTransp = useMemo(() => {
