@@ -391,26 +391,65 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
         </Card>
       ) : isMobile ? (
         <div className="space-y-2">
-          {productSummary.map((p) => (
-            <Card key={p.codigo + p.nome} className="border-l-4 border-l-rose-500">
-              <CardContent className="p-3 space-y-2">
-                <div>
-                  <p className="text-[11px] font-mono text-muted-foreground">{p.codigo}</p>
-                  <p className="text-base font-semibold leading-tight">{p.nome}</p>
-                </div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-2xl font-bold tabular-nums text-rose-600 dark:text-rose-400">
-                    {p.porUnidade ? fmtUnid(p.qtdCortada) : fmtKg(p.pesoCortado)}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">{p.porUnidade ? "UNID" : "kg"}</span>
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {p.qtdPedidos} pedido{p.qtdPedidos > 1 ? "s" : ""} · {p.clientes.size} cliente{p.clientes.size > 1 ? "s" : ""}
-                  </span>
-                </div>
-                <div className="text-[11px] text-muted-foreground">Cargas: {renderCargas(p.cargas)}</div>
-              </CardContent>
-            </Card>
-          ))}
+          {productSummary.map((p) => {
+            const key = p.codigo + p.nome;
+            const open = expandido === key;
+            return (
+              <Card key={key} className="border-l-4 border-l-rose-500">
+                <CardContent className="p-3 space-y-2">
+                  <div>
+                    <p className="text-[11px] font-mono text-muted-foreground">{p.codigo}</p>
+                    <p className="text-base font-semibold leading-tight">{p.nome}</p>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-2xl font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                      {p.porUnidade ? fmtUnid(p.qtdCortada) : fmtKg(p.pesoCortado)}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">{p.porUnidade ? "UNID" : "kg"}</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {p.qtdPedidos} pedido{p.qtdPedidos > 1 ? "s" : ""} · {p.clientes.size} cliente{p.clientes.size > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">Cargas: {renderCargas(p.cargas)}</div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-8 text-xs justify-center gap-1"
+                    onClick={() => setExpandido(open ? null : key)}
+                  >
+                    {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    {open ? "Ocultar" : `Ver clientes (${p.items?.length ?? 0})`}
+                  </Button>
+                  {open && (
+                    <div className="space-y-1.5 pt-1">
+                      {p.items?.map((c) => {
+                        const falt = p.porUnidade ? quantidadeNaoCarregada(c) : pesoNaoCarregado(c);
+                        return (
+                          <div key={c.id} className="rounded-md border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/30 dark:bg-rose-950/10 p-2 text-xs space-y-0.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium truncate">{c.cliente ?? "—"}</p>
+                                <p className="text-[10px] text-muted-foreground font-mono">
+                                  {c.codigo_cliente ?? "—"} · {c.cidade ?? "—"}/{c.uf ?? "—"}
+                                </p>
+                              </div>
+                              <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400 shrink-0">
+                                {p.porUnidade ? fmtUnid(falt) : fmtKg(falt)} <span className="text-[10px] font-normal text-muted-foreground">{p.porUnidade ? "UNID" : "kg"}</span>
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Pedido #{c.numero_pedido ?? "—"} · Carga {c.nome_carga ?? "—"}
+                              {c.vendedor ? ` · ${c.vendedor}` : ""}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <Card>
@@ -418,7 +457,8 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[45%]">Produto</TableHead>
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead className="w-[42%]">Produto</TableHead>
                   <TableHead className="text-right w-[18%]">Faltando</TableHead>
                   <TableHead className="text-center w-[10%]">Pedidos</TableHead>
                   <TableHead className="text-center w-[10%]">Clientes</TableHead>
@@ -426,23 +466,81 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {productSummary.map((p) => (
-                  <TableRow key={p.codigo + p.nome}>
-                    <TableCell>
-                      <p className="text-[11px] font-mono text-muted-foreground">{p.codigo}</p>
-                      <p className="text-sm font-semibold leading-tight">{p.nome}</p>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="text-base font-bold tabular-nums text-rose-600 dark:text-rose-400">
-                        {p.porUnidade ? fmtUnid(p.qtdCortada) : fmtKg(p.pesoCortado)}
-                      </span>
-                      <span className="text-xs text-muted-foreground ml-1">{p.porUnidade ? "UNID" : "kg"}</span>
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums">{p.qtdPedidos}</TableCell>
-                    <TableCell className="text-center tabular-nums">{p.clientes.size}</TableCell>
-                    <TableCell className="text-xs">{renderCargas(p.cargas)}</TableCell>
-                  </TableRow>
-                ))}
+                {productSummary.map((p) => {
+                  const key = p.codigo + p.nome;
+                  const open = expandido === key;
+                  return (
+                    <Fragment key={key}>
+                      <TableRow
+                        className="cursor-pointer hover:bg-muted/40"
+                        onClick={() => setExpandido(open ? null : key)}
+                      >
+                        <TableCell className="pr-0">
+                          {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-[11px] font-mono text-muted-foreground">{p.codigo}</p>
+                          <p className="text-sm font-semibold leading-tight">{p.nome}</p>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-base font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                            {p.porUnidade ? fmtUnid(p.qtdCortada) : fmtKg(p.pesoCortado)}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-1">{p.porUnidade ? "UNID" : "kg"}</span>
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums">{p.qtdPedidos}</TableCell>
+                        <TableCell className="text-center tabular-nums">{p.clientes.size}</TableCell>
+                        <TableCell className="text-xs">{renderCargas(p.cargas)}</TableCell>
+                      </TableRow>
+                      {open && (
+                        <TableRow className="bg-rose-50/30 dark:bg-rose-950/10 hover:bg-rose-50/30">
+                          <TableCell colSpan={6} className="p-0">
+                            <div className="px-4 py-3">
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+                                Clientes com este produto em ruptura
+                              </p>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="hover:bg-transparent">
+                                    <TableHead className="h-8 text-[11px]">Cliente</TableHead>
+                                    <TableHead className="h-8 text-[11px]">Cidade/UF</TableHead>
+                                    <TableHead className="h-8 text-[11px]">Pedido</TableHead>
+                                    <TableHead className="h-8 text-[11px]">Carga</TableHead>
+                                    <TableHead className="h-8 text-[11px]">Vendedor</TableHead>
+                                    <TableHead className="h-8 text-[11px] text-right">Faltando</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {p.items?.map((c) => {
+                                    const falt = p.porUnidade ? quantidadeNaoCarregada(c) : pesoNaoCarregado(c);
+                                    return (
+                                      <TableRow key={c.id} className="hover:bg-rose-100/30 dark:hover:bg-rose-900/20">
+                                        <TableCell className="py-1.5 text-xs">
+                                          <span className="font-medium">{c.cliente ?? "—"}</span>
+                                          <span className="ml-1 text-[10px] font-mono text-muted-foreground">{c.codigo_cliente ?? ""}</span>
+                                        </TableCell>
+                                        <TableCell className="py-1.5 text-xs">{c.cidade ?? "—"}/{c.uf ?? "—"}</TableCell>
+                                        <TableCell className="py-1.5 text-xs tabular-nums">#{c.numero_pedido ?? "—"}</TableCell>
+                                        <TableCell className="py-1.5 text-xs">{c.nome_carga ?? "—"}</TableCell>
+                                        <TableCell className="py-1.5 text-xs text-muted-foreground">{c.vendedor ?? "—"}</TableCell>
+                                        <TableCell className="py-1.5 text-xs text-right">
+                                          <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                                            {p.porUnidade ? fmtUnid(falt) : fmtKg(falt)}
+                                          </span>
+                                          <span className="ml-1 text-[10px] text-muted-foreground">{p.porUnidade ? "UNID" : "kg"}</span>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
