@@ -38,6 +38,7 @@ import {
   Activity,
   RefreshCw,
 } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { isPorUnidade } from "@/lib/constants";
 import { pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
 import { Button } from "@/components/ui/button";
