@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, PlayCircle, Pencil, X, Package, Truck } from "lucide-react";
+import { ChevronDown, ChevronRight, PlayCircle, Pencil, X, Package, Truck, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -24,9 +24,10 @@ interface Props {
   onFinalize: (pc: PreCargaGroup) => void;
   onEdit: (pc: PreCargaGroup) => void;
   onCancel: (pc: PreCargaGroup) => void;
+  onExportXlsx: (pc: PreCargaGroup) => void;
 }
 
-export function PreCargasPanel({ preCargas, onFinalize, onEdit, onCancel }: Props) {
+export function PreCargasPanel({ preCargas, onFinalize, onEdit, onCancel, onExportXlsx }: Props) {
   const [open, setOpen] = useState(true);
   const totalPedidos = useMemo(() => preCargas.reduce((s, p) => s + p.qtdPedidos, 0), [preCargas]);
 
@@ -81,6 +82,9 @@ export function PreCargasPanel({ preCargas, onFinalize, onEdit, onCancel }: Prop
                 </Button>
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => onEdit(pc)}>
                   <Pencil className="h-3.5 w-3.5" /> Editar
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => onExportXlsx(pc)}>
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
                 </Button>
                 <Button size="sm" variant="ghost" className={cn("h-7 text-xs gap-1 text-destructive hover:text-destructive")} onClick={() => onCancel(pc)}>
                   <X className="h-3.5 w-3.5" /> Cancelar
