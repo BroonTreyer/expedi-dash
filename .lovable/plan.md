@@ -1,29 +1,14 @@
-## Sanfonado de clientes por produto em ruptura
+Vou corrigir o erro na expansão de rupturas sem alterar a regra de negócio:
 
-Em **Rupturas → Faltando Agora**, cada linha de produto vira **expansível** (sanfonado). Ao clicar, abre abaixo a lista de clientes que estão com aquele produto em ruptura.
+1. Adicionar um helper local em `src/pages/Rupturas.tsx` para transformar `vendedores` em texto seguro, aceitando estes formatos:
+   - string simples;
+   - array de strings;
+   - array de objetos como `{ nome_vendedor }`;
+   - objeto único com `nome_vendedor`;
+   - valor vazio/nulo.
 
-### Onde
-- Arquivo: `src/pages/Rupturas.tsx`, componente `FaltandoAgora` (tabela desktop + cards mobile). Aba "Faltando agora" apenas. Histórico permanece como está.
+2. Substituir os dois pontos que ainda renderizam `c.vendedores` diretamente:
+   - card mobile, na linha de pedido/carga;
+   - tabela desktop, coluna “Vendedor”.
 
-### Comportamento
-- Estado local `expandido: string | null` guarda a chave do produto aberto (uma de cada vez, como já existe em `HistoricoMes`).
-- Click em qualquer lugar da linha do produto (ou em um chevron à esquerda do código) alterna abrir/fechar.
-- Linha aberta mostra abaixo uma sub-tabela com, para cada pedido do produto em ruptura:
-  - **Cliente** (`cliente`) + código (`codigo_cliente`)
-  - **Cidade/UF** (`cidade`/`uf`)
-  - **Pedido** (`numero_pedido`)
-  - **Carga** (`nome_carga` ou "—")
-  - **Faltando** — `pesoNaoCarregado(c)` em kg, ou `quantidadeNaoCarregada(c)` em UNID se `isPorUnidade`
-  - **Vendedor** (`vendedor`) — discreto
-- Dados vêm do array `rupturas` já filtrado (sem nova query); agrupados por `codigo_produto || nome_produto` igual ao `productSummary`.
-- Linhas internas ordenadas por peso/qtd faltando desc.
-
-### UI desktop
-- Adicionar coluna "indicador" (chevron) no início. Linha do produto fica `cursor-pointer hover:bg-muted/40`.
-- Quando expandido, inserir um `<TableRow>` com `<TableCell colSpan={6}>` contendo uma tabela compacta (text-xs, padding reduzido, fundo `bg-rose-50/30 dark:bg-rose-950/10`).
-
-### UI mobile
-- Card do produto ganha botão "Ver clientes (N)" no rodapé. Quando aberto, lista vertical de mini-cards com Cliente · Cidade/UF · Pedido · Carga · Faltando.
-
-### Fora de escopo
-- Histórico do mês, exports, KPIs, hooks de dados. Sem mudança de schema ou query.
+3. Validar no preview clicando para expandir um produto em ruptura e confirmar que a lista de clientes abre sem quebrar a tela.

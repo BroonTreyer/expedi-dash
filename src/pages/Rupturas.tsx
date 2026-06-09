@@ -52,6 +52,27 @@ function fmtKg(n: number) { return n.toLocaleString("pt-BR", { maximumFractionDi
 function fmtTon(kg: number) { return (kg / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
 function fmtUnid(n: number) { return n.toLocaleString("pt-BR", { maximumFractionDigits: 0 }); }
 
+function fmtVendedores(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") return value.trim() || null;
+  if (Array.isArray(value)) {
+    const nomes = value
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object" && "nome_vendedor" in item) {
+          return String((item as { nome_vendedor?: unknown }).nome_vendedor ?? "").trim();
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return nomes.length ? nomes.join(", ") : null;
+  }
+  if (typeof value === "object" && "nome_vendedor" in value) {
+    return String((value as { nome_vendedor?: unknown }).nome_vendedor ?? "").trim() || null;
+  }
+  return null;
+}
+
 /* =================================================================== */
 /*                              KPI CARD                                */
 /* =================================================================== */
@@ -424,6 +445,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
                     <div className="space-y-1.5 pt-1">
                       {p.items?.map((c) => {
                         const falt = p.porUnidade ? quantidadeNaoCarregada(c) : pesoNaoCarregado(c);
+                         const vendedores = fmtVendedores(c.vendedores);
                         return (
                           <div key={c.id} className="rounded-md border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/30 dark:bg-rose-950/10 p-2 text-xs space-y-0.5">
                             <div className="flex items-start justify-between gap-2">
@@ -439,7 +461,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
                             </div>
                             <p className="text-[10px] text-muted-foreground">
                               Pedido #{c.numero_pedido ?? "—"} · Carga {c.nome_carga ?? "—"}
-                              {c.vendedores ? ` · ${c.vendedores}` : ""}
+                               {vendedores ? ` · ${vendedores}` : ""}
                             </p>
                           </div>
                         );
@@ -513,6 +535,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
                                 <TableBody>
                                   {p.items?.map((c) => {
                                     const falt = p.porUnidade ? quantidadeNaoCarregada(c) : pesoNaoCarregado(c);
+                                     const vendedores = fmtVendedores(c.vendedores);
                                     return (
                                       <TableRow key={c.id} className="hover:bg-rose-100/30 dark:hover:bg-rose-900/20">
                                         <TableCell className="py-1.5 text-xs">
@@ -522,7 +545,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
                                         <TableCell className="py-1.5 text-xs">{c.cidade ?? "—"}/{c.uf ?? "—"}</TableCell>
                                         <TableCell className="py-1.5 text-xs tabular-nums">#{c.numero_pedido ?? "—"}</TableCell>
                                         <TableCell className="py-1.5 text-xs">{c.nome_carga ?? "—"}</TableCell>
-                                        <TableCell className="py-1.5 text-xs text-muted-foreground">{c.vendedores ?? "—"}</TableCell>
+                                         <TableCell className="py-1.5 text-xs text-muted-foreground">{vendedores ?? "—"}</TableCell>
                                         <TableCell className="py-1.5 text-xs text-right">
                                           <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400">
                                             {p.porUnidade ? fmtUnid(falt) : fmtKg(falt)}
