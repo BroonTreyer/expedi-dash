@@ -362,6 +362,12 @@ export default function Consolidado() {
   const [filterUf, setFilterUf] = useState("todos");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterEtapaPortaria, setFilterEtapaPortaria] = useState<"todas" | EtapaPortaria>("todas");
+  const [searchOC, setSearchOC] = useState("");
+  const [debouncedOC, setDebouncedOC] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedOC(searchOC.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchOC]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
   const [romaneioData, setRomaneioData] = useState<CargaPrintData | null>(null);
@@ -371,7 +377,7 @@ export default function Consolidado() {
   const isMobile = useIsMobile();
 
   const queryClient = useQueryClient();
-  const { data: rawData, isLoading } = useConsolidado(dateFromStr, dateToStr);
+  const { data: rawData, isLoading } = useConsolidado(dateFromStr, dateToStr, debouncedOC || undefined);
 
   const updateStatusMut = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
