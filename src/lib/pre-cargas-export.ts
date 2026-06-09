@@ -58,58 +58,62 @@ function applyNumFormat(ws: XLSX.WorkSheet, cols: string[], startRow: number, en
 export function exportarPreCargaUnica(carga: PreCargaGrupo) {
   const wb = XLSX.utils.book_new();
 
-  const resumo = [
-    ["Pré-carga", carga.nomeCarga || carga.cargaId],
-    ["ID", carga.cargaId],
-    ["Data", fmtData(carga.data)],
-    ["Placa", carga.placa ?? ""],
-    ["Motorista", carga.motorista ?? ""],
-    ["Transportadora", carga.transportadora ?? ""],
-    ["Tipo de caminhão", carga.tipoCaminhao ?? ""],
-    ["Ordem", carga.ordemCarga ?? ""],
-    ["Destinos", carga.destinos],
-    [],
-    ["Qtd pedidos", carga.qtdPedidos],
-    ["Peso total (kg)", num(carga.pesoTotal)],
-    ["Peso embarcado (kg)", num(carga.pesoEmbarcado)],
-    ["Peso em ruptura (kg)", num(carga.pesoRuptura)],
-    ["Itens em ruptura", carga.qtdRupturas],
-  ];
-  const wsResumo = XLSX.utils.aoa_to_sheet(resumo);
-  setCols(wsResumo, [22, 60]);
-  applyNumFormat(wsResumo, ["B"], 12, 14);
-  XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+  // Agrupa por cliente (mesmo formato do fechamento de carga)
+  const header = ["#", "CÓDIGO", "NOME", "CIDADE", "UF", "PESO", "VENDEDOR"];
+  const rows: (string | number)[][] = [header];
 
-  const pedidosHeader = ["Pedido", "Cliente", "Cód. cliente", "Cidade", "UF", "Vendedor", "Peso embarcado (kg)", "Peso ruptura (kg)", "Qtd itens", "Qtd rupturas"];
-  const pedidosRows = carga.pedidos.map((p) => [
-    p.numero_pedido, p.cliente ?? "", p.codigo_cliente ?? "", p.cidade ?? "", p.uf ?? "", p.vendedor ?? "",
-    num(p.pesoEmbarcado), num(p.pesoRuptura), p.itens.length, p.qtdRupturas,
-  ]);
-  const wsPed = XLSX.utils.aoa_to_sheet([pedidosHeader, ...pedidosRows]);
-  setCols(wsPed, [10, 36, 14, 22, 6, 22, 18, 18, 12, 14]);
-  applyNumFormat(wsPed, ["G", "H"], 2, pedidosRows.length + 1);
-  XLSX.utils.book_append_sheet(wb, wsPed, "Pedidos");
+  type Grupo = {
+    codigo: string;
+    nome: string;
+    cidade: string;
+    uf: string;
+    peso: number;
+    vendedores: Set<string>;
+  };
+  const grupos = new Map<string, Grupo>();
+  const ordem: string[] = [];
 
-  const itensHeader = ["Pedido", "Cliente", "Cód. produto", "Produto", "Quantidade", "Peso original (kg)", "Peso carregado (kg)", "Peso ruptura (kg)", "Ruptura", "Tipo", "Motivo"];
-  const itensRows: (string | number)[][] = [];
   for (const p of carga.pedidos) {
-    for (const it of p.itens) {
-      const carregado = pesoEfetivo(it);
-      const diff = pesoNaoCarregado(it);
-      const original = carregado + diff;
-      const rup = temRuptura(it);
-      itensRows.push([
-        p.numero_pedido, p.cliente ?? "", it.codigo_produto ?? "", it.nome_produto ?? "",
-        Number(it.quantidade ?? 0), num(original), num(carregado), num(diff),
-        rup ? "Sim" : "Não", rup ? (it.ruptura ? "Total" : "Parcial") : "", it.motivo_ruptura ?? "",
-      ]);
+    const key = (p.codigo_cliente?.trim() || p.cliente?.trim() || `__${p.numero_pedido}`).toLowerCase();
+    let g = grupos.get(key);
+    if (!g) {
+      g = {
+        codigo: p.codigo_cliente ?? "",
+        nome: p.cliente ?? "Sem cliente",
+        cidade: p.cidade ?? "",
+        uf: p.uf ?? "",
+        peso: 0,
+        vendedores: new Set<string>(),
+      };
+      grupos.set(key, g);
+      ordem.push(key);
     }
+    for (const it of p.itens) {
+      g.peso += pesoEfetivo(it);
+    }
+    if (p.vendedor) g.vendedores.add(p.vendedor);
   }
-  const wsItens = XLSX.utils.aoa_to_sheet([itensHeader, ...itensRows]);
-  setCols(wsItens, [10, 32, 14, 36, 12, 18, 18, 18, 10, 10, 30]);
-  applyNumFormat(wsItens, ["F", "G", "H"], 2, itensRows.length + 1);
-  applyNumFormat(wsItens, ["E"], 2, itensRows.length + 1, "#,##0");
-  XLSX.utils.book_append_sheet(wb, wsItens, "Itens");
+
+  let totalPeso = 0;
+  ordem.forEach((k, i) => {
+    const g = grupos.get(k)!;
+    totalPeso += g.peso;
+    rows.push([
+      `${i + 1}º`,
+      g.codigo,
+      g.nome,
+      g.cidade,
+      g.uf,
+      num(g.peso),
+      Array.from(g.vendedores).join(", "),
+    ]);
+  });
+  rows.push(["", "", "", "", "", num(totalPeso), ""]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  setCols(ws, [5, 10, 35, 22, 5, 10, 15]);
+  applyNumFormat(ws, ["F"], 2, rows.length);
+  XLSX.utils.book_append_sheet(wb, ws, "Pré-carga");
 
   const nome = sanitize(carga.nomeCarga || carga.cargaId);
   XLSX.writeFile(wb, `pre-carga_${nome}_${carga.data}.xlsx`);
