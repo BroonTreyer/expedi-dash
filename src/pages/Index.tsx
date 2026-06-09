@@ -17,6 +17,9 @@ import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/Ca
 import { AdicionarCargaDialog, type CargaResumo } from "@/components/dashboard/AdicionarCargaDialog";
 import { ImportarPedidoPdfDialog } from "@/components/dashboard/ImportarPedidoPdfDialog";
 import { PreCargasPanel, type PreCargaGroup } from "@/components/dashboard/PreCargasPanel";
+import { exportarPreCargaUnica, type PreCargaGrupo as PreCargaExportGrupo, type PedidoGrupo as PedidoExportGrupo } from "@/lib/pre-cargas-export";
+import { pesoEfetivo, pesoNaoCarregado } from "@/lib/peso-utils";
+import { temRuptura } from "@/lib/ruptura-utils";
 import { useCarregamentos, useCreateCarregamento, useUpdateCarregamento, useDeleteCarregamento, useBatchDeleteCarregamento, useBatchCreateCarregamento, useBatchUpdateCarregamento, type Carregamento } from "@/hooks/useCarregamentos";
 import { useVendedores } from "@/hooks/useVendedores";
 import { useTiposCaminhao } from "@/hooks/useTiposCaminhao";
@@ -765,6 +768,63 @@ export default function Index() {
             onFinalize={handleFinalizePreCarga}
             onEdit={handleEditPreCarga}
             onCancel={(pc) => setCancelPreCarga(pc)}
+            onExportXlsx={(pc) => {
+              const pedMap = new Map<string, PedidoExportGrupo>();
+              for (const it of pc.items) {
+                if (it.numero_pedido == null) continue;
+                const key = `${it.numero_pedido}::${it.codigo_cliente ?? it.cliente ?? ''}`;
+                let p = pedMap.get(key);
+                if (!p) {
+                  p = {
+                    numero_pedido: it.numero_pedido,
+                    cliente: it.cliente,
+                    codigo_cliente: it.codigo_cliente,
+                    cidade: it.cidade,
+                    uf: it.uf,
+                    vendedor: (it as any).vendedores?.nome_vendedor ?? null,
+                    itens: [],
+                    pesoTotal: 0,
+                    pesoEmbarcado: 0,
+                    pesoRuptura: 0,
+                    qtdRupturas: 0,
+                  };
+                  pedMap.set(key, p);
+                }
+                p.itens.push(it);
+              }
+              let totEmb = 0, totRup = 0, totQtdRup = 0;
+              for (const p of pedMap.values()) {
+                let emb = 0, rup = 0, qrup = 0;
+                for (const it of p.itens) {
+                  const efet = pesoEfetivo(it);
+                  emb += efet;
+                  if (temRuptura(it)) { rup += pesoNaoCarregado(it); qrup += 1; }
+                }
+                p.pesoEmbarcado = emb;
+                p.pesoRuptura = rup;
+                p.pesoTotal = emb + rup;
+                p.qtdRupturas = qrup;
+                totEmb += emb; totRup += rup; totQtdRup += qrup;
+              }
+              const grupo: PreCargaExportGrupo = {
+                cargaId: pc.cargaId,
+                nomeCarga: pc.nomeCarga,
+                placa: pc.placa,
+                motorista: pc.motorista,
+                transportadora: pc.transportadora,
+                tipoCaminhao: pc.tipoCaminhao,
+                ordemCarga: pc.items[0]?.ordem_carga ?? null,
+                data: pc.data,
+                pedidos: Array.from(pedMap.values()),
+                destinos: pc.destinos,
+                qtdPedidos: pedMap.size,
+                pesoTotal: totEmb + totRup,
+                pesoEmbarcado: totEmb,
+                pesoRuptura: totRup,
+                qtdRupturas: totQtdRup,
+              };
+              exportarPreCargaUnica(grupo);
+            }}
           />
         )}
 
