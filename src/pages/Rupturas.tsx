@@ -107,6 +107,7 @@ interface ProdAgg {
   cargas: Set<string>;
   clientes: Set<string>;
   ultimaData?: string;
+  items?: Carregamento[];
 }
 
 /* =================================================================== */
