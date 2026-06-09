@@ -24,6 +24,7 @@ export type Adiantamento = {
   quitado_em: string | null;
   observacoes: string | null;
   created_at: string;
+  cteNumbers?: string[];
 };
 
 export type AdiantamentoCte = {
@@ -40,11 +41,21 @@ export function useAdiantamentos(status?: AdiantamentoStatus | "todos") {
     queryKey: ["adiantamentos_frete", status ?? "todos"],
     enabled: !!session,
     queryFn: async () => {
-      let q = (supabase as any).from("adiantamentos_frete").select("*").order("created_at", { ascending: false }).limit(500);
+      let q = (supabase as any)
+        .from("adiantamentos_frete")
+        .select("*, adiantamentos_frete_ctes(ctes_dacte(numero_cte))")
+        .order("created_at", { ascending: false })
+        .limit(500);
       if (status && status !== "todos") q = q.eq("status", status);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as Adiantamento[];
+      const rows = (data ?? []) as any[];
+      return rows.map((r) => ({
+        ...r,
+        cteNumbers: ((r.adiantamentos_frete_ctes ?? []) as any[])
+          .map((x) => x?.ctes_dacte?.numero_cte)
+          .filter((n): n is string => !!n),
+      })) as Adiantamento[];
     },
     staleTime: 15_000,
   });
