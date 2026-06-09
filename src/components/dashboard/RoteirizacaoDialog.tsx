@@ -738,7 +738,14 @@ export function RoteirizacaoDialog({ open, onOpenChange, items, onAdvance, onExc
             <Package className="h-4 w-4 text-primary" />
             <span>{totalPedidos} {totalPedidos === 1 ? "pedido" : "pedidos"}</span>
           </div>
-          <span className="text-sm text-muted-foreground">{totalPeso.toLocaleString("pt-BR")} kg</span>
+          <span className="text-sm text-muted-foreground">
+            {totalPlanejado.toLocaleString("pt-BR")} kg
+            {totalPlanejado > totalPeso && (
+              <span className="ml-1 text-xs opacity-70">
+                (↳ {totalPeso.toLocaleString("pt-BR")} kg embarcados)
+              </span>
+            )}
+          </span>
           <div className="flex gap-1 flex-wrap">
             {ufsUnicas.map((uf) => <Badge key={uf} variant="secondary" className="text-xs font-bold">{uf}</Badge>)}
           </div>
