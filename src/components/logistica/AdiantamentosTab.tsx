@@ -106,6 +106,34 @@ export function AdiantamentosTab() {
   const [selPagos, setSelPagos] = useState<Set<string>>(new Set());
   const [selQuitados, setSelQuitados] = useState<Set<string>>(new Set());
 
+  // Busca livre (transportadora, OC, nº adiantamento, nº CT-e, valor)
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTerm(searchInput.trim().toLowerCase()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const norm = (s: unknown) =>
+    String(s ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const matchesSearch = (a: Adiantamento): boolean => {
+    if (!searchTerm) return true;
+    const term = norm(searchTerm);
+    if (norm(a.transportadora).includes(term)) return true;
+    if (norm(a.ordem_carga).includes(term)) return true;
+    if (norm(a.numero).includes(term)) return true;
+    if ((a.cteNumbers ?? []).some((n) => norm(n).includes(term))) return true;
+    const valStr = Number(a.valor_adiantamento || 0).toFixed(2);
+    if (valStr.includes(searchTerm.replace(/[^\d.,]/g, "").replace(",", "."))) return true;
+    const valBR = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(Number(a.valor_adiantamento || 0));
+    if (norm(valBR).includes(term)) return true;
+    return false;
+  };
+
   // CT-es disponíveis (sem adiantamento ativo) agrupados por transportadora
   const ctesPorTransp = useMemo(() => {
     const map = new Map<string, CteDacteRow[]>();
