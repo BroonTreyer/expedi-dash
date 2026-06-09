@@ -391,6 +391,25 @@ export function AdiantamentosTab() {
 
   return (
     <div className="space-y-4">
+      <div className="relative w-full sm:w-80">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Buscar por transportadora, OC, nº CT-e ou valor..."
+          className="pl-9 pr-9"
+        />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={() => setSearchInput("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Limpar busca"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
       <Tabs defaultValue="montar" className="space-y-4">
         <TabsList>
           <TabsTrigger value="montar"><ListChecks className="h-4 w-4 mr-2" />Montar Lote</TabsTrigger>
