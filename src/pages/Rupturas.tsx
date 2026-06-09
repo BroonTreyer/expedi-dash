@@ -131,6 +131,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
   const [cargaFilter, setCargaFilter] = useState(() => searchParams.get("carga") || "todos");
   const [busca, setBusca] = useState("");
   const [printOpen, setPrintOpen] = useState(false);
+  const [expandido, setExpandido] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   // Rede de segurança: realtime é o canal primário, mas se cair (aba em background,
@@ -219,6 +220,7 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
           nome: c.nome_produto || "—",
           qtdPedidos: 0, pesoCortado: 0, qtdCortada: 0,
           porUnidade: porUnid, cargas: new Set(), clientes: new Set(),
+          items: [],
         };
         map.set(key, g);
       }
@@ -229,8 +231,17 @@ function FaltandoAgora({ canEdit, onNovo }: AtualProps) {
       g.qtdCortada += quantidadeNaoCarregada(c);
       if (c.nome_carga) g.cargas.add(c.nome_carga);
       if (c.codigo_cliente) g.clientes.add(c.codigo_cliente);
+      g.items!.push(c);
     }
-    return [...map.values()].sort((a, b) => {
+    const arr = [...map.values()];
+    for (const g of arr) {
+      g.items!.sort((a, b) => {
+        const va = g.porUnidade ? quantidadeNaoCarregada(a) : pesoNaoCarregado(a);
+        const vb = g.porUnidade ? quantidadeNaoCarregada(b) : pesoNaoCarregado(b);
+        return vb - va;
+      });
+    }
+    return arr.sort((a, b) => {
       const va = a.porUnidade ? a.qtdCortada : a.pesoCortado;
       const vb = b.porUnidade ? b.qtdCortada : b.pesoCortado;
       return vb - va;
