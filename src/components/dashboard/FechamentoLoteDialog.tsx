@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical, CalendarDays, Route } from "lucide-react";
+import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical, CalendarDays, Route, X } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -36,6 +36,7 @@ function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChang
   id: string; group: RotaGroup; idx: number; total: number; colorClass: string;
   ocValue?: string;
   onOcChange?: (v: string) => void;
+  onRemove?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -63,6 +64,19 @@ function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChang
           className="h-7 w-28 text-xs font-mono"
           onPointerDown={(e) => e.stopPropagation()}
         />
+      )}
+      {arguments[0].onRemove && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); arguments[0].onRemove?.(); }}
+          title="Remover este destino da pré-carga"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
       )}
     </div>
   );
