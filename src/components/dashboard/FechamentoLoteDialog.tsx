@@ -32,7 +32,7 @@ import { Switch } from "@/components/ui/switch";
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
 /* ─── Sortable destination row ─── */
-function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChange }: {
+function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChange, onRemove }: {
   id: string; group: RotaGroup; idx: number; total: number; colorClass: string;
   ocValue?: string;
   onOcChange?: (v: string) => void;
@@ -65,14 +65,14 @@ function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChang
           onPointerDown={(e) => e.stopPropagation()}
         />
       )}
-      {arguments[0].onRemove && (
+      {onRemove && (
         <Button
           type="button"
           size="sm"
           variant="ghost"
           className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); arguments[0].onRemove?.(); }}
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
           title="Remover este destino da pré-carga"
         >
           <X className="h-3.5 w-3.5" />
