@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { usePreCargas, useAtualizarDataCarga } from "@/hooks/usePreCargas";
+import { usePreCargas, useAtualizarDataCarga, useRemoverPedidoPreCarga } from "@/hooks/usePreCargas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, CalendarDays, FileDown, FileSpreadsheet, Package, Pencil, Search, Truck, MapPin, User } from "lucide-react";
+import { AlertTriangle, CalendarDays, FileDown, FileSpreadsheet, Package, Pencil, Search, Truck, MapPin, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { pesoEfetivo, pesoNaoCarregado, quantidadeNaoCarregada } from "@/lib/peso-utils";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { EditarPedidoAprovacaoDialog } from "@/components/aprovacoes/EditarPedidoAprovacaoDialog";
 import { PreCargaPrintDialog } from "@/components/precargas/PreCargaPrintDialog";
 import { exportarPreCargaUnica, exportarPreCargasResumo } from "@/lib/pre-cargas-export";
+import { DeleteConfirmDialog } from "@/components/dashboard/DeleteConfirmDialog";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 type Item = Carregamento & { ruptura_sinalizada?: boolean; forma_pagamento?: string | null };
@@ -76,10 +77,13 @@ export default function PreCargas() {
   const { data: rows = [], isLoading } = usePreCargas();
   const { role } = useAuth();
   const canEditDate = role === "admin" || role === "faturamento" || role === "logistica";
+  const canRemovePedido = role === "admin" || role === "faturamento" || role === "logistica";
   const [busca, setBusca] = useState("");
   const [editGrupo, setEditGrupo] = useState<PedidoGrupo | null>(null);
   const [editCargaCtx, setEditCargaCtx] = useState<PreCargaGrupo | null>(null);
   const [printCarga, setPrintCarga] = useState<PreCargaGrupo | null>(null);
+  const [removerCtx, setRemoverCtx] = useState<{ carga: PreCargaGrupo; pedido: PedidoGrupo } | null>(null);
+  const removerPedido = useRemoverPedidoPreCarga();
 
   const preCargas: PreCargaGrupo[] = useMemo(() => {
     const map = new Map<string, PreCargaGrupo>();
@@ -288,7 +292,9 @@ export default function PreCargas() {
                 key={carga.cargaId}
                 carga={carga}
                 canEditDate={canEditDate}
+                canRemovePedido={canRemovePedido}
                 onEditPedido={(p) => { setEditGrupo(p); setEditCargaCtx(carga); }}
+                onRemovePedido={(p) => setRemoverCtx({ carga, pedido: p })}
                 onPrint={() => setPrintCarga(carga)}
                 onExportXlsx={() => exportarPreCargaUnica(carga)}
               />
@@ -315,6 +321,36 @@ export default function PreCargas() {
           onOpenChange={(o) => { if (!o) setPrintCarga(null); }}
           carga={printCarga}
         />
+        <DeleteConfirmDialog
+          open={!!removerCtx}
+          onOpenChange={(o) => { if (!o) setRemoverCtx(null); }}
+          title="Remover pedido da pré-carga?"
+          description={
+            removerCtx
+              ? `Remover o pedido #${removerCtx.pedido.numero_pedido}${removerCtx.pedido.cliente ? ` (${removerCtx.pedido.cliente})` : ""} da pré-carga "${removerCtx.carga.nomeCarga || removerCtx.carga.cargaId}"? Ele voltará para "Aguardando faturamento" e poderá ser incluído em outra carga.`
+              : ""
+          }
+          confirmLabel="Remover"
+          onConfirm={() => {
+            if (!removerCtx) return;
+            const { carga, pedido } = removerCtx;
+            removerPedido.mutate(
+              {
+                cargaId: carga.cargaId,
+                numeroPedido: pedido.numero_pedido,
+                codigoCliente: pedido.codigo_cliente,
+                cliente: pedido.cliente,
+              },
+              {
+                onSuccess: () => {
+                  toast.success(`Pedido #${pedido.numero_pedido} removido da pré-carga`);
+                  setRemoverCtx(null);
+                },
+                onError: (e: any) => toast.error("Não foi possível remover o pedido", { description: e?.message }),
+              },
+            );
+          }}
+        />
       </main>
     </Layout>
   );
@@ -332,7 +368,7 @@ function KpiTile({ label, value, sub, variant }: { label: string; value: string;
   );
 }
 
-function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; canEditDate: boolean; onEditPedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
+function PreCargaCard({ carga, canEditDate, canRemovePedido, onEditPedido, onRemovePedido, onPrint, onExportXlsx }: { carga: PreCargaGrupo; canEditDate: boolean; canRemovePedido: boolean; onEditPedido: (p: PedidoGrupo) => void; onRemovePedido: (p: PedidoGrupo) => void; onPrint: () => void; onExportXlsx: () => void }) {
   const temRup = carga.pesoRuptura > 0 || carga.unidRuptura > 0;
   // "Data prevista de carregamento" é controle interno do Faturamento.
   // Não afeta filtros nem painéis. Fallback para `data` quando ainda não preenchida.
@@ -452,7 +488,12 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
               </div>
               <div className="divide-y">
                 {carga.pedidos.map((p) => (
-                  <PedidoRow key={p.numero_pedido} pedido={p} onEdit={() => onEditPedido(p)} />
+                  <PedidoRow
+                    key={`${p.numero_pedido}-${p.codigo_cliente ?? p.cliente ?? ''}`}
+                    pedido={p}
+                    onEdit={() => onEditPedido(p)}
+                    onRemove={canRemovePedido ? () => onRemovePedido(p) : undefined}
+                  />
                 ))}
               </div>
             </AccordionContent>
@@ -463,7 +504,7 @@ function PreCargaCard({ carga, canEditDate, onEditPedido, onPrint, onExportXlsx 
   );
 }
 
-function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void }) {
+function PedidoRow({ pedido, onEdit, onRemove }: { pedido: PedidoGrupo; onEdit: () => void; onRemove?: () => void }) {
   const [expand, setExpand] = useState(false);
   const temRup = pedido.qtdRupturas > 0;
   const rupturas = temRup ? pedido.itens.filter((it) => it.ruptura === true) : [];
@@ -521,10 +562,21 @@ function PedidoRow({ pedido, onEdit }: { pedido: PedidoGrupo; onEdit: () => void
           )}
         </div>
 
-        <div className="flex md:justify-end" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 w-full md:w-auto" onClick={onEdit}>
+        <div className="flex md:justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1 md:flex-none" onClick={onEdit}>
             <Pencil className="h-3 w-3" /> Editar
           </Button>
+          {onRemove && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={onRemove}
+              title="Remover pedido da pré-carga"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </button>
 

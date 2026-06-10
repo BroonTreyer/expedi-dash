@@ -1,39 +1,35 @@
 ## Objetivo
 
-Adicionar um campo de busca na aba **Adiantamentos** dentro da página **Logística**, permitindo filtrar registros por transportadora/motorista, nº de OC/carga, nº de CT-e ou valor.
+Adicionar a opção de **remover um pedido individual de uma pré-carga**, sem precisar cancelar a pré-carga inteira. O pedido removido volta para "Aguardando faturamento" para poder ser realocado em outra carga.
 
-## Alterações
+## Comportamento
 
-### 1. Hook `useAdiantamentos` — incluir CT-es vinculados
+Na página **Pré-cargas**, em cada linha de pedido (componente `PedidoRow` em `src/pages/PreCargas.tsx`), adicionar um botão `Remover` (ícone `X`, variante `ghost`, cor `destructive`) ao lado do botão `Editar`.
 
-`src/hooks/useAdiantamentos.ts`
+Ao clicar:
+1. Abre `DeleteConfirmDialog` com a mensagem: *"Remover o pedido #N (Cliente X) da pré-carga? Ele voltará para 'Aguardando faturamento' e poderá ser incluído em outra carga."*
+2. Após confirmar, executa um `UPDATE` em todas as linhas de `carregamentos_dia` do pedido (filtrando por `carga_id`, `numero_pedido` e `codigo_cliente`/`cliente`) zerando os campos de pré-carga:
+   - `etapa = 'aguardando_faturamento'`
+   - `carga_id = null`
+   - `nome_carga = null`
+   - `placa = null`
+   - `motorista = null`
+   - `transportadora = null`
+   - `tipo_caminhao = null`
+   - `ordem_carga = null`
+   - `data_prevista_carregamento = null`
+3. Invalida as queries `["pre-cargas"]`, `["carregamentos"]`, `["aprovacoes-pendentes"]` para atualizar a UI.
+4. Exibe toast de sucesso. Se a pré-carga ficar sem nenhum pedido, ela desaparece naturalmente da lista (já tratado pela agregação existente).
 
-- Alterar a query do `useAdiantamentos` para trazer também os CT-es vinculados:
-  ```ts
-  .select("*, adiantamentos_frete_ctes(cte_id, ctes_dacte(numero_cte))")
-  ```
-- Adicionar campo opcional `cteNumbers?: string[]` no tipo `Adiantamento` (ou criar tipo estendido).
-- Mapear os números de CT-e no retorno do hook.
+## Detalhes técnicos
 
-### 2. Componente `AdiantamentosTab` — UI e filtro
-
-`src/components/logistica/AdiantamentosTab.tsx`
-
-- Adicionar estado `searchTerm` (string) com debounce de 300ms.
-- Inserir um `<Input placeholder="Buscar..." />` no topo da aba, alinhado à esquerda, com ícone de lupa (`Search`) e botão de limpar (`X`), seguindo o padrão da aba CTE (linha ~180 de `CtesDacteTab.tsx`).
-- Criar função `matchesSearch(a: Adiantamento, term: string)` que retorna `true` se o termo (case-insensitive, sem acentos) for encontrado em:
-  - `transportadora`
-  - `ordem_carga`
-  - `numero` (nº do adiantamento)
-  - `cteNumbers` (números dos CT-es vinculados)
-  - `valor_adiantamento` (comparar como número formatado em BRL, ex: `R$ 1.234,56`)
-- Aplicar o filtro em cada uma das 4 listas: pendentes, pagos, quitados, e CT-es disponíveis (aba "Montar Lote").
-- Atualizar os contadores das abas (`Pendentes ({N})`, etc.) para refletirem o resultado filtrado.
+- **Novo hook**: `useRemoverPedidoPreCarga` em `src/hooks/usePreCargas.ts` — recebe `{ cargaId, numeroPedido, codigoCliente, cliente }` e faz o `UPDATE` em lote. Usa `codigo_cliente` quando presente; caso contrário, `cliente` (espelhando a chave composta usada em `pedidoBuckets`).
+- **UI**: passa `onRemove` de `PreCargas` → `PreCargaCard` → `PedidoRow`. Estado local `pedidoParaRemover` no `PreCargas` controla o `DeleteConfirmDialog` (reutiliza `src/components/dashboard/DeleteConfirmDialog.tsx`, sem `confirmText`).
+- **Permissão**: visível para os mesmos papéis que já podem editar pedidos da pré-carga (admin, faturamento, logística). Para vendedor, fica oculto.
+- O `UPDATE` aciona naturalmente os triggers existentes (`audit_carregamentos`, `cap_peso_pelo_original`, etc.) — sem mudanças de schema.
 
 ## Validação
 
-- Digitar o nome de uma transportadora: aparecem apenas os registros dela.
-- Digitar um nº de OC: aparece o registro vinculado.
-- Digitar um nº de CT-e: aparece o adiantamento que contém aquele CT-e.
-- Digitar um valor (ex: "1500"): aparecem adiantamentos com valor correspondente.
-- Limpar o campo: volta a exibir todos os registros.
+- Em uma pré-carga com 3 pedidos, remover 1 deixa apenas 2; o pedido removido aparece em "Aguardando faturamento" para ser realocado.
+- Remover o único pedido de uma pré-carga remove a pré-carga da lista.
+- KPIs (peso total, rupturas, qtd pedidos) recalculam corretamente.
