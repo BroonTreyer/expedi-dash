@@ -926,6 +926,32 @@ export default function Index() {
           onPrintReady={handlePrintReady}
           selectedDate={dateFromStr}
           roteirizacao={roteirizacaoResult}
+          onRemoveItems={async (ids) => {
+            if (!ids.length) return;
+            const { error } = await supabase
+              .from("carregamentos_dia")
+              .update({
+                etapa: "aguardando_faturamento",
+                carga_id: null,
+                nome_carga: null,
+                placa: null,
+                motorista: null,
+                transportadora: null,
+                tipo_caminhao: null,
+                ordem_carga: null,
+                data_prevista_carregamento: null,
+              })
+              .in("id", ids);
+            if (error) {
+              toast.error("Não foi possível remover o pedido", { description: error.message });
+              throw error;
+            }
+            toast.success(`${ids.length} ${ids.length === 1 ? "item removido" : "itens removidos"} da pré-carga`);
+            setPreCargaItems((prev) => prev ? prev.filter((it) => !ids.includes(it.id)) : prev);
+            queryClient.invalidateQueries({ queryKey: ["pre-cargas"] });
+            queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+            queryClient.invalidateQueries({ queryKey: ["aprovacoes-pendentes"] });
+          }}
           onRequestRoteirizar={() => {
             // Abre o diálogo de Roteirização por cima do FechamentoLoteDialog;
             // o resultado volta via `roteirizacaoResult` e o useEffect interno
