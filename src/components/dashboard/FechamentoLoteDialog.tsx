@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical, CalendarDays, Route } from "lucide-react";
+import { Truck, MapPin, Package, Link2, LogIn, Clock, GripVertical, CalendarDays, Route, X } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -32,10 +32,11 @@ import { Switch } from "@/components/ui/switch";
 const RotaMap = lazy(() => import("./RotaMap").then((m) => ({ default: m.RotaMap })).catch(() => import("./RotaMap").then((m) => ({ default: m.RotaMap }))));
 
 /* ─── Sortable destination row ─── */
-function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChange }: {
+function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChange, onRemove }: {
   id: string; group: RotaGroup; idx: number; total: number; colorClass: string;
   ocValue?: string;
   onOcChange?: (v: string) => void;
+  onRemove?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -64,6 +65,19 @@ function SortableDestRow({ id, group, idx, total, colorClass, ocValue, onOcChang
           onPointerDown={(e) => e.stopPropagation()}
         />
       )}
+      {onRemove && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          title="Remover este destino da pré-carga"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -89,9 +103,15 @@ interface Props {
    * pela tela de Roteirização antes de abrir.
    */
   onRequestRoteirizar?: () => void;
+  /**
+   * Quando definido E o diálogo está em modo edição de pré-carga, exibe um
+   * botão "X" em cada destino para remover aquele(s) pedido(s) da pré-carga.
+   * O callback recebe os IDs das linhas de `carregamentos_dia` a remover.
+   */
+  onRemoveItems?: (itemIds: string[]) => Promise<void> | void;
 }
 
-export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate, roteirizacao, onSavePreCarga, onRequestRoteirizar }: Props) {
+export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate, roteirizacao, onSavePreCarga, onRequestRoteirizar, onRemoveItems }: Props) {
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
@@ -766,6 +786,17 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                       onOcChange={modoOc === "porGrupo"
                         ? (v) => setOrdemCargaPorGrupo((p) => ({ ...p, [groupKey]: v }))
                         : undefined}
+                      onRemove={(onRemoveItems && existingPreCargaId) ? async () => {
+                        const label = `${g.nomeCliente ?? "Sem cliente"}${g.cidade ? ` – ${g.cidade}${g.uf ? "/" + g.uf : ""}` : ""}`;
+                        if (!window.confirm(`Remover "${label}" da pré-carga?\nO pedido voltará para "Aguardando faturamento".`)) return;
+                        const ids = g.items.map((it) => it.id);
+                        try {
+                          await onRemoveItems(ids);
+                          setGroups((prev) => prev.filter((x) => dndKey(x) !== dndKey(g)));
+                        } catch (e) {
+                          console.error("Falha ao remover pedido da pré-carga", e);
+                        }
+                      } : undefined}
                     />
                   );
                 })}
