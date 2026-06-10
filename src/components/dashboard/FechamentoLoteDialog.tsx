@@ -103,9 +103,15 @@ interface Props {
    * pela tela de Roteirização antes de abrir.
    */
   onRequestRoteirizar?: () => void;
+  /**
+   * Quando definido E o diálogo está em modo edição de pré-carga, exibe um
+   * botão "X" em cada destino para remover aquele(s) pedido(s) da pré-carga.
+   * O callback recebe os IDs das linhas de `carregamentos_dia` a remover.
+   */
+  onRemoveItems?: (itemIds: string[]) => Promise<void> | void;
 }
 
-export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate, roteirizacao, onSavePreCarga, onRequestRoteirizar }: Props) {
+export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao, onSubmit, onPrintReady, selectedDate, roteirizacao, onSavePreCarga, onRequestRoteirizar, onRemoveItems }: Props) {
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [placa, setPlaca] = useState("");
   const [motorista, setMotorista] = useState("");
