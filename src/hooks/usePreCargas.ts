@@ -70,3 +70,51 @@ export function useAtualizarDataCarga() {
     },
   });
 }
+
+/**
+ * Remove um pedido individual de uma pré-carga.
+ * O pedido volta para etapa "aguardando_faturamento" e fica disponível
+ * para ser incluído em outra carga. Todos os campos de transporte são
+ * limpos. Não exclui registros do banco.
+ */
+export function useRemoverPedidoPreCarga() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      cargaId: string;
+      numeroPedido: number;
+      codigoCliente: string | null;
+      cliente: string | null;
+    }) => {
+      let q = supabase
+        .from("carregamentos_dia")
+        .update({
+          etapa: "aguardando_faturamento",
+          carga_id: null,
+          nome_carga: null,
+          placa: null,
+          motorista: null,
+          transportadora: null,
+          tipo_caminhao: null,
+          ordem_carga: null,
+          data_prevista_carregamento: null,
+        })
+        .eq("carga_id", args.cargaId)
+        .eq("numero_pedido", args.numeroPedido);
+      if (args.codigoCliente) {
+        q = q.eq("codigo_cliente", args.codigoCliente);
+      } else if (args.cliente) {
+        q = q.eq("cliente", args.cliente);
+      }
+      const { error } = await q;
+      if (error) throw error;
+      return args;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pre-cargas"] });
+      qc.invalidateQueries({ queryKey: ["carregamentos"] });
+      qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes"] });
+      qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes-count"] });
+    },
+  });
+}
