@@ -786,6 +786,17 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                       onOcChange={modoOc === "porGrupo"
                         ? (v) => setOrdemCargaPorGrupo((p) => ({ ...p, [groupKey]: v }))
                         : undefined}
+                      onRemove={(onRemoveItems && existingPreCargaId) ? async () => {
+                        const label = `${g.nomeCliente ?? "Sem cliente"}${g.cidade ? ` – ${g.cidade}${g.uf ? "/" + g.uf : ""}` : ""}`;
+                        if (!window.confirm(`Remover "${label}" da pré-carga?\nO pedido voltará para "Aguardando faturamento".`)) return;
+                        const ids = g.items.map((it) => it.id);
+                        try {
+                          await onRemoveItems(ids);
+                          setGroups((prev) => prev.filter((x) => dndKey(x) !== dndKey(g)));
+                        } catch (e) {
+                          console.error("Falha ao remover pedido da pré-carga", e);
+                        }
+                      } : undefined}
                     />
                   );
                 })}
