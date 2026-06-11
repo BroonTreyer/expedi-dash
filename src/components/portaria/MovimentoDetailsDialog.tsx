@@ -34,29 +34,200 @@ function DetailRow({ label, value }: { label: string; value: string | number | n
   );
 }
 
-function ClickablePhoto({ url, alt, label }: { url: string; alt: string; label: string }) {
+const FIELD_TIPO_MAP: Record<string, "placa" | "doc" | "painel" | "nota"> = {
+  foto_placa_url: "placa",
+  foto_documento_url: "doc",
+  foto_painel_url: "painel",
+  foto_painel_saida_url: "painel",
+  foto_nota_url: "nota",
+  foto_lacre_url: "doc",
+};
+
+function ClickablePhoto({
+  url,
+  alt,
+  label,
+  recordId,
+  fieldKey,
+  canEdit,
+  onChanged,
+}: {
+  url: string;
+  alt: string;
+  label: string;
+  recordId?: string;
+  fieldKey?: string;
+  canEdit?: boolean;
+  onChanged?: () => void;
+}) {
   const [viewerOpen, setViewerOpen] = useState(false);
-  const isPdf = url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('application/pdf');
+  const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const updateMov = useUpdateMovimentacao();
+  const isPdf = url.toLowerCase().includes(".pdf") || url.toLowerCase().includes("application/pdf");
+  const isNota = fieldKey === "foto_nota_url";
+  const accept = isNota ? "image/*,application/pdf" : "image/*";
+
+  const handleReplace = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !recordId || !fieldKey) return;
+    try {
+      setBusy(true);
+      const tipo = FIELD_TIPO_MAP[fieldKey] || "doc";
+      const newUrl = await uploadFotoMovimentacao(file, tipo);
+      await updateMov.mutateAsync({ id: recordId, [fieldKey]: newUrl } as any);
+      onChanged?.();
+    } catch (err: any) {
+      toast.error("Erro ao enviar foto: " + (err?.message || String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!recordId || !fieldKey) return;
+    try {
+      setBusy(true);
+      await updateMov.mutateAsync({ id: recordId, [fieldKey]: null } as any);
+      setConfirmOpen(false);
+      onChanged?.();
+    } catch (err: any) {
+      toast.error("Erro ao remover foto: " + (err?.message || String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div>
       <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-      {isPdf ? (
-        <div
-          className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1.5 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors ring-1 ring-border"
-          onClick={() => setViewerOpen(true)}
-        >
-          <FileText className="h-8 w-8 text-muted-foreground" />
-          <span className="text-[10px] text-primary">Clique para visualizar</span>
-        </div>
-      ) : (
-        <img
-          src={url}
-          alt={alt}
-          className="rounded-md w-full h-32 object-cover cursor-pointer hover:opacity-80 transition-opacity ring-1 ring-border"
-          onClick={() => setViewerOpen(true)}
-        />
-      )}
+      <div className="relative">
+        {isPdf ? (
+          <div
+            className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1.5 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors ring-1 ring-border"
+            onClick={() => setViewerOpen(true)}
+          >
+            <FileText className="h-8 w-8 text-muted-foreground" />
+            <span className="text-[10px] text-primary">Clique para visualizar</span>
+          </div>
+        ) : (
+          <img
+            src={url}
+            alt={alt}
+            className="rounded-md w-full h-32 object-cover cursor-pointer hover:opacity-80 transition-opacity ring-1 ring-border"
+            onClick={() => setViewerOpen(true)}
+          />
+        )}
+        {canEdit && recordId && fieldKey && (
+          <div className="absolute top-1 right-1 flex gap-1">
+            <input ref={fileRef} type="file" accept={accept} className="hidden" onChange={handleReplace} />
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-6 px-2 text-[10px] gap-1 shadow"
+              onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+              disabled={busy}
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              Trocar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              className="h-6 px-2 text-[10px] gap-1 shadow"
+              onClick={(e) => { e.stopPropagation(); setConfirmOpen(true); }}
+              disabled={busy}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
       <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={url} alt={label} />
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover esta foto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A evidência será apagada do registro. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemove} disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function UploadPlaceholder({
+  label,
+  reason,
+  recordId,
+  fieldKey,
+  onChanged,
+}: {
+  label: string;
+  reason: string;
+  recordId?: string;
+  fieldKey?: string;
+  onChanged?: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const updateMov = useUpdateMovimentacao();
+  const isNota = fieldKey === "foto_nota_url";
+  const accept = isNota ? "image/*,application/pdf" : "image/*";
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !recordId || !fieldKey) return;
+    try {
+      setBusy(true);
+      const tipo = FIELD_TIPO_MAP[fieldKey] || "doc";
+      const newUrl = await uploadFotoMovimentacao(file, tipo);
+      await updateMov.mutateAsync({ id: recordId, [fieldKey]: newUrl } as any);
+      onChanged?.();
+    } catch (err: any) {
+      toast.error("Erro ao enviar foto: " + (err?.message || String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
+      <div className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1 bg-muted/30 ring-1 ring-dashed ring-border p-2">
+        <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+        <span className="text-[11px] text-muted-foreground text-center">{reason}</span>
+        {recordId && fieldKey && (
+          <>
+            <input ref={fileRef} type="file" accept={accept} className="hidden" onChange={handleUpload} />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[10px] gap-1 mt-1"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              Enviar foto
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
