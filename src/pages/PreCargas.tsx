@@ -75,10 +75,12 @@ function formatDataBr(d: string) {
 }
 
 export default function PreCargas() {
+  const navigate = useNavigate();
   const { data: rows = [], isLoading } = usePreCargas();
   const { role } = useAuth();
   const canEditDate = role === "admin" || role === "faturamento" || role === "logistica";
   const canRemovePedido = role === "admin" || role === "faturamento" || role === "logistica";
+  const canSeeAprovacoes = role === "admin" || role === "faturamento";
   const [busca, setBusca] = useState("");
   const [editGrupo, setEditGrupo] = useState<PedidoGrupo | null>(null);
   const [editCargaCtx, setEditCargaCtx] = useState<PreCargaGrupo | null>(null);
