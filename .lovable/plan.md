@@ -1,18 +1,27 @@
-Plano para corrigir o botão que não aparece:
+## Problema
 
-1. Atualizar `FechamentoLoteDialog`
-   - Adicionar uma prop opcional para remover um pedido da pré-carga atual.
-   - Exibir um botão discreto com `X` em cada linha da lista da modal “Pré-carga em edição”, ao lado do pedido/cliente.
-   - Manter o comportamento atual de arrastar/reordenar, roteirizar, mapa e finalizar.
+No `RegistroMovimentoDialog.tsx` (linhas 425-430), quando um veículo Terceirizado registra entrada, o sistema preenche `horario_entrada` imediatamente e seta `etapa_terceirizado = "no_patio"`, pulando a etapa de "Aguardando liberação". Isso contradiz o fluxo documentado (memória `portaria-third-party-workflow`) e o que o `RegistroEntradaDialog.tsx` já faz corretamente.
 
-2. Conectar a ação na tela de Pré-cargas
-   - Ao clicar em `Editar` numa pré-carga, passar para a modal a função de remoção individual.
-   - Usar o mesmo fluxo já definido: confirmação simples e retorno do pedido para `Aguardando faturamento`.
+Resultado: Gustavo aparece direto como "No Pátio" assim que a portaria registra a chegada, sem passar pelo passo de liberação.
 
-3. Confirmação e atualização
-   - Mostrar o diálogo simples: “Remover pedido da pré-carga?”
-   - Confirmando, chamar a mutation existente `useRemoverPedidoPreCarga`.
-   - Fechar a confirmação, atualizar a lista/modal automaticamente e mostrar toast de sucesso ou erro.
+## Correção
 
-4. Permissões
-   - Mostrar o botão somente para `admin`, `faturamento` e `logistica`, mantendo escondido para `vendedor`.
+**`src/components/portaria/RegistroMovimentoDialog.tsx`** — Trocar o bloco terceirizado/entrada para o fluxo de duas etapas:
+
+```ts
+...(categoria === "terceirizado" && tipo === "entrada" ? {
+  horario_chegada: new Date().toISOString(),
+  horario_entrada: null,
+  etapa_terceirizado: "chegada",
+} : {}),
+```
+
+Assim o registro nasce como "Aguardando liberação" e só vira "No Pátio" quando alguém clica em "Liberar entrada" no `CargasFechadasAguardandoPanel` / `PatioAtualTab` (que já fazem o UPDATE setando `horario_entrada = now()` e `etapa_terceirizado = 'no_patio'`).
+
+Nenhuma mudança de schema, RLS, ou de outros componentes — apenas o estado inicial do INSERT.
+
+## Verificação
+
+- Registrar chegada de um terceirizado pela portaria → deve aparecer em "Aguardando liberação" (não em "Pátio Atual").
+- Clicar "Liberar entrada" → move para "No Pátio" com `horario_entrada` preenchido.
+- Fluxos de carga própria e saída permanecem inalterados.
