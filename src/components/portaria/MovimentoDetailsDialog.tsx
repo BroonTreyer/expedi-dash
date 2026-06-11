@@ -642,10 +642,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setComprovanteOpen(true)}>
                 <Printer className="h-3 w-3" /> Comprovante
               </Button>
-              {isAdmin && (<>
+              {canEditPhotos && (
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
                   <Pencil className="h-3 w-3" /> Editar
                 </Button>
+              )}
+              {isAdmin && (<>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm" className="gap-1.5 text-xs">
