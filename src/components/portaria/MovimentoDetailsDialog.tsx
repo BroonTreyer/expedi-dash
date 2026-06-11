@@ -1,19 +1,20 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, differenceInMinutes, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle, FileText, Printer } from "lucide-react";
+import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle, FileText, Printer, Upload, X } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { CATEGORIAS, SETORES, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS, SETORES, useDeleteMovimentacao, useUpdateMovimentacao, uploadFotoMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
 import { PhotoViewerDialog } from "./PhotoViewerDialog";
 import { EditMovimentoDialog } from "./EditMovimentoDialog";
 import { ComprovantePortariaDialog } from "./ComprovantePortariaDialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
@@ -32,29 +33,200 @@ function DetailRow({ label, value }: { label: string; value: string | number | n
   );
 }
 
-function ClickablePhoto({ url, alt, label }: { url: string; alt: string; label: string }) {
+const FIELD_TIPO_MAP: Record<string, "placa" | "doc" | "painel" | "nota"> = {
+  foto_placa_url: "placa",
+  foto_documento_url: "doc",
+  foto_painel_url: "painel",
+  foto_painel_saida_url: "painel",
+  foto_nota_url: "nota",
+  foto_lacre_url: "doc",
+};
+
+function ClickablePhoto({
+  url,
+  alt,
+  label,
+  recordId,
+  fieldKey,
+  canEdit,
+  onChanged,
+}: {
+  url: string;
+  alt: string;
+  label: string;
+  recordId?: string;
+  fieldKey?: string;
+  canEdit?: boolean;
+  onChanged?: () => void;
+}) {
   const [viewerOpen, setViewerOpen] = useState(false);
-  const isPdf = url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('application/pdf');
+  const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const updateMov = useUpdateMovimentacao();
+  const isPdf = url.toLowerCase().includes(".pdf") || url.toLowerCase().includes("application/pdf");
+  const isNota = fieldKey === "foto_nota_url";
+  const accept = isNota ? "image/*,application/pdf" : "image/*";
+
+  const handleReplace = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !recordId || !fieldKey) return;
+    try {
+      setBusy(true);
+      const tipo = FIELD_TIPO_MAP[fieldKey] || "doc";
+      const newUrl = await uploadFotoMovimentacao(file, tipo);
+      await updateMov.mutateAsync({ id: recordId, [fieldKey]: newUrl } as any);
+      onChanged?.();
+    } catch (err: any) {
+      toast.error("Erro ao enviar foto: " + (err?.message || String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!recordId || !fieldKey) return;
+    try {
+      setBusy(true);
+      await updateMov.mutateAsync({ id: recordId, [fieldKey]: null } as any);
+      setConfirmOpen(false);
+      onChanged?.();
+    } catch (err: any) {
+      toast.error("Erro ao remover foto: " + (err?.message || String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div>
       <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-      {isPdf ? (
-        <div
-          className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1.5 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors ring-1 ring-border"
-          onClick={() => setViewerOpen(true)}
-        >
-          <FileText className="h-8 w-8 text-muted-foreground" />
-          <span className="text-[10px] text-primary">Clique para visualizar</span>
-        </div>
-      ) : (
-        <img
-          src={url}
-          alt={alt}
-          className="rounded-md w-full h-32 object-cover cursor-pointer hover:opacity-80 transition-opacity ring-1 ring-border"
-          onClick={() => setViewerOpen(true)}
-        />
-      )}
+      <div className="relative">
+        {isPdf ? (
+          <div
+            className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1.5 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors ring-1 ring-border"
+            onClick={() => setViewerOpen(true)}
+          >
+            <FileText className="h-8 w-8 text-muted-foreground" />
+            <span className="text-[10px] text-primary">Clique para visualizar</span>
+          </div>
+        ) : (
+          <img
+            src={url}
+            alt={alt}
+            className="rounded-md w-full h-32 object-cover cursor-pointer hover:opacity-80 transition-opacity ring-1 ring-border"
+            onClick={() => setViewerOpen(true)}
+          />
+        )}
+        {canEdit && recordId && fieldKey && (
+          <div className="absolute top-1 right-1 flex gap-1">
+            <input ref={fileRef} type="file" accept={accept} className="hidden" onChange={handleReplace} />
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-6 px-2 text-[10px] gap-1 shadow"
+              onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+              disabled={busy}
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              Trocar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              className="h-6 px-2 text-[10px] gap-1 shadow"
+              onClick={(e) => { e.stopPropagation(); setConfirmOpen(true); }}
+              disabled={busy}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
       <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={url} alt={label} />
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover esta foto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A evidência será apagada do registro. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemove} disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function UploadPlaceholder({
+  label,
+  reason,
+  recordId,
+  fieldKey,
+  onChanged,
+}: {
+  label: string;
+  reason: string;
+  recordId?: string;
+  fieldKey?: string;
+  onChanged?: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const updateMov = useUpdateMovimentacao();
+  const isNota = fieldKey === "foto_nota_url";
+  const accept = isNota ? "image/*,application/pdf" : "image/*";
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !recordId || !fieldKey) return;
+    try {
+      setBusy(true);
+      const tipo = FIELD_TIPO_MAP[fieldKey] || "doc";
+      const newUrl = await uploadFotoMovimentacao(file, tipo);
+      await updateMov.mutateAsync({ id: recordId, [fieldKey]: newUrl } as any);
+      onChanged?.();
+    } catch (err: any) {
+      toast.error("Erro ao enviar foto: " + (err?.message || String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
+      <div className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1 bg-muted/30 ring-1 ring-dashed ring-border p-2">
+        <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+        <span className="text-[11px] text-muted-foreground text-center">{reason}</span>
+        {recordId && fieldKey && (
+          <>
+            <input ref={fileRef} type="file" accept={accept} className="hidden" onChange={handleUpload} />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[10px] gap-1 mt-1"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              Enviar foto
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -65,6 +237,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const [editOpen, setEditOpen] = useState(false);
   const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const isAdmin = role === "admin";
+  const canEditPhotos = role === "admin" || role === "logistica";
+  const queryClient = useQueryClient();
+  const invalidatePhotos = () => {
+    queryClient.invalidateQueries({ queryKey: ["mov-related-photos"] });
+    queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+  };
 
   const placaBusca = movimento?.placa?.trim().toUpperCase() || "";
   const dataMovimento = movimento?.data_hora ? new Date(movimento.data_hora).toISOString().slice(0, 10) : "";
@@ -196,13 +374,13 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   };
 
   // Collect all photos — aggregate from all related records, dedup by URL
-  const allPhotos: { url: string; alt: string; label: string; ocrText?: string | null; ocrConf?: number | null }[] = [];
+  const allPhotos: { url: string; alt: string; label: string; ocrText?: string | null; ocrConf?: number | null; recordId?: string; fieldKey?: string }[] = [];
   {
     const seenUrls = new Set<string>();
-    const pushPhoto = (url: string | null | undefined, alt: string, label: string, ocrText?: string | null, ocrConf?: number | null) => {
+    const pushPhoto = (url: string | null | undefined, alt: string, label: string, ocrText?: string | null, ocrConf?: number | null, recordId?: string, fieldKey?: string) => {
       if (!url || seenUrls.has(url)) return;
       seenUrls.add(url);
-      allPhotos.push({ url, alt, label, ocrText, ocrConf });
+      allPhotos.push({ url, alt, label, ocrText, ocrConf, recordId, fieldKey });
     };
 
     // Build the source list: all related records if available, else fallback to m + sDistinct
@@ -224,16 +402,16 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
         prefix = r.tipo_movimento === "saida" ? "📤 " : "📥 ";
       }
       const suffix = stageLabel ? ` (${stageLabel})` : "";
-      pushPhoto(r.foto_placa_url, "Placa", `${prefix}📷 Foto da Placa${suffix}`, r.texto_placa_lido, r.confianca_placa);
-      pushPhoto(r.foto_documento_url, "Documento", `${prefix}📄 Documento${suffix}`);
+      pushPhoto(r.foto_placa_url, "Placa", `${prefix}📷 Foto da Placa${suffix}`, r.texto_placa_lido, r.confianca_placa, r.id, "foto_placa_url");
+      pushPhoto(r.foto_documento_url, "Documento", `${prefix}📄 Documento${suffix}`, null, null, r.id, "foto_documento_url");
       if (isCargaPropria) {
-        pushPhoto(r.foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`);
-        pushPhoto(r.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`);
+        pushPhoto(r.foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`, null, null, r.id, "foto_painel_saida_url");
+        pushPhoto(r.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`, null, null, r.id, "foto_painel_url");
       } else {
-        pushPhoto(r.foto_painel_url, "Painel KM", `${prefix}🛞 Painel KM${suffix}`);
+        pushPhoto(r.foto_painel_url, "Painel KM", `${prefix}🛞 Painel KM${suffix}`, null, null, r.id, "foto_painel_url");
       }
-      pushPhoto(r.foto_nota_url, "Nota Fiscal", `${prefix}📋 Nota Fiscal${suffix}`);
-      pushPhoto(r.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`);
+      pushPhoto(r.foto_nota_url, "Nota Fiscal", `${prefix}📋 Nota Fiscal${suffix}`, null, null, r.id, "foto_nota_url");
+      pushPhoto(r.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`, null, null, r.id, "foto_lacre_url");
     }
 
     // Defensive: also pull from `s` (saída paired record) even if not in relatedRecords
@@ -244,23 +422,23 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
           ? labelEtapaTerc(s.etapa_terceirizado, s.tipo_movimento)
           : "Saída";
       const suffix = ` (${stage})`;
-      pushPhoto(s.foto_placa_url, "Placa", `📤 📷 Foto da Placa${suffix}`, s.texto_placa_lido, s.confianca_placa);
-      pushPhoto(s.foto_documento_url, "Documento", `📤 📄 Documento${suffix}`);
+      pushPhoto(s.foto_placa_url, "Placa", `📤 📷 Foto da Placa${suffix}`, s.texto_placa_lido, s.confianca_placa, s.id, "foto_placa_url");
+      pushPhoto(s.foto_documento_url, "Documento", `📤 📄 Documento${suffix}`, null, null, s.id, "foto_documento_url");
       if (isCargaPropria) {
-        pushPhoto((s as any).foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`);
-        pushPhoto(s.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`);
+        pushPhoto((s as any).foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`, null, null, s.id, "foto_painel_saida_url");
+        pushPhoto(s.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`, null, null, s.id, "foto_painel_url");
       } else {
-        pushPhoto(s.foto_painel_url, "Painel KM", `📤 🛞 Painel KM${suffix}`);
+        pushPhoto(s.foto_painel_url, "Painel KM", `📤 🛞 Painel KM${suffix}`, null, null, s.id, "foto_painel_url");
       }
-      pushPhoto(s.foto_nota_url, "Nota Fiscal", `📤 📋 Nota Fiscal${suffix}`);
-      pushPhoto(s.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`);
+      pushPhoto(s.foto_nota_url, "Nota Fiscal", `📤 📋 Nota Fiscal${suffix}`, null, null, s.id, "foto_nota_url");
+      pushPhoto(s.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`, null, null, s.id, "foto_lacre_url");
     }
   }
   
   const hasFotos = allPhotos.length > 0;
 
   // For Carga Própria: track which painel KM photos are missing so we can show explicit placeholders
-  const cpMissing: { label: string; reason: string }[] = [];
+  const cpMissing: { label: string; reason: string; fieldKey?: string }[] = [];
   if (isCargaPropria) {
     const allSources: any[] = [
       ...((relatedRecords && relatedRecords.length > 0) ? relatedRecords : [m, sDistinct].filter(Boolean)),
@@ -271,11 +449,11 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
     const etapa = m.etapa_carga_propria;
     // Show "Saída" placeholder once the vehicle has left to route or beyond
     if (!hasSaida && (etapa === "em_rota" || etapa === "retornou" || etapa === "finalizado")) {
-      cpMissing.push({ label: "🛞 Painel KM (Saída p/ Rota)", reason: "Não capturada nesta saída" });
+      cpMissing.push({ label: "🛞 Painel KM (Saída p/ Rota)", reason: "Não capturada nesta saída", fieldKey: "foto_painel_saida_url" });
     }
     // Show "Retorno" placeholder once the vehicle has returned
     if (!hasRetorno && (etapa === "retornou" || etapa === "finalizado")) {
-      cpMissing.push({ label: "🛞 Painel KM (Retorno)", reason: "Não capturada no retorno" });
+      cpMissing.push({ label: "🛞 Painel KM (Retorno)", reason: "Não capturada no retorno", fieldKey: "foto_painel_url" });
     }
   }
 
@@ -463,10 +641,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setComprovanteOpen(true)}>
                 <Printer className="h-3 w-3" /> Comprovante
               </Button>
-              {isAdmin && (<>
+              {canEditPhotos && (
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
                   <Pencil className="h-3 w-3" /> Editar
                 </Button>
+              )}
+              {isAdmin && (<>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm" className="gap-1.5 text-xs">
@@ -625,20 +805,29 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {allPhotos.map((photo, i) => (
                     <div key={i}>
-                      <ClickablePhoto url={photo.url} alt={photo.alt} label={photo.label} />
+                      <ClickablePhoto
+                        url={photo.url}
+                        alt={photo.alt}
+                        label={photo.label}
+                        recordId={photo.recordId}
+                        fieldKey={photo.fieldKey}
+                        canEdit={canEditPhotos}
+                        onChanged={invalidatePhotos}
+                      />
                       {photo.ocrText && (
                         <p className="text-xs mt-1">OCR: <strong>{photo.ocrText}</strong> ({photo.ocrConf}%)</p>
                       )}
                     </div>
                   ))}
                   {cpMissing.map((miss, i) => (
-                    <div key={`miss-${i}`}>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">{miss.label}</p>
-                      <div className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1 bg-muted/30 ring-1 ring-dashed ring-border">
-                        <AlertTriangle className="h-6 w-6 text-muted-foreground" />
-                        <span className="text-[11px] text-muted-foreground">{miss.reason}</span>
-                      </div>
-                    </div>
+                    <UploadPlaceholder
+                      key={`miss-${i}`}
+                      label={miss.label}
+                      reason={miss.reason}
+                      recordId={canEditPhotos ? m.id : undefined}
+                      fieldKey={canEditPhotos ? miss.fieldKey : undefined}
+                      onChanged={invalidatePhotos}
+                    />
                   ))}
                 </div>
               </div>

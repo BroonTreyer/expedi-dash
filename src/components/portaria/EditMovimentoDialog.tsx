@@ -69,6 +69,13 @@ const EDITABLE_FIELDS: { key: string; label: string; type: "text" | "number" | "
   { key: "tipo_caminhao", label: "Tipo de Caminhão", type: "text" },
   // D3 — `chegou` é destino válido de edição (estado inicial do ciclo CP).
   { key: "etapa_carga_propria", label: "Etapa Varejo", type: "select", options: ["chegou", "em_rota", "retornou", "finalizado"] },
+  { key: "pessoa_visitada", label: "Pessoa Visitada", type: "text" },
+  { key: "motivo_visita", label: "Motivo da Visita", type: "text" },
+  { key: "servico_executar", label: "Serviço a Executar", type: "text" },
+  { key: "descricao", label: "Descrição", type: "textarea" },
+  { key: "tipo_operacao", label: "Tipo de Operação", type: "text" },
+  { key: "tipo_carga", label: "Tipo de Carga", type: "text" },
+  { key: "numero_lacre", label: "Nº Lacre", type: "text" },
   { key: "observacoes", label: "Observações", type: "textarea" },
   { key: "ocorrencia", label: "Ocorrência", type: "textarea" },
 ];
@@ -179,8 +186,18 @@ export function EditMovimentoDialog({ open, onOpenChange, movimento }: Props) {
 
   // Always show these core fields even if empty
   const coreKeys = ["placa", "motorista", "empresa", "observacoes"];
+  // Por categoria, mostrar campos relevantes mesmo se vazios para permitir preenchimento tardio
+  const categoriaExtras: Record<string, string[]> = {
+    visitante: ["nome_completo", "documento", "telefone", "pessoa_visitada", "motivo_visita"],
+    prestador_servico: ["nome_completo", "documento", "telefone", "servico_executar"],
+    outros: ["descricao"],
+    terceirizado: ["numero_lacre"],
+    carga_propria: ["numero_lacre"],
+  };
+  const extraKeys = categoriaExtras[movimento.categoria] || [];
   const allFields = [
     ...EDITABLE_FIELDS.filter((f) => coreKeys.includes(f.key)),
+    ...EDITABLE_FIELDS.filter((f) => extraKeys.includes(f.key)),
     ...visibleFields.filter((f) => !coreKeys.includes(f.key)),
   ];
   // Deduplicate

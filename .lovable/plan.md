@@ -1,28 +1,59 @@
-## O que aconteceu
+# Editar fotos e informações em Detalhes do Movimento
 
-O registro do Gustavo (RAR6B66, carga VANESSA + BRUNO) está correto no banco: chegada registrada às 11:03, aguardando liberação para o pátio. Ele sumiu da tela por causa de filtros de visibilidade:
+Hoje, ao abrir "Detalhes do Movimento" (Portaria), só dá para visualizar as fotos e editar um conjunto limitado de campos. Vamos permitir:
 
-- O painel azul "Cargas fechadas aguardando veículo" só mostra cargas com data planejada nos últimos **7 dias**. A carga dele tem data **14/05** (quase 1 mês atrás), então fica fora da janela.
-- Como ele não está mais "No Pátio" (corretamente, pois ainda não foi liberado), ele não aparece em lugar nenhum — virou registro fantasma.
-- Há ainda um segundo filtro (janela de -12h a +48h ao redor da data da carga) que também impediria o badge "Aguardando liberação", já que a chegada (11/06) é muito depois da data planejada.
+1. Trocar / enviar / remover cada foto do registro (placa, documento, painel KM, painel KM saída/retorno, nota fiscal, lacre).
+2. Editar todos os campos relevantes do movimento, inclusive os que hoje só aparecem como leitura.
 
-## Correção (código)
+Restrito a Admin e Logística (mesma regra já usada para Editar / Excluir e para o botão "Foto via upload" no `CapturaFoto`). Portaria continua só visualizando.
 
-**Regra nova: uma chegada pendente nunca pode ficar invisível.**
+## O que vai mudar (UX)
 
-1. **`src/hooks/useCarregamentos.ts` (useCargasFechadasAguardando)**
-   - Buscar também movimentações de entrada ativas (`horario_entrada` vazio, sem saída) dos últimos 7 dias e incluir as cargas vinculadas a elas, mesmo que a data da carga esteja fora da janela de 7 dias.
-   - Quando há chegada ativa recente, marcar a carga como "Aguardando liberação" mesmo fora da janela -12h/+48h — a chegada real vale mais que a data planejada.
+Dentro do `MovimentoDetailsDialog`, na seção "Fotos do Movimento":
 
-2. **`src/components/portaria/PatioAtualTab.tsx`** (defesa em profundidade)
-   - Mostrar terceirizados com chegada registrada e carga vinculada como linha "Aguardando liberação" (hoje só os sem vínculo aparecem), com botão de liberar entrada. Assim, mesmo que o painel azul falhe, o registro nunca desaparece.
+- Cada foto ganha 2 botões no canto: **Substituir** e **Remover** (apenas Admin/Logística).
+- Onde a foto está ausente (placeholders de "Não capturada"), aparece um botão **Enviar foto** para registrar a evidência tardiamente.
+- Ambos os fluxos permitem câmera ou upload de arquivo (PDF/imagem para nota; imagem para placa/painel/lacre/documento), reaproveitando o componente `CapturaFoto` com `allowFileUpload`.
+- Após upload com sucesso, marca automaticamente o registro com o sufixo `[FOTO via upload por <email> em <data/hora>]` em `observacoes` (igual ao fluxo já existente de regularização), para manter o badge "Foto via upload" coerente.
+- Remoção pede confirmação ("Remover esta foto? A evidência será apagada do storage.").
 
-## Resultado esperado
+Na seção de informações:
 
-- Gustavo volta a aparecer imediatamente no painel azul como "Aguardando liberação", com botões "Liberar entrada no pátio" e "Desfazer chegada".
-- Nenhuma mudança no banco — os dados dele já estão corretos.
+- Adicionar um botão **"Editar dados"** já existe, mas vamos expandir o `EditMovimentoDialog` para incluir os campos hoje ocultos quando vazios (ex.: `pessoa_visitada`, `motivo_visita`, `servico_executar`, `descricao`, `tipo_operacao`, `tipo_carga`, `numero_lacre`), permitindo preencher informações que faltaram no registro original.
+- Categoria continua read-only (regra A10 já documentada no código).
 
-## Verificação
+## Como funciona por trás (técnico)
 
-- Abrir Portaria → Terceirizado e confirmar que a carga VANESSA + BRUNO aparece com badge "Aguardando liberação".
-- Clicar "Liberar entrada" → ele entra no Pátio Atual normalmente.
+### 1. Upload / substituição de foto
+- Novo helper `uploadFotoMovimento(file, movimentoId, campo)` em `src/lib/portaria-foto-upload.ts`:
+  - Path: `movimentos/{movimentoId}/{campo}-{timestamp}.{ext}` no bucket `portaria` (já existe, privado).
+  - `supabase.storage.from("portaria").upload(path, file, { upsert: false })`.
+  - Retorna a `path` (não URL pública) — armazenamos a path no campo correspondente (`foto_placa_url`, `foto_documento_url`, `foto_painel_url`, `foto_painel_saida_url`, `foto_nota_url`, `foto_lacre_url`). Hoje o sistema já trata esses campos como path/URL via signed URL no viewer, então mantemos o mesmo formato observado nos registros atuais (checar pelo registro existente; se for URL assinada, gerar signed URL de 1 ano via memória `storage-access`).
+- `UPDATE movimentacoes_portaria SET <campo> = ?, observacoes = COALESCE(observacoes,'') || ' [FOTO via upload por <email> em <ts>]' WHERE id = ?`.
+
+### 2. Remoção de foto
+- `supabase.storage.from("portaria").remove([path])` (se a coluna guarda path) e `UPDATE ... SET <campo> = NULL`.
+- Se a coluna guardar URL assinada antiga (sem path acessível), apenas zera o campo no banco e ignora o storage (loga warn).
+
+### 3. Permissão
+- Reaproveitar `role === "admin" || role === "logistica"` do hook `useAuth` (já usado em `MovimentoDetailsDialog`).
+
+### 4. Edição expandida
+- Em `EditMovimentoDialog`, ampliar `EDITABLE_FIELDS` com os campos faltantes citados acima e o `coreKeys`/`visibleFields` continua filtrando para mostrar os mais relevantes — mas agora também mostra os campos da categoria do movimento mesmo quando vazios (pequena heurística por categoria: `visitante` mostra `pessoa_visitada` e `motivo_visita`; `prestador_servico` mostra `servico_executar`; `outros` mostra `descricao`; `terceirizado` mostra `numero_lacre`).
+- Continua usando o mutation `useUpdateMovimentacao`.
+
+### 5. Invalidação de cache
+- Após upload/remoção, invalidar `["movimentacoes-portaria"]`, `["mov-related-photos", ...]` e `["movimentacao", id]` para o dialog refletir na hora.
+
+## Arquivos afetados
+
+- `src/components/portaria/MovimentoDetailsDialog.tsx` — adicionar controles de Substituir/Remover/Enviar em cada `ClickablePhoto` e nos placeholders `cpMissing`.
+- `src/components/portaria/EditMovimentoDialog.tsx` — ampliar lista de campos editáveis e regra de exibição por categoria.
+- `src/lib/portaria-foto-upload.ts` — novo helper de upload/remoção e marcação em `observacoes`.
+- (Opcional) pequeno componente `PhotoEditActions.tsx` para encapsular os botões — só se simplificar a leitura.
+
+## Fora de escopo
+
+- Não mexer no fluxo de captura inicial (RegistroMovimentoDialog) nem na FSM do Carga Própria.
+- Não alterar políticas RLS do bucket `portaria` — já permite Admin/Logística (validar; se não permitir UPDATE/DELETE de objetos por essas roles, adiciono migration mínima com policy).
+- Não tocar no caso do Gustavo / hook `useCarregamentos` (já resolvido na rodada anterior).
