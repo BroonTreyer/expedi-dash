@@ -439,7 +439,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const hasFotos = allPhotos.length > 0;
 
   // For Carga Própria: track which painel KM photos are missing so we can show explicit placeholders
-  const cpMissing: { label: string; reason: string }[] = [];
+  const cpMissing: { label: string; reason: string; fieldKey?: string }[] = [];
   if (isCargaPropria) {
     const allSources: any[] = [
       ...((relatedRecords && relatedRecords.length > 0) ? relatedRecords : [m, sDistinct].filter(Boolean)),
@@ -450,11 +450,11 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
     const etapa = m.etapa_carga_propria;
     // Show "Saída" placeholder once the vehicle has left to route or beyond
     if (!hasSaida && (etapa === "em_rota" || etapa === "retornou" || etapa === "finalizado")) {
-      cpMissing.push({ label: "🛞 Painel KM (Saída p/ Rota)", reason: "Não capturada nesta saída" });
+      cpMissing.push({ label: "🛞 Painel KM (Saída p/ Rota)", reason: "Não capturada nesta saída", fieldKey: "foto_painel_saida_url" });
     }
     // Show "Retorno" placeholder once the vehicle has returned
     if (!hasRetorno && (etapa === "retornou" || etapa === "finalizado")) {
-      cpMissing.push({ label: "🛞 Painel KM (Retorno)", reason: "Não capturada no retorno" });
+      cpMissing.push({ label: "🛞 Painel KM (Retorno)", reason: "Não capturada no retorno", fieldKey: "foto_painel_url" });
     }
   }
 
