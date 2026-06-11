@@ -5,15 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, differenceInMinutes, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle, FileText, Printer } from "lucide-react";
+import { Pencil, Trash2, Loader2, ArrowDownToLine, ArrowUpFromLine, CalendarCheck, CalendarClock, AlertTriangle, FileText, Printer, Upload, X } from "lucide-react";
 import type { MovimentacaoPortaria } from "@/hooks/useMovimentacoesPortaria";
-import { CATEGORIAS, SETORES, useDeleteMovimentacao } from "@/hooks/useMovimentacoesPortaria";
+import { CATEGORIAS, SETORES, useDeleteMovimentacao, useUpdateMovimentacao, uploadFotoMovimentacao } from "@/hooks/useMovimentacoesPortaria";
 import { useAuth } from "@/hooks/useAuth";
 import { PhotoViewerDialog } from "./PhotoViewerDialog";
 import { EditMovimentoDialog } from "./EditMovimentoDialog";
 import { ComprovantePortariaDialog } from "./ComprovantePortariaDialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useRef } from "react";
 
 interface Props {
   open: boolean;
