@@ -76,6 +76,9 @@ export function useAtualizarDataCarga() {
  * O pedido volta para etapa "aguardando_faturamento" e fica disponível
  * para ser incluído em outra carga. Todos os campos de transporte são
  * limpos. Não exclui registros do banco.
+ *
+ * Também anexa em `observacoes` uma linha de rastro com o nome da
+ * pré-carga de origem para facilitar a busca posterior (SmartSearch).
  */
 export function useRemoverPedidoPreCarga() {
   const qc = useQueryClient();
@@ -85,8 +88,27 @@ export function useRemoverPedidoPreCarga() {
       numeroPedido: number;
       codigoCliente: string | null;
       cliente: string | null;
+      nomeCarga?: string | null;
     }) => {
-      let q = supabase
+      // 1) Buscar linhas afetadas (para preservar observacoes existentes)
+      let sel = supabase
+        .from("carregamentos_dia")
+        .select("id, observacoes")
+        .eq("carga_id", args.cargaId)
+        .eq("numero_pedido", args.numeroPedido);
+      if (args.codigoCliente) {
+        sel = sel.eq("codigo_cliente", args.codigoCliente);
+      } else if (args.cliente) {
+        sel = sel.eq("cliente", args.cliente);
+      }
+      const { data: rows, error: selErr } = await sel;
+      if (selErr) throw selErr;
+      const ids = (rows ?? []).map((r: any) => r.id as string);
+
+      const trace = buildPreCargaTrace(args.nomeCarga ?? args.cargaId);
+
+      // 2) Update em lote dos campos comuns
+      const { error } = await supabase
         .from("carregamentos_dia")
         .update({
           etapa: "aguardando_faturamento",
@@ -99,16 +121,21 @@ export function useRemoverPedidoPreCarga() {
           ordem_carga: null,
           data_prevista_carregamento: null,
         })
-        .eq("carga_id", args.cargaId)
-        .eq("numero_pedido", args.numeroPedido);
-      if (args.codigoCliente) {
-        q = q.eq("codigo_cliente", args.codigoCliente);
-      } else if (args.cliente) {
-        q = q.eq("cliente", args.cliente);
-      }
-      const { error } = await q;
+        .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
       if (error) throw error;
-      return args;
+
+      // 3) Anexar trace em observacoes por linha (mantém o que já existia)
+      await Promise.all(
+        (rows ?? []).map((r: any) => {
+          const next = r.observacoes ? `${r.observacoes}\n${trace}` : trace;
+          return supabase
+            .from("carregamentos_dia")
+            .update({ observacoes: next })
+            .eq("id", r.id);
+        }),
+      );
+
+      return { ...args, affected: ids.length };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pre-cargas"] });
@@ -117,4 +144,14 @@ export function useRemoverPedidoPreCarga() {
       qc.invalidateQueries({ queryKey: ["aprovacoes-pendentes-count"] });
     },
   });
+}
+
+/**
+ * Texto curto anexado em `observacoes` quando o pedido é removido de uma
+ * pré-carga, para deixar rastro humano (além do Audit Log).
+ */
+export function buildPreCargaTrace(nomeCargaOuId: string | null | undefined): string {
+  const ts = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  const nome = nomeCargaOuId && nomeCargaOuId.trim() ? nomeCargaOuId : "pré-carga";
+  return `[Removido da pré-carga ${nome} em ${ts}]`;
 }
