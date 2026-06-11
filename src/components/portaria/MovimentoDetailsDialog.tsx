@@ -238,6 +238,12 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const [editOpen, setEditOpen] = useState(false);
   const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const isAdmin = role === "admin";
+  const canEditPhotos = role === "admin" || role === "logistica";
+  const queryClient = useQueryClient();
+  const invalidatePhotos = () => {
+    queryClient.invalidateQueries({ queryKey: ["mov-related-photos"] });
+    queryClient.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
+  };
 
   const placaBusca = movimento?.placa?.trim().toUpperCase() || "";
   const dataMovimento = movimento?.data_hora ? new Date(movimento.data_hora).toISOString().slice(0, 10) : "";
@@ -369,13 +375,13 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   };
 
   // Collect all photos — aggregate from all related records, dedup by URL
-  const allPhotos: { url: string; alt: string; label: string; ocrText?: string | null; ocrConf?: number | null }[] = [];
+  const allPhotos: { url: string; alt: string; label: string; ocrText?: string | null; ocrConf?: number | null; recordId?: string; fieldKey?: string }[] = [];
   {
     const seenUrls = new Set<string>();
-    const pushPhoto = (url: string | null | undefined, alt: string, label: string, ocrText?: string | null, ocrConf?: number | null) => {
+    const pushPhoto = (url: string | null | undefined, alt: string, label: string, ocrText?: string | null, ocrConf?: number | null, recordId?: string, fieldKey?: string) => {
       if (!url || seenUrls.has(url)) return;
       seenUrls.add(url);
-      allPhotos.push({ url, alt, label, ocrText, ocrConf });
+      allPhotos.push({ url, alt, label, ocrText, ocrConf, recordId, fieldKey });
     };
 
     // Build the source list: all related records if available, else fallback to m + sDistinct
@@ -397,16 +403,16 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
         prefix = r.tipo_movimento === "saida" ? "📤 " : "📥 ";
       }
       const suffix = stageLabel ? ` (${stageLabel})` : "";
-      pushPhoto(r.foto_placa_url, "Placa", `${prefix}📷 Foto da Placa${suffix}`, r.texto_placa_lido, r.confianca_placa);
-      pushPhoto(r.foto_documento_url, "Documento", `${prefix}📄 Documento${suffix}`);
+      pushPhoto(r.foto_placa_url, "Placa", `${prefix}📷 Foto da Placa${suffix}`, r.texto_placa_lido, r.confianca_placa, r.id, "foto_placa_url");
+      pushPhoto(r.foto_documento_url, "Documento", `${prefix}📄 Documento${suffix}`, null, null, r.id, "foto_documento_url");
       if (isCargaPropria) {
-        pushPhoto(r.foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`);
-        pushPhoto(r.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`);
+        pushPhoto(r.foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`, null, null, r.id, "foto_painel_saida_url");
+        pushPhoto(r.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`, null, null, r.id, "foto_painel_url");
       } else {
-        pushPhoto(r.foto_painel_url, "Painel KM", `${prefix}🛞 Painel KM${suffix}`);
+        pushPhoto(r.foto_painel_url, "Painel KM", `${prefix}🛞 Painel KM${suffix}`, null, null, r.id, "foto_painel_url");
       }
-      pushPhoto(r.foto_nota_url, "Nota Fiscal", `${prefix}📋 Nota Fiscal${suffix}`);
-      pushPhoto(r.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`);
+      pushPhoto(r.foto_nota_url, "Nota Fiscal", `${prefix}📋 Nota Fiscal${suffix}`, null, null, r.id, "foto_nota_url");
+      pushPhoto(r.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`, null, null, r.id, "foto_lacre_url");
     }
 
     // Defensive: also pull from `s` (saída paired record) even if not in relatedRecords
@@ -417,16 +423,16 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
           ? labelEtapaTerc(s.etapa_terceirizado, s.tipo_movimento)
           : "Saída";
       const suffix = ` (${stage})`;
-      pushPhoto(s.foto_placa_url, "Placa", `📤 📷 Foto da Placa${suffix}`, s.texto_placa_lido, s.confianca_placa);
-      pushPhoto(s.foto_documento_url, "Documento", `📤 📄 Documento${suffix}`);
+      pushPhoto(s.foto_placa_url, "Placa", `📤 📷 Foto da Placa${suffix}`, s.texto_placa_lido, s.confianca_placa, s.id, "foto_placa_url");
+      pushPhoto(s.foto_documento_url, "Documento", `📤 📄 Documento${suffix}`, null, null, s.id, "foto_documento_url");
       if (isCargaPropria) {
-        pushPhoto((s as any).foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`);
-        pushPhoto(s.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`);
+        pushPhoto((s as any).foto_painel_saida_url, "Painel KM (Saída)", `🛞 Painel KM (Saída p/ Rota)`, null, null, s.id, "foto_painel_saida_url");
+        pushPhoto(s.foto_painel_url, "Painel KM (Retorno)", `🛞 Painel KM (Retorno)`, null, null, s.id, "foto_painel_url");
       } else {
-        pushPhoto(s.foto_painel_url, "Painel KM", `📤 🛞 Painel KM${suffix}`);
+        pushPhoto(s.foto_painel_url, "Painel KM", `📤 🛞 Painel KM${suffix}`, null, null, s.id, "foto_painel_url");
       }
-      pushPhoto(s.foto_nota_url, "Nota Fiscal", `📤 📋 Nota Fiscal${suffix}`);
-      pushPhoto(s.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`);
+      pushPhoto(s.foto_nota_url, "Nota Fiscal", `📤 📋 Nota Fiscal${suffix}`, null, null, s.id, "foto_nota_url");
+      pushPhoto(s.foto_lacre_url, "Lacre", `🔒 Foto do Lacre${suffix}`, null, null, s.id, "foto_lacre_url");
     }
   }
   
