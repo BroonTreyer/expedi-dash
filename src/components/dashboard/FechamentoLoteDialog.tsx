@@ -788,7 +788,11 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                         : undefined}
                       onRemove={(onRemoveItems && existingPreCargaId) ? async () => {
                         const label = `${g.nomeCliente ?? "Sem cliente"}${g.cidade ? ` – ${g.cidade}${g.uf ? "/" + g.uf : ""}` : ""}`;
-                        if (!window.confirm(`Remover "${label}" da pré-carga?\nO pedido voltará para "Aguardando faturamento".`)) return;
+                        if (!window.confirm(
+                          `Remover "${label}" da pré-carga?\n\n` +
+                          `O pedido NÃO será apagado — volta para "Aprovações pendentes" (Faturamento) e perde o vínculo com a carga. ` +
+                          `Pode ser adicionado a outra pré-carga depois.`
+                        )) return;
                         const ids = g.items.map((it) => it.id);
                         try {
                           await onRemoveItems(ids);

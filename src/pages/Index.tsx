@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { RealtimeIndicator } from "@/components/RealtimeIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { buildPreCargaTrace } from "@/hooks/usePreCargas";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -598,6 +599,18 @@ export default function Index() {
   // ── Pré-carga: cancelar — volta itens para 'vendas', limpa campos
   const handleCancelPreCargaConfirm = useCallback(async () => {
     if (!cancelPreCarga) return;
+    const nomeCarga = cancelPreCarga.nomeCarga || cancelPreCarga.cargaId;
+    // Buscar linhas para preservar observacoes existentes
+    const { data: rows, error: selErr } = await supabase
+      .from("carregamentos_dia")
+      .select("id, observacoes")
+      .eq("carga_id", cancelPreCarga.cargaId);
+    if (selErr) {
+      toast.error("Erro ao cancelar pré-carga: " + selErr.message);
+      setCancelPreCarga(null);
+      return;
+    }
+    const ids = (rows ?? []).map((r: any) => r.id as string);
     const { error } = await supabase
       .from("carregamentos_dia")
       .update({
@@ -612,13 +625,32 @@ export default function Index() {
         ordem_entrega: null,
         horario_previsto: null,
       })
-      .eq("carga_id", cancelPreCarga.cargaId);
+      .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
     if (error) {
       toast.error("Erro ao cancelar pré-carga: " + error.message);
-    } else {
-      toast.success("Pré-carga cancelada — pedidos voltaram para vendas");
-      queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+      setCancelPreCarga(null);
+      return;
     }
+    const trace = buildPreCargaTrace(nomeCarga);
+    await Promise.all(
+      (rows ?? []).map((r: any) => {
+        const next = r.observacoes ? `${r.observacoes}\n${trace}` : trace;
+        return supabase.from("carregamentos_dia").update({ observacoes: next }).eq("id", r.id);
+      }),
+    );
+    toast.success(`Pré-carga "${nomeCarga}" cancelada`, {
+      description: `${ids.length} pedido(s) voltaram para a aba Vendas (não foram apagados).`,
+      duration: 8000,
+      action: {
+        label: "Ver em Vendas",
+        onClick: () => {
+          setFilters((prev) => ({ ...prev, etapa: "vendas" }));
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        },
+      },
+    });
+    queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
+    queryClient.invalidateQueries({ queryKey: ["pre-cargas"] });
     setCancelPreCarga(null);
   }, [cancelPreCarga, queryClient]);
 
@@ -928,6 +960,15 @@ export default function Index() {
           roteirizacao={roteirizacaoResult}
           onRemoveItems={async (ids) => {
             if (!ids.length) return;
+            // Buscar linhas para preservar observacoes existentes e identificar nome_carga
+            const { data: rows, error: selErr } = await supabase
+              .from("carregamentos_dia")
+              .select("id, observacoes, nome_carga, carga_id")
+              .in("id", ids);
+            if (selErr) {
+              toast.error("Não foi possível remover o pedido", { description: selErr.message });
+              throw selErr;
+            }
             const { error } = await supabase
               .from("carregamentos_dia")
               .update({
@@ -946,7 +987,27 @@ export default function Index() {
               toast.error("Não foi possível remover o pedido", { description: error.message });
               throw error;
             }
-            toast.success(`${ids.length} ${ids.length === 1 ? "item removido" : "itens removidos"} da pré-carga`);
+            // Anexar rastro humano em observacoes
+            await Promise.all(
+              (rows ?? []).map((r: any) => {
+                const trace = buildPreCargaTrace(r.nome_carga ?? r.carga_id);
+                const next = r.observacoes ? `${r.observacoes}\n${trace}` : trace;
+                return supabase.from("carregamentos_dia").update({ observacoes: next }).eq("id", r.id);
+              }),
+            );
+            const canSeeAprovacoes = isAdmin || isFaturamento;
+            toast.success(
+              `${ids.length} ${ids.length === 1 ? "item removido" : "itens removidos"} da pré-carga`,
+              {
+                description: canSeeAprovacoes
+                  ? "Voltaram para Aprovações pendentes (Faturamento). Não foram apagados."
+                  : "Foram enviados para Aprovações pendentes (Faturamento). Peça reaprovação para reaparecerem no painel.",
+                duration: 8000,
+                action: canSeeAprovacoes
+                  ? { label: "Ver agora", onClick: () => navigate("/aprovacoes") }
+                  : undefined,
+              },
+            );
             setPreCargaItems((prev) => prev ? prev.filter((it) => !ids.includes(it.id)) : prev);
             queryClient.invalidateQueries({ queryKey: ["pre-cargas"] });
             queryClient.invalidateQueries({ queryKey: ["carregamentos"] });
@@ -1030,7 +1091,7 @@ export default function Index() {
           onOpenChange={(o) => !o && setCancelPreCarga(null)}
           onConfirm={handleCancelPreCargaConfirm}
           title="Cancelar pré-carga"
-          description={`Cancelar a pré-carga ${cancelPreCarga?.nomeCarga || cancelPreCarga?.cargaId || ""}? Todos os ${cancelPreCarga?.qtdPedidos ?? 0} pedidos voltarão para a etapa "vendas" e os dados de transporte serão removidos.`}
+          description={`Cancelar a pré-carga "${cancelPreCarga?.nomeCarga || cancelPreCarga?.cargaId || ""}"? Os ${cancelPreCarga?.qtdPedidos ?? 0} pedidos NÃO serão apagados — voltam para a aba Vendas (etapa "vendas"), perdem o vínculo com a carga e podem ser adicionados a outra depois.`}
           confirmLabel="Cancelar pré-carga"
         />
       </div>

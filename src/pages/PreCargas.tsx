@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { usePreCargas, useAtualizarDataCarga, useRemoverPedidoPreCarga } from "@/hooks/usePreCargas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,10 +75,12 @@ function formatDataBr(d: string) {
 }
 
 export default function PreCargas() {
+  const navigate = useNavigate();
   const { data: rows = [], isLoading } = usePreCargas();
   const { role } = useAuth();
   const canEditDate = role === "admin" || role === "faturamento" || role === "logistica";
   const canRemovePedido = role === "admin" || role === "faturamento" || role === "logistica";
+  const canSeeAprovacoes = role === "admin" || role === "faturamento";
   const [busca, setBusca] = useState("");
   const [editGrupo, setEditGrupo] = useState<PedidoGrupo | null>(null);
   const [editCargaCtx, setEditCargaCtx] = useState<PreCargaGrupo | null>(null);
@@ -327,7 +330,7 @@ export default function PreCargas() {
           title="Remover pedido da pré-carga?"
           description={
             removerCtx
-              ? `Remover o pedido #${removerCtx.pedido.numero_pedido}${removerCtx.pedido.cliente ? ` (${removerCtx.pedido.cliente})` : ""} da pré-carga "${removerCtx.carga.nomeCarga || removerCtx.carga.cargaId}"? Ele voltará para "Aguardando faturamento" e poderá ser incluído em outra carga.`
+              ? `Remover o pedido #${removerCtx.pedido.numero_pedido}${removerCtx.pedido.cliente ? ` (${removerCtx.pedido.cliente})` : ""} da pré-carga "${removerCtx.carga.nomeCarga || removerCtx.carga.cargaId}"?\n\nO pedido NÃO será apagado — volta para "Aprovações pendentes" (Faturamento) e poderá ser incluído em outra carga depois.`
               : ""
           }
           confirmLabel="Remover"
@@ -340,10 +343,19 @@ export default function PreCargas() {
                 numeroPedido: pedido.numero_pedido,
                 codigoCliente: pedido.codigo_cliente,
                 cliente: pedido.cliente,
+                nomeCarga: carga.nomeCarga ?? carga.cargaId,
               },
               {
                 onSuccess: () => {
-                  toast.success(`Pedido #${pedido.numero_pedido} removido da pré-carga`);
+                  toast.success(`Pedido #${pedido.numero_pedido} removido da pré-carga`, {
+                    description: canSeeAprovacoes
+                      ? "Voltou para Aprovações pendentes (Faturamento). Não foi apagado."
+                      : "Foi enviado para Aprovações pendentes (Faturamento). Peça reaprovação para reaparecer no painel.",
+                    duration: 8000,
+                    action: canSeeAprovacoes
+                      ? { label: "Ver agora", onClick: () => navigate("/aprovacoes") }
+                      : undefined,
+                  });
                   setRemoverCtx(null);
                 },
                 onError: (e: any) => toast.error("Não foi possível remover o pedido", { description: e?.message }),
