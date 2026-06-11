@@ -1091,7 +1091,7 @@ export default function Index() {
           onOpenChange={(o) => !o && setCancelPreCarga(null)}
           onConfirm={handleCancelPreCargaConfirm}
           title="Cancelar pré-carga"
-          description={`Cancelar a pré-carga ${cancelPreCarga?.nomeCarga || cancelPreCarga?.cargaId || ""}? Todos os ${cancelPreCarga?.qtdPedidos ?? 0} pedidos voltarão para a etapa "vendas" e os dados de transporte serão removidos.`}
+          description={`Cancelar a pré-carga "${cancelPreCarga?.nomeCarga || cancelPreCarga?.cargaId || ""}"? Os ${cancelPreCarga?.qtdPedidos ?? 0} pedidos NÃO serão apagados — voltam para a aba Vendas (etapa "vendas"), perdem o vínculo com a carga e podem ser adicionados a outra depois.`}
           confirmLabel="Cancelar pré-carga"
         />
       </div>
