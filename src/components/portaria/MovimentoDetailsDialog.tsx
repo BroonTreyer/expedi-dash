@@ -237,7 +237,7 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
   const [editOpen, setEditOpen] = useState(false);
   const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const isAdmin = role === "admin";
-  const canEditPhotos = role === "admin" || role === "logistica";
+  const canEditPhotos = role === "admin" || role === "logistica" || role === "portaria";
   const queryClient = useQueryClient();
   const invalidatePhotos = () => {
     queryClient.invalidateQueries({ queryKey: ["mov-related-photos"] });
