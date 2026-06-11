@@ -1,27 +1,28 @@
-## Problema
+## O que aconteceu
 
-No `RegistroMovimentoDialog.tsx` (linhas 425-430), quando um veículo Terceirizado registra entrada, o sistema preenche `horario_entrada` imediatamente e seta `etapa_terceirizado = "no_patio"`, pulando a etapa de "Aguardando liberação". Isso contradiz o fluxo documentado (memória `portaria-third-party-workflow`) e o que o `RegistroEntradaDialog.tsx` já faz corretamente.
+O registro do Gustavo (RAR6B66, carga VANESSA + BRUNO) está correto no banco: chegada registrada às 11:03, aguardando liberação para o pátio. Ele sumiu da tela por causa de filtros de visibilidade:
 
-Resultado: Gustavo aparece direto como "No Pátio" assim que a portaria registra a chegada, sem passar pelo passo de liberação.
+- O painel azul "Cargas fechadas aguardando veículo" só mostra cargas com data planejada nos últimos **7 dias**. A carga dele tem data **14/05** (quase 1 mês atrás), então fica fora da janela.
+- Como ele não está mais "No Pátio" (corretamente, pois ainda não foi liberado), ele não aparece em lugar nenhum — virou registro fantasma.
+- Há ainda um segundo filtro (janela de -12h a +48h ao redor da data da carga) que também impediria o badge "Aguardando liberação", já que a chegada (11/06) é muito depois da data planejada.
 
-## Correção
+## Correção (código)
 
-**`src/components/portaria/RegistroMovimentoDialog.tsx`** — Trocar o bloco terceirizado/entrada para o fluxo de duas etapas:
+**Regra nova: uma chegada pendente nunca pode ficar invisível.**
 
-```ts
-...(categoria === "terceirizado" && tipo === "entrada" ? {
-  horario_chegada: new Date().toISOString(),
-  horario_entrada: null,
-  etapa_terceirizado: "chegada",
-} : {}),
-```
+1. **`src/hooks/useCarregamentos.ts` (useCargasFechadasAguardando)**
+   - Buscar também movimentações de entrada ativas (`horario_entrada` vazio, sem saída) dos últimos 7 dias e incluir as cargas vinculadas a elas, mesmo que a data da carga esteja fora da janela de 7 dias.
+   - Quando há chegada ativa recente, marcar a carga como "Aguardando liberação" mesmo fora da janela -12h/+48h — a chegada real vale mais que a data planejada.
 
-Assim o registro nasce como "Aguardando liberação" e só vira "No Pátio" quando alguém clica em "Liberar entrada" no `CargasFechadasAguardandoPanel` / `PatioAtualTab` (que já fazem o UPDATE setando `horario_entrada = now()` e `etapa_terceirizado = 'no_patio'`).
+2. **`src/components/portaria/PatioAtualTab.tsx`** (defesa em profundidade)
+   - Mostrar terceirizados com chegada registrada e carga vinculada como linha "Aguardando liberação" (hoje só os sem vínculo aparecem), com botão de liberar entrada. Assim, mesmo que o painel azul falhe, o registro nunca desaparece.
 
-Nenhuma mudança de schema, RLS, ou de outros componentes — apenas o estado inicial do INSERT.
+## Resultado esperado
+
+- Gustavo volta a aparecer imediatamente no painel azul como "Aguardando liberação", com botões "Liberar entrada no pátio" e "Desfazer chegada".
+- Nenhuma mudança no banco — os dados dele já estão corretos.
 
 ## Verificação
 
-- Registrar chegada de um terceirizado pela portaria → deve aparecer em "Aguardando liberação" (não em "Pátio Atual").
-- Clicar "Liberar entrada" → move para "No Pátio" com `horario_entrada` preenchido.
-- Fluxos de carga própria e saída permanecem inalterados.
+- Abrir Portaria → Terceirizado e confirmar que a carga VANESSA + BRUNO aparece com badge "Aguardando liberação".
+- Clicar "Liberar entrada" → ele entra no Pátio Atual normalmente.

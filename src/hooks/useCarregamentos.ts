@@ -486,6 +486,44 @@ export function useCargasFechadasAguardando() {
           .order("id", { ascending: true })
           .range(from, to),
       );
+
+      // Defesa: também trazer cargas que estão FORA da janela de 7 dias
+      // mas que têm uma chegada pendente recente (motorista chegou na
+      // portaria, ainda não foi liberado). Sem isso, cargas com `data`
+      // antiga (ex.: planejada para semanas atrás) viram registros
+      // fantasmas — o motorista chega, registra chegada, e some dos
+      // painéis até alguém liberar.
+      try {
+        const since7d = new Date(Date.now() - 7 * 86400_000).toISOString();
+        const { data: pendentes } = await supabase
+          .from("movimentacoes_portaria")
+          .select("carga_id")
+          .eq("tipo_movimento", "entrada")
+          .is("horario_entrada", null)
+          .is("horario_real_saida", null)
+          .is("horario_saida_final", null)
+          .not("carga_id", "is", null)
+          .gte("data_hora", since7d);
+        const jaPresentes = new Set(cargasArr.map((c) => c.carga_id));
+        const faltantes = Array.from(
+          new Set(((pendentes ?? []) as any[]).map((p) => p.carga_id).filter((id) => id && !jaPresentes.has(id))),
+        );
+        if (faltantes.length > 0) {
+          const extras = await fetchAllPaginated<any>((from, to) =>
+            supabase
+              .from("carregamentos_dia")
+              .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
+              .eq("etapa", "logistica")
+              .in("carga_id", faltantes)
+              .order("id", { ascending: true })
+              .range(from, to),
+          );
+          if (extras.length > 0) cargasArr.push(...extras);
+        }
+      } catch {
+        // Falha silenciosa: pior caso, o registro fica como já estava.
+      }
+
       if (cargasArr.length === 0) return [] as CargaFechadaAguardando[];
 
       const cargaIds = Array.from(new Set(cargasArr.map((c) => c.carga_id).filter(Boolean)));
