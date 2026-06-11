@@ -422,11 +422,11 @@ export function RegistroMovimentoDialog({ open, onOpenChange, prefill, prefillEt
             etapa_carga_propria: cargaPropriaJaSaiuParaRota ? "em_rota" : "chegou",
             ...(cargaPropriaJaSaiuParaRota ? { horario_real_saida: nowIso } : {}),
           } : {}),
-          // Terceirizado: já entra no pátio (logística autoriza antes)
+          // Terceirizado: registra chegada e aguarda liberação para entrar no pátio
           ...(categoria === "terceirizado" && tipo === "entrada" ? {
             horario_chegada: new Date().toISOString(),
-            horario_entrada: new Date().toISOString(),
-            etapa_terceirizado: "no_patio",
+            horario_entrada: null,
+            etapa_terceirizado: "chegada",
           } : {}),
         } as any);
         // Close terceirizado entrada cycle when this is its saída
