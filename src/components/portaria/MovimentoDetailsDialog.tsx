@@ -804,20 +804,29 @@ export function MovimentoDetailsDialog({ open, onOpenChange, movimento, moviment
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {allPhotos.map((photo, i) => (
                     <div key={i}>
-                      <ClickablePhoto url={photo.url} alt={photo.alt} label={photo.label} />
+                      <ClickablePhoto
+                        url={photo.url}
+                        alt={photo.alt}
+                        label={photo.label}
+                        recordId={photo.recordId}
+                        fieldKey={photo.fieldKey}
+                        canEdit={canEditPhotos}
+                        onChanged={invalidatePhotos}
+                      />
                       {photo.ocrText && (
                         <p className="text-xs mt-1">OCR: <strong>{photo.ocrText}</strong> ({photo.ocrConf}%)</p>
                       )}
                     </div>
                   ))}
                   {cpMissing.map((miss, i) => (
-                    <div key={`miss-${i}`}>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">{miss.label}</p>
-                      <div className="rounded-md w-full h-32 flex flex-col items-center justify-center gap-1 bg-muted/30 ring-1 ring-dashed ring-border">
-                        <AlertTriangle className="h-6 w-6 text-muted-foreground" />
-                        <span className="text-[11px] text-muted-foreground">{miss.reason}</span>
-                      </div>
-                    </div>
+                    <UploadPlaceholder
+                      key={`miss-${i}`}
+                      label={miss.label}
+                      reason={miss.reason}
+                      recordId={canEditPhotos ? m.id : undefined}
+                      fieldKey={canEditPhotos ? miss.fieldKey : undefined}
+                      onChanged={invalidatePhotos}
+                    />
                   ))}
                 </div>
               </div>
