@@ -1,59 +1,60 @@
-# Editar fotos e informações em Detalhes do Movimento
+# Pedidos da pré-carga sumiram após "excluir"
 
-Hoje, ao abrir "Detalhes do Movimento" (Portaria), só dá para visualizar as fotos e editar um conjunto limitado de campos. Vamos permitir:
+## Diagnóstico
 
-1. Trocar / enviar / remover cada foto do registro (placa, documento, painel KM, painel KM saída/retorno, nota fiscal, lacre).
-2. Editar todos os campos relevantes do movimento, inclusive os que hoje só aparecem como leitura.
+Os pedidos NÃO foram deletados — eles voltaram para a etapa de **Aprovações pendentes** (etapa `aguardando_faturamento`) e perderam o `nome_carga` / `carga_id`. Por isso não aparecem mais na lista de pré-cargas nem no nome "EDIVAR +DMA".
 
-Restrito a Admin e Logística (mesma regra já usada para Editar / Excluir e para o botão "Foto via upload" no `CapturaFoto`). Portaria continua só visualizando.
+Confirmado pelo Audit Log:
 
-## O que vai mudar (UX)
+- 4 pedidos da carga `EDIVAR +DMA` (PRE-20260609-141855-16P) foram alterados às **18:26** por `logistica@frico.ind.br`:
+  - `etapa: pre_carga → aguardando_faturamento`
+  - `carga_id: PRE-20260609-141855-16P → null`
+  - `nome_carga: EDIVAR +DMA → null`
 
-Dentro do `MovimentoDetailsDialog`, na seção "Fotos do Movimento":
+Eles estão agora em **Aprovações pendentes** (`/aprovacoes`) com o `numero_pedido` e `cliente` originais preservados. Nada foi perdido.
 
-- Cada foto ganha 2 botões no canto: **Substituir** e **Remover** (apenas Admin/Logística).
-- Onde a foto está ausente (placeholders de "Não capturada"), aparece um botão **Enviar foto** para registrar a evidência tardiamente.
-- Ambos os fluxos permitem câmera ou upload de arquivo (PDF/imagem para nota; imagem para placa/painel/lacre/documento), reaproveitando o componente `CapturaFoto` com `allowFileUpload`.
-- Após upload com sucesso, marca automaticamente o registro com o sufixo `[FOTO via upload por <email> em <data/hora>]` em `observacoes` (igual ao fluxo já existente de regularização), para manter o badge "Foto via upload" coerente.
-- Remoção pede confirmação ("Remover esta foto? A evidência será apagada do storage.").
+A ação que faz isso é "remover pedido" dentro do diálogo de pré-carga (`useRemoverPedidoPreCarga` e `onRemoveItems` em `Index.tsx`). O usuário interpretou como exclusão definitiva.
 
-Na seção de informações:
+## O que vou ajustar
 
-- Adicionar um botão **"Editar dados"** já existe, mas vamos expandir o `EditMovimentoDialog` para incluir os campos hoje ocultos quando vazios (ex.: `pessoa_visitada`, `motivo_visita`, `servico_executar`, `descricao`, `tipo_operacao`, `tipo_carga`, `numero_lacre`), permitindo preencher informações que faltaram no registro original.
-- Categoria continua read-only (regra A10 já documentada no código).
+### 1. Mensagem clara após remover (com atalho)
 
-## Como funciona por trás (técnico)
+Em `useRemoverPedidoPreCarga`, `onRemoveItems` (Index.tsx) e `handleCancelPreCargaConfirm`:
 
-### 1. Upload / substituição de foto
-- Novo helper `uploadFotoMovimento(file, movimentoId, campo)` em `src/lib/portaria-foto-upload.ts`:
-  - Path: `movimentos/{movimentoId}/{campo}-{timestamp}.{ext}` no bucket `portaria` (já existe, privado).
-  - `supabase.storage.from("portaria").upload(path, file, { upsert: false })`.
-  - Retorna a `path` (não URL pública) — armazenamos a path no campo correspondente (`foto_placa_url`, `foto_documento_url`, `foto_painel_url`, `foto_painel_saida_url`, `foto_nota_url`, `foto_lacre_url`). Hoje o sistema já trata esses campos como path/URL via signed URL no viewer, então mantemos o mesmo formato observado nos registros atuais (checar pelo registro existente; se for URL assinada, gerar signed URL de 1 ano via memória `storage-access`).
-- `UPDATE movimentacoes_portaria SET <campo> = ?, observacoes = COALESCE(observacoes,'') || ' [FOTO via upload por <email> em <ts>]' WHERE id = ?`.
+- Toast com texto explícito: **"X pedido(s) voltaram para Aprovações pendentes"** (no caso do cancelar, "voltaram para Vendas").
+- Action no toast: **"Ver agora"** → `navigate("/aprovacoes")` (ou `/`, na aba Vendas, conforme o caso).
 
-### 2. Remoção de foto
-- `supabase.storage.from("portaria").remove([path])` (se a coluna guarda path) e `UPDATE ... SET <campo> = NULL`.
-- Se a coluna guardar URL assinada antiga (sem path acessível), apenas zera o campo no banco e ignora o storage (loga warn).
+### 2. Preservar rastro no pedido
 
-### 3. Permissão
-- Reaproveitar `role === "admin" || role === "logistica"` do hook `useAuth` (já usado em `MovimentoDetailsDialog`).
+Antes de zerar `nome_carga` / `carga_id`, anexar em `observacoes` uma linha:
 
-### 4. Edição expandida
-- Em `EditMovimentoDialog`, ampliar `EDITABLE_FIELDS` com os campos faltantes citados acima e o `coreKeys`/`visibleFields` continua filtrando para mostrar os mais relevantes — mas agora também mostra os campos da categoria do movimento mesmo quando vazios (pequena heurística por categoria: `visitante` mostra `pessoa_visitada` e `motivo_visita`; `prestador_servico` mostra `servico_executar`; `outros` mostra `descricao`; `terceirizado` mostra `numero_lacre`).
-- Continua usando o mutation `useUpdateMovimentacao`.
+```
+[Removido da pré-carga <nome_carga> em DD/MM/YYYY HH:mm por <email>]
+```
 
-### 5. Invalidação de cache
-- Após upload/remoção, invalidar `["movimentacoes-portaria"]`, `["mov-related-photos", ...]` e `["movimentacao", id]` para o dialog refletir na hora.
+Isso permite achar via SmartSearch ("EDIVAR") mesmo depois da remoção, e mantém histórico para auditoria informal (além do Audit Log, que continua sendo a fonte oficial).
+
+### 3. Texto do diálogo de confirmação mais explícito
+
+Em `Index.tsx` linha 1033 (`description` do `CancelarPreCarga`) e no botão de remover individual: trocar "voltarão para vendas" / "removido da pré-carga" por uma frase que deixe claro **para onde vão** e que **NÃO são apagados**. Ex.:
+
+> "Os N pedidos voltam para 'Aprovações pendentes' (não são apagados). Você poderá adicioná-los a outra pré-carga depois."
+
+### 4. (Opcional, baixa prioridade) "Desfazer" rápido
+
+Após remoção, deixar o toast aberto por ~10s com action "Desfazer", que rea-aplica `etapa='pre_carga'`, restaura `carga_id` e `nome_carga` para os ids afetados. Só implemento se quiser — aumenta complexidade.
 
 ## Arquivos afetados
 
-- `src/components/portaria/MovimentoDetailsDialog.tsx` — adicionar controles de Substituir/Remover/Enviar em cada `ClickablePhoto` e nos placeholders `cpMissing`.
-- `src/components/portaria/EditMovimentoDialog.tsx` — ampliar lista de campos editáveis e regra de exibição por categoria.
-- `src/lib/portaria-foto-upload.ts` — novo helper de upload/remoção e marcação em `observacoes`.
-- (Opcional) pequeno componente `PhotoEditActions.tsx` para encapsular os botões — só se simplificar a leitura.
+- `src/hooks/usePreCargas.ts` — `useRemoverPedidoPreCarga`: anexar observação, retornar info para toast.
+- `src/pages/Index.tsx` — `handleCancelPreCargaConfirm` e `onRemoveItems` do `FechamentoLoteDialog`: mesma lógica + toast com ação de navegação.
+- `src/components/dashboard/FechamentoLoteDialog.tsx` (se for ele que dispara `onRemoveItems`) — só ajuste de texto, se necessário.
+
+## Sobre a carga EDIVAR atual
+
+Os 4 pedidos estão em `/aprovacoes`. Posso, se quiser, em um próximo turno: (a) restaurá-los na pré-carga `EDIVAR +DMA` via um update direto, ou (b) deixar onde estão para você reagrupar manualmente. Diga qual prefere.
 
 ## Fora de escopo
 
-- Não mexer no fluxo de captura inicial (RegistroMovimentoDialog) nem na FSM do Carga Própria.
-- Não alterar políticas RLS do bucket `portaria` — já permite Admin/Logística (validar; se não permitir UPDATE/DELETE de objetos por essas roles, adiciono migration mínima com policy).
-- Não tocar no caso do Gustavo / hook `useCarregamentos` (já resolvido na rodada anterior).
+- Não alteramos a regra de FSM (continua válida mover para `aguardando_faturamento` ao desvincular).
+- Não criamos lixeira/soft-delete para pré-cargas — o Audit Log já cobre rastreabilidade.
