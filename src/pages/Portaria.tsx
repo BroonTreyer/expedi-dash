@@ -132,12 +132,10 @@ export default function Portaria({ categoria }: PortariaProps) {
       }
       if (m.tipo_movimento !== "entrada") return false;
       if (saidasAtivasSet.has(m.id)) return false;
+      if (!m.horario_entrada) return false;
       if (m.categoria === "terceirizado" && m.etapa_terceirizado === "finalizado") return false;
+      if (m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada") return false;
       if (m.categoria === "carga_propria" && m.etapa_carga_propria === "finalizado") return false;
-      const aguardandoVinculo =
-        m.categoria === "terceirizado" && m.etapa_terceirizado === "chegada" && !m.carga_id;
-      if (aguardandoVinculo) return true;
-      if (m.horario_chegada && !m.horario_entrada) return false;
       return true;
     });
     // Dedupe por placa — mesmo motorista nunca conta duas vezes (ex.: registro
