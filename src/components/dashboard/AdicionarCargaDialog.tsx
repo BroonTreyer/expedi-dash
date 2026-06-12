@@ -71,14 +71,10 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
       horario_previsto: carga.horarioPrevisto,
       etapa: isPre ? "pre_carga" : "logistica",
       ordem_entrega: ordemInicial + i,
-      ...(isPre
-        ? {
-            nome_carga: carga.nomeCarga ?? null,
-            ordem_carga: carga.ordemCarga ?? null,
-            data: carga.data ?? undefined,
-            transportadora: carga.transportadora ?? null,
-          }
-        : {}),
+      nome_carga: carga.nomeCarga ?? null,
+      ordem_carga: carga.ordemCarga ?? null,
+      transportadora: carga.transportadora ?? null,
+      ...(carga.data ? { data: carga.data } : {}),
     }));
     onSubmit(updates, { isPreCarga: isPre, cargaLabel: carga.nomeCarga || carga.cargaId });
     onOpenChange(false);
