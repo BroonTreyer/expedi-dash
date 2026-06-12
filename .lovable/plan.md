@@ -1,63 +1,29 @@
-## Aumentar fontes pequenas nas telas de Portaria
+## Problema
 
-### Objetivo
-Aumentar a legibilidade dos textos finos (badges, células de tabela, labels, descrições) em todas as telas da seção Portaria, sem afetar outras áreas do sistema.
+O aumento de fonte aplicado na Portaria (text-xs 12px → 14px = +16%) estourou caixas de largura fixa — o badge "Aguardando liberação", chips, e blocos do painel "Cargas fechadas aguardando veículo" quebram, sobrepõem e estouram colunas tanto em desktop quanto em mobile.
 
-### Problema identificado
-Os componentes de portaria usam excessivamente tamanhos pequenos:
-- `text-[10px]` em badges e legendas (muito fino para leitura em campo)
-- `text-[11px]` em cabeçalhos de tabela e subtítulos
-- `text-xs` em cards mobile, células de tabela e labels
+## Solução
 
-### Solução: Escopo CSS via wrapper de página
-Em vez de editar componente por componente (20+ arquivos), aplicar um **wrapper com classe única** nas 6 páginas de portaria e sobrescrever os tamanhos pequenos via CSS global no `index.css`.
+Reduzir o degrau do aumento em `src/index.css` (regras escopadas por `[data-portaria="true"]`) para um bump **mais suave de +1px** em cada tamanho, mantendo a melhora de leitura sem estourar layouts.
 
-#### 1. Wrapper nas páginas
-Adicionar `data-portaria="true"` no `<div>` container principal de cada página:
-- `src/pages/Portaria.tsx`
-- `src/pages/PortariaTerceirizado.tsx`
-- `src/pages/PortariaCargaPropria.tsx`
-- `src/pages/PortariaAdmin.tsx`
-- `src/pages/PortariaManual.tsx`
-- `src/pages/RegistroEntrada.tsx`
+### Alteração única em `src/index.css`
 
-#### 2. Regras CSS no `index.css`
-Adicionar ao `@layer base` ou `@layer utilities`:
+| Classe | Hoje | Novo |
+|---|---|---|
+| `text-[10px]` | 12px | **11px** |
+| `text-[11px]` | 13px | **12px** |
+| `text-xs` (12px nativo) | 14px | **13px** |
 
-```css
-/* Aumenta textos pequenos apenas nas telas de Portaria */
-[data-portaria="true"] .text-\[10px\],
-[data-portaria="true"] [class*="text-[10px]"] {
-  font-size: 0.75rem !important; /* 12px, equivale a text-xs */
-}
+Line-heights ajustados proporcionalmente (0.95rem / 1rem / 1.1rem).
 
-[data-portaria="true"] .text-\[11px\],
-[data-portaria="true"] [class*="text-[11px]"] {
-  font-size: 0.8125rem !important; /* 13px */
-}
+## Por que resolve
 
-[data-portaria="true"] .text-xs {
-  font-size: 0.875rem !important; /* 14px, equivale a text-sm */
-}
-```
+- +1px é o suficiente para legibilidade no pátio sem empurrar texto pra fora de badges/chips dimensionados para o tamanho original.
+- Mantém o escopo `[data-portaria="true"]` já aplicado nas 4 páginas, sem mexer em componentes.
+- Reversível e pontual — só edita o bloco CSS de Portaria.
 
-**O que muda:**
-- Badges de 10px → 12px
-- Cabeçalhos de tabela de 11px → 13px
-- Textos de cards e células de 12px → 14px
-- `text-sm` (14px) e superiores **permanecem inalterados** para evitar quebra de layout
+## Arquivos alterados
 
-#### 3. Verificação
-Testar visualmente no preview as abas:
-- Pátio Atual (cards e tabela)
-- Histórico (tabela e paginação)
-- Cargas fechadas aguardando
-- Veículos esperados
-- Painel administrativo
+- `src/index.css` (apenas as 3 regras escopadas)
 
-### Por que não editar cada componente?
-São mais de 20 componentes compartilhados entre portaria e outras áreas (ex.: dialogs de registro). Editar um por um aumentaria o risco de efeito colateral em telas fora de portaria. O wrapper CSS é cirúrgico e facilmente reversível.
-
-### Escopo limitado
-- Não altera cores, espaçamentos, botões ou títulos grandes (`text-sm` para cima).
-- Não afeta componentes reutilizados fora do contexto de portaria.
+Nenhum componente React precisa ser tocado.
