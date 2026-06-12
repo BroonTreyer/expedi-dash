@@ -189,6 +189,11 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                   {pendentes} pendentes
                 </Badge>
               )}
+              {pendingVeiculos.length - pendentes > 0 && (
+                <Badge variant="outline" className="text-[10px] h-5 border-destructive/40 text-destructive">
+                  {pendingVeiculos.length - pendentes} de outras datas
+                </Badge>
+              )}
             </div>
           </div>
           {!readOnly && onClear && (
