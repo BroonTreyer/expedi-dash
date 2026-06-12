@@ -24,6 +24,7 @@ import {
 } from "@/hooks/useAdiantamentos";
 import { useDeleteCtesByIds } from "@/hooks/useCtesDacte";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+import { acharTranspPorNome } from "@/lib/transportadora-match";
 import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
 import { usePesoEfetivoPorOrdem, ordemKeyOf } from "@/hooks/usePesoEfetivoPorOrdem";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
