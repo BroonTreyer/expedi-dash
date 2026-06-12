@@ -141,7 +141,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
     />
   );
 
-  if (pendentes === 0) {
+  if (pendingVeiculos.length === 0) {
     return (
       <Card>
         <CardHeader className="py-3 px-4">
