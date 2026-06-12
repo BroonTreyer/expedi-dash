@@ -287,13 +287,7 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (adiantamentos.length === 0) return null;
-
-  const pendentes = adiantamentos.filter((a) => a.status === "pendente");
-  const jaPagos = adiantamentos.filter((a) => a.pago_em);
-
-  // Agrupa adiantamentos sem vínculo (id nulo OU id que não encontra cadastro)
-  // por nome, para oferecer um Select de vínculo manual.
+  // Hooks SEMPRE antes de qualquer early return.
   const vincular = useVincularTransportadora();
   const semVinculo = useMemo(() => {
     const map = new Map<string, { nome: string; ids: string[] }>();
@@ -307,6 +301,11 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     }
     return Array.from(map.values());
   }, [adiantamentos, transp]);
+
+  if (adiantamentos.length === 0) return null;
+
+  const pendentes = adiantamentos.filter((a) => a.status === "pendente");
+  const jaPagos = adiantamentos.filter((a) => a.pago_em);
 
   const semPix = adiantamentos.some((a) => {
     const info = resolveTranspInfo(transp, a.transportadora_id, a.transportadora);
