@@ -278,6 +278,25 @@ export function useAtualizarDataAdiantamento() {
   });
 }
 
+export function useVincularTransportadora() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { ids: string[]; transportadora_id: string }) => {
+      if (input.ids.length === 0) return;
+      const { error } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({ transportadora_id: input.transportadora_id })
+        .in("id", input.ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      toast.success("Transportadora vinculada");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao vincular"),
+  });
+}
+
 /**
  * Apaga adiantamentos selecionados + os CT-es vinculados.
  * Ordem: busca cte_ids vinculados → DELETE em ctes_dacte (cascateia pivot)
