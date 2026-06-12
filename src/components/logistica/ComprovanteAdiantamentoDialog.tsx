@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Copy, Printer, CheckCircle2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
-import { useMarcarAdiantamentoPago, type Adiantamento, type AdiantamentoCte } from "@/hooks/useAdiantamentos";
+import { useMarcarAdiantamentoPago, useVincularTransportadora, type Adiantamento, type AdiantamentoCte } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+import { resolveTranspInfo, normalizaNomeTransp } from "@/lib/transportadora-match";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CteDacteRow } from "@/hooks/useCtesDacte";
 
 const fmtBRL = (n: number) =>
@@ -209,7 +211,7 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     const pixList = transportadorasUnicas();
     const renderPix = (linhas: string[]) => {
       for (const t of pixList) {
-        const info = transp.find((x) => x.id === t.transportadora_id) ?? null;
+        const info = resolveTranspInfo(transp, t.transportadora_id, t.nomeFallback);
         linhas.push(info?.codigo ? `Código ${info.codigo} – ${info.nome}` : t.nomeFallback);
         if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
       }
@@ -289,8 +291,25 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
 
   const pendentes = adiantamentos.filter((a) => a.status === "pendente");
   const jaPagos = adiantamentos.filter((a) => a.pago_em);
+
+  // Agrupa adiantamentos sem vínculo (id nulo OU id que não encontra cadastro)
+  // por nome, para oferecer um Select de vínculo manual.
+  const vincular = useVincularTransportadora();
+  const semVinculo = useMemo(() => {
+    const map = new Map<string, { nome: string; ids: string[] }>();
+    for (const a of adiantamentos) {
+      const info = resolveTranspInfo(transp, a.transportadora_id, a.transportadora);
+      if (info) continue;
+      const key = normalizaNomeTransp(a.transportadora) || a.transportadora;
+      const cur = map.get(key) ?? { nome: a.transportadora, ids: [] };
+      cur.ids.push(a.id);
+      map.set(key, cur);
+    }
+    return Array.from(map.values());
+  }, [adiantamentos, transp]);
+
   const semPix = adiantamentos.some((a) => {
-    const info = transp.find((t) => t.id === a.transportadora_id);
+    const info = resolveTranspInfo(transp, a.transportadora_id, a.transportadora);
     return !info?.pix_chave;
   });
 
@@ -315,6 +334,38 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
           <p className="text-xs text-muted-foreground">
             Cadastre código e chave PIX em <strong>Transportadoras</strong> para que apareçam aqui.
           </p>
+        )}
+
+        {semVinculo.length > 0 && (
+          <div className="border border-amber-300 bg-amber-50 rounded-md p-3 space-y-2">
+            <p className="text-xs text-amber-900">
+              Não encontramos esta transportadora no cadastro. Vincule manualmente
+              para puxar código e PIX:
+            </p>
+            {semVinculo.map((g) => (
+              <div key={g.nome} className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-medium text-amber-900 truncate max-w-[200px]">
+                  {g.nome}
+                </span>
+                <Select
+                  onValueChange={(id) =>
+                    vincular.mutate({ ids: g.ids, transportadora_id: id })
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[260px] text-xs">
+                    <SelectValue placeholder="Escolher transportadora cadastrada…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {transp.map((t) => (
+                      <SelectItem key={t.id} value={t.id} className="text-xs">
+                        {t.codigo ? `${t.codigo} – ${t.nome}` : t.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
         )}
 
         {pendentes.length > 0 && (

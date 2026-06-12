@@ -1,20 +1,40 @@
-## Problema
+## Causa raiz
 
-A aba **Esperados** mostra badge `2`, mas o painel exibe "✅ Todos os veículos foram conferidos!" e esconde a lista. No banco, os 2 pendentes do grupo `TERCEIRIZADO` são do dia anterior (Rodrigo ONC6549 e Joares FGE2G81, `data_referencia=2026-06-11`).
+Os 4 adiantamentos do "guava transportes Itda" foram criados com `transportadora_id = NULL` no banco. O diálogo de Comprovante busca o PIX por `transportadora_id`, então mesmo com o cadastro preenchido (GUAVA LOGISTICA E TRANSPORTES LTDA, código 34312, PIX 63283459000160) nada aparece.
 
-**Causa**: em `src/components/portaria/VeiculosEsperadosPanel.tsx`, o curto-circuito de "tudo conferido" usa `pendentes`, que é calculado **apenas sobre veículos com `data_referencia == dataFiltrada` (hoje)**. O badge da aba conta pendentes de qualquer data (atrasados e futuros). Resultado: quando todos os pendentes são atrasados/futuros, o painel some, mas o contador continua aparecendo — exatamente o "veículo fantasma" que o usuário está vendo.
+Por que `transportadora_id` ficou nulo? O nome veio do DACTE em caixa baixa e abreviado ("guava transportes Itda"), e o cadastro está em caixa alta e por extenso ("GUAVA LOGISTICA E TRANSPORTES LTDA"). O `transpInfoByName` em `AdiantamentosTab.tsx` faz `Map.get(nome)` com match exato — não encontra, salva id nulo.
 
-## Mudança
+```text
+DACTE:    "guava transportes Itda"
+Cadastro: "GUAVA LOGISTICA E TRANSPORTES LTDA"   → Map.get() falha → id NULL → PIX some
+```
 
-### `src/components/portaria/VeiculosEsperadosPanel.tsx`
+## Correções
 
-Trocar a condição de "lista vazia" do header de `if (pendentes === 0)` para basear na lista que realmente seria renderizada (`pendingVeiculos`, que já considera qualquer data):
+### 1. Normalização + fallback por nome
+Criar utilitário `normalizaNomeTransp(s)`:
+- `toUpperCase`, trim, colapsar espaços
+- remover sufixos societários (LTDA / LTD / ITDA / S/A / SA / EIRELI / ME / EPP)
+- remover pontuação
 
-- Se `pendingVeiculos.length === 0` → renderiza o card com "Todos conferidos".
-- Caso contrário, renderiza a tabela normal. A contagem `{totalConferidos}/{totalDoDia}` no header continua representando "do dia"; adicionar, ao lado, um badge discreto "X atrasados" quando `pendingVeiculos.length > totalDoDia - totalConferidos` para deixar claro o motivo dos pendentes não estarem entre os "do dia".
+Aplicar em `transpInfoByName` (chave normalizada) em `AdiantamentosTab.tsx` para que novos adiantamentos já saiam com `transportadora_id` correto.
 
-Sem mexer em hooks, schema, ou no badge do tab — só corrige o painel para mostrar os atrasados que ele já tem em mãos.
+Em `ComprovanteAdiantamentoDialog.tsx`, no `renderPix` e no aviso `semPix`: se `find(x => x.id === t.transportadora_id)` falhar, tentar `find(x => normaliza(x.nome) === normaliza(t.nomeFallback))`.
 
-## Fora de escopo
+### 2. Vincular transportadora manualmente
+No diálogo Comprovante, quando uma linha não tiver PIX, mostrar um Select pequeno "Vincular transportadora" listando os cadastros. Ao selecionar, faz `UPDATE adiantamentos_frete SET transportadora_id = ? WHERE id IN (ids da mesma transportadora)` e re-renderiza com PIX. Isso resolve os 4 adiantamentos da Guava agora e qualquer outro futuro caso a normalização não case.
 
-- Não apagar registros antigos de `veiculos_esperados`. Atrasados continuam visíveis para a Logística decidir (conferir manualmente ou excluir pela seleção em massa).
+### 3. Backfill dos adiantamentos atuais
+Um botão "Revincular transportadoras" no topo de `AdiantamentosTab.tsx` (apenas admin) que percorre adiantamentos com `transportadora_id IS NULL`, aplica a normalização contra `transportadoras_financeiro` e atualiza os que casarem. Mostra toast com quantos vinculou.
+
+## Detalhes técnicos
+
+- Novo arquivo: `src/lib/transportadora-match.ts` exportando `normalizaNomeTransp` e `acharTranspPorNome(lista, nome)`.
+- `AdiantamentosTab.tsx`: trocar `m.set(t.nome, t)` por `m.set(normaliza(t.nome), t)` e ler com `transpInfoByName.get(normaliza(r.nome))`.
+- `ComprovanteAdiantamentoDialog.tsx`:
+  - substituir os 2 `transp.find` por helper que tenta id e depois nome normalizado;
+  - adicionar Select de vínculo manual abaixo do bloco quando `semPix` for true; usa mutation nova em `useAdiantamentos.ts` chamada `useVincularTransportadora({ids, transportadora_id})`.
+- Sem alteração de schema; apenas UPDATE em coluna existente.
+
+## Fora do escopo
+- Não vou mexer no parser de DACTE (`parse-dacte-pdf`). A normalização + vínculo manual já cobrem os casos onde o nome do CT-e diverge do cadastro.
