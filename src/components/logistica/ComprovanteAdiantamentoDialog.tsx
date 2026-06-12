@@ -291,8 +291,25 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
 
   const pendentes = adiantamentos.filter((a) => a.status === "pendente");
   const jaPagos = adiantamentos.filter((a) => a.pago_em);
+
+  // Agrupa adiantamentos sem vínculo (id nulo OU id que não encontra cadastro)
+  // por nome, para oferecer um Select de vínculo manual.
+  const vincular = useVincularTransportadora();
+  const semVinculo = useMemo(() => {
+    const map = new Map<string, { nome: string; ids: string[] }>();
+    for (const a of adiantamentos) {
+      const info = resolveTranspInfo(transp, a.transportadora_id, a.transportadora);
+      if (info) continue;
+      const key = normalizaNomeTransp(a.transportadora) || a.transportadora;
+      const cur = map.get(key) ?? { nome: a.transportadora, ids: [] };
+      cur.ids.push(a.id);
+      map.set(key, cur);
+    }
+    return Array.from(map.values());
+  }, [adiantamentos, transp]);
+
   const semPix = adiantamentos.some((a) => {
-    const info = transp.find((t) => t.id === a.transportadora_id);
+    const info = resolveTranspInfo(transp, a.transportadora_id, a.transportadora);
     return !info?.pix_chave;
   });
 
