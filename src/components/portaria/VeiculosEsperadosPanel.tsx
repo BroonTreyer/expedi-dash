@@ -141,7 +141,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
     />
   );
 
-  if (pendentes === 0) {
+  if (pendingVeiculos.length === 0) {
     return (
       <Card>
         <CardHeader className="py-3 px-4">
@@ -187,6 +187,11 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
               {pendentes > 0 && (
                 <Badge variant="outline" className="text-[10px] h-5 border-amber-300 text-amber-700 dark:text-amber-400">
                   {pendentes} pendentes
+                </Badge>
+              )}
+              {pendingVeiculos.length - pendentes > 0 && (
+                <Badge variant="outline" className="text-[10px] h-5 border-destructive/40 text-destructive">
+                  {pendingVeiculos.length - pendentes} de outras datas
                 </Badge>
               )}
             </div>
