@@ -211,7 +211,7 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     const pixList = transportadorasUnicas();
     const renderPix = (linhas: string[]) => {
       for (const t of pixList) {
-        const info = transp.find((x) => x.id === t.transportadora_id) ?? null;
+        const info = resolveTranspInfo(transp, t.transportadora_id, t.nomeFallback);
         linhas.push(info?.codigo ? `Código ${info.codigo} – ${info.nome}` : t.nomeFallback);
         if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
       }
