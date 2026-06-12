@@ -100,7 +100,54 @@ export function useMovimentacoes(dateFrom: string, dateTo?: string) {
         .lte("data_hora", `${dateEnd}T23:59:59.999`)
         .order("data_hora", { ascending: false });
       if (error) throw error;
-      return data as MovimentacaoPortaria[];
+      const rows = (data ?? []) as MovimentacaoPortaria[];
+
+      // Completa pares entrada/saída fora da janela de datas para que o
+      // Histórico mostre "Chegada → Saída" e o tempo total mesmo quando a
+      // entrada e a saída caíram em dias diferentes (ex.: motorista chega
+      // 11/06 e sai 12/06 — sem isso, o dia 12 mostra só "Saída 0min").
+      const presentes = new Set(rows.map((r) => r.id));
+      const idsFaltantes = new Set<string>();
+      const entradasNaJanela: string[] = [];
+      for (const r of rows) {
+        if (
+          r.tipo_movimento === "saida" &&
+          r.movimento_vinculado_id &&
+          !presentes.has(r.movimento_vinculado_id)
+        ) {
+          idsFaltantes.add(r.movimento_vinculado_id);
+        }
+        if (r.tipo_movimento === "entrada") entradasNaJanela.push(r.id);
+      }
+
+      const extras: MovimentacaoPortaria[] = [];
+      if (idsFaltantes.size > 0) {
+        const { data: extra1 } = await supabase
+          .from("movimentacoes_portaria")
+          .select("*")
+          .in("id", Array.from(idsFaltantes));
+        for (const e of (extra1 ?? []) as MovimentacaoPortaria[]) extras.push(e);
+      }
+      if (entradasNaJanela.length > 0) {
+        const { data: extra2 } = await supabase
+          .from("movimentacoes_portaria")
+          .select("*")
+          .in("movimento_vinculado_id", entradasNaJanela)
+          .eq("tipo_movimento", "saida");
+        for (const e of (extra2 ?? []) as MovimentacaoPortaria[]) {
+          if (!presentes.has(e.id)) extras.push(e);
+        }
+      }
+
+      if (extras.length === 0) return rows;
+      const merged = [...rows];
+      for (const e of extras) {
+        if (!presentes.has(e.id)) {
+          merged.push(e);
+          presentes.add(e.id);
+        }
+      }
+      return merged;
     },
   });
 
