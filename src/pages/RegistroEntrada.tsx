@@ -11,7 +11,7 @@ export default function RegistroEntrada() {
 
   return (
     <Layout>
-      <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto w-full">
+      <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto w-full" data-portaria="true">
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-lg bg-primary/10 shrink-0">
             <LogIn className="h-6 w-6 text-primary" />

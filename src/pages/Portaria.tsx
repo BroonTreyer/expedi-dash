@@ -374,7 +374,7 @@ export default function Portaria({ categoria }: PortariaProps) {
 
   return (
     <Layout>
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4 p-4 md:p-6" data-portaria="true">
         {/* Header */}
         <div className="flex flex-col gap-3">
           <div className="flex items-start justify-between gap-2">
