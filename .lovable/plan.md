@@ -1,46 +1,18 @@
 ## Problema
 
-No painel **Cargas fechadas aguardando veículo** (mobile, 390px), o badge laranja "Aguardando liberação · Chegou 12/06 04:17 (há 10 horas 40 minutos)" concentra texto demais dentro de uma única pílula. Resultado:
+No painel **Aguardando vínculo da Logística** (mobile, 390px), os 3 botões (`Editar`, `Vincular a carga`, `Recusar`) estão num `flex gap-2` sem `flex-wrap`. Como "Vincular a carga" é largo, o "Recusar" estoura a largura do card e fica visualmente fora do bloco.
 
-- A pílula quebra em várias linhas mantendo borda arredondada errada (formato "amassado").
-- Texto longo "10 horas 40 minutos" + data + hora num só badge força largura > card.
-- Causa overflow horizontal sutil da página inteira.
-
-Não é problema de fonte — é o conteúdo dentro do `<Badge>`. O ajuste anterior em `index.css` não resolve porque a estrutura do componente é que está errada.
+Arquivo: `src/components/portaria/SolicitacoesPendentesPanel.tsx` (linhas 263–310)
 
 ## Solução (apenas UI)
 
-Arquivo: `src/components/portaria/CargasFechadasAguardandoPanel.tsx` (linhas 265–276)
+1. Trocar `flex gap-2` por `flex flex-wrap gap-1.5 w-full sm:w-auto` no container dos botões.
+2. Trocar o wrapper externo `flex flex-col gap-1.5 shrink-0 sm:items-end` por `flex flex-col gap-1.5 w-full sm:w-auto sm:shrink-0 sm:items-end` para o bloco ocupar a largura no mobile.
+3. Adicionar `flex-1 sm:flex-none` em cada um dos 3 botões (`Editar`, `Vincular a carga`, `Recusar`) para que dividam a linha proporcionalmente no mobile e voltem ao tamanho natural no desktop.
+4. Encurtar rótulo "Vincular a carga" → "Vincular" no mobile via `<span className="sm:hidden">Vincular</span><span className="hidden sm:inline">Vincular a carga</span>` para reduzir ainda mais a pressão de largura.
 
-Separar em duas peças:
+## Resultado esperado
 
-1. **Badge compacto** (mantém a pílula limpa):
-   `[Hourglass] Aguardando liberação`
+Mobile (390px): os 3 botões cabem na linha, todos dentro da borda do card, sem overflow. Desktop: layout mantém o tamanho natural à direita, igual hoje.
 
-2. **Linha de texto auxiliar** logo abaixo do título (fora do badge), em `text-[11px] text-muted-foreground`:
-   `Chegou 12/06 04:17 · há 10h 40min`
-
-E encurtar o `formatDuration` para o formato abreviado pt-BR:
-- `10 horas 40 minutos` → `10h 40min`
-- `1 dia 3 horas` → `1d 3h`
-
-Implementado via helper local que pega `intervalToDuration` e monta string curta (sem depender de `formatDuration`/locale verboso).
-
-## Mudanças
-
-- 1 arquivo alterado: `src/components/portaria/CargasFechadasAguardandoPanel.tsx`
-- Badge "Aguardando liberação" volta a ser compacto (cabe na linha do nome da carga).
-- Info de chegada vira linha discreta abaixo, com wrap natural.
-- Nenhuma alteração em lógica, hooks, banco ou `index.css`.
-
-## Resultado visual esperado
-
-```text
-EDIVAR JM  [⌛ Aguardando liberação]  [📦 3 pedidos]  [28.160,00 kg]
-Chegou 12/06 04:17 · há 10h 40min
-🚛 Placa prevista: SE06H14
-Motorista: THIAGO SANTANA DA SILVA
-…
-```
-
-Card respeita largura do mobile, pílula não quebra, e nada de scroll horizontal.
+Nenhuma mudança de lógica, hooks ou banco.

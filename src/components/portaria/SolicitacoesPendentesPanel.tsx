@@ -260,13 +260,13 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
 
       {kind === "aguardando" ? (
         canDecide ? (
-          <div className="flex flex-col gap-1.5 shrink-0 sm:items-end">
-            <div className="flex gap-2">
+          <div className="flex flex-col gap-1.5 w-full sm:w-auto sm:shrink-0 sm:items-end">
+            <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
               {v.__source !== "mov" && (
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 text-xs gap-1"
+                  className="h-8 text-xs gap-1 flex-1 sm:flex-none"
                   onClick={() => setEditarVeiculo(v)}
                 >
                   <Pencil className="h-3.5 w-3.5" /> Editar
@@ -274,7 +274,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
               )}
               <Button
                 size="sm"
-                className="h-8 text-xs gap-1"
+                className="h-8 text-xs gap-1 flex-1 sm:flex-none"
                 onClick={() => {
                   if (v.__source === "mov") {
                     setVincularMovimento(v.__mov);
@@ -283,13 +283,15 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
                   }
                 }}
               >
-                <Link2 className="h-3.5 w-3.5" /> Vincular a carga
+                <Link2 className="h-3.5 w-3.5" />
+                <span className="sm:hidden">Vincular</span>
+                <span className="hidden sm:inline">Vincular a carga</span>
               </Button>
               {v.__source !== "mov" && (
                 <Button
                   size="sm"
                   variant="destructive"
-                  className="h-8 text-xs gap-1"
+                  className="h-8 text-xs gap-1 flex-1 sm:flex-none"
                   onClick={() => setRecusaId(v.id)}
                   disabled={autorizar.isPending}
                 >
@@ -300,7 +302,7 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
                 <Button
                   size="sm"
                   variant="destructive"
-                  className="h-8 text-xs gap-1"
+                  className="h-8 text-xs gap-1 flex-1 sm:flex-none"
                   onClick={() => handleDesfazerMov(v.__mov)}
                   disabled={desfazendoMovId === v.id}
                 >
