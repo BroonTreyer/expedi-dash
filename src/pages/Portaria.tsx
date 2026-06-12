@@ -126,7 +126,7 @@ export default function Portaria({ categoria }: PortariaProps) {
         .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
         .map((m) => m.movimento_vinculado_id!)
     );
-    const patio = movimentacoesAtivasPatio.filter((m) => {
+    const patioList = movimentacoesAtivasPatio.filter((m) => {
       if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
         return m.etapa_carga_propria !== "finalizado";
       }
@@ -139,7 +139,26 @@ export default function Portaria({ categoria }: PortariaProps) {
       if (aguardandoVinculo) return true;
       if (m.horario_chegada && !m.horario_entrada) return false;
       return true;
-    }).length;
+    });
+    // Dedupe por placa — mesmo motorista nunca conta duas vezes (ex.: registro
+    // "Aguardando vínculo" + registro "No Pátio" simultâneos).
+    const byPlaca = new Map<string, typeof patioList[number]>();
+    let semPlaca = 0;
+    for (const m of patioList) {
+      const key = (m.placa || "").trim().toUpperCase();
+      if (!key) { semPlaca++; continue; }
+      const cur = byPlaca.get(key);
+      if (!cur) { byPlaca.set(key, m); continue; }
+      const curIn = cur.horario_entrada ? 1 : 0;
+      const mIn = m.horario_entrada ? 1 : 0;
+      if (mIn > curIn) { byPlaca.set(key, m); continue; }
+      if (mIn === curIn) {
+        const ct = new Date(cur.horario_entrada || cur.horario_chegada || cur.data_hora).getTime();
+        const mt = new Date(m.horario_entrada || m.horario_chegada || m.data_hora).getTime();
+        if (mt > ct) byPlaca.set(key, m);
+      }
+    }
+    const patio = byPlaca.size + semPlaca;
     const historico = movimentacoes.length - saidasVinculadas.size;
     return { patio, historico };
   }, [movimentacoes, movimentacoesAtivasPatio]);
@@ -517,6 +536,7 @@ export default function Portaria({ categoria }: PortariaProps) {
               veiculos={veiculosEsperados}
               onRegistrar={openRegistroFromVeiculoEsperado}
               pendingIds={registrandoIds}
+              hideRegistrarChegada={isPortaria}
               onClear={isPortaria ? undefined : () => {
                 const d = new Date(dateFromStr + "T00:00:00");
                 const di = new Date(d); di.setDate(di.getDate() - 3);
