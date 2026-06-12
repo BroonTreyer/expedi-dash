@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Copy, Printer, CheckCircle2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
-import { useMarcarAdiantamentoPago, type Adiantamento, type AdiantamentoCte } from "@/hooks/useAdiantamentos";
+import { useMarcarAdiantamentoPago, useVincularTransportadora, type Adiantamento, type AdiantamentoCte } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+import { resolveTranspInfo, normalizaNomeTransp } from "@/lib/transportadora-match";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CteDacteRow } from "@/hooks/useCtesDacte";
 
 const fmtBRL = (n: number) =>
