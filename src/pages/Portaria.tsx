@@ -473,12 +473,14 @@ export default function Portaria({ categoria }: PortariaProps) {
                 <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">{counts.historico}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="esperados" className="gap-1 flex-1 sm:flex-initial text-xs sm:text-sm">
-              <ClipboardCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Esperados
-              {pendentesEsperados > 0 && (
-                <Badge variant="outline" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px] border-amber-300 text-amber-700 dark:text-amber-400">{pendentesEsperados}</Badge>
-              )}
-            </TabsTrigger>
+            {categoria !== "terceirizado" && (
+              <TabsTrigger value="esperados" className="gap-1 flex-1 sm:flex-initial text-xs sm:text-sm">
+                <ClipboardCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Esperados
+                {pendentesEsperados > 0 && (
+                  <Badge variant="outline" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px] border-amber-300 text-amber-700 dark:text-amber-400">{pendentesEsperados}</Badge>
+                )}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="patio">
@@ -529,6 +531,7 @@ export default function Portaria({ categoria }: PortariaProps) {
             </Card>
           </TabsContent>
 
+          {categoria !== "terceirizado" && (
           <TabsContent value="esperados">
             <VeiculosEsperadosPanel
               veiculos={veiculosEsperados}
@@ -560,6 +563,7 @@ export default function Portaria({ categoria }: PortariaProps) {
               </Card>
             )}
           </TabsContent>
+          )}
         </Tabs>
       </div>
 
