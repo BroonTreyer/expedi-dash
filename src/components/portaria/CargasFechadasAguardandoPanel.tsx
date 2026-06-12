@@ -325,11 +325,11 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                             <AlertTriangle className="h-3 w-3" />
                             Só clique quando o caminhão estiver entrando no pátio
                           </span>
-                        <div className="flex gap-1.5">
+                        <div className="flex flex-col-reverse sm:flex-row gap-1.5 w-full sm:w-auto">
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 text-xs gap-1 text-muted-foreground hover:text-destructive"
+                            className="h-8 text-xs gap-1 text-muted-foreground hover:text-destructive w-full sm:w-auto"
                             disabled={isBusy}
                             onClick={() => setConfirmDesfazer(c)}
                           >
@@ -338,7 +338,7 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                           </Button>
                           <Button
                             size="sm"
-                            className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-600/90 text-white"
+                            className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-600/90 text-white w-full sm:w-auto"
                             disabled={isBusy || lockoutRestante > 0}
                             onClick={() => setConfirmLiberar(c)}
                           >
