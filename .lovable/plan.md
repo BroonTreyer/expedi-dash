@@ -1,44 +1,35 @@
-## Contexto
+## Problema
 
-Na Portaria de Distribuidores há dois problemas:
+Na aba **Pátio** de Distribuidores estão aparecendo cards com badges **"Aguardando vínculo"** e **"Aguardando Liberação"** (Welliton/RMB0C89 com 985h, Thiago/SE06H14). Esses veículos **não estão fisicamente no pátio** — são registros de chegada na portaria que ainda nem entraram. Como eles também aparecem nos painéis vermelho ("Aguardando vínculo da Logística") e azul ("Liberar entrada no pátio"), o mesmo motorista é contado/exibido 2x.
 
-1. O time da Portaria está clicando em **"Registrar Chegada"** dentro do painel **Veículos Esperados** e pulando o fluxo oficial (cards vermelho "Aguardando vínculo" no Pátio Atual e cards azuis "Cargas fechadas aguardando veículo"). Isso gera registros sem vínculo correto.
-2. O motorista **Rodrigo** aparece **3 vezes** simultaneamente — em "No Pátio", em "Aguardando vínculo" (card vermelho do Pátio Atual) e ainda na lista. Veículo que não está fisicamente no pátio não pode aparecer como se estivesse.
+Regra correta: **Pátio = somente veículos com entrada física confirmada** (`horario_entrada` preenchido e não finalizado). Tudo que está aguardando vínculo ou aguardando liberação deve viver apenas nos painéis acima (vermelho/azul), nunca na lista do Pátio.
 
 ## Mudanças
 
-### 1. `src/components/portaria/VeiculosEsperadosPanel.tsx` — esconder "Registrar Chegada" para Portaria
+### 1. `src/components/portaria/PatioAtualTab.tsx`
 
-- Adicionar prop opcional `hideRegistrarChegada?: boolean`.
-- Quando `true`, não renderiza o botão **"Registrar Chegada"** (nem no mobile/cards nem na tabela desktop). O painel continua sendo só consulta/programação: ver previstos, atrasados, conferidos, e a Logística/Admin pode excluir/limpar.
+No `useMemo` `veiculosNoPatio`:
 
-### 2. `src/pages/Portaria.tsx` — passar a flag para o painel
+- **Remover** o branch que mantinha `terceirizado` em `etapa_terceirizado='chegada'` SEM `carga_id` visível aqui (linhas ~150‑160 e o filtro `isTerceirizadoAguardandoVinculo`). Esses passam a ser responsabilidade exclusiva do `SolicitacoesPendentesPanel` (card vermelho "Aguardando vínculo da Logística").
+- Endurecer o filtro: para `terceirizado`, exigir `horario_entrada IS NOT NULL` e `etapa_terceirizado` em `{'no_patio','liberado','carregando', ...}` (qualquer coisa exceto `'chegada'` e `'finalizado'`).
+- Para `carga_propria`, manter a regra atual (já exige saída/etapa progressiva), mas excluir registros sem `horario_entrada` que ainda estejam em `aguardando_liberacao`/`chegou` sem entrada (pertencem ao painel azul).
+- Como agora nenhum registro "aguardando vínculo/liberação" entra na lista, a **dedupe por placa** vira redundante; pode ser removida (ou mantida só como cinto de segurança, sem prioridade especial).
 
-- Calcular `hideRegistrarChegada = role === "portaria"` (Admin e Logística continuam podendo registrar pelo painel se quiserem; a Portaria é forçada a usar os cards).
-- Passar para `<VeiculosEsperadosPanel ... hideRegistrarChegada={...} />`.
+Ajustar também a ordenação `sortedVeiculos`: remover o `sort` que jogava cards "Aguardando vínculo" para o topo (não existem mais aqui).
 
-### 3. `src/components/portaria/PatioAtualTab.tsx` — deduplicar veículos por placa
+Os blocos de UI em `PatioAtualTab.tsx` que renderizam os badges "Aguardando vínculo" (~linha 459 e 706) e "Aguardando Liberação" (~linha 464 e 711) podem permanecer no código como fallback defensivo — só não serão alcançados em fluxo normal.
 
-Hoje a lista `veiculosNoPatio` pode trazer dois registros do mesmo motorista:
-- um cartão **vermelho** "Aguardando vínculo" (terceirizado em `etapa_terceirizado='chegada'` sem `carga_id`), e
-- um cartão **normal** "No Pátio" (entrada com `horario_entrada` preenchido) criada antes (ex.: registrada via Esperados).
+### 2. `src/pages/Portaria.tsx` — badge da aba "Pátio"
 
-Adicionar dedupe por **placa normalizada** após o filtro principal:
+Aplicar a mesma regra ao `counts.patio` (~linha 120‑160) para o número da aba bater com a lista renderizada. Remover a contagem de terceirizados em `chegada` sem `carga_id` e de registros sem `horario_entrada`.
 
-- Agrupar `veiculosNoPatio` por `placa.trim().toUpperCase()`.
-- Para cada grupo com mais de 1 registro, manter **apenas o mais recente que represente o estado físico real do pátio**, com a seguinte prioridade:
-  1. Registro com `horario_entrada` preenchido e não finalizado (= está fisicamente no pátio).
-  2. Se nenhum tiver `horario_entrada`, manter o "Aguardando vínculo" mais recente.
-- Registros sem placa (raros) seguem sem dedupe.
+## Resultado esperado
 
-Resultado: se Rodrigo já entrou no pátio (tem `horario_entrada`), o card vermelho "Aguardando vínculo" daquele mesmo motorista deixa de ser exibido — fica só o card real do pátio. Inversamente, se ainda não entrou, mostra só o vermelho.
-
-### 4. Espelhar a mesma dedupe no contador de `counts.patio` em `src/pages/Portaria.tsx`
-
-Para o badge da aba "Pátio" não divergir da lista renderizada, aplicar a mesma regra de dedupe por placa antes de contar.
+- Aba **Pátio** mostra apenas Welliton/Thiago/Rodrigo se eles realmente entraram no pátio (têm `horario_entrada`). Os registros órfãos sem entrada somem daqui.
+- Rodrigo (ONC6549, `carga_id` nulo, sem `horario_entrada`) continua visível **apenas** no painel vermelho **"Aguardando vínculo da Logística"** acima da aba. Quando a Logística vincular uma carga a ele, ele migra automaticamente para o painel azul **"Liberar entrada no pátio"** — comportamento que já existe e não precisa mexer.
+- Sem duplicidade entre painéis acima e a aba Pátio.
 
 ## Fora de escopo
 
-- Não alteramos schema, RLS, nem lógica do painel azul (`CargasFechadasAguardandoPanel`).
-- Não mexemos no fluxo de Admin/Logística no painel Esperados — apenas a Portaria perde o botão.
-- Não removemos registros antigos duplicados do banco; a dedupe é visual. Se quiser limpeza histórica, faço em passo separado.
+- Não mexer no schema, RLS, nem nos painéis vermelho/azul.
+- Não apagar registros antigos do banco (Welliton de 985h, etc.). Eles simplesmente deixam de poluir a aba Pátio; a Logística decide o destino via "Vincular carga" ou "Recusar" no painel vermelho.
