@@ -20,6 +20,8 @@ interface Props {
   readOnly?: boolean;
   search?: string;
   pendingIds?: Set<string>;
+  /** Esconde o botão "Registrar Chegada" (Portaria deve usar os cards do Pátio Atual / painel azul). */
+  hideRegistrarChegada?: boolean;
 }
 
 function isDataFutura(dataRef: string, dataFiltrada?: string): boolean {
@@ -50,7 +52,7 @@ function DataAtrasadaBadge({ dataRef }: { dataRef: string }) {
   );
 }
 
-export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, onDeleteSelected, isDeletingSelected, dataFiltrada, readOnly, search, pendingIds }: Props) {
+export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClearing, onDeleteSelected, isDeletingSelected, dataFiltrada, readOnly, search, pendingIds, hideRegistrarChegada }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -249,7 +251,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                   <div><span className="text-muted-foreground">Peso:</span> {v.peso ?? "—"}</div>
                   <div><span className="text-muted-foreground">Entregas:</span> {v.qtd_entregas ?? "—"}</div>
                 </div>
-                {!isConferido && !readOnly && (
+                {!isConferido && !readOnly && !hideRegistrarChegada && (
                   <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1" onClick={() => onRegistrar(v)} disabled={pendingIds?.has(v.id)}>
                     {pendingIds?.has(v.id) ? (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Registrando...</>) : "Registrar Chegada"}
                   </Button>
@@ -320,7 +322,7 @@ export function VeiculosEsperadosPanel({ veiculos, onRegistrar, onClear, isClear
                     <TableCell className="text-xs py-1.5 text-right">{v.peso ?? "—"}</TableCell>
                     <TableCell className="text-xs py-1.5 text-right">{v.qtd_entregas ?? "—"}</TableCell>
                     <TableCell className="py-1.5">
-                      {!isConferido && !readOnly && (
+                      {!isConferido && !readOnly && !hideRegistrarChegada && (
                         <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1" onClick={() => onRegistrar(v)} disabled={pendingIds?.has(v.id)}>
                           {pendingIds?.has(v.id) ? (<><Loader2 className="h-3 w-3 animate-spin" /> Registrando</>) : "Registrar Chegada"}
                         </Button>
