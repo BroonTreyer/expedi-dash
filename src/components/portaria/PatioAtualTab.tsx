@@ -133,7 +133,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         .filter((m) => m.tipo_movimento === "saida" && m.movimento_vinculado_id)
         .map((m) => m.movimento_vinculado_id!)
     );
-    return movimentacoes
+    const filtered = movimentacoes
       .filter((m) => {
         // Carga própria 3-stage: show in pátio if em_rota or retornou
         if (m.categoria === "carga_propria" && m.tipo_movimento === "saida" && m.etapa_carga_propria) {
@@ -174,6 +174,33 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           m.rota?.toLowerCase().includes(s)
         );
       });
+    // Dedupe por placa normalizada: o mesmo motorista não pode aparecer
+    // simultaneamente como "Aguardando vínculo" (card vermelho, sem horario_entrada)
+    // e "No Pátio" (com horario_entrada). Prioriza o registro fisicamente no pátio
+    // (horario_entrada preenchido) e desempata pelo mais recente.
+    const byPlaca = new Map<string, typeof filtered>();
+    const semPlaca: typeof filtered = [];
+    for (const m of filtered) {
+      const key = (m.placa || "").trim().toUpperCase();
+      if (!key) { semPlaca.push(m); continue; }
+      const arr = byPlaca.get(key) ?? [];
+      arr.push(m);
+      byPlaca.set(key, arr);
+    }
+    const deduped: typeof filtered = [...semPlaca];
+    for (const arr of byPlaca.values()) {
+      if (arr.length === 1) { deduped.push(arr[0]); continue; }
+      const sorted = [...arr].sort((a, b) => {
+        const aIn = a.horario_entrada ? 1 : 0;
+        const bIn = b.horario_entrada ? 1 : 0;
+        if (aIn !== bIn) return bIn - aIn; // quem tem horario_entrada vence
+        const at = new Date(a.horario_entrada || a.horario_chegada || a.data_hora).getTime();
+        const bt = new Date(b.horario_entrada || b.horario_chegada || b.data_hora).getTime();
+        return bt - at; // mais recente primeiro
+      });
+      deduped.push(sorted[0]);
+    }
+    return deduped;
   }, [movimentacoes, search, categoriaFilter]);
 
   const sortedVeiculos = useMemo(() => {
