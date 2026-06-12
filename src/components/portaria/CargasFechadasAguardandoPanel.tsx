@@ -265,14 +265,9 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                     {aguardandoLib ? (
                       <Badge
                         variant="outline"
-                        className="text-[10px] h-5 gap-0.5 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                        className="text-[10px] h-5 gap-0.5 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 whitespace-nowrap"
                       >
                         <Hourglass className="h-3 w-3" /> Aguardando liberação
-                        {c.horarioChegada && (
-                          <span className="ml-1 font-mono">
-                            · Chegou {(() => { try { const d = new Date(c.horarioChegada); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; } catch { return ""; } })()} {formatHora(c.horarioChegada)} (há {formatDuration(intervalToDuration({ start: new Date(c.horarioChegada), end: new Date(now) }), { format: ["days", "hours", "minutes"], locale: ptBR, zero: false }) || "menos de 1 minuto"})
-                          </span>
-                        )}
                       </Badge>
                     ) : isWalkIn && (
                       <Badge
@@ -295,6 +290,19 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
                       </Badge>
                     )}
                   </div>
+                  {aguardandoLib && c.horarioChegada && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Chegou {(() => { try { const d = new Date(c.horarioChegada); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; } catch { return ""; } })()} {formatHora(c.horarioChegada)}
+                      {(() => {
+                        const dur = intervalToDuration({ start: new Date(c.horarioChegada), end: new Date(now) });
+                        const parts: string[] = [];
+                        if (dur.days) parts.push(`${dur.days}d`);
+                        if (dur.hours) parts.push(`${dur.hours}h`);
+                        if (dur.minutes || parts.length === 0) parts.push(`${dur.minutes ?? 0}min`);
+                        return ` · há ${parts.join(" ")}`;
+                      })()}
+                    </div>
+                  )}
                   <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
                     {c.placa && (
                       <span className="flex items-center gap-1">
