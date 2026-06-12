@@ -1,29 +1,46 @@
 ## Problema
 
-O aumento de fonte aplicado na Portaria (text-xs 12px → 14px = +16%) estourou caixas de largura fixa — o badge "Aguardando liberação", chips, e blocos do painel "Cargas fechadas aguardando veículo" quebram, sobrepõem e estouram colunas tanto em desktop quanto em mobile.
+No painel **Cargas fechadas aguardando veículo** (mobile, 390px), o badge laranja "Aguardando liberação · Chegou 12/06 04:17 (há 10 horas 40 minutos)" concentra texto demais dentro de uma única pílula. Resultado:
 
-## Solução
+- A pílula quebra em várias linhas mantendo borda arredondada errada (formato "amassado").
+- Texto longo "10 horas 40 minutos" + data + hora num só badge força largura > card.
+- Causa overflow horizontal sutil da página inteira.
 
-Reduzir o degrau do aumento em `src/index.css` (regras escopadas por `[data-portaria="true"]`) para um bump **mais suave de +1px** em cada tamanho, mantendo a melhora de leitura sem estourar layouts.
+Não é problema de fonte — é o conteúdo dentro do `<Badge>`. O ajuste anterior em `index.css` não resolve porque a estrutura do componente é que está errada.
 
-### Alteração única em `src/index.css`
+## Solução (apenas UI)
 
-| Classe | Hoje | Novo |
-|---|---|---|
-| `text-[10px]` | 12px | **11px** |
-| `text-[11px]` | 13px | **12px** |
-| `text-xs` (12px nativo) | 14px | **13px** |
+Arquivo: `src/components/portaria/CargasFechadasAguardandoPanel.tsx` (linhas 265–276)
 
-Line-heights ajustados proporcionalmente (0.95rem / 1rem / 1.1rem).
+Separar em duas peças:
 
-## Por que resolve
+1. **Badge compacto** (mantém a pílula limpa):
+   `[Hourglass] Aguardando liberação`
 
-- +1px é o suficiente para legibilidade no pátio sem empurrar texto pra fora de badges/chips dimensionados para o tamanho original.
-- Mantém o escopo `[data-portaria="true"]` já aplicado nas 4 páginas, sem mexer em componentes.
-- Reversível e pontual — só edita o bloco CSS de Portaria.
+2. **Linha de texto auxiliar** logo abaixo do título (fora do badge), em `text-[11px] text-muted-foreground`:
+   `Chegou 12/06 04:17 · há 10h 40min`
 
-## Arquivos alterados
+E encurtar o `formatDuration` para o formato abreviado pt-BR:
+- `10 horas 40 minutos` → `10h 40min`
+- `1 dia 3 horas` → `1d 3h`
 
-- `src/index.css` (apenas as 3 regras escopadas)
+Implementado via helper local que pega `intervalToDuration` e monta string curta (sem depender de `formatDuration`/locale verboso).
 
-Nenhum componente React precisa ser tocado.
+## Mudanças
+
+- 1 arquivo alterado: `src/components/portaria/CargasFechadasAguardandoPanel.tsx`
+- Badge "Aguardando liberação" volta a ser compacto (cabe na linha do nome da carga).
+- Info de chegada vira linha discreta abaixo, com wrap natural.
+- Nenhuma alteração em lógica, hooks, banco ou `index.css`.
+
+## Resultado visual esperado
+
+```text
+EDIVAR JM  [⌛ Aguardando liberação]  [📦 3 pedidos]  [28.160,00 kg]
+Chegou 12/06 04:17 · há 10h 40min
+🚛 Placa prevista: SE06H14
+Motorista: THIAGO SANTANA DA SILVA
+…
+```
+
+Card respeita largura do mobile, pílula não quebra, e nada de scroll horizontal.
