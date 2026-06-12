@@ -1,40 +1,63 @@
-## Causa raiz
+## Aumentar fontes pequenas nas telas de Portaria
 
-Os 4 adiantamentos do "guava transportes Itda" foram criados com `transportadora_id = NULL` no banco. O diálogo de Comprovante busca o PIX por `transportadora_id`, então mesmo com o cadastro preenchido (GUAVA LOGISTICA E TRANSPORTES LTDA, código 34312, PIX 63283459000160) nada aparece.
+### Objetivo
+Aumentar a legibilidade dos textos finos (badges, células de tabela, labels, descrições) em todas as telas da seção Portaria, sem afetar outras áreas do sistema.
 
-Por que `transportadora_id` ficou nulo? O nome veio do DACTE em caixa baixa e abreviado ("guava transportes Itda"), e o cadastro está em caixa alta e por extenso ("GUAVA LOGISTICA E TRANSPORTES LTDA"). O `transpInfoByName` em `AdiantamentosTab.tsx` faz `Map.get(nome)` com match exato — não encontra, salva id nulo.
+### Problema identificado
+Os componentes de portaria usam excessivamente tamanhos pequenos:
+- `text-[10px]` em badges e legendas (muito fino para leitura em campo)
+- `text-[11px]` em cabeçalhos de tabela e subtítulos
+- `text-xs` em cards mobile, células de tabela e labels
 
-```text
-DACTE:    "guava transportes Itda"
-Cadastro: "GUAVA LOGISTICA E TRANSPORTES LTDA"   → Map.get() falha → id NULL → PIX some
+### Solução: Escopo CSS via wrapper de página
+Em vez de editar componente por componente (20+ arquivos), aplicar um **wrapper com classe única** nas 6 páginas de portaria e sobrescrever os tamanhos pequenos via CSS global no `index.css`.
+
+#### 1. Wrapper nas páginas
+Adicionar `data-portaria="true"` no `<div>` container principal de cada página:
+- `src/pages/Portaria.tsx`
+- `src/pages/PortariaTerceirizado.tsx`
+- `src/pages/PortariaCargaPropria.tsx`
+- `src/pages/PortariaAdmin.tsx`
+- `src/pages/PortariaManual.tsx`
+- `src/pages/RegistroEntrada.tsx`
+
+#### 2. Regras CSS no `index.css`
+Adicionar ao `@layer base` ou `@layer utilities`:
+
+```css
+/* Aumenta textos pequenos apenas nas telas de Portaria */
+[data-portaria="true"] .text-\[10px\],
+[data-portaria="true"] [class*="text-[10px]"] {
+  font-size: 0.75rem !important; /* 12px, equivale a text-xs */
+}
+
+[data-portaria="true"] .text-\[11px\],
+[data-portaria="true"] [class*="text-[11px]"] {
+  font-size: 0.8125rem !important; /* 13px */
+}
+
+[data-portaria="true"] .text-xs {
+  font-size: 0.875rem !important; /* 14px, equivale a text-sm */
+}
 ```
 
-## Correções
+**O que muda:**
+- Badges de 10px → 12px
+- Cabeçalhos de tabela de 11px → 13px
+- Textos de cards e células de 12px → 14px
+- `text-sm` (14px) e superiores **permanecem inalterados** para evitar quebra de layout
 
-### 1. Normalização + fallback por nome
-Criar utilitário `normalizaNomeTransp(s)`:
-- `toUpperCase`, trim, colapsar espaços
-- remover sufixos societários (LTDA / LTD / ITDA / S/A / SA / EIRELI / ME / EPP)
-- remover pontuação
+#### 3. Verificação
+Testar visualmente no preview as abas:
+- Pátio Atual (cards e tabela)
+- Histórico (tabela e paginação)
+- Cargas fechadas aguardando
+- Veículos esperados
+- Painel administrativo
 
-Aplicar em `transpInfoByName` (chave normalizada) em `AdiantamentosTab.tsx` para que novos adiantamentos já saiam com `transportadora_id` correto.
+### Por que não editar cada componente?
+São mais de 20 componentes compartilhados entre portaria e outras áreas (ex.: dialogs de registro). Editar um por um aumentaria o risco de efeito colateral em telas fora de portaria. O wrapper CSS é cirúrgico e facilmente reversível.
 
-Em `ComprovanteAdiantamentoDialog.tsx`, no `renderPix` e no aviso `semPix`: se `find(x => x.id === t.transportadora_id)` falhar, tentar `find(x => normaliza(x.nome) === normaliza(t.nomeFallback))`.
-
-### 2. Vincular transportadora manualmente
-No diálogo Comprovante, quando uma linha não tiver PIX, mostrar um Select pequeno "Vincular transportadora" listando os cadastros. Ao selecionar, faz `UPDATE adiantamentos_frete SET transportadora_id = ? WHERE id IN (ids da mesma transportadora)` e re-renderiza com PIX. Isso resolve os 4 adiantamentos da Guava agora e qualquer outro futuro caso a normalização não case.
-
-### 3. Backfill dos adiantamentos atuais
-Um botão "Revincular transportadoras" no topo de `AdiantamentosTab.tsx` (apenas admin) que percorre adiantamentos com `transportadora_id IS NULL`, aplica a normalização contra `transportadoras_financeiro` e atualiza os que casarem. Mostra toast com quantos vinculou.
-
-## Detalhes técnicos
-
-- Novo arquivo: `src/lib/transportadora-match.ts` exportando `normalizaNomeTransp` e `acharTranspPorNome(lista, nome)`.
-- `AdiantamentosTab.tsx`: trocar `m.set(t.nome, t)` por `m.set(normaliza(t.nome), t)` e ler com `transpInfoByName.get(normaliza(r.nome))`.
-- `ComprovanteAdiantamentoDialog.tsx`:
-  - substituir os 2 `transp.find` por helper que tenta id e depois nome normalizado;
-  - adicionar Select de vínculo manual abaixo do bloco quando `semPix` for true; usa mutation nova em `useAdiantamentos.ts` chamada `useVincularTransportadora({ids, transportadora_id})`.
-- Sem alteração de schema; apenas UPDATE em coluna existente.
-
-## Fora do escopo
-- Não vou mexer no parser de DACTE (`parse-dacte-pdf`). A normalização + vínculo manual já cobrem os casos onde o nome do CT-e diverge do cadastro.
+### Escopo limitado
+- Não altera cores, espaçamentos, botões ou títulos grandes (`text-sm` para cima).
+- Não afeta componentes reutilizados fora do contexto de portaria.

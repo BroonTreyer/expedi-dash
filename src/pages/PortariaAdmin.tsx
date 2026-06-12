@@ -5,7 +5,7 @@ import { PortariaAdminPanel } from "@/components/portaria/PortariaAdminPanel";
 export default function PortariaAdmin() {
   return (
     <Layout>
-      <div className="space-y-4 p-4 md:p-6 max-w-4xl mx-auto">
+      <div className="space-y-4 p-4 md:p-6 max-w-4xl mx-auto" data-portaria="true">
         <div className="flex items-start gap-3">
           <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
             <Shield className="h-6 w-6 text-destructive" />

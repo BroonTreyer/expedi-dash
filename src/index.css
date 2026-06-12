@@ -119,6 +119,21 @@
   .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
+/* Portaria — aumenta textos pequenos para melhorar legibilidade no pátio.
+   Escopado por [data-portaria="true"] no container raiz da página. */
+[data-portaria="true"] [class*="text-[10px]"] {
+  font-size: 0.75rem; /* 12px */
+  line-height: 1rem;
+}
+[data-portaria="true"] [class*="text-[11px]"] {
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.1rem;
+}
+[data-portaria="true"] .text-xs {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.2rem;
+}
+
 @media print {
   @page {
     size: A4 portrait;
