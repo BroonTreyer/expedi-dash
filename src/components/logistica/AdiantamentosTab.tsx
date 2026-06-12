@@ -168,10 +168,15 @@ export function AdiantamentosTab() {
     return total;
   };
 
+  // Lookup tolerante: tenta nome exato e cai para normalização (LTDA/ITDA, caixa,
+  // pontuação) — evita perder o vínculo quando o DACTE traz "guava transportes Itda"
+  // e o cadastro está como "GUAVA LOGISTICA E TRANSPORTES LTDA".
   const transpInfoByName = useMemo(() => {
-    const m = new Map<string, (typeof transp)[number]>();
-    for (const t of transp) m.set(t.nome, t);
-    return m;
+    const exact = new Map<string, (typeof transp)[number]>();
+    for (const t of transp) exact.set(t.nome, t);
+    return {
+      get: (nome: string) => exact.get(nome) ?? acharTranspPorNome(transp, nome) ?? undefined,
+    };
   }, [transp]);
 
   const getPercentual = (nome: string) => {
