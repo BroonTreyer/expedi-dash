@@ -336,6 +336,38 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
           </p>
         )}
 
+        {semVinculo.length > 0 && (
+          <div className="border border-amber-300 bg-amber-50 rounded-md p-3 space-y-2">
+            <p className="text-xs text-amber-900">
+              Não encontramos esta transportadora no cadastro. Vincule manualmente
+              para puxar código e PIX:
+            </p>
+            {semVinculo.map((g) => (
+              <div key={g.nome} className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-medium text-amber-900 truncate max-w-[200px]">
+                  {g.nome}
+                </span>
+                <Select
+                  onValueChange={(id) =>
+                    vincular.mutate({ ids: g.ids, transportadora_id: id })
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[260px] text-xs">
+                    <SelectValue placeholder="Escolher transportadora cadastrada…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {transp.map((t) => (
+                      <SelectItem key={t.id} value={t.id} className="text-xs">
+                        {t.codigo ? `${t.codigo} – ${t.nome}` : t.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        )}
+
         {pendentes.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
