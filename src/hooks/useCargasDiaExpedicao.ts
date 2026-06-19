@@ -17,7 +17,6 @@ export interface CargaDiaExpedicao {
   pesoTotal: number; // soma de pesoEfetivo (descarta rupturas totais)
   qtdPedidos: number;
   status: string | null; // status agregado (Carregado se TODOS os itens estão Carregado)
-  orfa?: boolean; // true quando saída registrada na portaria mas sem linhas em carregamentos_dia
 }
 
 /**
