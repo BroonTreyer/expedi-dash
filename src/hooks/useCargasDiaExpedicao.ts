@@ -17,7 +17,6 @@ export interface CargaDiaExpedicao {
   pesoTotal: number; // soma de pesoEfetivo (descarta rupturas totais)
   qtdPedidos: number;
   status: string | null; // status agregado (Carregado se TODOS os itens estão Carregado)
-  orfa?: boolean; // true quando saída registrada na portaria mas sem linhas em carregamentos_dia
 }
 
 /**
@@ -83,7 +82,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
       const endOfDay = `${dateStr}T23:59:59.999`;
       const { data: saidasHoje } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id, placa, motorista, empresa, tipo_caminhao, horario_saida_final")
+        .select("carga_id")
         .eq("categoria", "terceirizado")
         .not("carga_id", "is", null)
         .not("horario_saida_final", "is", null)
@@ -112,16 +111,6 @@ export function useCargasDiaExpedicao(dateStr: string) {
             .range(from, to),
         );
         if (extra && extra.length > 0) rows = [...rows, ...extra];
-      }
-
-      // === Cargas órfãs: saída registrada na portaria HOJE, mas carga_id
-      // não existe em carregamentos_dia (pedidos apagados/reabertos).
-      // Mostramos um card sintético para a Logística não perder visibilidade.
-      const presentesAposExtra = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
-      const orfasRows: any[] = [];
-      for (const m of (saidasHoje ?? []) as any[]) {
-        if (!m.carga_id || presentesAposExtra.has(m.carga_id)) continue;
-        orfasRows.push(m);
       }
 
       // Buscar saídas das cargas terceirizadas presentes (para reatribuir
@@ -236,27 +225,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
       }) as CargaDiaExpedicao[];
 
       // Mantém somente cargas cuja data efetiva é o dia consultado
-      const filtered = list.filter((c) => c.data === dateStr);
-
-      // Anexa cargas órfãs (saída registrada hoje sem pedidos)
-      const orfasDedup = new Map<string, CargaDiaExpedicao>();
-      for (const m of orfasRows) {
-        if (orfasDedup.has(m.carga_id)) continue;
-        orfasDedup.set(m.carga_id, {
-          carga_id: m.carga_id,
-          nome_carga: null,
-          placa: m.placa ?? null,
-          motorista: m.motorista ?? null,
-          transportadora: m.empresa ?? null,
-          tipo_caminhao: m.tipo_caminhao ?? null,
-          data: dateStr,
-          pesoTotal: 0,
-          qtdPedidos: 0,
-          status: "Expedido (sem pedidos)",
-          orfa: true,
-        });
-      }
-      return [...filtered, ...Array.from(orfasDedup.values())];
+      return list.filter((c) => c.data === dateStr);
     },
   });
 }

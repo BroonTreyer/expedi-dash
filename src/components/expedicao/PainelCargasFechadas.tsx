@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, Truck, Clock, Weight, PackageCheck, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Package, Truck, Clock, Weight, PackageCheck, CheckCircle2 } from "lucide-react";
 import type { CargaDiaExpedicao } from "@/hooks/useCargasDiaExpedicao";
 
 interface CargaExpedidaItem extends CargaDiaExpedicao {
@@ -39,18 +39,13 @@ export function PainelCargasFechadas({ cargas }: Props) {
             return (
             <div
               key={c.carga_id}
-              className={`rounded-md border border-l-4 ${c.orfa ? "border-l-amber-500" : "border-l-emerald-500"} ${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} p-3 space-y-1.5`}
+              className={`rounded-md border border-l-4 border-l-emerald-500 ${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} p-3 space-y-1.5`}
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-bold text-base truncate">{c.nome_carga || c.carga_id}</span>
                 <Badge className="bg-emerald-500 text-white hover:bg-emerald-500 text-xs h-6 gap-0.5">
                   <CheckCircle2 className="h-3 w-3" /> Expedida{hora ? ` · ${hora}` : ""}
                 </Badge>
-                {c.orfa && (
-                  <Badge className="bg-amber-500 text-white hover:bg-amber-500 text-xs h-6 gap-0.5">
-                    <AlertTriangle className="h-3 w-3" /> Pedidos apagados
-                  </Badge>
-                )}
                 <Badge variant="secondary" className="text-xs h-6 font-mono">
                   <Package className="h-3 w-3 mr-1" />
                   {c.qtdPedidos} {c.qtdPedidos === 1 ? "pedido" : "pedidos"}
