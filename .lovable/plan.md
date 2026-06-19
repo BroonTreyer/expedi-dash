@@ -1,35 +1,56 @@
-## Causa raiz
+# Auditoria — Painel Expedição
 
-`useImportarVeiculosEsperados` (em `src/hooks/useVeiculosEsperados.ts`) deleta os `veiculos_esperados` apenas das **datas** que aparecem na planilha. Só que a tabela tem um índice único global em `carga_id` quando `walk_in = false`:
+## Diagnóstico do caso "André"
 
-```
-veiculos_esperados_carga_id_unique_previsto  UNIQUE (carga_id)
-  WHERE walk_in = false AND carga_id IS NOT NULL
-```
+Movimentação no banco (placa HBR9J69 / MOREIRA / carga `CG-20260617-103335-RBZ`):
+- Entrada: 18/06 14:13 — etapa `finalizado`
+- Saída: 19/06 11:41 (`horario_saida_final`)
 
-A planilha de Varejo "Rotas Liberadas" traz `carga_id = 9763000` para 15/06, mas esse mesmo carga_id já está cadastrado em outra data (18/06). O INSERT da planilha viola o índice, a transação inteira falha e o usuário vê o toast "Erro ao importar veículos esperados".
+Resultado esperado: aparecer hoje (19/06) no painel **"Cargas expedidas do dia"**.
+Resultado real: **não aparece em lugar nenhum.**
 
-## Correção principal
+**Causa raiz:** o `carga_id` `CG-20260617-103335-RBZ` **não existe mais** em `carregamentos_dia` (foi apagado/limpo). O painel "Cargas expedidas do dia" e os KPIs de peso (`useCargasDiaExpedicao`) são construídos a partir de `carregamentos_dia` — se a carga sumiu, a saída pela portaria some junto, mesmo havendo `horario_saida_final` registrado em `movimentacoes_portaria`.
 
-Em `useImportarVeiculosEsperados`, antes do `insert`, também apagar quaisquer registros existentes (não-walk-in, status ≠ 'recusado', `conferido = false`) cujo `carga_id` esteja entre os `carga_id`s sendo importados — não só os da mesma data. Isso garante reimportações idempotentes mesmo quando a mesma carga foi previamente prevista para outra data.
+Hoje há **1 movimentação órfã** nessa situação (a do André). Conforme as cargas vão sendo apagadas/reabertas, esse problema tende a se repetir.
 
-Passos no mutationFn:
-1. Coletar `cargaIds` distintos não-nulos dos `inserts`.
-2. Continuar deletando por `data_referencia` (comportamento atual).
-3. Adicionar um delete extra por `in("carga_id", cargaIds)` filtrando `walk_in = false`, `status_autorizacao <> 'recusado'`, `conferido = false`. (Não tocar em cargas já conferidas/expedidas nem em walk-ins.)
-4. Executar o `insert` como hoje.
+## Outros pontos detectados na auditoria
 
-## Melhorias menores na mesma alteração
+1. **Sem fallback para cargas órfãs** — qualquer carga terceirizada cuja saída foi registrada hoje mas que não existe (ou foi excluída) em `carregamentos_dia` desaparece do painel. Não há registro visível para o operador.
+2. **Sem realtime no `useCargasDiaExpedicao` para `movimentacoes_portaria` mudando `horario_saida_final`** — já existe, mas o painel só re-renderiza quando o React Query invalida; ok.
+3. **`tipo_movimento = "saida"` solto** (sem entrada correspondente) não é exibido em nenhum painel — só é considerado pelo `useStatusPortariaPorCarga` se houver entrada do mesmo `carga_id`. No caso do André a entrada existe, então isso está ok; o problema é só a carga órfã.
+4. **Filtro `transportadora` em `useCargasDiaExpedicao`** descarta linhas sem transportadora preenchida. Se um item da carga ficou sem transportadora, a carga inteira pode ser descartada do agrupamento. Vale revisar.
 
-Em `src/components/portaria/ImportarPlanilhaDialog.tsx`:
+## Correções propostas
 
-- **Toast mais informativo no catch da importação**: mostrar a mensagem real do erro (ex.: `duplicate key value violates unique constraint ...`) em vez de só "Erro ao importar veículos esperados". Já temos `error` no `onError` do mutation — passar `error.message` para o toast.
-- **Reconhecimento de grupo no formato "Varejo"**: quando a coluna "AJUDANTES" contiver valor começando por "TRANSP" (ex.: "TRANSP. PEDRO"), tratar essa linha individualmente como terceirizado — populando `transportadora` em vez de `ajudantes`, mesmo com `currentGrupo = "PRÓPRIA"`. Sem isso, a coluna some no banco para a planilha de Varejo.
-- **Carga composta com "/"**: se `cargaId` contiver "/", manter como está hoje (texto literal) mas adicionar comentário inline no parser. Não muda comportamento — apenas documenta. (Quem quiser separar pode fazer manualmente depois.)
+### A. Fallback para saídas de cargas órfãs (principal)
+
+Em `src/hooks/useCargasDiaExpedicao.ts`, depois de montar `cargaIdsSaidaHoje`:
+- Para `carga_id`s que saíram hoje mas **não estão** em `carregamentos_dia` em nenhum dia (carga totalmente apagada), criar uma "carga sintética" mínima a partir de `movimentacoes_portaria`:
+  - `carga_id`, `placa`, `motorista`, `transportadora` (de `empresa`), `tipo_caminhao`, `data = dateStr`, `pesoTotal = 0`, `qtdPedidos = 0`, `status = "Expedido (sem pedidos)"`.
+- Marcar essas linhas com um flag (`orfa: true`) para o `PainelCargasFechadas` exibir um badge "Pedidos apagados" e o card não somar nos KPIs de peso (já é 0).
+
+Resultado: o André aparece em "Cargas expedidas do dia" com badge informativo, mesmo sem `carregamentos_dia`.
+
+### B. Tornar `PainelCargasFechadas` tolerante ao flag `orfa`
+
+Em `src/components/expedicao/PainelCargasFechadas.tsx`: quando `c.orfa`, exibir badge amber "Pedidos apagados — saída registrada na portaria" no card.
+
+### C. Auditoria de cargas órfãs
+
+Adicionar um pequeno log (toast/dev) ou contador no topo do painel quando houver cargas órfãs do dia, para a Logística saber que precisa investigar.
+
+### D. Revisão do filtro `transportadora` (menor)
+
+Em `useCargasDiaExpedicao` linha 162 (`if (!r.transportadora) continue;`), trocar por: tratar a carga como terceirizada se **qualquer** item tiver transportadora preenchida, em vez de descartar item a item. Isso evita perder cargas com 1 linha sem transportadora.
 
 ## Validação
 
-1. Subir a planilha `Rotas Liberadas.xlsx` no botão Importar — deve concluir com toast verde "16 veículos carregados".
-2. Conferir no painel da Portaria que a carga 9763000 (ACREUNA) aparece em 15/06 e sumiu de 18/06.
-3. Reimportar a mesma planilha — não deve dar erro de duplicidade (idempotência).
-4. Conferir uma linha do tipo "TRANSP. PEDRO" — deve aparecer com transportadora preenchida, não como ajudante.
+1. Recarregar `/expedicao` na data 19/06.
+2. Confirmar que o card do André (placa HBR9J69, MOREIRA, carga CG-20260617-103335-RBZ) aparece em "Cargas expedidas do dia" com badge "Pedidos apagados".
+3. KPI "Cargas fechadas" passa de N → N+1; KPI "kg Carregado" não muda (peso 0).
+4. Reabrir um pedido qualquer e verificar que continua aparecendo normalmente nos demais painéis.
+
+## Fora do escopo
+
+- Restaurar a carga `CG-20260617-103335-RBZ` em `carregamentos_dia` (foi apagada; se for o caso, fazemos em conversa separada via snapshot/restore).
+- Mudanças no fluxo da portaria ou em `movimentacoes_portaria`.

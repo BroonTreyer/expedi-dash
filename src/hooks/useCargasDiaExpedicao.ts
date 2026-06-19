@@ -17,6 +17,7 @@ export interface CargaDiaExpedicao {
   pesoTotal: number; // soma de pesoEfetivo (descarta rupturas totais)
   qtdPedidos: number;
   status: string | null; // status agregado (Carregado se TODOS os itens estão Carregado)
+  orfa?: boolean; // true quando saída registrada na portaria mas sem linhas em carregamentos_dia
 }
 
 /**
@@ -82,7 +83,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
       const endOfDay = `${dateStr}T23:59:59.999`;
       const { data: saidasHoje } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id")
+        .select("carga_id, placa, motorista, empresa, tipo_caminhao, horario_saida_final")
         .eq("categoria", "terceirizado")
         .not("carga_id", "is", null)
         .not("horario_saida_final", "is", null)
@@ -111,6 +112,16 @@ export function useCargasDiaExpedicao(dateStr: string) {
             .range(from, to),
         );
         if (extra && extra.length > 0) rows = [...rows, ...extra];
+      }
+
+      // === Cargas órfãs: saída registrada na portaria HOJE, mas carga_id
+      // não existe em carregamentos_dia (pedidos apagados/reabertos).
+      // Mostramos um card sintético para a Logística não perder visibilidade.
+      const presentesAposExtra = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
+      const orfasRows: any[] = [];
+      for (const m of (saidasHoje ?? []) as any[]) {
+        if (!m.carga_id || presentesAposExtra.has(m.carga_id)) continue;
+        orfasRows.push(m);
       }
 
       // Buscar saídas das cargas terceirizadas presentes (para reatribuir
@@ -156,10 +167,17 @@ export function useCargasDiaExpedicao(dateStr: string) {
       }
 
       const grouped = new Map<string, CargaDiaExpedicao & { pedidos: Set<number>; statuses: Set<string> }>();
+      // Cargas terceirizadas: se QUALQUER linha tiver transportadora, todas as
+      // linhas daquele carga_id são consideradas (evita perder a carga inteira
+      // só porque um item ficou sem transportadora preenchida).
+      const cargasComTransp = new Set<string>();
+      for (const r of rows) {
+        if (r.carga_id && r.transportadora) cargasComTransp.add(r.carga_id);
+      }
       for (const r of rows) {
         if (!r.carga_id) continue;
-        // Apenas terceirizado: tem transportadora preenchida
-        if (!r.transportadora) continue;
+        // Apenas cargas terceirizadas (alguma linha com transportadora)
+        if (!cargasComTransp.has(r.carga_id)) continue;
         let g = grouped.get(r.carga_id);
         if (!g) {
           g = {
@@ -167,7 +185,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
             nome_carga: r.nome_carga,
             placa: r.placa,
             motorista: r.motorista,
-            transportadora: r.transportadora,
+            transportadora: r.transportadora ?? null,
             tipo_caminhao: r.tipo_caminhao,
             data: r.data,
             pesoTotal: 0,
@@ -178,6 +196,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
           };
           grouped.set(r.carga_id, g);
         }
+        if (!g.transportadora && r.transportadora) g.transportadora = r.transportadora;
         g.pesoTotal += pesoEfetivo({ peso: r.peso, ruptura: !!r.ruptura });
         if (r.numero_pedido != null) g.pedidos.add(Number(r.numero_pedido));
         if (r.status) g.statuses.add(String(r.status));
@@ -186,7 +205,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
       // Itens por carga (para computar data efetiva via updated_at)
       const itensPorCarga = new Map<string, any[]>();
       for (const r of rows) {
-        if (!r.carga_id || !r.transportadora) continue;
+        if (!r.carga_id || !cargasComTransp.has(r.carga_id)) continue;
         const arr = itensPorCarga.get(r.carga_id) ?? [];
         arr.push(r);
         itensPorCarga.set(r.carga_id, arr);
@@ -217,7 +236,27 @@ export function useCargasDiaExpedicao(dateStr: string) {
       }) as CargaDiaExpedicao[];
 
       // Mantém somente cargas cuja data efetiva é o dia consultado
-      return list.filter((c) => c.data === dateStr);
+      const filtered = list.filter((c) => c.data === dateStr);
+
+      // Anexa cargas órfãs (saída registrada hoje sem pedidos)
+      const orfasDedup = new Map<string, CargaDiaExpedicao>();
+      for (const m of orfasRows) {
+        if (orfasDedup.has(m.carga_id)) continue;
+        orfasDedup.set(m.carga_id, {
+          carga_id: m.carga_id,
+          nome_carga: null,
+          placa: m.placa ?? null,
+          motorista: m.motorista ?? null,
+          transportadora: m.empresa ?? null,
+          tipo_caminhao: m.tipo_caminhao ?? null,
+          data: dateStr,
+          pesoTotal: 0,
+          qtdPedidos: 0,
+          status: "Expedido (sem pedidos)",
+          orfa: true,
+        });
+      }
+      return [...filtered, ...Array.from(orfasDedup.values())];
     },
   });
 }

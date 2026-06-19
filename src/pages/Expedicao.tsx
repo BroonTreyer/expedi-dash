@@ -188,7 +188,8 @@ export default function Expedicao() {
         const info = statusPortariaMap?.get(makeStatusKey(c.carga_id, c.placa));
         const expedidaPortaria = info?.etapa === "expedido";
         const expedidaFaturamento = c.status === "Carregado";
-        if (!expedidaPortaria && !expedidaFaturamento) return null;
+        const expedidaOrfa = !!c.orfa; // saída na portaria sem pedidos
+        if (!expedidaPortaria && !expedidaFaturamento && !expedidaOrfa) return null;
         return { ...c, horarioSaida: info?.saida ?? null };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
