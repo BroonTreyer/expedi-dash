@@ -167,10 +167,17 @@ export function useCargasDiaExpedicao(dateStr: string) {
       }
 
       const grouped = new Map<string, CargaDiaExpedicao & { pedidos: Set<number>; statuses: Set<string> }>();
+      // Cargas terceirizadas: se QUALQUER linha tiver transportadora, todas as
+      // linhas daquele carga_id são consideradas (evita perder a carga inteira
+      // só porque um item ficou sem transportadora preenchida).
+      const cargasComTransp = new Set<string>();
+      for (const r of rows) {
+        if (r.carga_id && r.transportadora) cargasComTransp.add(r.carga_id);
+      }
       for (const r of rows) {
         if (!r.carga_id) continue;
-        // Apenas terceirizado: tem transportadora preenchida
-        if (!r.transportadora) continue;
+        // Apenas cargas terceirizadas (alguma linha com transportadora)
+        if (!cargasComTransp.has(r.carga_id)) continue;
         let g = grouped.get(r.carga_id);
         if (!g) {
           g = {
@@ -178,7 +185,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
             nome_carga: r.nome_carga,
             placa: r.placa,
             motorista: r.motorista,
-            transportadora: r.transportadora,
+            transportadora: r.transportadora ?? null,
             tipo_caminhao: r.tipo_caminhao,
             data: r.data,
             pesoTotal: 0,
@@ -189,6 +196,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
           };
           grouped.set(r.carga_id, g);
         }
+        if (!g.transportadora && r.transportadora) g.transportadora = r.transportadora;
         g.pesoTotal += pesoEfetivo({ peso: r.peso, ruptura: !!r.ruptura });
         if (r.numero_pedido != null) g.pedidos.add(Number(r.numero_pedido));
         if (r.status) g.statuses.add(String(r.status));
@@ -197,7 +205,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
       // Itens por carga (para computar data efetiva via updated_at)
       const itensPorCarga = new Map<string, any[]>();
       for (const r of rows) {
-        if (!r.carga_id || !r.transportadora) continue;
+        if (!r.carga_id || !cargasComTransp.has(r.carga_id)) continue;
         const arr = itensPorCarga.get(r.carga_id) ?? [];
         arr.push(r);
         itensPorCarga.set(r.carga_id, arr);
