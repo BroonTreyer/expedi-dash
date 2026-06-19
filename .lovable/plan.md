@@ -1,56 +1,49 @@
-# Auditoria — Painel Expedição
+# Correção imediata — carga do André
 
-## Diagnóstico do caso "André"
+## O que aconteceu
 
-Movimentação no banco (placa HBR9J69 / MOREIRA / carga `CG-20260617-103335-RBZ`):
-- Entrada: 18/06 14:13 — etapa `finalizado`
-- Saída: 19/06 11:41 (`horario_saida_final`)
+A auditoria confirmou que, às **19/06 11:44:59**, 67 itens / 7 pedidos foram removidos da carga `CG-20260617-103335-RBZ` e voltaram para:
+- `etapa = vendas`
+- `status = Aguardando`
+- `carga_id = null`
 
-Resultado esperado: aparecer hoje (19/06) no painel **"Cargas expedidas do dia"**.
-Resultado real: **não aparece em lugar nenhum.**
+Por isso eles voltaram a ficar disponíveis na Home.
 
-**Causa raiz:** o `carga_id` `CG-20260617-103335-RBZ` **não existe mais** em `carregamentos_dia` (foi apagado/limpo). O painel "Cargas expedidas do dia" e os KPIs de peso (`useCargasDiaExpedicao`) são construídos a partir de `carregamentos_dia` — se a carga sumiu, a saída pela portaria some junto, mesmo havendo `horario_saida_final` registrado em `movimentacoes_portaria`.
+Minha alteração anterior não moveu os pedidos, mas criou um card sintético na Expedição com **0 kg**, o que ficou errado nesse cenário, porque os pedidos existem — só estão soltos.
 
-Hoje há **1 movimentação órfã** nessa situação (a do André). Conforme as cargas vão sendo apagadas/reabertas, esse problema tende a se repetir.
+## Correção proposta
 
-## Outros pontos detectados na auditoria
+### 1. Restaurar os 67 itens na carga correta
 
-1. **Sem fallback para cargas órfãs** — qualquer carga terceirizada cuja saída foi registrada hoje mas que não existe (ou foi excluída) em `carregamentos_dia` desaparece do painel. Não há registro visível para o operador.
-2. **Sem realtime no `useCargasDiaExpedicao` para `movimentacoes_portaria` mudando `horario_saida_final`** — já existe, mas o painel só re-renderiza quando o React Query invalida; ok.
-3. **`tipo_movimento = "saida"` solto** (sem entrada correspondente) não é exibido em nenhum painel — só é considerado pelo `useStatusPortariaPorCarga` se houver entrada do mesmo `carga_id`. No caso do André a entrada existe, então isso está ok; o problema é só a carga órfã.
-4. **Filtro `transportadora` em `useCargasDiaExpedicao`** descarta linhas sem transportadora preenchida. Se um item da carga ficou sem transportadora, a carga inteira pode ser descartada do agrupamento. Vale revisar.
+Atualizar exatamente os registros identificados pelo `audit_log`, voltando os campos para os valores anteriores:
 
-## Correções propostas
+- `carga_id = CG-20260617-103335-RBZ`
+- `nome_carga = EDIVAR + DMA`
+- `placa = OZROD10`
+- `motorista = ANDRE ROBERTO BELLAVER`
+- `transportadora = MOREIRA`
+- `tipo_caminhao = Carreta`
+- `etapa = logistica`
+- `status = Carregado`
+- `ordem_entrega = valor anterior do audit_log`
 
-### A. Fallback para saídas de cargas órfãs (principal)
+Total previsto após restauração:
+- **67 itens**
+- **7 pedidos**
+- **23.580,12 kg**
 
-Em `src/hooks/useCargasDiaExpedicao.ts`, depois de montar `cargaIdsSaidaHoje`:
-- Para `carga_id`s que saíram hoje mas **não estão** em `carregamentos_dia` em nenhum dia (carga totalmente apagada), criar uma "carga sintética" mínima a partir de `movimentacoes_portaria`:
-  - `carga_id`, `placa`, `motorista`, `transportadora` (de `empresa`), `tipo_caminhao`, `data = dateStr`, `pesoTotal = 0`, `qtdPedidos = 0`, `status = "Expedido (sem pedidos)"`.
-- Marcar essas linhas com um flag (`orfa: true`) para o `PainelCargasFechadas` exibir um badge "Pedidos apagados" e o card não somar nos KPIs de peso (já é 0).
+### 2. Ajustar o painel Expedição
 
-Resultado: o André aparece em "Cargas expedidas do dia" com badge informativo, mesmo sem `carregamentos_dia`.
+Remover a lógica que cria card sintético com **0 kg** para carga órfã, porque isso mascara o problema real.
 
-### B. Tornar `PainelCargasFechadas` tolerante ao flag `orfa`
+Depois disso, se uma saída da portaria existir sem pedidos vinculados, o painel não vai exibir um card falso de 0 kg; primeiro precisa corrigir a carga no banco.
 
-Em `src/components/expedicao/PainelCargasFechadas.tsx`: quando `c.orfa`, exibir badge amber "Pedidos apagados — saída registrada na portaria" no card.
+### 3. Manter apenas a melhoria segura
 
-### C. Auditoria de cargas órfãs
-
-Adicionar um pequeno log (toast/dev) ou contador no topo do painel quando houver cargas órfãs do dia, para a Logística saber que precisa investigar.
-
-### D. Revisão do filtro `transportadora` (menor)
-
-Em `useCargasDiaExpedicao` linha 162 (`if (!r.transportadora) continue;`), trocar por: tratar a carga como terceirizada se **qualquer** item tiver transportadora preenchida, em vez de descartar item a item. Isso evita perder cargas com 1 linha sem transportadora.
+Manter a melhoria que evita descartar a carga quando apenas uma linha está sem transportadora, pois isso não interfere na Home e evita perda de peso no painel.
 
 ## Validação
 
-1. Recarregar `/expedicao` na data 19/06.
-2. Confirmar que o card do André (placa HBR9J69, MOREIRA, carga CG-20260617-103335-RBZ) aparece em "Cargas expedidas do dia" com badge "Pedidos apagados".
-3. KPI "Cargas fechadas" passa de N → N+1; KPI "kg Carregado" não muda (peso 0).
-4. Reabrir um pedido qualquer e verificar que continua aparecendo normalmente nos demais painéis.
-
-## Fora do escopo
-
-- Restaurar a carga `CG-20260617-103335-RBZ` em `carregamentos_dia` (foi apagada; se for o caso, fazemos em conversa separada via snapshot/restore).
-- Mudanças no fluxo da portaria ou em `movimentacoes_portaria`.
+1. Conferir que `CG-20260617-103335-RBZ` voltou a ter 67 itens e peso total 23.580,12 kg.
+2. Conferir que esses pedidos não aparecem mais disponíveis na Home.
+3. Conferir que o painel Expedição mostra a carga do André com peso real, não 0 kg.
