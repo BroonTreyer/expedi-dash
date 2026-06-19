@@ -82,7 +82,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
       const endOfDay = `${dateStr}T23:59:59.999`;
       const { data: saidasHoje } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id, placa, motorista, empresa, tipo_caminhao, horario_saida_final")
+        .select("carga_id")
         .eq("categoria", "terceirizado")
         .not("carga_id", "is", null)
         .not("horario_saida_final", "is", null)
@@ -111,16 +111,6 @@ export function useCargasDiaExpedicao(dateStr: string) {
             .range(from, to),
         );
         if (extra && extra.length > 0) rows = [...rows, ...extra];
-      }
-
-      // === Cargas órfãs: saída registrada na portaria HOJE, mas carga_id
-      // não existe em carregamentos_dia (pedidos apagados/reabertos).
-      // Mostramos um card sintético para a Logística não perder visibilidade.
-      const presentesAposExtra = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
-      const orfasRows: any[] = [];
-      for (const m of (saidasHoje ?? []) as any[]) {
-        if (!m.carga_id || presentesAposExtra.has(m.carga_id)) continue;
-        orfasRows.push(m);
       }
 
       // Buscar saídas das cargas terceirizadas presentes (para reatribuir
