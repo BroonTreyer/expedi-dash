@@ -133,17 +133,30 @@ export default function Expedicao() {
     [chegouOuNoPatio]
   );
 
+  // Cargas que já tiveram saída final pela portaria — não devem aparecer em
+  // "A chegar" mesmo que o veículo esperado ainda esteja com conferido=false.
+  const cargasJaExpedidas = useMemo(
+    () =>
+      new Set(
+        movimentacoesAll
+          .filter((m) => m.categoria === "terceirizado" && !!m.horario_saida_final && !!m.carga_id)
+          .map((m) => m.carga_id as string)
+      ),
+    [movimentacoesAll]
+  );
+
   // A chegar — exclui placas/cargas que já chegaram
   const veiculosAChegar = useMemo(
     () =>
       veiculosEsperados.filter((v) => {
         if (v.conferido) return false;
+        if (v.carga_id && cargasJaExpedidas.has(v.carga_id)) return false;
         const placa = (v.placa || "").trim().toUpperCase();
         if (placa && placasChegadas.has(placa)) return false;
         if (v.carga_id && placa && cargasComMotoristaChegado.has(`${v.carga_id}|${placa}`)) return false;
         return true;
       }),
-    [veiculosEsperados, placasChegadas, cargasComMotoristaChegado]
+    [veiculosEsperados, placasChegadas, cargasComMotoristaChegado, cargasJaExpedidas]
   );
 
   // === KPIs de peso alinhados ao Consolidado ===
