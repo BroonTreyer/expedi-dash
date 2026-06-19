@@ -225,27 +225,7 @@ export function useCargasDiaExpedicao(dateStr: string) {
       }) as CargaDiaExpedicao[];
 
       // Mantém somente cargas cuja data efetiva é o dia consultado
-      const filtered = list.filter((c) => c.data === dateStr);
-
-      // Anexa cargas órfãs (saída registrada hoje sem pedidos)
-      const orfasDedup = new Map<string, CargaDiaExpedicao>();
-      for (const m of orfasRows) {
-        if (orfasDedup.has(m.carga_id)) continue;
-        orfasDedup.set(m.carga_id, {
-          carga_id: m.carga_id,
-          nome_carga: null,
-          placa: m.placa ?? null,
-          motorista: m.motorista ?? null,
-          transportadora: m.empresa ?? null,
-          tipo_caminhao: m.tipo_caminhao ?? null,
-          data: dateStr,
-          pesoTotal: 0,
-          qtdPedidos: 0,
-          status: "Expedido (sem pedidos)",
-          orfa: true,
-        });
-      }
-      return [...filtered, ...Array.from(orfasDedup.values())];
+      return list.filter((c) => c.data === dateStr);
     },
   });
 }
