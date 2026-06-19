@@ -164,7 +164,17 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
     const transpOrAjudante = get("TRANSP");
     const tipoVeiculo = get("VEICULO");
 
-    const isTerceirizado = currentGrupo === "FROTAS" || currentGrupo === "INTERIOR";
+    // Reconhece terceirizado tanto por grupo (FROTAS/INTERIOR) quanto por
+    // valor "TRANSP. xxx" na coluna AJUDANTES/TRANSP (formato Varejo).
+    const transpUpper = transpOrAjudante.toUpperCase().trim();
+    const isTranspByValue = transpUpper.startsWith("TRANSP");
+    const isTerceirizado =
+      currentGrupo === "FROTAS" || currentGrupo === "INTERIOR" || isTranspByValue;
+    // carga_id composto (ex.: "9782000/130774") é mantido literal — separar
+    // manualmente se necessário.
+    const transpClean = isTranspByValue
+      ? transpOrAjudante.replace(/^TRANSP\.?\s*/i, "").trim()
+      : transpOrAjudante;
 
     rows.push({
       grupo: currentGrupo,
@@ -175,7 +185,7 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
       peso,
       qtd_entregas: qtdEntregas,
       motorista,
-      transportadora: isTerceirizado ? transpOrAjudante : "",
+      transportadora: isTerceirizado ? transpClean : "",
       ajudantes: isTerceirizado ? "" : transpOrAjudante,
       tipo_veiculo: tipoVeiculo,
       valid: placa.length >= 3,

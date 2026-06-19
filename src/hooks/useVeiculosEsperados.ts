@@ -527,6 +527,27 @@ export function useImportarVeiculosEsperados() {
           .eq("data_referencia", dt);
       }
 
+      // Também remove eventuais "previstos" (não walk-in, não conferidos,
+      // status ≠ 'recusado') com o mesmo carga_id em QUALQUER data — evita
+      // conflito com o índice único global veiculos_esperados_carga_id_unique_previsto
+      // quando a mesma carga foi prevista anteriormente para outro dia.
+      const cargaIds = Array.from(
+        new Set(
+          inserts
+            .map((i) => i.carga_id)
+            .filter((v): v is string => !!v && v.trim().length > 0),
+        ),
+      );
+      if (cargaIds.length > 0) {
+        await supabase
+          .from("veiculos_esperados" as any)
+          .delete()
+          .in("carga_id", cargaIds)
+          .eq("walk_in", false)
+          .eq("conferido", false)
+          .neq("status_autorizacao", "recusado");
+      }
+
       const { error } = await supabase
         .from("veiculos_esperados" as any)
         .insert(inserts);
@@ -536,8 +557,9 @@ export function useImportarVeiculosEsperados() {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       toast.success(`${vars.rows.length} veículos carregados na lista de esperados`);
     },
-    onError: () => {
-      toast.error("Erro ao importar veículos esperados");
+    onError: (err: any) => {
+      const msg = err?.message || err?.details || "Erro ao importar veículos esperados";
+      toast.error("Erro ao importar veículos esperados", { description: msg });
     },
   });
 }
