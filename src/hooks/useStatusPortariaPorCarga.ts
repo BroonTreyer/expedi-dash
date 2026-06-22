@@ -208,10 +208,20 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
         const inicio = base - janelaAntes * 3600_000;
         const fim = base + janelaDepois * 3600_000;
         const dentro = rows.filter((r) => {
-          if (!r.data_hora) return true;
-          const ts = new Date(r.data_hora).getTime();
-          if (!Number.isFinite(ts)) return true;
-          return ts >= inicio && ts < fim;
+          // Considera qualquer carimbo de tempo relevante do movimento.
+          // Usar só data_hora descartava entradas cujo data_hora é anterior
+          // à janela mas cuja saída (horario_saida_final) ocorreu dentro
+          // dela — perdendo o sinal "finalizado".
+          const stamps = [
+            r.data_hora,
+            r.horario_chegada,
+            r.horario_entrada,
+            r.horario_saida_final,
+          ]
+            .map((s) => (s ? new Date(s).getTime() : NaN))
+            .filter((t) => Number.isFinite(t));
+          if (stamps.length === 0) return true;
+          return stamps.some((ts) => ts >= inicio && ts < fim);
         });
         // Fallback: se a janela eliminar tudo, mantém todos os movimentos
         // (atraso operacional além da janela).
