@@ -6,6 +6,7 @@ import { Copy, CheckCircle2, Printer, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRegistrarQuitacao, type Adiantamento } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+import { consolidarPorOC } from "./AdiantamentosTab";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,8 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
     [adiantamentos],
   );
 
+  const grupos = useMemo(() => consolidarPorOC(adiantamentos), [adiantamentos]);
+
   const texto = useMemo(() => {
     if (adiantamentos.length === 0) return "";
     const linhas: string[] = [
@@ -40,9 +43,11 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
       "",
       "VALOR EM ABERTO  | COD   | TRANSPORTADORA | OC",
     ];
-    for (const a of adiantamentos) {
+    for (const g of grupos) {
+      const oc = g.rep.ordem_carga ?? g.rep.numero ?? "—";
+      const ctesTag = g.items.length > 1 ? ` (${g.qtdCtes} CT-e)` : "";
       linhas.push(
-        `${fmtBRL(a.valor_saldo).padEnd(15)} | ${(info?.codigo ?? "—").padEnd(5)} | ${a.transportadora.padEnd(14)} | ${a.ordem_carga ?? "—"}`,
+        `${fmtBRL(g.valorSaldo).padEnd(15)} | ${(info?.codigo ?? "—").padEnd(5)} | ${g.rep.transportadora.padEnd(14)} | ${oc}${ctesTag}`,
       );
     }
     linhas.push("", `*Valor a Pagar: ${fmtBRL(totalSaldo)}*`, "");
@@ -50,7 +55,7 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
     if (info?.codigo) linhas.push(`Código ${info.codigo} – ${info.nome}`);
     if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
     return linhas.join("\n");
-  }, [adiantamentos, info, totalSaldo]);
+  }, [adiantamentos, grupos, info, totalSaldo]);
 
   const copy = async () => {
     await navigator.clipboard.writeText(texto);
@@ -78,12 +83,19 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
                 </tr>
               </thead>
               <tbody>
-                {adiantamentos.map((a) => (
-                  <tr key={a.id} className="bg-sky-50/60 border-t">
-                    <td className="px-3 py-2 font-semibold">{fmtBRL(a.valor_saldo)}</td>
+                {grupos.map((g) => (
+                  <tr key={g.key} className="bg-sky-50/60 border-t">
+                    <td className="px-3 py-2 font-semibold">{fmtBRL(g.valorSaldo)}</td>
                     <td className="px-3 py-2">{info?.codigo ?? "—"}</td>
-                    <td className="px-3 py-2">{a.transportadora}</td>
-                    <td className="px-3 py-2">{a.ordem_carga ?? a.numero}</td>
+                    <td className="px-3 py-2">{g.rep.transportadora}</td>
+                    <td className="px-3 py-2">
+                      {g.rep.ordem_carga ?? g.rep.numero}
+                      {g.items.length > 1 && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({g.qtdCtes} CT-e)
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 <tr className="bg-foreground text-background font-bold">
