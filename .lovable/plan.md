@@ -1,22 +1,19 @@
-# Reagrupar CT-es por OC em "Aguardando Quitação"
-
 ## Problema
-No card de uma transportadora dentro da aba **Aguardando Quitação** (Logística → Adiantamentos), cada adiantamento aparece como uma linha separada com "1 CT-e", mesmo quando vários ADTs pertencem à mesma OC. Antes, esses CT-es da mesma OC eram consolidados em uma única linha (ex.: "OC 130753 · 8 CT-e · R$ ...").
 
-A lógica de consolidação (`consolidarPorOC`) já existe no arquivo e é usada nas abas Pendentes/Quitados, mas o bloco interno do card de transportadora em "Aguardando Quitação" (`src/components/logistica/AdiantamentosTab.tsx`, ~linhas 852-869) renderiza `lista.map((a) => ...)` direto sobre os ADTs individuais.
+Ao clicar em "Registrar Quitação", o diálogo `RegistrarQuitacaoDialog` está listando cada CT-e individualmente (9 linhas para a mesma OC 130755), em vez de unificar por OC como era antes — e como já acontece no card "Aguardando Quitação".
 
-## Mudança
-Em `src/components/logistica/AdiantamentosTab.tsx`, dentro do card de cada transportadora pagos (bloco que hoje faz `lista.map((a) => <label>...</label>)`):
+## Solução
 
-1. Aplicar `consolidarPorOC(lista)` para obter grupos por OC.
-2. Renderizar **uma linha por grupo** com:
-   - Número representativo do ADT (sem o sufixo `-OC...`), ou contagem "N ADTs" quando houver mais de um.
-   - `OC {ordem_carga}` (ou "Lote" quando `tipo_agrupamento !== "ordem"`).
-   - `{qtdCtes} CT-e` (somatório do grupo).
-   - Valor = `valorSaldo` do grupo (soma dos saldos dos ADTs).
-3. Checkbox da linha:
-   - `checked` quando **todos** os `items` do grupo estão em `selPagos`.
-   - `onCheckedChange`: adiciona/remove todos os `item.id` do grupo em `selPagos` de uma vez.
-4. Manter o cabeçalho do card (contagem total de lotes, saldo total, botões "Ver comprovantes" / "Registrar Quitação") inalterado — só o detalhamento interno muda.
+Em `src/components/logistica/RegistrarQuitacaoDialog.tsx`, aplicar o mesmo agrupamento por OC (já usado em `AdiantamentosTab`) tanto na tabela visual quanto no texto copiado:
 
-Sem alterações em hooks, schema ou outras abas.
+1. Importar/replicar o agrupamento `consolidarPorOC` (mesma lógica: `tipo_agrupamento === "ordem"` + `transportadora` + `ordem_carga` ⇒ uma linha; senão SOLO por id). Para evitar duplicação, exportar `consolidarPorOC` de `AdiantamentosTab.tsx` (ou movê-lo para um helper) e importar aqui.
+2. Renderizar **uma linha por grupo** na tabela, com:
+   - Valor em aberto = soma dos `valor_saldo` do grupo
+   - COD = código da transportadora
+   - Transportadora = nome
+   - OC / Lote = `ordem_carga` (ou número quando SOLO)
+   - Opcional: badge `{qtdCtes} CT-e` ao lado da OC para indicar quantos itens foram unificados
+3. Atualizar o `texto` copiado para iterar por grupos (uma linha por OC, com soma do saldo) em vez de iterar por adiantamento.
+4. Manter `totalSaldo`, "Valor a Pagar", PIX, observações, data e o `reg.mutateAsync({ ids: adiantamentos.map(...) })` exatamente como estão — a quitação continua marcando todos os ADTs subjacentes.
+
+Sem mudanças em hooks, banco ou no card "Aguardando Quitação".
