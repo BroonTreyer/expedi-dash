@@ -984,7 +984,7 @@ export function AdiantamentosTab() {
   );
 }
 
-type GrupoAdt = {
+export type GrupoAdt = {
   key: string;
   items: Adiantamento[];
   rep: Adiantamento; // representativo (mais recente)
@@ -1000,7 +1000,7 @@ type GrupoAdt = {
   quitadoMax: string | null;
 };
 
-function consolidarPorOC(data: Adiantamento[]): GrupoAdt[] {
+export function consolidarPorOC(data: Adiantamento[]): GrupoAdt[] {
   const map = new Map<string, Adiantamento[]>();
   for (const a of data) {
     const ocKey =
