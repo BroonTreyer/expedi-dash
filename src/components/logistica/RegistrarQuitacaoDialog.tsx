@@ -38,20 +38,22 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
 
   const texto = useMemo(() => {
     if (adiantamentos.length === 0) return "";
-    const linhas: string[] = [
-      "QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.",
-      "",
-      "VALOR EM ABERTO  | COD   | TRANSPORTADORA | OC",
-    ];
-    for (const g of grupos) {
-      const oc = g.rep.ordem_carga ?? g.rep.numero ?? "—";
-      const ctesTag = g.items.length > 1 ? ` (${g.qtdCtes} CT-e)` : "";
+    const fmtKg = (n: number) =>
+      new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+    const linhas: string[] = ["QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.", ""];
+    grupos.forEach((g, i) => {
+      const rotulo =
+        g.rep.tipo_agrupamento === "ordem" && g.rep.ordem_carga
+          ? `OC ${g.rep.ordem_carga}`
+          : `Lote ${g.rep.numero}`;
+      const peso = g.items.reduce((s, a) => s + Number(a.peso_total || 0), 0);
+      const ctes = g.items.flatMap((a) => a.cteNumbers ?? []);
+      const cteTxt = ctes.length ? `  CTE ${ctes.join("/")}` : "";
       linhas.push(
-        `${fmtBRL(g.valorSaldo).padEnd(15)} | ${(info?.codigo ?? "—").padEnd(5)} | ${g.rep.transportadora.padEnd(14)} | ${oc}${ctesTag}`,
+        `${i + 1}. ${rotulo} (${fmtKg(peso)} KG)${cteTxt}   VLR ${fmtBRL(g.valorSaldo)}`,
       );
-    }
-    linhas.push("", `*Valor a Pagar: ${fmtBRL(totalSaldo)}*`, "");
-    linhas.push(`Valor Saldo ${fmtBRL(totalSaldo)}`);
+    });
+    linhas.push("", `Valor Total a Quitar ${fmtBRL(totalSaldo)}`);
     if (info?.codigo) linhas.push(`Código ${info.codigo} – ${info.nome}`);
     if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
     return linhas.join("\n");
