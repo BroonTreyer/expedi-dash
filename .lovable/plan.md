@@ -1,36 +1,22 @@
-# Problema
+# Reagrupar CT-es por OC em "Aguardando Quitação"
 
-Na página **Portaria — Varejo** (`/portaria/carga-propria`), o usuário com perfil **Portaria** não vê o botão **"Registrar Chegada"** na aba **Esperados**, então não consegue marcar a chegada do motorista do Varejo.
+## Problema
+No card de uma transportadora dentro da aba **Aguardando Quitação** (Logística → Adiantamentos), cada adiantamento aparece como uma linha separada com "1 CT-e", mesmo quando vários ADTs pertencem à mesma OC. Antes, esses CT-es da mesma OC eram consolidados em uma única linha (ex.: "OC 130753 · 8 CT-e · R$ ...").
 
-# Causa
+A lógica de consolidação (`consolidarPorOC`) já existe no arquivo e é usada nas abas Pendentes/Quitados, mas o bloco interno do card de transportadora em "Aguardando Quitação" (`src/components/logistica/AdiantamentosTab.tsx`, ~linhas 852-869) renderiza `lista.map((a) => ...)` direto sobre os ADTs individuais.
 
-Em `src/pages/Portaria.tsx` (linha 540), o `VeiculosEsperadosPanel` é renderizado com:
+## Mudança
+Em `src/components/logistica/AdiantamentosTab.tsx`, dentro do card de cada transportadora pagos (bloco que hoje faz `lista.map((a) => <label>...</label>)`):
 
-```tsx
-hideRegistrarChegada={isPortaria}
-```
+1. Aplicar `consolidarPorOC(lista)` para obter grupos por OC.
+2. Renderizar **uma linha por grupo** com:
+   - Número representativo do ADT (sem o sufixo `-OC...`), ou contagem "N ADTs" quando houver mais de um.
+   - `OC {ordem_carga}` (ou "Lote" quando `tipo_agrupamento !== "ordem"`).
+   - `{qtdCtes} CT-e` (somatório do grupo).
+   - Valor = `valorSaldo` do grupo (soma dos saldos dos ADTs).
+3. Checkbox da linha:
+   - `checked` quando **todos** os `items` do grupo estão em `selPagos`.
+   - `onCheckedChange`: adiciona/remove todos os `item.id` do grupo em `selPagos` de uma vez.
+4. Manter o cabeçalho do card (contagem total de lotes, saldo total, botões "Ver comprovantes" / "Registrar Quitação") inalterado — só o detalhamento interno muda.
 
-Esse flag esconde o botão "Registrar Chegada" para quem tem role `portaria`. O comentário no componente diz que a Portaria deveria usar os cards do **Pátio Atual** ou do painel azul **"Cargas fechadas aguardando veículo"** — mas esse painel azul só aparece quando uma carga foi fechada com placa vinculada na Logística. Para o **Varejo (carga_propria)**, o fluxo padrão é o motorista chegar pela lista de **Esperados** (planilha importada / vínculo automático), e sem o botão a Portaria fica travada.
-
-No fluxo de **Distribuidores (terceirizado)** isso não afeta porque a aba "Esperados" nem é exibida (`categoria !== "terceirizado"`) e a chegada acontece pelo painel azul.
-
-# Correção
-
-Em `src/pages/Portaria.tsx`, trocar a prop por algo que considere a categoria:
-
-```tsx
-hideRegistrarChegada={isPortaria && categoria !== "carga_propria"}
-```
-
-Assim:
-- **Varejo (`carga_propria`)** → botão **visível** para Portaria, permitindo registrar chegada a partir dos Esperados.
-- **Distribuidores (`terceirizado`)** → comportamento atual mantido (a aba sequer aparece).
-- **Admin / Logística** → continuam vendo o botão como hoje.
-
-Nenhuma outra mudança é necessária: a função `openRegistroFromVeiculoEsperado` já trata corretamente `categoria === "carga_propria"` (usa `buildCargaPropriaPayload` e entra direto no pátio).
-
-# Validação
-
-1. Logar como Portaria, abrir `/portaria/carga-propria`, aba **Esperados** → conferir botão **"Registrar Chegada"** em cada veículo pendente (mobile e desktop).
-2. Clicar e confirmar que o motorista aparece no **Pátio Atual** com etapa "chegou".
-3. Em `/portaria/terceirizado` nada muda — fluxo segue pelo painel azul.
+Sem alterações em hooks, schema ou outras abas.

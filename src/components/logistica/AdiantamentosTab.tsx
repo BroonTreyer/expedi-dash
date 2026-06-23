@@ -850,22 +850,43 @@ export function AdiantamentosTab() {
                         </div>
                       </div>
                       <div className="border-t pt-2 space-y-1">
-                        {lista.map((a) => (
-                          <label
-                            key={a.id}
-                            className="flex items-center gap-2 text-xs hover:bg-muted/40 rounded px-1 py-0.5 cursor-pointer"
-                          >
-                            <Checkbox checked={selPagos.has(a.id)} onCheckedChange={() => togglePago(a.id)} />
-                            <span className="font-mono">{a.numero.replace(/-OC\d+$/, "")}</span>
-                            <span className="text-muted-foreground">·</span>
-                            <span className="font-mono">
-                              {a.tipo_agrupamento === "ordem" ? `OC ${a.ordem_carga ?? "—"}` : "Lote"}
-                            </span>
-                            <span className="text-muted-foreground">·</span>
-                            <span>{a.qtd_ctes} CT-e</span>
-                            <span className="ml-auto tabular-nums font-semibold">{fmtBRL(Number(a.valor_saldo))}</span>
-                          </label>
-                        ))}
+                        {consolidarPorOC(lista).map((g) => {
+                          const ids = g.items.map((i) => i.id);
+                          const allSel = ids.every((id) => selPagos.has(id));
+                          const repNum = g.rep.numero.replace(/-OC\d+$/, "");
+                          const label =
+                            g.items.length > 1 ? `${g.items.length} ADTs` : repNum;
+                          return (
+                            <label
+                              key={g.key}
+                              className="flex items-center gap-2 text-xs hover:bg-muted/40 rounded px-1 py-0.5 cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={allSel}
+                                onCheckedChange={() => {
+                                  setSelPagos((p) => {
+                                    const n = new Set(p);
+                                    if (allSel) ids.forEach((id) => n.delete(id));
+                                    else ids.forEach((id) => n.add(id));
+                                    return n;
+                                  });
+                                }}
+                              />
+                              <span className="font-mono">{label}</span>
+                              <span className="text-muted-foreground">·</span>
+                              <span className="font-mono">
+                                {g.rep.tipo_agrupamento === "ordem"
+                                  ? `OC ${g.rep.ordem_carga ?? "—"}`
+                                  : "Lote"}
+                              </span>
+                              <span className="text-muted-foreground">·</span>
+                              <span>{g.qtdCtes} CT-e</span>
+                              <span className="ml-auto tabular-nums font-semibold">
+                                {fmtBRL(g.valorSaldo)}
+                              </span>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
                   );
