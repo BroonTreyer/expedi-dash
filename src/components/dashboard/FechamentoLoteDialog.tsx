@@ -572,10 +572,11 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     const ocFallback = ordemCarga.trim();
     const ocPrimeiraValida =
       Object.values(ordemCargaPorGrupo).map((v) => v.trim()).find((v) => v.length > 0) ?? "";
+    const ocPrimeiraPedido =
+      Object.values(ordemCargaPorPedido).map((v) => v.trim()).find((v) => v.length > 0) ?? "";
     const updates = groups.flatMap((group, gIdx) => {
       const groupKey = group.codigoCliente ?? `__sem__${group.ordem}`;
       const ocGrupo = (ordemCargaPorGrupo[groupKey] ?? "").trim();
-      const ocFinal = modoOc === "unica" ? ocFallback : (ocGrupo || ocPrimeiraValida);
       return group.items.map((item) => ({
         id: item.id,
         tipo_caminhao: tipoCaminhao,
@@ -588,7 +589,12 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         data: dataCarregamento,
         ...(horarioPrevisto ? { horario_previsto: horarioPrevisto } : {}),
         nome_carga: nomeCargaFinal,
-        ordem_carga: ocFinal,
+        ordem_carga:
+          modoOc === "unica"
+            ? ocFallback
+            : modoOc === "porGrupo"
+            ? (ocGrupo || ocPrimeiraValida)
+            : ((ordemCargaPorPedido[item.id] ?? "").trim() || ocPrimeiraPedido),
       }));
     });
     const ocsDistintas = Array.from(new Set(updates.map((u) => u.ordem_carga).filter(Boolean)));
