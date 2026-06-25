@@ -354,6 +354,13 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   );
   const dndKey = useCallback((g: RotaGroup) => g.codigoCliente ?? `__sem__${g.ordem}`, []);
   const sortableIds = useMemo(() => groups.map(dndKey), [groups, dndKey]);
+
+  // Lookup id → carregamento para mostrar nome do produto + nº pedido no modo "Por pedido"
+  const itemById = useMemo(() => {
+    const m = new Map<string, Carregamento>();
+    items.forEach((it) => m.set(it.id, it));
+    return m;
+  }, [items]);
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -819,6 +826,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                   const colorClass = idx === 0 ? "text-green-600" : idx === groups.length - 1 ? "text-red-500" : "text-primary";
                   const groupKey = g.codigoCliente ?? `__sem__${g.ordem}`;
                   return (
+                    <div key={dndKey(g)} className="space-y-1">
                     <SortableDestRow
                       key={dndKey(g)}
                       id={dndKey(g)}
@@ -846,6 +854,29 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                         }
                       } : undefined}
                     />
+                    {modoOc === "porPedido" && (
+                      <div className="pl-8 space-y-1">
+                        {g.items.map((it) => {
+                          const car = itemById.get(it.id);
+                          const prod = car?.nome_produto ?? "Produto";
+                          const ped = it.numeroPedido ?? car?.numero_pedido ?? "—";
+                          return (
+                            <div key={it.id} className="flex flex-wrap items-center gap-2 px-2 py-1 rounded bg-muted/10 text-xs">
+                              <span className="font-mono text-muted-foreground shrink-0">#{ped}</span>
+                              <span className="truncate flex-1 min-w-[120px]">{prod}</span>
+                              <span className="font-mono text-muted-foreground">{(it.peso ?? 0).toLocaleString("pt-BR")} kg</span>
+                              <Input
+                                value={ordemCargaPorPedido[it.id] ?? ""}
+                                onChange={(e) => setOrdemCargaPorPedido((p) => ({ ...p, [it.id]: e.target.value }))}
+                                placeholder="OC..."
+                                className="h-7 w-28 text-xs font-mono"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    </div>
                   );
                 })}
               </div>
