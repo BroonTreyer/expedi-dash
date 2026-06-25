@@ -1005,6 +1005,8 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                     className="h-6 px-2 text-[10px]" onClick={() => setModoOc("unica")}>Única</Button>
                   <Button type="button" variant={modoOc === "porGrupo" ? "default" : "ghost"} size="sm"
                     className="h-6 px-2 text-[10px]" onClick={() => setModoOc("porGrupo")}>Por grupo</Button>
+                  <Button type="button" variant={modoOc === "porPedido" ? "default" : "ghost"} size="sm"
+                    className="h-6 px-2 text-[10px]" onClick={() => setModoOc("porPedido")}>Por pedido</Button>
                 </div>
               </div>
               {modoOc === "unica" ? (
@@ -1016,9 +1018,13 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                   />
                   <p className="text-[10px] text-muted-foreground">Mesma OC para todos os pedidos da carga.</p>
                 </>
-              ) : (
+              ) : modoOc === "porGrupo" ? (
                 <p className="text-[10px] text-muted-foreground">
                   Preencha a OC ao lado de cada destino na lista acima ({ocsPorGrupoValidas} de {groups.length} preenchidas).
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  Preencha uma OC para cada pedido na lista acima ({ocsPorPedidoValidas} de {totalPedidos} preenchidas).
                 </p>
               )}
             </div>
