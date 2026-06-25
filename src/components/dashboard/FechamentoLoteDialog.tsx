@@ -121,8 +121,9 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
   const [ordemCarga, setOrdemCarga] = useState("");
-  const [modoOc, setModoOc] = useState<"unica" | "porGrupo">("unica");
+  const [modoOc, setModoOc] = useState<"unica" | "porGrupo" | "porPedido">("unica");
   const [ordemCargaPorGrupo, setOrdemCargaPorGrupo] = useState<Record<string, string>>({});
+  const [ordemCargaPorPedido, setOrdemCargaPorPedido] = useState<Record<string, string>>({});
   const [veiculoVinculado, setVeiculoVinculado] = useState("manual");
   const [walkInVinculadoId, setWalkInVinculadoId] = useState<string | null>(null);
   const { user } = useAuth();
@@ -380,6 +381,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       setOrdemCarga(first?.ordem_carga ?? "");
       setModoOc("unica");
       setOrdemCargaPorGrupo({});
+      setOrdemCargaPorPedido({});
       setVeiculoVinculado("manual");
       setWalkInVinculadoId(null);
       setDataCarregamento(first?.data ?? selectedDate ?? new Date().toISOString().split("T")[0]);
@@ -406,8 +408,16 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     () => Object.values(ordemCargaPorGrupo).filter((v) => v.trim().length > 0).length,
     [ordemCargaPorGrupo],
   );
+  const ocsPorPedidoValidas = useMemo(
+    () => Object.values(ordemCargaPorPedido).filter((v) => v.trim().length > 0).length,
+    [ordemCargaPorPedido],
+  );
   const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0 && (
-    modoOc === "unica" ? ordemCarga.trim().length > 0 : ocsPorGrupoValidas > 0
+    modoOc === "unica"
+      ? ordemCarga.trim().length > 0
+      : modoOc === "porGrupo"
+      ? ocsPorGrupoValidas > 0
+      : ocsPorPedidoValidas > 0
   );
 
   // Submit guard: blocks double-clicks on "Fechar Carga" while the batch is in flight.
