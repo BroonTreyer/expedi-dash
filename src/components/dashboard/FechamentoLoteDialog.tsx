@@ -697,24 +697,46 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
         transportadora: transportadora || undefined,
         horarioPrevisto: horarioPrevisto || undefined,
         tipoFrete: tipoFreteStr,
-        groups: groups.map((g) => {
+        groups: groups.flatMap((g) => {
           const groupKey = g.codigoCliente ?? `__sem__${g.ordem}`;
+          const formaPagamento =
+            (items.find((it) => it.codigo_cliente === g.codigoCliente) as any)?.forma_pagamento ?? null;
+          if (modoOc === "porPedido") {
+            // Split this destination into one print group per distinct OC entered
+            const byOc = new Map<string, typeof g.items>();
+            g.items.forEach((i) => {
+              const oc = (ordemCargaPorPedido[i.id] ?? "").trim() || "__sem_oc__";
+              if (!byOc.has(oc)) byOc.set(oc, []);
+              byOc.get(oc)!.push(i);
+            });
+            return Array.from(byOc.entries()).map(([oc, its]) => ({
+              codigoCliente: g.codigoCliente,
+              nomeCliente: g.nomeCliente,
+              cidade: g.cidade ?? null,
+              uf: g.uf ?? null,
+              formaPagamento,
+              items: its.map((i) => ({ id: i.id, nomeProduto: null, peso: i.peso, ruptura: i.ruptura })),
+              pesoTotal: its.reduce((s, i) => s + (i.peso ?? 0), 0),
+              rupturaCount: its.filter((i) => i.ruptura).length,
+              ordem: g.ordem,
+              ordemCarga: oc === "__sem_oc__" ? null : oc,
+            }));
+          }
           const ocGrupo = modoOc === "porGrupo"
             ? (ordemCargaPorGrupo[groupKey] ?? "").trim()
             : ordemCarga.trim();
-          return {
+          return [{
             codigoCliente: g.codigoCliente,
             nomeCliente: g.nomeCliente,
             cidade: g.cidade ?? null,
             uf: g.uf ?? null,
-            formaPagamento:
-              (items.find((it) => it.codigo_cliente === g.codigoCliente) as any)?.forma_pagamento ?? null,
+            formaPagamento,
             items: g.items.map((i) => ({ id: i.id, nomeProduto: null, peso: i.peso, ruptura: i.ruptura })),
             pesoTotal: g.pesoTotal,
             rupturaCount: g.rupturaCount,
             ordem: g.ordem,
             ordemCarga: ocGrupo || null,
-          };
+          }];
         }),
         totalPeso,
         totalRuptura,
