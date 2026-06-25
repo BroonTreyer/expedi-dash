@@ -828,7 +828,6 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
                   return (
                     <div key={dndKey(g)} className="space-y-1">
                     <SortableDestRow
-                      key={dndKey(g)}
                       id={dndKey(g)}
                       group={g}
                       idx={idx}
