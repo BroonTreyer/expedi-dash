@@ -460,6 +460,7 @@ export interface CargaFechadaAguardando {
   chegouAguardandoLiberacao?: boolean;
   movimentoChegadaId?: string | null;
   horarioChegada?: string | null;
+  is_pre_carga?: boolean;
 }
 
 export function useCargasFechadasAguardando() {
