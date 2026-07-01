@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: Props) {
-  const { data: cargas = [], isLoading } = useCargasFechadasParaVincular();
+  const { data: cargas = [], isLoading } = useCargasFechadasParaVincular(true);
   const vincular = useVincularMovimentoACarga();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
