@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import { CalendarIcon, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil, FileText, CheckCircle2, Hourglass } from "lucide-react";
+import { CalendarIcon, Weight, Package, ChevronDown, ChevronRight, Printer, AlertTriangle, Pencil, FileText, CheckCircle2, Hourglass, FileSpreadsheet } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useSortableTable } from "@/hooks/useSortableTable";
@@ -35,6 +35,7 @@ import { CargaPrintDialog, type CargaPrintData } from "@/components/dashboard/Ca
 import { useStatusPortariaPorCarga, makeStatusKey, ETAPA_PORTARIA_ORDEM, ETAPA_PORTARIA_LABELS, type EtapaPortaria } from "@/hooks/useStatusPortariaPorCarga";
 import { PortariaStatusBadge } from "@/components/dashboard/PortariaStatusBadge";
 import { computeDataEfetivaTerceirizada } from "@/lib/data-efetiva";
+import { exportConsolidadoXLSX } from "@/lib/consolidado-export";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -928,9 +929,37 @@ export default function Consolidado() {
           </div>
           <div>
             {groups.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
-                <Printer className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Imprimir</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const etapaMap = new Map<string, string>();
+                    for (const g of groups) {
+                      const info = statusPortariaMap?.get(makeStatusKey(g.cargaId, g.placa));
+                      const etapa = (info?.etapa ?? "aguardando") as EtapaPortaria;
+                      etapaMap.set(`${g.cargaId}||${g.placa ?? ""}`, ETAPA_PORTARIA_LABELS[etapa] ?? etapa);
+                    }
+                    exportConsolidadoXLSX(groups, rawData ?? [], {
+                      dateFrom: dateFromStr,
+                      dateTo: dateToStr,
+                      ordemCarga: debouncedOC || undefined,
+                      filtros: {
+                        uf: filterUf,
+                        status: filterStatus,
+                        etapaPortaria: filterEtapaPortaria === "todas" ? undefined : ETAPA_PORTARIA_LABELS[filterEtapaPortaria as EtapaPortaria] ?? filterEtapaPortaria,
+                      },
+                      etapaPortariaByCarga: etapaMap,
+                    });
+                    toast.success("Excel exportado");
+                  }}
+                >
+                  <FileSpreadsheet className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Excel</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+                  <Printer className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Imprimir</span>
+                </Button>
+              </div>
             )}
           </div>
         </div>
