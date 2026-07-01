@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: Props) {
-  const { data: cargas = [], isLoading } = useCargasFechadasParaVincular();
+  const { data: cargas = [], isLoading } = useCargasFechadasParaVincular(true);
   const vincular = useVincularMovimentoACarga();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -77,17 +77,17 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5 text-primary" />
-            Vincular carga ao motorista
+            Vincular pré-carga ao motorista
           </DialogTitle>
           <DialogDescription>
             {movimento ? (
               <>
-                Selecione a carga fechada que será atribuída a{" "}
+                Selecione a pré-carga que será atribuída a{" "}
                 <strong className="font-mono">{movimento.placa}</strong>
                 {movimento.motorista && <> — {movimento.motorista}</>}.
               </>
             ) : (
-              "Selecione uma carga"
+              "Selecione uma pré-carga"
             )}
           </DialogDescription>
         </DialogHeader>
@@ -111,9 +111,9 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
           ) : filteredCargas.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
               <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              Nenhuma carga terceirizada disponível para vínculo.
+              Nenhuma pré-carga disponível para vínculo.
               <p className="text-xs mt-1">
-                A Logística precisa fechar uma carga com transportadora antes.
+                A Logística precisa criar uma pré-carga antes de vincular o motorista.
               </p>
             </div>
           ) : (
