@@ -868,6 +868,13 @@ export function useVincularWalkInACarga() {
         .eq("carga_id", input.cargaId);
       if (e2) throw e2;
 
+      // Promove pré-carga para logística caso o vínculo tenha sido feito com uma pré-carga.
+      await supabase
+        .from("carregamentos_dia")
+        .update({ etapa: "logistica" } as any)
+        .eq("carga_id", input.cargaId)
+        .eq("etapa", "pre_carga");
+
       // Se já existe uma movimentação de chegada (etapa=chegada, sem carga_id ainda)
       // para esta placa, anexa a carga_id e o vínculo - sem mexer em horários.
       const placaNorm = input.placaReal.trim().toUpperCase();
