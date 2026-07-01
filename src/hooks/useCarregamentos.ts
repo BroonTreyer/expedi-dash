@@ -460,6 +460,7 @@ export interface CargaFechadaAguardando {
   chegouAguardandoLiberacao?: boolean;
   movimentoChegadaId?: string | null;
   horarioChegada?: string | null;
+  is_pre_carga?: boolean;
 }
 
 export function useCargasFechadasAguardando() {
@@ -800,8 +801,8 @@ export function useCargasFechadasParaVincular() {
       const arr = await fetchAllPaginated<any>((from, to) =>
         supabase
           .from("carregamentos_dia")
-          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
-          .eq("etapa", "logistica")
+          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id, etapa")
+          .in("etapa", ["logistica", "pre_carga"])
           .not("carga_id", "is", null)
           .gte("data", sinceStr)
           .order("id", { ascending: true })
@@ -826,6 +827,7 @@ export function useCargasFechadasParaVincular() {
             peso_total: Number(c.peso) || 0,
             qtd_pedidos: 1,
             data: c.data,
+            is_pre_carga: c.etapa === "pre_carga",
           });
         }
       }
@@ -865,6 +867,13 @@ export function useVincularWalkInACarga() {
         .update(updateData)
         .eq("carga_id", input.cargaId);
       if (e2) throw e2;
+
+      // Promove pré-carga para logística caso o vínculo tenha sido feito com uma pré-carga.
+      await supabase
+        .from("carregamentos_dia")
+        .update({ etapa: "logistica" } as any)
+        .eq("carga_id", input.cargaId)
+        .eq("etapa", "pre_carga");
 
       // Se já existe uma movimentação de chegada (etapa=chegada, sem carga_id ainda)
       // para esta placa, anexa a carga_id e o vínculo - sem mexer em horários.
@@ -924,11 +933,21 @@ export function useVincularMovimentoACarga() {
       // 2. Atualiza placa/motorista nos pedidos da carga, se ainda divergirem.
       const cargaUpdate: Record<string, any> = { placa: input.placaReal };
       if (input.motoristaReal) cargaUpdate.motorista = input.motoristaReal;
+      if (input.transportadoraReal) cargaUpdate.transportadora = input.transportadoraReal;
       const { error: e2 } = await supabase
         .from("carregamentos_dia")
         .update(cargaUpdate)
         .eq("carga_id", input.cargaId);
       if (e2) throw e2;
+
+      // 2b. Se a carga vinculada ainda era uma pré-carga, promove para logística
+      //     para que apareça em Consolidados/Expedição como carga fechada.
+      const { error: e2b } = await supabase
+        .from("carregamentos_dia")
+        .update({ etapa: "logistica" } as any)
+        .eq("carga_id", input.cargaId)
+        .eq("etapa", "pre_carga");
+      if (e2b) throw e2b;
 
       // 3. Garante um registro em veiculos_esperados em estado
       //    `aguardando_vinculo` (NÃO autorizado ainda) para esta placa.

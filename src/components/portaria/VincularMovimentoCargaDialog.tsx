@@ -25,7 +25,6 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
   const placaMov = (movimento?.placa || "").trim().toUpperCase();
   const filteredCargas = useMemo(() => {
     return cargas
-      .filter((c) => c.transportadora && c.transportadora.trim() !== "")
       .filter((c) => {
         if (!search) return true;
         const s = search.toLowerCase();
@@ -134,6 +133,11 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm">{c.nome_carga || c.carga_id}</span>
+                          {c.is_pre_carga && (
+                            <Badge variant="outline" className="text-[10px] h-5 border-amber-500/50 text-amber-700 dark:text-amber-300">
+                              Pré-carga
+                            </Badge>
+                          )}
                           {placaMatch && (
                             <Badge variant="default" className="text-[10px] h-5 bg-emerald-600">
                               Placa coincide
