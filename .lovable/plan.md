@@ -1,24 +1,26 @@
-## Remover movimentações travadas do Varejo
+## Problema
 
-Identifiquei **11 movimentações** de Varejo (carga_propria) sem saída final que aparecem nos prints (incluindo 1 duplicata do JOAQUIM e 3 registros antigos do JULIO/NWN3975 de maio):
+A pré-carga "CEARA MIX" (`PRE-20260701-082352-93B`, etapa `pre_carga`, sem placa/transportadora) não aparece no diálogo "Vincular carga ao motorista" quando a Portaria tenta ligar o motorista José Reges (Alvorada Transportes, chegada terceirizada) a ela.
 
-| Placa | Motorista | Chegada | Etapa | carga_id |
-|---|---|---|---|---|
-| NLL1957 | CESAR AUGUSTO | 24/06 | chegou | 9824000 |
-| NKK9877 | EDIVALDO | 24/06 | chegou | 9844000 |
-| NKG0770 | ANTONIO GOMES | 24/06 | chegou | 9821000 |
-| EFO0D46 | JOAQUIM | 25/06 | chegou | — (×2 duplicado) |
-| PR0OD73 | Guilherme | 18/06 | retornou | 9763000 |
-| NWN3975 | JULIO | 12/06 | retornou | 9685000 |
-| TGB3H26 | RITCHIE | 12/06 | em_rota | 9673000 |
-| NWN3975 | JULIO | 29/05 | retornou | 9486000 |
-| NWN3975 | JULIO | 20/05 | em_rota | 9332000 |
-| NWN3975 | JULIO | 19/05 | retornou | 129633 |
-| OMN3I28 | VINICIUS DAMANDO | 14/05 | em_rota | 9214000 |
+**Causa raiz** — em `useCargasFechadasParaVincular` (`src/hooks/useCarregamentos.ts`):
+1. Query filtra `etapa = 'logistica'` → pré-cargas (`etapa = 'pre_carga'`) são excluídas.
+2. `VincularMovimentoCargaDialog` / `VincularCargaDialog` ainda filtram por `transportadora` preenchida — pré-carga não tem transportadora, então mesmo relaxando a query o item some.
 
-### Ação
-- `DELETE` direto em `movimentacoes_portaria` pelos 11 `id`s acima.
-- Sem alteração em código — limpeza pontual de dados.
+## Correção
 
-### Confirmação
-Confirma a remoção de **todas as 11** movimentações listadas?
+1. **`src/hooks/useCarregamentos.ts` — `useCargasFechadasParaVincular`**
+   - Trocar filtro por `.in("etapa", ["logistica", "pre_carga"])`.
+   - Retornar um campo extra `is_pre_carga` no `CargaFechadaAguardando` para o dialog exibir badge.
+
+2. **`src/components/portaria/VincularMovimentoCargaDialog.tsx` e `VincularCargaDialog.tsx`**
+   - Remover o filtro `c.transportadora && c.transportadora.trim() !== ""` (pré-cargas nunca teriam).
+   - Manter apenas o filtro de busca por texto.
+   - Adicionar badge "Pré-carga" quando `is_pre_carga`.
+
+3. **`useVincularMovimentoACarga` e `useVincularWalkInACarga`**
+   - Ao atualizar `carregamentos_dia` da carga vinculada, se as linhas ainda estiverem em `etapa='pre_carga'`, promover para `etapa='logistica'` na mesma UPDATE, além de setar `placa`, `motorista` e `transportadora` (usando a `empresa` do movimento / dados do veículo esperado). Isso efetivamente "fecha" a pré-carga no ato do vínculo, para que apareça em Consolidados/Expedição normalmente.
+   - Manter o `carga_id` original (`PRE-...`) para não quebrar histórico; auditoria já registra a mudança de etapa.
+
+## Resultado esperado
+
+Ao clicar "Vincular carga" no card do José Reges, a pré-carga "CEARA MIX" aparece na lista (com badge "Pré-carga"). Após confirmar, ela vira carga fechada de logística já com placa/motorista/transportadora do movimento e segue o fluxo normal de saída.
