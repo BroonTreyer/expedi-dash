@@ -1,26 +1,17 @@
-## Problema
+Objetivo: no diálogo `Vincular carga ao motorista` (usado para vínculo de movimentações já registradas na portaria), a lista deve exibir apenas pré-cargas (`etapa = pre_carga`). Cargas já fechadas/logísticas não devem aparecer nesse diálogo.
 
-A pré-carga "CEARA MIX" (`PRE-20260701-082352-93B`, etapa `pre_carga`, sem placa/transportadora) não aparece no diálogo "Vincular carga ao motorista" quando a Portaria tenta ligar o motorista José Reges (Alvorada Transportes, chegada terceirizada) a ela.
+Alterações propostas:
+1. `src/hooks/useCarregamentos.ts`
+   - Adicionar parâmetro opcional `somentePreCarga?: boolean` ao hook `useCargasFechadasParaVincular`.
+   - Quando `somentePreCarga` for `true`, a consulta deve filtrar `etapa.eq('pre_carga')` em vez de `etapa.in(['logistica','pre_carga'])`.
+   - O hook existente continua retornando ambos os estágios quando o parâmetro não for informado, preservando o comportamento do outro diálogo de vínculo.
 
-**Causa raiz** — em `useCargasFechadasParaVincular` (`src/hooks/useCarregamentos.ts`):
-1. Query filtra `etapa = 'logistica'` → pré-cargas (`etapa = 'pre_carga'`) são excluídas.
-2. `VincularMovimentoCargaDialog` / `VincularCargaDialog` ainda filtram por `transportadora` preenchida — pré-carga não tem transportadora, então mesmo relaxando a query o item some.
+2. `src/components/portaria/VincularMovimentoCargaDialog.tsx`
+   - Passar `somentePreCarga: true` para `useCargasFechadasParaVincular`.
+   - Ajustar título/descrição para referir-se a "pré-carga" em vez de "carga fechada".
+   - Atualizar mensagem de estado vazio para orientar que não há pré-cargas disponíveis.
 
-## Correção
+3. `src/components/portaria/VincularCargaDialog.tsx`
+   - Não sofrer alterações; continua exibindo pré-cargas e cargas fechadas, conforme resposta do usuário.
 
-1. **`src/hooks/useCarregamentos.ts` — `useCargasFechadasParaVincular`**
-   - Trocar filtro por `.in("etapa", ["logistica", "pre_carga"])`.
-   - Retornar um campo extra `is_pre_carga` no `CargaFechadaAguardando` para o dialog exibir badge.
-
-2. **`src/components/portaria/VincularMovimentoCargaDialog.tsx` e `VincularCargaDialog.tsx`**
-   - Remover o filtro `c.transportadora && c.transportadora.trim() !== ""` (pré-cargas nunca teriam).
-   - Manter apenas o filtro de busca por texto.
-   - Adicionar badge "Pré-carga" quando `is_pre_carga`.
-
-3. **`useVincularMovimentoACarga` e `useVincularWalkInACarga`**
-   - Ao atualizar `carregamentos_dia` da carga vinculada, se as linhas ainda estiverem em `etapa='pre_carga'`, promover para `etapa='logistica'` na mesma UPDATE, além de setar `placa`, `motorista` e `transportadora` (usando a `empresa` do movimento / dados do veículo esperado). Isso efetivamente "fecha" a pré-carga no ato do vínculo, para que apareça em Consolidados/Expedição normalmente.
-   - Manter o `carga_id` original (`PRE-...`) para não quebrar histórico; auditoria já registra a mudança de etapa.
-
-## Resultado esperado
-
-Ao clicar "Vincular carga" no card do José Reges, a pré-carga "CEARA MIX" aparece na lista (com badge "Pré-carga"). Após confirmar, ela vira carga fechada de logística já com placa/motorista/transportadora do movimento e segue o fluxo normal de saída.
+A mutação `useVincularMovimentoACarga` já promove uma pré-carga para `logistica` ao vincular, então o fluxo de negócio permanece válido.

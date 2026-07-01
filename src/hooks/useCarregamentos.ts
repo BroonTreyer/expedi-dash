@@ -786,11 +786,12 @@ export function useCargasFechadasAguardando() {
   });
 }
 
-/** Lista cargas fechadas das últimas 72h para vincular a um walk-in */
-export function useCargasFechadasParaVincular() {
+/** Lista cargas fechadas das últimas 72h para vincular a um walk-in.
+ *  Quando `somentePreCarga` é true, retorna apenas pré-cargas. */
+export function useCargasFechadasParaVincular(somentePreCarga?: boolean) {
   const session = useSession();
   return useQuery({
-    queryKey: ["cargas_fechadas_para_vincular"],
+    queryKey: ["cargas_fechadas_para_vincular", somentePreCarga ?? false],
     enabled: !!session,
     refetchInterval: 30000,
     queryFn: async () => {
@@ -798,16 +799,18 @@ export function useCargasFechadasParaVincular() {
       since.setDate(since.getDate() - 7);
       const sinceStr = since.toISOString().slice(0, 10);
 
-      const arr = await fetchAllPaginated<any>((from, to) =>
-        supabase
-          .from("carregamentos_dia")
-          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id, etapa")
-          .in("etapa", ["logistica", "pre_carga"])
-          .not("carga_id", "is", null)
-          .gte("data", sinceStr)
-          .order("id", { ascending: true })
-          .range(from, to),
-      );
+      let q = supabase
+        .from("carregamentos_dia")
+        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id, etapa")
+        .not("carga_id", "is", null)
+        .gte("data", sinceStr)
+        .order("id", { ascending: true });
+
+      q = somentePreCarga
+        ? q.eq("etapa", "pre_carga")
+        : q.in("etapa", ["logistica", "pre_carga"]);
+
+      const arr = await fetchAllPaginated<any>((from, to) => q.range(from, to));
 
       const grouped = new Map<string, CargaFechadaAguardando>();
       for (const c of arr) {
