@@ -111,9 +111,9 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
           ) : filteredCargas.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
               <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              Nenhuma carga terceirizada disponível para vínculo.
+              Nenhuma pré-carga disponível para vínculo.
               <p className="text-xs mt-1">
-                A Logística precisa fechar uma carga com transportadora antes.
+                A Logística precisa criar uma pré-carga antes de vincular o motorista.
               </p>
             </div>
           ) : (
