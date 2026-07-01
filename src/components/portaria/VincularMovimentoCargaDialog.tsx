@@ -25,7 +25,6 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
   const placaMov = (movimento?.placa || "").trim().toUpperCase();
   const filteredCargas = useMemo(() => {
     return cargas
-      .filter((c) => c.transportadora && c.transportadora.trim() !== "")
       .filter((c) => {
         if (!search) return true;
         const s = search.toLowerCase();
