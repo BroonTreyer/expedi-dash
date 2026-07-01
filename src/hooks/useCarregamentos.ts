@@ -926,11 +926,21 @@ export function useVincularMovimentoACarga() {
       // 2. Atualiza placa/motorista nos pedidos da carga, se ainda divergirem.
       const cargaUpdate: Record<string, any> = { placa: input.placaReal };
       if (input.motoristaReal) cargaUpdate.motorista = input.motoristaReal;
+      if (input.transportadoraReal) cargaUpdate.transportadora = input.transportadoraReal;
       const { error: e2 } = await supabase
         .from("carregamentos_dia")
         .update(cargaUpdate)
         .eq("carga_id", input.cargaId);
       if (e2) throw e2;
+
+      // 2b. Se a carga vinculada ainda era uma pré-carga, promove para logística
+      //     para que apareça em Consolidados/Expedição como carga fechada.
+      const { error: e2b } = await supabase
+        .from("carregamentos_dia")
+        .update({ etapa: "logistica" } as any)
+        .eq("carga_id", input.cargaId)
+        .eq("etapa", "pre_carga");
+      if (e2b) throw e2b;
 
       // 3. Garante um registro em veiculos_esperados em estado
       //    `aguardando_vinculo` (NÃO autorizado ainda) para esta placa.
