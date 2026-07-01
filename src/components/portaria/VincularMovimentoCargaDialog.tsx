@@ -77,17 +77,17 @@ export function VincularMovimentoCargaDialog({ open, onOpenChange, movimento }: 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5 text-primary" />
-            Vincular carga ao motorista
+            Vincular pré-carga ao motorista
           </DialogTitle>
           <DialogDescription>
             {movimento ? (
               <>
-                Selecione a carga fechada que será atribuída a{" "}
+                Selecione a pré-carga que será atribuída a{" "}
                 <strong className="font-mono">{movimento.placa}</strong>
                 {movimento.motorista && <> — {movimento.motorista}</>}.
               </>
             ) : (
-              "Selecione uma carga"
+              "Selecione uma pré-carga"
             )}
           </DialogDescription>
         </DialogHeader>
