@@ -801,8 +801,8 @@ export function useCargasFechadasParaVincular() {
       const arr = await fetchAllPaginated<any>((from, to) =>
         supabase
           .from("carregamentos_dia")
-          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
-          .eq("etapa", "logistica")
+          .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id, etapa")
+          .in("etapa", ["logistica", "pre_carga"])
           .not("carga_id", "is", null)
           .gte("data", sinceStr)
           .order("id", { ascending: true })
@@ -827,6 +827,7 @@ export function useCargasFechadasParaVincular() {
             peso_total: Number(c.peso) || 0,
             qtd_pedidos: 1,
             data: c.data,
+            is_pre_carga: c.etapa === "pre_carga",
           });
         }
       }
