@@ -26,7 +26,6 @@ export function VincularCargaDialog({ open, onOpenChange, veiculoEsperado }: Pro
   const placaVe = (veiculoEsperado?.placa || "").trim().toUpperCase();
   const filteredCargas = useMemo(() => {
     return cargas
-      .filter((c) => c.transportadora && c.transportadora.trim() !== "")
       .filter((c) => {
         if (!search) return true;
         const s = search.toLowerCase();
