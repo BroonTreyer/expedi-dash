@@ -351,22 +351,54 @@ export function useAutorizarChegada() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ id, autorizar, motivo }: { id: string; autorizar: boolean; motivo?: string }) => {
-      const { error } = await supabase
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
         .from("veiculos_esperados" as any)
         .update({
           status_autorizacao: autorizar ? "autorizado" : "recusado",
           autorizado_por: user?.id ?? null,
-          autorizado_em: new Date().toISOString(),
+          autorizado_em: nowIso,
           motivo_recusa: autorizar ? null : (motivo || null),
         } as any)
-        .eq("id", id);
+        .eq("id", id)
+        .select("id, placa")
+        .single();
       if (error) throw error;
+
+      // Ao recusar um walk-in, encerra também a movimentação de chegada criada
+      // pela Portaria. Sem isso, o veículo sai de veiculos_esperados, mas volta
+      // a aparecer como "movimentação órfã" aguardando vínculo.
+      if (!autorizar) {
+        const placa = String((data as any)?.placa || "").trim().toUpperCase();
+        if (placa) {
+          const obsRecusa = motivo?.trim()
+            ? `Recusado pela Logística: ${motivo.trim()}`
+            : "Recusado pela Logística";
+          const { error: movError } = await supabase
+            .from("movimentacoes_portaria")
+            .update({
+              etapa_terceirizado: "finalizado",
+              horario_saida_final: nowIso,
+              observacoes: obsRecusa,
+            } as any)
+            .ilike("placa", placa)
+            .eq("tipo_movimento", "entrada")
+            .eq("categoria", "terceirizado")
+            .eq("etapa_terceirizado", "chegada")
+            .is("carga_id", null)
+            .is("horario_entrada", null)
+            .gte("data_hora", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+          if (movError) throw movError;
+        }
+      }
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
       qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
       qc.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
       qc.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria_aguardando_vinculo"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
       toast.success(vars.autorizar ? "Carga vinculada — aguardando Portaria liberar entrada física" : "Entrada recusada");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao processar autorização"),

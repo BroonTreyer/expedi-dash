@@ -178,13 +178,19 @@ export function SolicitacoesPendentesPanel({ categoria }: Props = {}) {
     try {
       const { error } = await supabase
         .from("movimentacoes_portaria")
-        .delete()
+        .update({
+          etapa_terceirizado: "finalizado",
+          horario_saida_final: new Date().toISOString(),
+          observacoes: mov.observacoes?.trim()
+            ? `${mov.observacoes}\nRecusado pela Logística`
+            : "Recusado pela Logística",
+        } as any)
         .eq("id", mov.id)
         .is("horario_entrada", null);
       if (error) throw error;
       toast.success("Chegada recusada");
       qc.invalidateQueries({ queryKey: ["movimentacoes_portaria"] });
-      qc.invalidateQueries({ queryKey: ["movimentos_orfaos"] });
+      qc.invalidateQueries({ queryKey: ["movimentacoes_portaria_aguardando_vinculo"] });
     } catch (e: any) {
       toast.error(e?.message || "Erro ao recusar chegada");
     } finally {
