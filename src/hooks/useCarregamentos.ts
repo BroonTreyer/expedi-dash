@@ -1021,7 +1021,7 @@ export function useVincularMovimentoACarga() {
             placa: placaNorm,
             motorista: input.motoristaReal ?? null,
             transportadora: input.transportadoraReal ?? null,
-            carga_id: input.cargaId,
+            carga_id: cargaIdFinal,
             status_autorizacao: "aguardando_vinculo",
             walk_in: true,
             conferido: false,
