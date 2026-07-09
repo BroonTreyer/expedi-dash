@@ -841,6 +841,11 @@ export function useCargasFechadasParaVincular(somentePreCarga?: boolean) {
 
 /** Vincula um veículo walk-in a uma carga fechada */
 export function useVincularWalkInACarga() {
+
+  return _useVincularWalkInACarga();
+}
+
+// helper wrapper removed
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
