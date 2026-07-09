@@ -958,9 +958,14 @@ export function useVincularMovimentoACarga() {
       const { data: { user } } = await supabase.auth.getUser();
       const placaNorm = (input.placaReal || "").trim().toUpperCase();
 
+      // 0. Se estamos vinculando a uma pré-carga, promove para CG- definitivo
+      //    antes de qualquer outra atualização, para que Consolidado/relatórios
+      //    parem de enxergar id de pré-carga em uma carga já fechada.
+      const cargaIdFinal = await promoverPreCargaSeNecessario(input.cargaId);
+
       // 1. Anexa carga_id ao movimento de chegada (mantém estado 'chegada' —
       //    a Portaria depois clica "Liberar Entrada no Pátio").
-      const movUpdate: Record<string, any> = { carga_id: input.cargaId };
+      const movUpdate: Record<string, any> = { carga_id: cargaIdFinal };
       if (input.transportadoraReal) movUpdate.empresa = input.transportadoraReal;
       const { error: e1 } = await supabase
         .from("movimentacoes_portaria")
@@ -975,17 +980,8 @@ export function useVincularMovimentoACarga() {
       const { error: e2 } = await supabase
         .from("carregamentos_dia")
         .update(cargaUpdate)
-        .eq("carga_id", input.cargaId);
+        .eq("carga_id", cargaIdFinal);
       if (e2) throw e2;
-
-      // 2b. Se a carga vinculada ainda era uma pré-carga, promove para logística
-      //     para que apareça em Consolidados/Expedição como carga fechada.
-      const { error: e2b } = await supabase
-        .from("carregamentos_dia")
-        .update({ etapa: "logistica" } as any)
-        .eq("carga_id", input.cargaId)
-        .eq("etapa", "pre_carga");
-      if (e2b) throw e2b;
 
       // 3. Garante um registro em veiculos_esperados em estado
       //    `aguardando_vinculo` (NÃO autorizado ainda) para esta placa.
@@ -1008,7 +1004,7 @@ export function useVincularMovimentoACarga() {
         await supabase
           .from("veiculos_esperados" as any)
           .update({
-            carga_id: input.cargaId,
+            carga_id: cargaIdFinal,
             status_autorizacao: "aguardando_vinculo",
             autorizado_por: null,
             autorizado_em: null,
