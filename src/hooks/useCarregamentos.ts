@@ -839,6 +839,42 @@ export function useCargasFechadasParaVincular(somentePreCarga?: boolean) {
   });
 }
 
+/**
+ * Se `cargaId` é de uma pré-carga (`PRE-…`), gera um `CG-…` definitivo e
+ * propaga em `carregamentos_dia`, `veiculos_esperados` e
+ * `movimentacoes_portaria`. Retorna o novo id (ou o original, se já era `CG-…`).
+ */
+async function promoverPreCargaSeNecessario(cargaId: string): Promise<string> {
+  if (!cargaId || !cargaId.startsWith("PRE-")) return cargaId;
+  const now = new Date();
+  const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
+  const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
+  const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
+  let novoId = `CG-${dateStr}-${timeStr}-${rand}`;
+  // Defesa contra colisão extremamente rara
+  for (let s = 0; s < 5; s++) {
+    const cand = s === 0 ? novoId : `${novoId}-${s + 1}`;
+    const { count } = await supabase
+      .from("carregamentos_dia")
+      .select("id", { count: "exact", head: true })
+      .eq("carga_id", cand);
+    if (!count) { novoId = cand; break; }
+  }
+  await supabase
+    .from("carregamentos_dia")
+    .update({ carga_id: novoId, etapa: "logistica" } as any)
+    .eq("carga_id", cargaId);
+  await supabase
+    .from("veiculos_esperados" as any)
+    .update({ carga_id: novoId } as any)
+    .eq("carga_id", cargaId);
+  await supabase
+    .from("movimentacoes_portaria")
+    .update({ carga_id: novoId } as any)
+    .eq("carga_id", cargaId);
+  return novoId;
+}
+
 /** Vincula um veículo walk-in a uma carga fechada */
 export function useVincularWalkInACarga() {
   const qc = useQueryClient();
@@ -852,11 +888,17 @@ export function useVincularWalkInACarga() {
       const { data: { user } } = await supabase.auth.getUser();
       const nowIso = new Date().toISOString();
 
+      // Se o vínculo foi feito com uma PRÉ-CARGA, promove o carga_id
+      // para um CG-... definitivo antes de qualquer outra atualização,
+      // para que Consolidado/Distribuidores/relatórios não continuem
+      // enxergando um id de pré-carga em uma carga já fechada.
+      const cargaIdFinal = await promoverPreCargaSeNecessario(input.cargaId);
+
       const { error: e1 } = await supabase
         .from("veiculos_esperados" as any)
         .update({
           status_autorizacao: "autorizado",
-          carga_id: input.cargaId,
+          carga_id: cargaIdFinal,
           autorizado_por: user?.id ?? null,
           autorizado_em: nowIso,
         } as any)
@@ -868,22 +910,15 @@ export function useVincularWalkInACarga() {
       const { error: e2 } = await supabase
         .from("carregamentos_dia")
         .update(updateData)
-        .eq("carga_id", input.cargaId);
+        .eq("carga_id", cargaIdFinal);
       if (e2) throw e2;
-
-      // Promove pré-carga para logística caso o vínculo tenha sido feito com uma pré-carga.
-      await supabase
-        .from("carregamentos_dia")
-        .update({ etapa: "logistica" } as any)
-        .eq("carga_id", input.cargaId)
-        .eq("etapa", "pre_carga");
 
       // Se já existe uma movimentação de chegada (etapa=chegada, sem carga_id ainda)
       // para esta placa, anexa a carga_id e o vínculo - sem mexer em horários.
       const placaNorm = input.placaReal.trim().toUpperCase();
       await supabase
         .from("movimentacoes_portaria")
-        .update({ carga_id: input.cargaId } as any)
+        .update({ carga_id: cargaIdFinal } as any)
         .ilike("placa", placaNorm)
         .eq("tipo_movimento", "entrada")
         .is("horario_entrada", null)
@@ -923,9 +958,14 @@ export function useVincularMovimentoACarga() {
       const { data: { user } } = await supabase.auth.getUser();
       const placaNorm = (input.placaReal || "").trim().toUpperCase();
 
+      // 0. Se estamos vinculando a uma pré-carga, promove para CG- definitivo
+      //    antes de qualquer outra atualização, para que Consolidado/relatórios
+      //    parem de enxergar id de pré-carga em uma carga já fechada.
+      const cargaIdFinal = await promoverPreCargaSeNecessario(input.cargaId);
+
       // 1. Anexa carga_id ao movimento de chegada (mantém estado 'chegada' —
       //    a Portaria depois clica "Liberar Entrada no Pátio").
-      const movUpdate: Record<string, any> = { carga_id: input.cargaId };
+      const movUpdate: Record<string, any> = { carga_id: cargaIdFinal };
       if (input.transportadoraReal) movUpdate.empresa = input.transportadoraReal;
       const { error: e1 } = await supabase
         .from("movimentacoes_portaria")
@@ -940,17 +980,8 @@ export function useVincularMovimentoACarga() {
       const { error: e2 } = await supabase
         .from("carregamentos_dia")
         .update(cargaUpdate)
-        .eq("carga_id", input.cargaId);
+        .eq("carga_id", cargaIdFinal);
       if (e2) throw e2;
-
-      // 2b. Se a carga vinculada ainda era uma pré-carga, promove para logística
-      //     para que apareça em Consolidados/Expedição como carga fechada.
-      const { error: e2b } = await supabase
-        .from("carregamentos_dia")
-        .update({ etapa: "logistica" } as any)
-        .eq("carga_id", input.cargaId)
-        .eq("etapa", "pre_carga");
-      if (e2b) throw e2b;
 
       // 3. Garante um registro em veiculos_esperados em estado
       //    `aguardando_vinculo` (NÃO autorizado ainda) para esta placa.
@@ -973,7 +1004,7 @@ export function useVincularMovimentoACarga() {
         await supabase
           .from("veiculos_esperados" as any)
           .update({
-            carga_id: input.cargaId,
+            carga_id: cargaIdFinal,
             status_autorizacao: "aguardando_vinculo",
             autorizado_por: null,
             autorizado_em: null,
@@ -990,7 +1021,7 @@ export function useVincularMovimentoACarga() {
             placa: placaNorm,
             motorista: input.motoristaReal ?? null,
             transportadora: input.transportadoraReal ?? null,
-            carga_id: input.cargaId,
+            carga_id: cargaIdFinal,
             status_autorizacao: "aguardando_vinculo",
             walk_in: true,
             conferido: false,

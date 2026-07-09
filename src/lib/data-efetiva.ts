@@ -34,17 +34,20 @@ export function computeDataEfetivaTerceirizada(
   saidaPortariaIso: string | null | undefined,
   today?: string,
 ): string {
-  const isTerc = items.some((i) => !!i.transportadora);
-  if (!isTerc) return dataOriginal;
-
+  // 1) Saída física registrada pela portaria → data fixa da saída.
   if (saidaPortariaIso) {
     return toLocalDate(saidaPortariaIso);
   }
 
-  // Sem saída registrada → carga está "viva". Usa max(dataOriginal, hoje):
-  //  - Atrasadas (data < hoje) → puxam para hoje, continuam visíveis.
-  //  - Futuras (data > hoje, ex.: fechada para amanhã) → mantêm a data
-  //    original, aparecendo no dia planejado e não em hoje.
+  // 2) Carga finalizada pelo faturamento sem passar pela portaria
+  //    (todos os itens já Carregado) → mantém a data original.
+  const todosCarregados =
+    items.length > 0 && items.every((i) => (i.status ?? "") === "Carregado");
+  if (todosCarregados) return dataOriginal;
+
+  // 3) Carga em andamento (própria ou terceirizada) → max(dataOriginal, hoje):
+  //    - Atrasadas (data < hoje) → puxam para hoje, continuam visíveis.
+  //    - Futuras (data > hoje) → mantêm a data planejada.
   const todayStr = today ?? new Date().toISOString().slice(0, 10);
   return dataOriginal > todayStr ? dataOriginal : todayStr;
 }
