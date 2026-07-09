@@ -839,13 +839,44 @@ export function useCargasFechadasParaVincular(somentePreCarga?: boolean) {
   });
 }
 
-/** Vincula um veículo walk-in a uma carga fechada */
-export function useVincularWalkInACarga() {
-
-  return _useVincularWalkInACarga();
+/**
+ * Se `cargaId` é de uma pré-carga (`PRE-…`), gera um `CG-…` definitivo e
+ * propaga em `carregamentos_dia`, `veiculos_esperados` e
+ * `movimentacoes_portaria`. Retorna o novo id (ou o original, se já era `CG-…`).
+ */
+async function promoverPreCargaSeNecessario(cargaId: string): Promise<string> {
+  if (!cargaId || !cargaId.startsWith("PRE-")) return cargaId;
+  const now = new Date();
+  const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
+  const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 6);
+  const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
+  let novoId = `CG-${dateStr}-${timeStr}-${rand}`;
+  // Defesa contra colisão extremamente rara
+  for (let s = 0; s < 5; s++) {
+    const cand = s === 0 ? novoId : `${novoId}-${s + 1}`;
+    const { count } = await supabase
+      .from("carregamentos_dia")
+      .select("id", { count: "exact", head: true })
+      .eq("carga_id", cand);
+    if (!count) { novoId = cand; break; }
+  }
+  await supabase
+    .from("carregamentos_dia")
+    .update({ carga_id: novoId, etapa: "logistica" } as any)
+    .eq("carga_id", cargaId);
+  await supabase
+    .from("veiculos_esperados" as any)
+    .update({ carga_id: novoId } as any)
+    .eq("carga_id", cargaId);
+  await supabase
+    .from("movimentacoes_portaria")
+    .update({ carga_id: novoId } as any)
+    .eq("carga_id", cargaId);
+  return novoId;
 }
 
-// helper wrapper removed
+/** Vincula um veículo walk-in a uma carga fechada */
+export function useVincularWalkInACarga() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
