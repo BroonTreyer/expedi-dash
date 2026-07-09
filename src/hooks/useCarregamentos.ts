@@ -852,11 +852,17 @@ export function useVincularWalkInACarga() {
       const { data: { user } } = await supabase.auth.getUser();
       const nowIso = new Date().toISOString();
 
+      // Se o vínculo foi feito com uma PRÉ-CARGA, promove o carga_id
+      // para um CG-... definitivo antes de qualquer outra atualização,
+      // para que Consolidado/Distribuidores/relatórios não continuem
+      // enxergando um id de pré-carga em uma carga já fechada.
+      const cargaIdFinal = await promoverPreCargaSeNecessario(input.cargaId);
+
       const { error: e1 } = await supabase
         .from("veiculos_esperados" as any)
         .update({
           status_autorizacao: "autorizado",
-          carga_id: input.cargaId,
+          carga_id: cargaIdFinal,
           autorizado_por: user?.id ?? null,
           autorizado_em: nowIso,
         } as any)
@@ -868,22 +874,15 @@ export function useVincularWalkInACarga() {
       const { error: e2 } = await supabase
         .from("carregamentos_dia")
         .update(updateData)
-        .eq("carga_id", input.cargaId);
+        .eq("carga_id", cargaIdFinal);
       if (e2) throw e2;
-
-      // Promove pré-carga para logística caso o vínculo tenha sido feito com uma pré-carga.
-      await supabase
-        .from("carregamentos_dia")
-        .update({ etapa: "logistica" } as any)
-        .eq("carga_id", input.cargaId)
-        .eq("etapa", "pre_carga");
 
       // Se já existe uma movimentação de chegada (etapa=chegada, sem carga_id ainda)
       // para esta placa, anexa a carga_id e o vínculo - sem mexer em horários.
       const placaNorm = input.placaReal.trim().toUpperCase();
       await supabase
         .from("movimentacoes_portaria")
-        .update({ carga_id: input.cargaId } as any)
+        .update({ carga_id: cargaIdFinal } as any)
         .ilike("placa", placaNorm)
         .eq("tipo_movimento", "entrada")
         .is("horario_entrada", null)
