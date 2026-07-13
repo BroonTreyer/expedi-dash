@@ -1,46 +1,55 @@
+## Problema
 
-## O que foi descoberto
+Fernando Rodrigues (placa `DPC6I72`, carga `CG-20260713-091038-XQM`) foi vinculado pela Logística hoje (13/07), mas a Portaria **não viu** a carga no painel azul "Cargas fechadas aguardando veículo". A portaria teve que fazer walk-in manual, gerando duplicidade.
 
-Investiguei o pedido AGILE / HIM2I61 / Gilvan (`carga_id = PRE-20260706-093113-J6Q`, `data = 2026-07-06`, sem transportadora → carga própria):
+## Causa raiz
 
-1. **Consolidado — bug real.** A query SQL traz corretamente cargas atrasadas com `status ≠ Carregado` via carry-over de 30 dias. Mas o filtro client-side em `src/pages/Consolidado.tsx` (linha 685) chama `computeDataEfetivaTerceirizada` e depois exige `dataEfetiva ∈ [dateFromStr, dateToStr]`. Em `src/lib/data-efetiva.ts` a regra "puxar para hoje" só se aplica a cargas **terceirizadas**. Como AGILE é carga própria, `dataEfetiva` fica em 06/07, e como o intervalo é 09/07–09/07, a carga é descartada. Vale para Consolidado e para qualquer tela que reuse essa função.
-2. **Distribuidores.** O cliente AGILE (código 21435) está com `clientes.tipo = 'outros'`, e `/distribuidores` filtra por `tipo = 'distribuidor'`. Basta reclassificar.
-3. **Vínculo com pré-carga.** `useVincularMovimentoACarga` e `useVincularWalkInACarga` só promovem `etapa: pre_carga → logistica`, mas preservam o `carga_id` `PRE-…`. Isso confunde relatórios e telas que assumem prefixo `CG-`. Vou gerar um `CG-YYYYMMDD-HHMMSS-XXX` (mesmo padrão do `FechamentoLoteDialog`) e propagar para `carregamentos_dia`, `veiculos_esperados` e `movimentacoes_portaria`.
+`useCargasFechadasAguardando` (src/hooks/useCarregamentos.ts, l. 466-489) filtra `carregamentos_dia.data >= hoje - 7 dias`. A carga do Fernando foi **fechada hoje**, mas o campo `data` (data planejada) é `2026-06-17` — quase um mês no passado (pré-carga antiga). Resultado: carga excluída da query principal.
 
-## Mudanças
+Existe um bloco de defesa (l. 497-526) que traz cargas fora da janela **se** já houver `movimentacoes_portaria` pendente. Mas quando a chegada ainda não foi registrada (é justamente o caso do Fernando), esse fallback não pega. Faltam as cargas fechadas cuja única evidência é o `veiculos_esperados` recém-criado pela Logística.
 
-### 1. `src/lib/data-efetiva.ts` — estender a regra para carga própria em aberto
-Cargas próprias sem `horario_saida_final` e com `status ≠ 'Carregado'` passam a puxar para hoje da mesma forma que as terceirizadas. Assinatura ganha o parâmetro `saidaPortariaIso` já usado.
+## Correção
 
-```text
-computeDataEfetiva(items, dataOriginal, saidaPortariaIso, today)
-  se saidaPortariaIso       → data(saida)         (fixa)
-  senão se algum item.status = 'Carregado' e sem saída → dataOriginal  (finalizada por faturamento)
-  senão                     → max(dataOriginal, today)  (em andamento, puxa p/ hoje)
+Adicionar um segundo bloco de defesa em `useCargasFechadasAguardando`: também trazer cargas fechadas que têm um `veiculos_esperados` criado nos últimos 7 dias com `conferido=false` e `walk_in=false` (linha criada pela Logística ao fechar), mesmo quando `carregamentos_dia.data` está fora da janela.
+
+### Arquivo
+
+**`src/hooks/useCarregamentos.ts`** — dentro de `useCargasFechadasAguardando`, logo após o bloco atual `try { ... movimentacoes_portaria ... } catch { }` (l. 497-526), adicionar:
+
+```ts
+try {
+  const desde7d = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const { data: veRecentes } = await supabase
+    .from("veiculos_esperados")
+    .select("carga_id")
+    .eq("walk_in", false)
+    .eq("conferido", false)
+    .not("carga_id", "is", null)
+    .gte("created_at", desde7d);
+  const jaPresentes = new Set(cargasArr.map((c) => c.carga_id));
+  const faltantes = Array.from(
+    new Set(((veRecentes ?? []) as any[])
+      .map((v) => v.carga_id)
+      .filter((id) => id && !jaPresentes.has(id))),
+  );
+  if (faltantes.length > 0) {
+    const extras = await fetchAllPaginated<any>((from, to) =>
+      supabase
+        .from("carregamentos_dia")
+        .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
+        .eq("etapa", "logistica")
+        .in("carga_id", faltantes)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    if (extras.length > 0) cargasArr.push(...extras);
+  }
+} catch { /* silencioso */ }
 ```
 
-O call-site em `Consolidado.tsx` continua igual, só passa a considerar carga própria também. Renomeio a função para `computeDataEfetiva` (mantenho o alias `computeDataEfetivaTerceirizada` para não quebrar imports; se não houver outros consumidores, removo).
+### Limpeza pontual (Fernando)
 
-### 2. `src/hooks/useCarregamentos.ts` — promover PRE- para CG- no vínculo
-Nova helper `gerarCargaIdReal()` (mesmo formato do `FechamentoLoteDialog`).
+- Deletar `veiculos_esperados.d24772a2-...` (walk-in duplicado, carga_id null) OU vinculá-lo à carga `CG-20260713-091038-XQM` — a decidir na hora do build.
+- O movimento de portaria `93d8b2a6-...` (chegada walk-in sem carga) fica; se aplicável, casar `carga_id` para a carga fechada.
 
-Em `useVincularMovimentoACarga` e `useVincularWalkInACarga`, quando `input.cargaId` começar com `PRE-`:
-- gerar `novoCargaId`;
-- `UPDATE carregamentos_dia SET carga_id = novoCargaId, etapa = 'logistica' WHERE carga_id = PRE-...`;
-- `UPDATE veiculos_esperados SET carga_id = novoCargaId WHERE carga_id = PRE-...`;
-- `UPDATE movimentacoes_portaria SET carga_id = novoCargaId WHERE carga_id = PRE-...`;
-- usar `novoCargaId` no restante do fluxo (movimentos por placa, etc.).
-
-Quando o `carga_id` já for `CG-…`, comportamento atual permanece.
-
-### 3. Dados existentes — migração pontual
-- Reclassificar cliente `21435 AGILE` para `tipo = 'distribuidor'`.
-- Gerar um `CG-…` para a carga atual `PRE-20260706-093113-J6Q` e propagar em `carregamentos_dia`, `veiculos_esperados` (id `e08f7a9a…`) e `movimentacoes_portaria` (id `1231f771…`).
-
-Feito via ferramenta `insert` (UPDATE-only), sem alterar schema.
-
-## Validação
-- Rodar Playwright em `/consolidado` (hoje = 09/07) e confirmar que a linha AGILE / HIM2I61 aparece, e que o `carga_id` exibido é `CG-…` e não mais `PRE-…`.
-- Abrir `/distribuidores` e confirmar que AGILE aparece.
-- Confirmar que o card "Cargas fechadas aguardando veículo" na Portaria continua exibindo AGILE com "Aguardando liberação" (o vínculo não é desfeito).
-- `psql` para conferir que `carregamentos_dia`, `veiculos_esperados` e `movimentacoes_portaria` compartilham o mesmo `CG-…`.
+Quer que eu também faça esse acerto do registro atual do Fernando no mesmo build, ou só corrijo o bug e você lida com o registro pela interface (vincular na tela)?
