@@ -525,6 +525,43 @@ export function useCargasFechadasAguardando() {
         // Falha silenciosa: pior caso, o registro fica como já estava.
       }
 
+      // Defesa 2: também trazer cargas fechadas cujo `veiculos_esperados`
+      // foi criado recentemente pela Logística (não-walk-in, ainda não
+      // conferido) mesmo que a `data` planejada esteja fora da janela de
+      // 7 dias — ex.: pré-carga com data antiga fechada hoje. Sem isso,
+      // a portaria não via a carga no painel azul e o motorista tinha
+      // que ser registrado como walk-in, gerando duplicidade.
+      try {
+        const desde7d = new Date(Date.now() - 7 * 86400_000).toISOString();
+        const { data: veRecentes } = await supabase
+          .from("veiculos_esperados" as any)
+          .select("carga_id")
+          .eq("walk_in", false)
+          .eq("conferido", false)
+          .not("carga_id", "is", null)
+          .gte("created_at", desde7d);
+        const jaPresentes = new Set(cargasArr.map((c) => c.carga_id));
+        const faltantes = Array.from(
+          new Set(((veRecentes ?? []) as any[])
+            .map((v) => v.carga_id)
+            .filter((id) => id && !jaPresentes.has(id))),
+        );
+        if (faltantes.length > 0) {
+          const extras = await fetchAllPaginated<any>((from, to) =>
+            supabase
+              .from("carregamentos_dia")
+              .select("carga_id, nome_carga, placa, motorista, transportadora, tipo_caminhao, peso, data, id")
+              .eq("etapa", "logistica")
+              .in("carga_id", faltantes)
+              .order("id", { ascending: true })
+              .range(from, to),
+          );
+          if (extras.length > 0) cargasArr.push(...extras);
+        }
+      } catch {
+        // silencioso
+      }
+
       if (cargasArr.length === 0) return [] as CargaFechadaAguardando[];
 
       const cargaIds = Array.from(new Set(cargasArr.map((c) => c.carga_id).filter(Boolean)));
