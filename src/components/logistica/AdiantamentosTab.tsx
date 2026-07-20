@@ -94,6 +94,7 @@ export function AdiantamentosTab() {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
   const [adtManuais, setAdtManuais] = useState<Record<string, number>>({});
+  const [pesosManuais, setPesosManuais] = useState<Record<string, number>>({});
   // Modo de geração por transportadora: 'individual' (1 ADT por CT-e) ou 'lote' (1 ADT agrupado)
   const [modos, setModos] = useState<Record<string, "individual" | "lote">>({});
   const [observacoes, setObservacoes] = useState("");
@@ -195,6 +196,8 @@ export function AdiantamentosTab() {
       ctes: CteDacteRow[];
       total: number;
       peso: number;
+      pesoAuto: number;
+      pesoManual: boolean;
       totalTabela: number;
       percentual: number;
       adt: number;
@@ -205,7 +208,10 @@ export function AdiantamentosTab() {
       const escolhidos = lista.filter((c) => selecionados.has(c.id));
       if (escolhidos.length === 0) continue;
       const total = escolhidos.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
-      const peso = pesoEfetivoDeCtes(escolhidos);
+      const pesoAuto = pesoEfetivoDeCtes(escolhidos);
+      const pesoManualVal = pesosManuais[nome];
+      const pesoManual = pesoManualVal !== undefined && !Number.isNaN(pesoManualVal);
+      const peso = pesoManual ? Number(pesoManualVal) : pesoAuto;
       const totalTabela = escolhidos.reduce(
         (s, c) => s + (tabelaMap?.get(c.id)?.valorTabela ?? 0),
         0,
@@ -221,6 +227,8 @@ export function AdiantamentosTab() {
         ctes: escolhidos,
         total,
         peso,
+        pesoAuto,
+        pesoManual,
         totalTabela,
         percentual: manual ? percentualEfetivo : p,
         adt,
@@ -229,7 +237,7 @@ export function AdiantamentosTab() {
       });
     }
     return arr;
-  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName, tabelaMap, adtManuais]);
+  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName, tabelaMap, adtManuais, pesosManuais, pesoPorOrdem]);
 
   const totaisGerais = useMemo(
     () =>
@@ -280,6 +288,15 @@ export function AdiantamentosTab() {
         const merged = new Date(dataAdiantamento);
         merged.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
         const modo = getModo(r.nome);
+        // Rateia peso manual proporcional ao peso original de cada CT-e
+        const somaPesosOrig = r.ctes.reduce((s, c) => s + Number(c.peso_total || 0), 0);
+        const pesoDoCte = (c: CteDacteRow): number => {
+          if (!r.pesoManual) return Number(c.peso_total || 0);
+          if (somaPesosOrig > 0) {
+            return +((Number(c.peso_total || 0) / somaPesosOrig) * r.peso).toFixed(3);
+          }
+          return +(r.peso / r.ctes.length).toFixed(3);
+        };
         if (modo === "individual") {
           // 1 adiantamento por CT-e
           for (const c of r.ctes) {
@@ -301,7 +318,7 @@ export function AdiantamentosTab() {
               ctes: [{
                 id: c.id,
                 valor_frete: valorCte,
-                peso_total: Number(c.peso_total || 0),
+                peso_total: pesoDoCte(c),
               }],
             });
             criados.push(novo);
@@ -322,7 +339,7 @@ export function AdiantamentosTab() {
             ctes: r.ctes.map((c) => ({
               id: c.id,
               valor_frete: Number(c.valor_frete || 0),
-              peso_total: Number(c.peso_total || 0),
+              peso_total: pesoDoCte(c),
             })),
           });
           criados.push(novo);
@@ -331,6 +348,7 @@ export function AdiantamentosTab() {
       setSelecionados(new Set());
       setObservacoes("");
       setAdtManuais({});
+      setPesosManuais({});
       setDataAdiantamento(new Date());
       if (criados.length > 0) setComprovantesAdt(criados);
     } catch {
@@ -614,6 +632,42 @@ export function AdiantamentosTab() {
                       <div className="flex justify-between text-muted-foreground">
                         <span>R$/kg fechado:</span>
                         <span>{r.peso > 0 ? fmtRkg(r.total / r.peso) : "—"}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="1"
+                          placeholder={`Peso manual kg (auto: ${fmtKg(r.pesoAuto)})`}
+                          value={pesosManuais[r.nome] ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setPesosManuais((p) => {
+                              const n = { ...p };
+                              if (v === "") delete n[r.nome];
+                              else n[r.nome] = Number(v);
+                              return n;
+                            });
+                          }}
+                          className="h-7 text-xs"
+                        />
+                        {r.pesoManual && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() =>
+                              setPesosManuais((p) => {
+                                const n = { ...p };
+                                delete n[r.nome];
+                                return n;
+                              })
+                            }
+                          >
+                            ↺ kg
+                          </Button>
+                        )}
                       </div>
                       <div className="flex justify-between">
                         <span>Adt:</span>
