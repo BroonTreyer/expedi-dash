@@ -288,6 +288,15 @@ export function AdiantamentosTab() {
         const merged = new Date(dataAdiantamento);
         merged.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
         const modo = getModo(r.nome);
+        // Rateia peso manual proporcional ao peso original de cada CT-e
+        const somaPesosOrig = r.ctes.reduce((s, c) => s + Number(c.peso_total || 0), 0);
+        const pesoDoCte = (c: CteDacteRow): number => {
+          if (!r.pesoManual) return Number(c.peso_total || 0);
+          if (somaPesosOrig > 0) {
+            return +((Number(c.peso_total || 0) / somaPesosOrig) * r.peso).toFixed(3);
+          }
+          return +(r.peso / r.ctes.length).toFixed(3);
+        };
         if (modo === "individual") {
           // 1 adiantamento por CT-e
           for (const c of r.ctes) {
@@ -309,7 +318,7 @@ export function AdiantamentosTab() {
               ctes: [{
                 id: c.id,
                 valor_frete: valorCte,
-                peso_total: Number(c.peso_total || 0),
+                peso_total: pesoDoCte(c),
               }],
             });
             criados.push(novo);
@@ -330,7 +339,7 @@ export function AdiantamentosTab() {
             ctes: r.ctes.map((c) => ({
               id: c.id,
               valor_frete: Number(c.valor_frete || 0),
-              peso_total: Number(c.peso_total || 0),
+              peso_total: pesoDoCte(c),
             })),
           });
           criados.push(novo);
@@ -339,6 +348,7 @@ export function AdiantamentosTab() {
       setSelecionados(new Set());
       setObservacoes("");
       setAdtManuais({});
+      setPesosManuais({});
       setDataAdiantamento(new Date());
       if (criados.length > 0) setComprovantesAdt(criados);
     } catch {
