@@ -633,6 +633,42 @@ export function AdiantamentosTab() {
                         <span>R$/kg fechado:</span>
                         <span>{r.peso > 0 ? fmtRkg(r.total / r.peso) : "—"}</span>
                       </div>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="1"
+                          placeholder={`Peso manual kg (auto: ${fmtKg(r.pesoAuto)})`}
+                          value={pesosManuais[r.nome] ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setPesosManuais((p) => {
+                              const n = { ...p };
+                              if (v === "") delete n[r.nome];
+                              else n[r.nome] = Number(v);
+                              return n;
+                            });
+                          }}
+                          className="h-7 text-xs"
+                        />
+                        {r.pesoManual && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() =>
+                              setPesosManuais((p) => {
+                                const n = { ...p };
+                                delete n[r.nome];
+                                return n;
+                              })
+                            }
+                          >
+                            ↺ kg
+                          </Button>
+                        )}
+                      </div>
                       <div className="flex justify-between">
                         <span>Adt:</span>
                         <span className="font-semibold text-primary">{fmtBRL(r.adt)}</span>
