@@ -94,6 +94,7 @@ export function AdiantamentosTab() {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState<Record<string, number>>({});
   const [adtManuais, setAdtManuais] = useState<Record<string, number>>({});
+  const [pesosManuais, setPesosManuais] = useState<Record<string, number>>({});
   // Modo de geração por transportadora: 'individual' (1 ADT por CT-e) ou 'lote' (1 ADT agrupado)
   const [modos, setModos] = useState<Record<string, "individual" | "lote">>({});
   const [observacoes, setObservacoes] = useState("");
@@ -205,7 +206,10 @@ export function AdiantamentosTab() {
       const escolhidos = lista.filter((c) => selecionados.has(c.id));
       if (escolhidos.length === 0) continue;
       const total = escolhidos.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
-      const peso = pesoEfetivoDeCtes(escolhidos);
+      const pesoAuto = pesoEfetivoDeCtes(escolhidos);
+      const pesoManualVal = pesosManuais[nome];
+      const pesoManual = pesoManualVal !== undefined && !Number.isNaN(pesoManualVal);
+      const peso = pesoManual ? Number(pesoManualVal) : pesoAuto;
       const totalTabela = escolhidos.reduce(
         (s, c) => s + (tabelaMap?.get(c.id)?.valorTabela ?? 0),
         0,
@@ -221,6 +225,8 @@ export function AdiantamentosTab() {
         ctes: escolhidos,
         total,
         peso,
+        pesoAuto,
+        pesoManual,
         totalTabela,
         percentual: manual ? percentualEfetivo : p,
         adt,
@@ -229,7 +235,7 @@ export function AdiantamentosTab() {
       });
     }
     return arr;
-  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName, tabelaMap, adtManuais]);
+  }, [ctesPorTransp, selecionados, percentuais, transpInfoByName, tabelaMap, adtManuais, pesosManuais, pesoPorOrdem]);
 
   const totaisGerais = useMemo(
     () =>
