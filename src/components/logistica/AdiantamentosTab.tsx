@@ -196,6 +196,8 @@ export function AdiantamentosTab() {
       ctes: CteDacteRow[];
       total: number;
       peso: number;
+      pesoAuto: number;
+      pesoManual: boolean;
       totalTabela: number;
       percentual: number;
       adt: number;
