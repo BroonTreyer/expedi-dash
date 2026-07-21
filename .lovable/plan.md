@@ -1,20 +1,50 @@
 ## Objetivo
-Desfazer a quitação indevida do adiantamento que foi marcado como quitado sem pagamento real, para que o saldo volte a aparecer como pendente de quitação.
+Permitir desfazer etapas dos adiantamentos (Quitado → Pago → Pendente) e editar dados-chave, com confirmação e rastreabilidade — sem alterar o fluxo "para frente" já existente.
 
-## O que já foi conferido
-- A tabela de adiantamentos usa os campos `status`, `valor_saldo`, `pago_em`, `quitado_em`, `quitado_por` e `comprovante_quitacao_url`.
-- O registro citado anteriormente, `ADT-20260708-001`, não apareceu entre os 30 registros mais recentes da transportadora MOREIRA, então antes de alterar preciso localizar exatamente o registro quitado indevidamente por número, transportadora/data ou evidência do histórico.
+## Fluxo reverso proposto
 
-## Plano de ajuste
-1. Localizar o(s) adiantamento(s) quitado(s) indevidamente, filtrando por MOREIRA e pela data de quitação 08/07/2026, incluindo registros mais antigos.
-2. Confirmar quais registros têm `status = 'quitado'` e ainda possuem `valor_saldo` a receber.
-3. Reverter apenas os registros identificados:
-   - `status`: voltar para `pago`;
-   - `quitado_em`: limpar;
-   - `quitado_por`: limpar;
-   - `comprovante_quitacao_url`: limpar, se houver;
-   - manter `pago_em` e o comprovante do adiantamento, pois o adiantamento em si foi pago.
-4. Validar no banco que o saldo voltou a ficar aberto e que o registro não aparece mais como quitado.
+```text
+Pendente  ⇄  Pago  ⇄  Quitado
+   ↑                    │
+   └──── Cancelado ─────┘  (cancelamento continua como hoje; reabrir opcional)
+```
 
-## Resultado esperado
-O adiantamento continua como pago, mas com o saldo pendente para quitação, permitindo que o financeiro quite corretamente depois.
+- **Desmarcar Quitado** → volta para `pago`; limpa `quitado_em` / `quitado_por` / `observacoes_quitacao`; mantém `pago_em` e comprovante.
+- **Desmarcar Pago** → volta para `pendente`; limpa `pago_em` / `pago_por` / `comprovante_pagamento_url` (com aviso: o comprovante anexado é removido do registro).
+- **Reabrir Cancelado** (opcional, só admin) → volta para `pendente`.
+
+Regras:
+- Só habilita "Desmarcar quitado" se `status = 'quitado'`; só habilita "Desmarcar pago" se `status = 'pago'`.
+- Confirmação obrigatória (AlertDialog) explicando o que será revertido.
+- Toast de sucesso/erro e invalidação das queries de adiantamentos.
+
+## Ações de edição no menu do adiantamento
+Um menu "⋯ Ações" por linha (na tabela de adiantamentos), reunindo o que já existe + o novo:
+- Ver comprovante
+- Editar data do adiantamento (já existe, apenas movido para o menu)
+- Editar data de pagamento (novo — quando `pago`/`quitado`)
+- Editar data de quitação (novo — quando `quitado`)
+- Editar observações de quitação (novo — quando `quitado`)
+- Desmarcar quitado / Desmarcar pago / Reabrir cancelado (conforme status)
+- Cancelar adiantamento (já existe)
+
+## Onde aparece
+- Tabela principal de adiantamentos em `AdiantamentosTab.tsx` — nova coluna "Ações" com `DropdownMenu`.
+- Também no `ComprovanteAdiantamentoDialog` (rodapé) quando estiver aberto em um `quitado`/`pago`, para agilizar reversão a partir do comprovante.
+
+## Detalhes técnicos
+Arquivos:
+- `src/hooks/useAdiantamentos.ts` — novos hooks:
+  - `useDesmarcarQuitado(ids: string[])` → update `status='pago'`, zera campos de quitação.
+  - `useDesmarcarPago(ids: string[])` → update `status='pendente'`, zera campos de pagamento (+ comprovante).
+  - `useReabrirCancelado(id)` → update `status='pendente'`.
+  - `useAtualizarDataPagamento`, `useAtualizarDataQuitacao`, `useAtualizarObservacoesQuitacao`.
+  - Todos usam `log_audit('adiantamento', id, 'reverter_<etapa>' | 'editar_<campo>', { de, para })`.
+- `src/components/logistica/AdiantamentosTab.tsx` — nova coluna Ações + AlertDialogs de confirmação.
+- `src/components/logistica/ComprovanteAdiantamentoDialog.tsx` — botões "Desmarcar quitado/pago" no rodapé conforme status.
+
+Sem migration: usa colunas existentes (`status`, `pago_em`, `quitado_em`, `comprovante_pagamento_url`, `observacoes_quitacao`).
+
+## Fora de escopo
+- Não altera lógica de criação, rateio de peso, quitação em lote nem cancelamento.
+- Não mexe em CT-es vinculados (permanecem intactos ao reverter status).
