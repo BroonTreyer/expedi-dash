@@ -504,8 +504,71 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
           {(() => {
             const quitados = adiantamentos.filter((a) => a.status === "quitado");
             const pagosNaoQuitados = adiantamentos.filter((a) => a.status === "pago");
+            const comPagoEm = adiantamentos.filter((a) => !!a.pago_em);
+            const aplicarDataPago = async (dateStr: string) => {
+              try {
+                await Promise.all(comPagoEm.map((a) => atualizarPago.mutateAsync({ id: a.id, pago_em: dateStr })));
+                if (comPagoEm.length > 1) toast.success(`Data de pagamento atualizada em ${comPagoEm.length} adiantamentos`);
+              } catch {}
+            };
+            const aplicarDataQuit = async (dateStr: string) => {
+              try {
+                await Promise.all(quitados.map((a) => atualizarQuit.mutateAsync({ id: a.id, quitado_em: dateStr })));
+                if (quitados.length > 1) toast.success(`Data de quitação atualizada em ${quitados.length} adiantamentos`);
+              } catch {}
+            };
             return (
               <>
+                {comPagoEm.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <CalendarIcon className="h-4 w-4 mr-1" />
+                        Editar data pagamento{comPagoEm.length > 1 ? ` (${comPagoEm.length})` : ""}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={comPagoEm[0].pago_em ? new Date(comPagoEm[0].pago_em) : undefined}
+                        onSelect={(d) => {
+                          if (!d) return;
+                          const y = d.getFullYear();
+                          const m = String(d.getMonth() + 1).padStart(2, "0");
+                          const day = String(d.getDate()).padStart(2, "0");
+                          aplicarDataPago(`${y}-${m}-${day}`);
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+                {quitados.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <CalendarIcon className="h-4 w-4 mr-1" />
+                        Editar data quitação{quitados.length > 1 ? ` (${quitados.length})` : ""}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={quitados[0].quitado_em ? new Date(quitados[0].quitado_em) : undefined}
+                        onSelect={(d) => {
+                          if (!d) return;
+                          const y = d.getFullYear();
+                          const m = String(d.getMonth() + 1).padStart(2, "0");
+                          const day = String(d.getDate()).padStart(2, "0");
+                          aplicarDataQuit(`${y}-${m}-${day}`);
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
                 {quitados.length > 0 && (
                   <Button
                     variant="outline"
