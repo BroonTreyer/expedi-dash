@@ -87,10 +87,13 @@ function DataCell({ adiantamento }: { adiantamento: Adiantamento }) {
 
 function AcoesMenu({
   adiantamento,
+  items,
   onComprovante,
   onCancelar,
 }: {
   adiantamento: Adiantamento;
+  /** Quando presente e com > 1 item, o menu opera em LOTE sobre todos os IDs. */
+  items?: Adiantamento[];
   onComprovante: (a: Adiantamento) => void;
   onCancelar?: (id: string) => void;
 }) {
@@ -103,18 +106,56 @@ function AcoesMenu({
   const atualizarPago = useAtualizarDataPagamento();
   const atualizarQuit = useAtualizarDataQuitacao();
   const a = adiantamento;
+  const grupo = items && items.length > 0 ? items : [a];
+  const isLote = grupo.length > 1;
+  const n = grupo.length;
+  const rotulo = isLote ? `${n} adiantamentos` : a.numero;
+  const statuses = new Set(grupo.map((x) => x.status));
+  const allPago = grupo.every((x) => x.status === "pago");
+  const allQuitado = grupo.every((x) => x.status === "quitado");
+  const allCancelado = grupo.every((x) => x.status === "cancelado");
+  const allPendente = grupo.every((x) => x.status === "pendente");
+  const anyPagoOuQuitado = grupo.some((x) => x.status === "pago" || x.status === "quitado");
+  const allTemPagoEm = grupo.every((x) => !!x.pago_em);
 
   const close = () => setOpen(false);
+
+  const applyPago = (dateStr: string) => {
+    const alvos = grupo.filter((x) => !!x.pago_em);
+    Promise.all(alvos.map((x) => atualizarPago.mutateAsync({ id: x.id, pago_em: dateStr })))
+      .then(() => {
+        if (alvos.length > 1) toast.success(`Data de pagamento atualizada em ${alvos.length} adiantamentos`);
+      })
+      .catch(() => {});
+  };
+  const applyQuit = (dateStr: string) => {
+    const alvos = grupo.filter((x) => x.status === "quitado");
+    Promise.all(alvos.map((x) => atualizarQuit.mutateAsync({ id: x.id, quitado_em: dateStr })))
+      .then(() => {
+        if (alvos.length > 1) toast.success(`Data de quitação atualizada em ${alvos.length} adiantamentos`);
+      })
+      .catch(() => {});
+  };
 
   return (
     <div className="inline-flex items-center gap-1">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" title="Ações">
+          <Button variant="ghost" size="icon" className="h-7 w-7" title={isLote ? `Ações (lote de ${n})` : "Ações"}>
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1">
+          {isLote && (
+            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground border-b mb-1">
+              Lote — {n} adiantamentos
+              {statuses.size > 1 && (
+                <span className="block text-amber-600 normal-case tracking-normal">
+                  status mistos: só edição de datas comuns disponível
+                </span>
+              )}
+            </div>
+          )}
           <button
             className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
             onClick={() => { close(); onComprovante(a); }}
@@ -122,52 +163,56 @@ function AcoesMenu({
             <FileText className="h-3.5 w-3.5" /> Ver comprovante
           </button>
 
-          {(a.status === "pago" || a.status === "quitado") && (
+          {(isLote ? allTemPagoEm : (a.status === "pago" || a.status === "quitado")) && (
             <button
               className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
               onClick={() => { close(); setDtPagoOpen(true); }}
             >
-              <CalendarIcon className="h-3.5 w-3.5" /> Editar data de pagamento
+              <CalendarIcon className="h-3.5 w-3.5" />
+              Editar data de pagamento{isLote ? ` (${n})` : ""}
             </button>
           )}
-          {a.status === "quitado" && (
+          {(isLote ? allQuitado : a.status === "quitado") && (
             <button
               className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
               onClick={() => { close(); setDtQuitOpen(true); }}
             >
-              <CalendarIcon className="h-3.5 w-3.5" /> Editar data de quitação
+              <CalendarIcon className="h-3.5 w-3.5" />
+              Editar data de quitação{isLote ? ` (${n})` : ""}
             </button>
           )}
 
           <div className="h-px bg-border my-1" />
 
-          {a.status === "quitado" && (
+          {(isLote ? allQuitado : a.status === "quitado") && (
             <button
               className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
               onClick={() => {
                 close();
-                if (confirm(`Desmarcar quitação do ${a.numero}?\n\nO adiantamento volta para PAGO e o saldo fica em aberto novamente.`)) {
-                  desmarcarQuitado.mutate([a.id]);
+                if (confirm(`Desmarcar quitação de ${rotulo}?\n\nVoltam para PAGO e o saldo fica em aberto novamente.`)) {
+                  desmarcarQuitado.mutate(grupo.map((x) => x.id));
                 }
               }}
             >
-              <Undo2 className="h-3.5 w-3.5" /> Desmarcar quitado → Pago
+              <Undo2 className="h-3.5 w-3.5" />
+              Desmarcar quitado → Pago{isLote ? ` (${n})` : ""}
             </button>
           )}
-          {a.status === "pago" && (
+          {(isLote ? allPago : a.status === "pago") && (
             <button
               className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
               onClick={() => {
                 close();
-                if (confirm(`Desmarcar pagamento do ${a.numero}?\n\nO adiantamento volta para PENDENTE e o comprovante anexado é removido do registro.`)) {
-                  desmarcarPago.mutate([a.id]);
+                if (confirm(`Desmarcar pagamento de ${rotulo}?\n\nVoltam para PENDENTE e o comprovante anexado é removido do registro.`)) {
+                  desmarcarPago.mutate(grupo.map((x) => x.id));
                 }
               }}
             >
-              <Undo2 className="h-3.5 w-3.5" /> Desmarcar pago → Pendente
+              <Undo2 className="h-3.5 w-3.5" />
+              Desmarcar pago → Pendente{isLote ? ` (${n})` : ""}
             </button>
           )}
-          {a.status === "cancelado" && (
+          {!isLote && a.status === "cancelado" && (
             <button
               className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
               onClick={() => {
@@ -180,7 +225,7 @@ function AcoesMenu({
               <RotateCcw className="h-3.5 w-3.5" /> Reabrir adiantamento
             </button>
           )}
-          {a.status === "pendente" && onCancelar && (
+          {!isLote && a.status === "pendente" && onCancelar && (
             <button
               className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2 text-destructive"
               onClick={() => { close(); onCancelar(a.id); }}
@@ -203,7 +248,7 @@ function AcoesMenu({
               const y = d.getFullYear();
               const m = String(d.getMonth() + 1).padStart(2, "0");
               const day = String(d.getDate()).padStart(2, "0");
-              atualizarPago.mutate({ id: a.id, pago_em: `${y}-${m}-${day}` });
+              applyPago(`${y}-${m}-${day}`);
               setDtPagoOpen(false);
             }}
             initialFocus
@@ -222,7 +267,7 @@ function AcoesMenu({
               const y = d.getFullYear();
               const m = String(d.getMonth() + 1).padStart(2, "0");
               const day = String(d.getDate()).padStart(2, "0");
-              atualizarQuit.mutate({ id: a.id, quitado_em: `${y}-${m}-${day}` });
+              applyQuit(`${y}-${m}-${day}`);
               setDtQuitOpen(false);
             }}
             initialFocus
@@ -1413,13 +1458,12 @@ function ListaAdiantamentos({
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
-                    {!consolidado && (
-                      <AcoesMenu
-                        adiantamento={g.rep}
-                        onComprovante={(a) => onComprovante(a)}
-                        onCancelar={onCancelar}
-                      />
-                    )}
+                    <AcoesMenu
+                      adiantamento={g.rep}
+                      items={consolidado ? g.items : undefined}
+                      onComprovante={(a) => onComprovante(consolidado ? g.items : a)}
+                      onCancelar={onCancelar}
+                    />
                   </TableCell>
                 </TableRow>
                 {consolidado && isExp &&

@@ -1,50 +1,35 @@
 ## Objetivo
-Permitir desfazer etapas dos adiantamentos (Quitado → Pago → Pendente) e editar dados-chave, com confirmação e rastreabilidade — sem alterar o fluxo "para frente" já existente.
+Permitir editar em lote as datas (pagamento/quitação) de todos os adiantamentos de uma linha consolidada, sem precisar abrir um por um.
 
-## Fluxo reverso proposto
+## Onde aparece hoje
+- Em `AdiantamentosTab.tsx`, linhas consolidadas (mais de um adiantamento agrupado por OC/Transportadora) **não** exibem o `AcoesMenu` — só o botão de comprovante. Por isso, para editar data, o usuário precisa desconsolidar/abrir cada um.
+- No `ComprovanteAdiantamentoDialog.tsx`, o rodapé já tem "Desmarcar quitado/pago" em lote, mas não tem edição de datas.
 
-```text
-Pendente  ⇄  Pago  ⇄  Quitado
-   ↑                    │
-   └──── Cancelado ─────┘  (cancelamento continua como hoje; reabrir opcional)
-```
+## Mudanças
 
-- **Desmarcar Quitado** → volta para `pago`; limpa `quitado_em` / `quitado_por` / `observacoes_quitacao`; mantém `pago_em` e comprovante.
-- **Desmarcar Pago** → volta para `pendente`; limpa `pago_em` / `pago_por` / `comprovante_pagamento_url` (com aviso: o comprovante anexado é removido do registro).
-- **Reabrir Cancelado** (opcional, só admin) → volta para `pendente`.
+### 1. `AcoesMenu` também nas linhas consolidadas
+- Passar o array completo `g.items` para um novo modo "lote" do `AcoesMenu`.
+- No modo lote, ao clicar em "Editar data de pagamento" ou "Editar data de quitação", abrir um único date picker que aplica a data escolhida em **todos** os IDs do grupo.
+- "Desmarcar quitado" / "Desmarcar pago" / "Cancelar" já funcionam com arrays — apenas habilitá-los quando todos os itens do grupo estiverem no mesmo status (senão, desabilitar com tooltip explicando).
 
-Regras:
-- Só habilita "Desmarcar quitado" se `status = 'quitado'`; só habilita "Desmarcar pago" se `status = 'pago'`.
-- Confirmação obrigatória (AlertDialog) explicando o que será revertido.
-- Toast de sucesso/erro e invalidação das queries de adiantamentos.
+### 2. Edição de datas em lote no `ComprovanteAdiantamentoDialog`
+- Adicionar no rodapé, ao lado dos botões "Desmarcar…", dois novos:
+  - "Editar data de pagamento" (visível se todos têm `pago_em`)
+  - "Editar data de quitação" (visível se todos estão `quitado`)
+- Cada botão abre um pequeno popover com date picker + "Aplicar a todos (N)"; usa os hooks existentes `useAtualizarDataPagamento` / `useAtualizarDataQuitacao` chamados em paralelo (`Promise.all`) para os IDs selecionados.
 
-## Ações de edição no menu do adiantamento
-Um menu "⋯ Ações" por linha (na tabela de adiantamentos), reunindo o que já existe + o novo:
-- Ver comprovante
-- Editar data do adiantamento (já existe, apenas movido para o menu)
-- Editar data de pagamento (novo — quando `pago`/`quitado`)
-- Editar data de quitação (novo — quando `quitado`)
-- Editar observações de quitação (novo — quando `quitado`)
-- Desmarcar quitado / Desmarcar pago / Reabrir cancelado (conforme status)
-- Cancelar adiantamento (já existe)
+### 3. Hooks
+Nenhum hook novo é necessário — reutilizamos:
+- `useAtualizarDataPagamento({ id, pago_em })`
+- `useAtualizarDataQuitacao({ id, quitado_em })`
+- `useDesmarcarPago(ids[])`, `useDesmarcarQuitado(ids[])`
 
-## Onde aparece
-- Tabela principal de adiantamentos em `AdiantamentosTab.tsx` — nova coluna "Ações" com `DropdownMenu`.
-- Também no `ComprovanteAdiantamentoDialog` (rodapé) quando estiver aberto em um `quitado`/`pago`, para agilizar reversão a partir do comprovante.
+Opcionalmente, criar wrappers `useAtualizarDataPagamentoLote` / `useAtualizarDataQuitacaoLote` que fazem um único `UPDATE ... IN (ids)` para ser mais eficiente e gerar um único toast.
 
-## Detalhes técnicos
-Arquivos:
-- `src/hooks/useAdiantamentos.ts` — novos hooks:
-  - `useDesmarcarQuitado(ids: string[])` → update `status='pago'`, zera campos de quitação.
-  - `useDesmarcarPago(ids: string[])` → update `status='pendente'`, zera campos de pagamento (+ comprovante).
-  - `useReabrirCancelado(id)` → update `status='pendente'`.
-  - `useAtualizarDataPagamento`, `useAtualizarDataQuitacao`, `useAtualizarObservacoesQuitacao`.
-  - Todos usam `log_audit('adiantamento', id, 'reverter_<etapa>' | 'editar_<campo>', { de, para })`.
-- `src/components/logistica/AdiantamentosTab.tsx` — nova coluna Ações + AlertDialogs de confirmação.
-- `src/components/logistica/ComprovanteAdiantamentoDialog.tsx` — botões "Desmarcar quitado/pago" no rodapé conforme status.
-
-Sem migration: usa colunas existentes (`status`, `pago_em`, `quitado_em`, `comprovante_pagamento_url`, `observacoes_quitacao`).
+## Arquivos afetados
+- `src/components/logistica/AdiantamentosTab.tsx` — habilitar `AcoesMenu` em linhas consolidadas passando `items`; suportar modo lote.
+- `src/components/logistica/ComprovanteAdiantamentoDialog.tsx` — adicionar botões de editar data no rodapé.
+- `src/hooks/useAdiantamentos.ts` — (opcional) adicionar os dois hooks em lote.
 
 ## Fora de escopo
-- Não altera lógica de criação, rateio de peso, quitação em lote nem cancelamento.
-- Não mexe em CT-es vinculados (permanecem intactos ao reverter status).
+- Não muda regras de status, rateio de peso, cancelamento, nem cria migration.
