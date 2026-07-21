@@ -290,7 +290,6 @@ export function useDesmarcarQuitado() {
           status: "pago",
           quitado_em: null,
           quitado_por: null,
-          observacoes_quitacao: null,
         })
         .in("id", ids);
       if (error) throw error;
