@@ -6,9 +6,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Printer, CheckCircle2, Paperclip, X } from "lucide-react";
+import { Copy, Printer, CheckCircle2, Paperclip, X, Undo2 } from "lucide-react";
 import { toast } from "sonner";
-import { useMarcarAdiantamentoPago, useVincularTransportadora, type Adiantamento, type AdiantamentoCte } from "@/hooks/useAdiantamentos";
+import {
+  useMarcarAdiantamentoPago,
+  useVincularTransportadora,
+  useDesmarcarPago,
+  useDesmarcarQuitado,
+  type Adiantamento,
+  type AdiantamentoCte,
+} from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
 import { resolveTranspInfo, normalizaNomeTransp } from "@/lib/transportadora-match";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,6 +42,8 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
   const session = useSession();
   const { data: transp = [] } = useTransportadorasFinanceiro();
   const marcarPago = useMarcarAdiantamentoPago();
+  const desmarcarPago = useDesmarcarPago();
+  const desmarcarQuitado = useDesmarcarQuitado();
 
   // Busca CT-es de cada adiantamento em paralelo
   const ctesQueries = useQueries({
