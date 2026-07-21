@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X } from "lucide-react";
+import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X, MoreHorizontal, Undo2, RotateCcw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,11 @@ import {
   useMarcarAdiantamentoPago,
   useAtualizarDataAdiantamento,
   useDeleteAdiantamentosComCtes,
+  useDesmarcarQuitado,
+  useDesmarcarPago,
+  useReabrirCancelado,
+  useAtualizarDataPagamento,
+  useAtualizarDataQuitacao,
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
 import { useDeleteCtesByIds } from "@/hooks/useCtesDacte";
