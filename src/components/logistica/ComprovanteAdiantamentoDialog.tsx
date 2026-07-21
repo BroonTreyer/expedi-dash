@@ -6,9 +6,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Printer, CheckCircle2, Paperclip, X } from "lucide-react";
+import { Copy, Printer, CheckCircle2, Paperclip, X, Undo2 } from "lucide-react";
 import { toast } from "sonner";
-import { useMarcarAdiantamentoPago, useVincularTransportadora, type Adiantamento, type AdiantamentoCte } from "@/hooks/useAdiantamentos";
+import {
+  useMarcarAdiantamentoPago,
+  useVincularTransportadora,
+  useDesmarcarPago,
+  useDesmarcarQuitado,
+  type Adiantamento,
+  type AdiantamentoCte,
+} from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
 import { resolveTranspInfo, normalizaNomeTransp } from "@/lib/transportadora-match";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,6 +42,8 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
   const session = useSession();
   const { data: transp = [] } = useTransportadorasFinanceiro();
   const marcarPago = useMarcarAdiantamentoPago();
+  const desmarcarPago = useDesmarcarPago();
+  const desmarcarQuitado = useDesmarcarQuitado();
 
   // Busca CT-es de cada adiantamento em paralelo
   const ctesQueries = useQueries({
@@ -484,6 +493,54 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
                   : `Marcar ${pendentes.length} como pagos`}
             </Button>
           )}
+          {(() => {
+            const quitados = adiantamentos.filter((a) => a.status === "quitado");
+            const pagosNaoQuitados = adiantamentos.filter((a) => a.status === "pago");
+            return (
+              <>
+                {quitados.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const msg =
+                        quitados.length === 1
+                          ? `Desmarcar quitação do ${quitados[0].numero}? O saldo volta a ficar aberto.`
+                          : `Desmarcar quitação de ${quitados.length} adiantamentos? O saldo volta a ficar aberto.`;
+                      if (confirm(msg)) {
+                        desmarcarQuitado.mutate(quitados.map((a) => a.id), {
+                          onSuccess: () => onOpenChange(false),
+                        });
+                      }
+                    }}
+                    disabled={desmarcarQuitado.isPending}
+                  >
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    {quitados.length === 1 ? "Desmarcar quitado" : `Desmarcar ${quitados.length} quitados`}
+                  </Button>
+                )}
+                {pagosNaoQuitados.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const msg =
+                        pagosNaoQuitados.length === 1
+                          ? `Desmarcar pagamento do ${pagosNaoQuitados[0].numero}? O comprovante anexado será removido do registro.`
+                          : `Desmarcar pagamento de ${pagosNaoQuitados.length} adiantamentos? Os comprovantes anexados serão removidos dos registros.`;
+                      if (confirm(msg)) {
+                        desmarcarPago.mutate(pagosNaoQuitados.map((a) => a.id), {
+                          onSuccess: () => onOpenChange(false),
+                        });
+                      }
+                    }}
+                    disabled={desmarcarPago.isPending}
+                  >
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    {pagosNaoQuitados.length === 1 ? "Desmarcar pago" : `Desmarcar ${pagosNaoQuitados.length} pagos`}
+                  </Button>
+                )}
+              </>
+            );
+          })()}
         </DialogFooter>
       </DialogContent>
     </Dialog>

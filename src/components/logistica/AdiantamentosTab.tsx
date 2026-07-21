@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X } from "lucide-react";
+import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X, MoreHorizontal, Undo2, RotateCcw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,11 @@ import {
   useMarcarAdiantamentoPago,
   useAtualizarDataAdiantamento,
   useDeleteAdiantamentosComCtes,
+  useDesmarcarQuitado,
+  useDesmarcarPago,
+  useReabrirCancelado,
+  useAtualizarDataPagamento,
+  useAtualizarDataQuitacao,
   type Adiantamento,
 } from "@/hooks/useAdiantamentos";
 import { useDeleteCtesByIds } from "@/hooks/useCtesDacte";
@@ -77,6 +82,155 @@ function DataCell({ adiantamento }: { adiantamento: Adiantamento }) {
         />
       </PopoverContent>
     </Popover>
+  );
+}
+
+function AcoesMenu({
+  adiantamento,
+  onComprovante,
+  onCancelar,
+}: {
+  adiantamento: Adiantamento;
+  onComprovante: (a: Adiantamento) => void;
+  onCancelar?: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dtPagoOpen, setDtPagoOpen] = useState(false);
+  const [dtQuitOpen, setDtQuitOpen] = useState(false);
+  const desmarcarQuitado = useDesmarcarQuitado();
+  const desmarcarPago = useDesmarcarPago();
+  const reabrir = useReabrirCancelado();
+  const atualizarPago = useAtualizarDataPagamento();
+  const atualizarQuit = useAtualizarDataQuitacao();
+  const a = adiantamento;
+
+  const close = () => setOpen(false);
+
+  return (
+    <div className="inline-flex items-center gap-1">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Ações">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-56 p-1">
+          <button
+            className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+            onClick={() => { close(); onComprovante(a); }}
+          >
+            <FileText className="h-3.5 w-3.5" /> Ver comprovante
+          </button>
+
+          {(a.status === "pago" || a.status === "quitado") && (
+            <button
+              className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+              onClick={() => { close(); setDtPagoOpen(true); }}
+            >
+              <CalendarIcon className="h-3.5 w-3.5" /> Editar data de pagamento
+            </button>
+          )}
+          {a.status === "quitado" && (
+            <button
+              className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+              onClick={() => { close(); setDtQuitOpen(true); }}
+            >
+              <CalendarIcon className="h-3.5 w-3.5" /> Editar data de quitação
+            </button>
+          )}
+
+          <div className="h-px bg-border my-1" />
+
+          {a.status === "quitado" && (
+            <button
+              className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+              onClick={() => {
+                close();
+                if (confirm(`Desmarcar quitação do ${a.numero}?\n\nO adiantamento volta para PAGO e o saldo fica em aberto novamente.`)) {
+                  desmarcarQuitado.mutate([a.id]);
+                }
+              }}
+            >
+              <Undo2 className="h-3.5 w-3.5" /> Desmarcar quitado → Pago
+            </button>
+          )}
+          {a.status === "pago" && (
+            <button
+              className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+              onClick={() => {
+                close();
+                if (confirm(`Desmarcar pagamento do ${a.numero}?\n\nO adiantamento volta para PENDENTE e o comprovante anexado é removido do registro.`)) {
+                  desmarcarPago.mutate([a.id]);
+                }
+              }}
+            >
+              <Undo2 className="h-3.5 w-3.5" /> Desmarcar pago → Pendente
+            </button>
+          )}
+          {a.status === "cancelado" && (
+            <button
+              className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+              onClick={() => {
+                close();
+                if (confirm(`Reabrir ${a.numero}?\n\nVolta para PENDENTE e os CT-es voltam a ficar vinculados.`)) {
+                  reabrir.mutate(a.id);
+                }
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Reabrir adiantamento
+            </button>
+          )}
+          {a.status === "pendente" && onCancelar && (
+            <button
+              className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2 text-destructive"
+              onClick={() => { close(); onCancelar(a.id); }}
+            >
+              <XCircle className="h-3.5 w-3.5" /> Cancelar adiantamento
+            </button>
+          )}
+        </PopoverContent>
+      </Popover>
+
+      {/* Popovers de edição de data — controlados a partir do menu */}
+      <Popover open={dtPagoOpen} onOpenChange={setDtPagoOpen}>
+        <PopoverTrigger asChild><span className="hidden" /></PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <Calendar
+            mode="single"
+            selected={a.pago_em ? new Date(a.pago_em) : undefined}
+            onSelect={(d) => {
+              if (!d) return;
+              const y = d.getFullYear();
+              const m = String(d.getMonth() + 1).padStart(2, "0");
+              const day = String(d.getDate()).padStart(2, "0");
+              atualizarPago.mutate({ id: a.id, pago_em: `${y}-${m}-${day}` });
+              setDtPagoOpen(false);
+            }}
+            initialFocus
+            className={cn("p-3 pointer-events-auto")}
+          />
+        </PopoverContent>
+      </Popover>
+      <Popover open={dtQuitOpen} onOpenChange={setDtQuitOpen}>
+        <PopoverTrigger asChild><span className="hidden" /></PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <Calendar
+            mode="single"
+            selected={a.quitado_em ? new Date(a.quitado_em) : undefined}
+            onSelect={(d) => {
+              if (!d) return;
+              const y = d.getFullYear();
+              const m = String(d.getMonth() + 1).padStart(2, "0");
+              const day = String(d.getDate()).padStart(2, "0");
+              atualizarQuit.mutate({ id: a.id, quitado_em: `${y}-${m}-${day}` });
+              setDtQuitOpen(false);
+            }}
+            initialFocus
+            className={cn("p-3 pointer-events-auto")}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 
@@ -1259,16 +1413,12 @@ function ListaAdiantamentos({
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
-                    {!consolidado && onCancelar && g.rep.status === "pendente" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => onCancelar(g.rep.id)}
-                        title="Cancelar"
-                      >
-                        <XCircle className="h-4 w-4 text-destructive" />
-                      </Button>
+                    {!consolidado && (
+                      <AcoesMenu
+                        adiantamento={g.rep}
+                        onComprovante={(a) => onComprovante(a)}
+                        onCancelar={onCancelar}
+                      />
                     )}
                   </TableCell>
                 </TableRow>
@@ -1303,11 +1453,11 @@ function ListaAdiantamentos({
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onComprovante(a)} title="Ver comprovante">
                           <FileText className="h-4 w-4" />
                         </Button>
-                        {onCancelar && a.status === "pendente" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCancelar(a.id)} title="Cancelar">
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
+                        <AcoesMenu
+                          adiantamento={a}
+                          onComprovante={(x) => onComprovante(x)}
+                          onCancelar={onCancelar}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

@@ -278,6 +278,115 @@ export function useAtualizarDataAdiantamento() {
   });
 }
 
+/** Volta um adiantamento QUITADO para PAGO (limpa campos de quitação). */
+export function useDesmarcarQuitado() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!ids.length) return;
+      const { error } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({
+          status: "pago",
+          quitado_em: null,
+          quitado_por: null,
+        })
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      toast.success("Quitação desfeita — voltou para Pago");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao desmarcar quitação"),
+  });
+}
+
+/** Volta um adiantamento PAGO para PENDENTE (limpa pagamento e comprovante). */
+export function useDesmarcarPago() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!ids.length) return;
+      const { error } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({
+          status: "pendente",
+          pago_em: null,
+          pago_por: null,
+          comprovante_pagamento_url: null,
+        })
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      toast.success("Pagamento desfeito — voltou para Pendente");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao desmarcar pagamento"),
+  });
+}
+
+/** Reabre um adiantamento CANCELADO devolvendo para PENDENTE. */
+export function useReabrirCancelado() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({ status: "pendente" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      qc.invalidateQueries({ queryKey: ["adt_ctes_ativos"] });
+      toast.success("Adiantamento reaberto");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao reabrir"),
+  });
+}
+
+/** Atualiza data de pagamento (yyyy-mm-dd). */
+export function useAtualizarDataPagamento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; pago_em: string }) => {
+      const iso = new Date(`${input.pago_em}T12:00:00`).toISOString();
+      const { error } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({ pago_em: iso })
+        .eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      toast.success("Data de pagamento atualizada");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro"),
+  });
+}
+
+/** Atualiza data de quitação (yyyy-mm-dd). */
+export function useAtualizarDataQuitacao() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; quitado_em: string }) => {
+      const iso = new Date(`${input.quitado_em}T12:00:00`).toISOString();
+      const { error } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({ quitado_em: iso })
+        .eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      toast.success("Data de quitação atualizada");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro"),
+  });
+}
+
 export function useVincularTransportadora() {
   const qc = useQueryClient();
   return useMutation({
