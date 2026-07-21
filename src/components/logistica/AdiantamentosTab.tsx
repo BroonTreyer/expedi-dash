@@ -1458,13 +1458,12 @@ function ListaAdiantamentos({
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
-                    {!consolidado && (
-                      <AcoesMenu
-                        adiantamento={g.rep}
-                        onComprovante={(a) => onComprovante(a)}
-                        onCancelar={onCancelar}
-                      />
-                    )}
+                    <AcoesMenu
+                      adiantamento={g.rep}
+                      items={consolidado ? g.items : undefined}
+                      onComprovante={(a) => onComprovante(consolidado ? g.items : a)}
+                      onCancelar={onCancelar}
+                    />
                   </TableCell>
                 </TableRow>
                 {consolidado && isExp &&
