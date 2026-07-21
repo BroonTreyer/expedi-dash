@@ -13,6 +13,8 @@ import {
   useVincularTransportadora,
   useDesmarcarPago,
   useDesmarcarQuitado,
+  useAtualizarDataPagamento,
+  useAtualizarDataQuitacao,
   type Adiantamento,
   type AdiantamentoCte,
 } from "@/hooks/useAdiantamentos";
@@ -20,6 +22,10 @@ import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinancei
 import { resolveTranspInfo, normalizaNomeTransp } from "@/lib/transportadora-match";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CteDacteRow } from "@/hooks/useCtesDacte";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
@@ -44,6 +50,8 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
   const marcarPago = useMarcarAdiantamentoPago();
   const desmarcarPago = useDesmarcarPago();
   const desmarcarQuitado = useDesmarcarQuitado();
+  const atualizarPago = useAtualizarDataPagamento();
+  const atualizarQuit = useAtualizarDataQuitacao();
 
   // Busca CT-es de cada adiantamento em paralelo
   const ctesQueries = useQueries({
