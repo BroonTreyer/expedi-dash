@@ -1413,16 +1413,12 @@ function ListaAdiantamentos({
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
-                    {!consolidado && onCancelar && g.rep.status === "pendente" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => onCancelar(g.rep.id)}
-                        title="Cancelar"
-                      >
-                        <XCircle className="h-4 w-4 text-destructive" />
-                      </Button>
+                    {!consolidado && (
+                      <AcoesMenu
+                        adiantamento={g.rep}
+                        onComprovante={(a) => onComprovante(a)}
+                        onCancelar={onCancelar}
+                      />
                     )}
                   </TableCell>
                 </TableRow>
@@ -1457,11 +1453,11 @@ function ListaAdiantamentos({
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onComprovante(a)} title="Ver comprovante">
                           <FileText className="h-4 w-4" />
                         </Button>
-                        {onCancelar && a.status === "pendente" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCancelar(a.id)} title="Cancelar">
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
+                        <AcoesMenu
+                          adiantamento={a}
+                          onComprovante={(x) => onComprovante(x)}
+                          onCancelar={onCancelar}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
