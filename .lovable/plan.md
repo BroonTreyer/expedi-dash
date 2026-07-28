@@ -1,23 +1,41 @@
-## Situação
-
-O caminhão **RMB0C89 / WELLITON** está com dois registros de portaria em aberto no dia 25/07:
-
-1. `d4b4c5bb…` — **carga_propria** vinculada à carga **CG-20260724-172416-L2G (ROBSON FOB)**, entrada em 25/07 12:25, `etapa_carga_propria = 'chegou'`, sem `horario_saida_final`. Este é o registro que o Consolidado mostra como **"No pátio"**.
-2. `005b6b45…` — terceirizado sem carga_id, entrada 25/07 12:27 — este já foi finalizado hoje (28/07 11:32).
-
-O carregamento (`carregamentos_dia`) já está com `status = 'Carregado'`, mas a portaria nunca registrou a saída, por isso o badge continua "No pátio" e não aparece opção de dar baixa (a tela onde você está — Consolidado — não expõe ação de portaria; a baixa é feita pela tela **Portaria — Carga Própria**, mas como está "FOB" e a etapa travou em `chegou`, o botão de conclusão sumiu para você).
-
 ## O que fazer
 
-Dar baixa manual do movimento `d4b4c5bb-02d1-4d93-b839-e8e9a30bc129`:
+Inserir 34 clientes novos na tabela `clientes` a partir da planilha `Assai-REGIONAL-SAO-PAULO-7_2_1.xlsx`, considerando somente as linhas que têm valor na coluna **Codigo**.
 
-- `etapa_carga_propria = 'finalizado'`
-- `horario_saida_final = now()` (07:00 BRT do dia atual, ou o horário que você indicar)
-- `horario_real_saida = now()`
-- Inserir movimento espelho `tipo_movimento = 'saida'` na `movimentacoes_portaria` (mesmo padrão dos outros finalizados dele — ex.: `CG-20260710-163915-JG6`), para o Consolidado passar a exibir **"Expedido"**.
+## Regras aplicadas
 
-Depois disso o card do RMB0C89 sai de "No pátio" e entra como expedido normalmente.
+- `codigo_cliente` = valor da coluna **Codigo** (como texto, sem `.0`).
+- `nome_cliente` = `"ASSAI ATACADISTA " + Nome Loja` (trim, sem acentos alterados).
+- `cidade` = coluna **Cidade** (com `trim`).
+- `uf` = `SP` para todas.
+- `ativo` = `true`, `tipo` = padrão da tabela.
+- Uso de `ON CONFLICT (codigo_cliente) DO NOTHING` para não sobrescrever cadastros já existentes (ex.: se alguém já criou "ASSAI ATACADISTA XXX" com esse código, fica como está).
+- Depois do insert, rodar `sync_clients_to_orders()` para propagar nome/cidade/UF para pedidos existentes que usem esses códigos.
 
-## Confirmação necessária
+## Tratamento dos casos especiais
 
-Quer que eu use **o horário atual** como saída, ou algum horário específico (ex.: fim do carregamento em 25/07)?
+- **34707 duplicado na planilha**: fica com **loja 354 – São José dos Campos JK** (loja 303 "Sorocaba Santa Rosália" é ignorada nesse import; se quiser subir depois, precisa de outro código).
+- **34207**: estava na sua lista original mas **não aparece na planilha**, então não entra neste import.
+- Códigos que já existem hoje na base (10 dos "ASSAI ATACADISTA XXX" que confirmei antes) passam pelo `ON CONFLICT DO NOTHING` sem alteração.
+
+## Lista final a inserir (34 registros)
+
+```text
+34681 Jundiaí | 34682 Rio Claro | 34683 Campinas Amoreiras
+34684 Praia Grande Litoral Plaza | 34685 Bauru | 34686 Ribeirão Preto Rotatória
+34687 Presidente Prudente | 33951 Praia Grande Glória | 34688 São José dos Campos
+34203 São Vicente | 34689 Taubaté | 34690 Piracicaba Centro
+34691 Paulinia | 34204 Hortolândia | 34205 Araçatuba
+34692 Indaiatuba | 33948 Jundiaí Ferroviários | 34694 Santa Bárbara D'oeste
+34696 Ribeirão Preto Castelo Branco | 34697 Piracicaba Nova América
+34698 Limeira II | 34699 Sorocaba Campolim | 34206 São José dos Campos Colinas
+34700 Araraquara | 33953 Caraguatatuba Serramar | 34701 Itatiba
+34702 Ribeirão Preto Vargas | 33949 Campinas Abolição
+33950 Santos Ana Costa | 34703 São José do Rio Preto Clube Palestra
+34704 São José do Rio Preto Anísio Haddad | 34705 Guarujá Vicente Carvalho
+34706 Sumaré JD Primavera | 34707 São José dos Campos JK
+```
+
+## Passo técnico único
+
+Um `INSERT ... ON CONFLICT (codigo_cliente) DO NOTHING` na `public.clientes` + chamada à função `sync_clients_to_orders()`. Nenhuma alteração de schema ou de código-fonte.
