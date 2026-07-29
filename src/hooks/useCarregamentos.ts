@@ -255,7 +255,7 @@ export function useBatchUpdateCarregamento() {
         updates.map(async ({ id, ...values }) => {
           const res = await supabase
             .from("carregamentos_dia")
-            .update(values)
+            .update(values as any)
             .eq("id", id)
             .select("id");
           return { id, error: res.error, rows: res.data ?? [] };
