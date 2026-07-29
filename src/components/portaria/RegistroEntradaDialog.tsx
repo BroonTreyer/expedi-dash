@@ -191,7 +191,7 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
       // Atualiza placa/motorista nas linhas da carga (caso o veículo real seja diferente do previsto)
       const updateData: Record<string, any> = { placa: placaNorm };
       if (motoristaNorm) updateData.motorista = motoristaNorm;
-      await supabase.from("carregamentos_dia").update(updateData).eq("carga_id", cargaId);
+      await supabase.from("carregamentos_dia").update(updateData as any).eq("carga_id", cargaId);
 
       // Carga Própria (Varejo) é fluxo de 1 passo — entra direto no pátio.
       // Terceirizado usa fluxo de 2 passos: a chegada NÃO marca conferido;

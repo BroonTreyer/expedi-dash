@@ -255,7 +255,7 @@ export function useBatchUpdateCarregamento() {
         updates.map(async ({ id, ...values }) => {
           const res = await supabase
             .from("carregamentos_dia")
-            .update(values)
+            .update(values as any)
             .eq("id", id)
             .select("id");
           return { id, error: res.error, rows: res.data ?? [] };
@@ -327,7 +327,7 @@ export function useUpdateCarregamento() {
       // explicitamente em vez de tomar PGRST116 e perder a operação inteira.
       const { data, error } = await supabase
         .from("carregamentos_dia")
-        .update(values)
+        .update(values as any)
         .eq("id", id)
         .select("id");
       if (error) throw error;
@@ -946,7 +946,7 @@ export function useVincularWalkInACarga() {
       if (input.motoristaReal) updateData.motorista = input.motoristaReal;
       const { error: e2 } = await supabase
         .from("carregamentos_dia")
-        .update(updateData)
+        .update(updateData as any)
         .eq("carga_id", cargaIdFinal);
       if (e2) throw e2;
 
@@ -1016,7 +1016,7 @@ export function useVincularMovimentoACarga() {
       if (input.transportadoraReal) cargaUpdate.transportadora = input.transportadoraReal;
       const { error: e2 } = await supabase
         .from("carregamentos_dia")
-        .update(cargaUpdate)
+        .update(cargaUpdate as any)
         .eq("carga_id", cargaIdFinal);
       if (e2) throw e2;
 
