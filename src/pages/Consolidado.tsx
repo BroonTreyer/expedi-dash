@@ -419,7 +419,7 @@ export default function Consolidado() {
       // garantindo que cargas fechadas sejam atualizadas em todos os lugares.
       const { error } = await supabase
         .from("carregamentos_dia")
-        .update(fields)
+        .update(fields as any)
         .eq("carga_id", cargaId);
       if (error) throw error;
       // Updates por item (peso reduzido = ruptura parcial, motivo opcional)
@@ -432,7 +432,7 @@ export default function Consolidado() {
               if (v.peso !== undefined) { payload.peso = v.peso; payload.peso_manual = true; }
               if (v.quantidade !== undefined) { payload.quantidade = v.quantidade; payload.peso_manual = true; }
               if (v.motivo_ruptura !== undefined) payload.motivo_ruptura = v.motivo_ruptura;
-              return supabase.from("carregamentos_dia").update(payload).eq("id", id);
+              return supabase.from("carregamentos_dia").update(payload as any).eq("id", id);
             })
           );
         }
