@@ -1,41 +1,22 @@
+## Problema
+
+A carga **CG-20260728-183406-31A** (ASSAI MT, placa OZR0D10, AIRTON CARLOS) aparece como **Expedido** no Consolidado, mas o veículo nunca entrou de fato no pátio.
+
+Diagnóstico no banco:
+- `movimentacoes_portaria` id `a06334bc-b59d-49bd-ad34-f9de5762ecfb`: `etapa_terceirizado='finalizado'`, `horario_chegada=2026-07-21 22:53`, **`horario_entrada=NULL`** (nunca liberou entrada), `horario_saida_final=2026-07-22 16:40`. Ou seja, foi "finalizado" sem passar pelo pátio — é isso que está pintando o status "Expedido".
+- `veiculos_esperados` id `18cb48e6-...` (grupo TERCEIRIZADO, data 2026-07-28, `conferido=false`, `status_autorizacao='previsto'`) — já está no estado correto de "esperado".
+- `carregamentos_dia` (17 linhas do carga_id): algumas com `status='Pronto para carregar'`, outras `'Aguardando'`, todas em `etapa='logistica'`.
+
 ## O que fazer
 
-Inserir 34 clientes novos na tabela `clientes` a partir da planilha `Assai-REGIONAL-SAO-PAULO-7_2_1.xlsx`, considerando somente as linhas que têm valor na coluna **Codigo**.
+1. **Apagar a movimentação fantasma** `a06334bc-...` de `movimentacoes_portaria` (não teve entrada real; o registro inteiro é lixo).
+2. **Uniformizar `carregamentos_dia`** do `carga_id CG-20260728-183406-31A`: voltar todas as linhas para `status='Aguardando'` (assim o Consolidado volta a mostrar "Aguardando" e some o selo Expedido).
+3. Manter o `veiculos_esperados` como está (já é "previsto"/não conferido) — a carga volta a aparecer no painel de A chegar / esperados.
 
-## Regras aplicadas
+Sem mudança de schema, sem código. Só operação pontual via SQL no banco.
 
-- `codigo_cliente` = valor da coluna **Codigo** (como texto, sem `.0`).
-- `nome_cliente` = `"ASSAI ATACADISTA " + Nome Loja` (trim, sem acentos alterados).
-- `cidade` = coluna **Cidade** (com `trim`).
-- `uf` = `SP` para todas.
-- `ativo` = `true`, `tipo` = padrão da tabela.
-- Uso de `ON CONFLICT (codigo_cliente) DO NOTHING` para não sobrescrever cadastros já existentes (ex.: se alguém já criou "ASSAI ATACADISTA XXX" com esse código, fica como está).
-- Depois do insert, rodar `sync_clients_to_orders()` para propagar nome/cidade/UF para pedidos existentes que usem esses códigos.
+## Impacto
 
-## Tratamento dos casos especiais
-
-- **34707 duplicado na planilha**: fica com **loja 354 – São José dos Campos JK** (loja 303 "Sorocaba Santa Rosália" é ignorada nesse import; se quiser subir depois, precisa de outro código).
-- **34207**: estava na sua lista original mas **não aparece na planilha**, então não entra neste import.
-- Códigos que já existem hoje na base (10 dos "ASSAI ATACADISTA XXX" que confirmei antes) passam pelo `ON CONFLICT DO NOTHING` sem alteração.
-
-## Lista final a inserir (34 registros)
-
-```text
-34681 Jundiaí | 34682 Rio Claro | 34683 Campinas Amoreiras
-34684 Praia Grande Litoral Plaza | 34685 Bauru | 34686 Ribeirão Preto Rotatória
-34687 Presidente Prudente | 33951 Praia Grande Glória | 34688 São José dos Campos
-34203 São Vicente | 34689 Taubaté | 34690 Piracicaba Centro
-34691 Paulinia | 34204 Hortolândia | 34205 Araçatuba
-34692 Indaiatuba | 33948 Jundiaí Ferroviários | 34694 Santa Bárbara D'oeste
-34696 Ribeirão Preto Castelo Branco | 34697 Piracicaba Nova América
-34698 Limeira II | 34699 Sorocaba Campolim | 34206 São José dos Campos Colinas
-34700 Araraquara | 33953 Caraguatatuba Serramar | 34701 Itatiba
-34702 Ribeirão Preto Vargas | 33949 Campinas Abolição
-33950 Santos Ana Costa | 34703 São José do Rio Preto Clube Palestra
-34704 São José do Rio Preto Anísio Haddad | 34705 Guarujá Vicente Carvalho
-34706 Sumaré JD Primavera | 34707 São José dos Campos JK
-```
-
-## Passo técnico único
-
-Um `INSERT ... ON CONFLICT (codigo_cliente) DO NOTHING` na `public.clientes` + chamada à função `sync_clients_to_orders()`. Nenhuma alteração de schema ou de código-fonte.
+- Consolidado do 22/07: linha some do "Expedido" e volta como aguardando.
+- Painel Expedição: carga entra em "A chegar" (tem `veiculos_esperados` previsto para 28/07).
+- Portaria: não há mais movimento aberto para essa placa/carga; ao chegar de novo, registra chegada normalmente.
