@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X, MoreHorizontal, Undo2, RotateCcw } from "lucide-react";
+import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X, MoreHorizontal, Undo2, RotateCcw, FileSpreadsheet } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,7 @@ import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
 import { usePesoEfetivoPorOrdem, ordemKeyOf } from "@/hooks/usePesoEfetivoPorOrdem";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
+import { exportarAdiantamentosXLSX } from "@/lib/adiantamentos-export";
 import { toast } from "sonner";
 
 const fmtBRL = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
