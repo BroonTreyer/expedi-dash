@@ -441,6 +441,81 @@ export function CtesDacteTab() {
   );
 }
 
+function FreteCteCell({
+  cte,
+  onSave,
+  isPending,
+}: {
+  cte: CteDacteRow;
+  onSave: (valor: number) => void;
+  isPending: boolean;
+}) {
+  const [popOpen, setPopOpen] = useState(false);
+  const [valor, setValor] = useState<string>(String(Number(cte.valor_frete ?? 0)));
+  const suspeito = freteSuspeito(cte);
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <span className={suspeito ? "text-amber-700 font-medium" : undefined}>
+        {fmtBRL(Number(cte.valor_frete))}
+      </span>
+      {suspeito && (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-56 text-xs">
+              Valor do frete suspeito: parece ter sido lido do campo de peso do DACTE. Confira e corrija no lápis.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+      <Popover
+        open={popOpen}
+        onOpenChange={(o) => {
+          setPopOpen(o);
+          if (o) setValor(String(Number(cte.valor_frete ?? 0)));
+        }}
+      >
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-6 w-6" title="Editar valor do frete">
+            <Pencil className="h-3 w-3" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 space-y-2" align="end">
+          <div className="text-xs font-semibold">Valor do frete (R$)</div>
+          <p className="text-[11px] text-muted-foreground">
+            CT-e <span className="font-mono">{cte.numero_cte}</span>. Os adiantamentos vinculados
+            são recalculados automaticamente.
+          </p>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            placeholder="Ex.: 21467.05"
+            autoFocus
+          />
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              disabled={isPending || !valor || Number(valor) <= 0}
+              onClick={() => {
+                onSave(Number(valor));
+                setPopOpen(false);
+              }}
+            >
+              Salvar
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 function PesoOrdemCell({
   ordem,
   pesoEfetivo,
