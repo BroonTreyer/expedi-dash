@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X, MoreHorizontal, Undo2, RotateCcw, FileSpreadsheet } from "lucide-react";
+import { FileText, XCircle, Wallet, CheckCircle2, ListChecks, CalendarIcon, ChevronRight, ChevronDown, Trash2, Search, X, MoreHorizontal, Undo2, RotateCcw, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -1452,7 +1452,21 @@ function ListaAdiantamentos({
                     {g.rep.tipo_agrupamento === "ordem" ? g.rep.ordem_carga ?? "—" : "Lote"}
                   </TableCell>
                   <TableCell className="text-right text-xs">{g.qtdCtes}</TableCell>
-                  <TableCell className="text-right text-xs tabular-nums">{fmtBRL(g.valorTotal)}</TableCell>
+                  <TableCell className="text-right text-xs tabular-nums">
+                    <span className="inline-flex items-center gap-1 justify-end">
+                      {g.items.some(
+                        (a) =>
+                          Number(a.peso_total || 0) > 0 &&
+                          Math.abs(Number(a.valor_total_ctes || 0) - Number(a.peso_total || 0)) < 0.01,
+                      ) && (
+                        <AlertTriangle
+                          className="h-3.5 w-3.5 text-amber-600"
+                          title="Valor do frete igual ao peso — provável erro de leitura do DACTE. Corrija o valor na aba CT-es."
+                        />
+                      )}
+                      {fmtBRL(g.valorTotal)}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right text-xs">
                     {g.pctMedio.toFixed(g.pctMedio % 1 === 0 ? 0 : 1).replace(".", ",")}%
                   </TableCell>
