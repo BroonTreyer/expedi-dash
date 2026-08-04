@@ -1459,10 +1459,9 @@ function ListaAdiantamentos({
                           Number(a.peso_total || 0) > 0 &&
                           Math.abs(Number(a.valor_total_ctes || 0) - Number(a.peso_total || 0)) < 0.01,
                       ) && (
-                        <AlertTriangle
-                          className="h-3.5 w-3.5 text-amber-600"
-                          title="Valor do frete igual ao peso — provável erro de leitura do DACTE. Corrija o valor na aba CT-es."
-                        />
+                        <span title="Valor do frete igual ao peso — provável erro de leitura do DACTE. Corrija o valor na aba CT-es.">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                        </span>
                       )}
                       {fmtBRL(g.valorTotal)}
                     </span>
