@@ -14,6 +14,8 @@ Regras por CT-e:
 - "numero_cte": campo "NÚMERO" do cabeçalho (apenas dígitos, sem zeros à esquerda).
 - "serie": campo "SÉRIE" do cabeçalho.
 - "valor_frete": "VALOR TOTAL DO SERVIÇO" ou "VALOR TOTAL DA PRESTAÇÃO" (em reais, número decimal com ponto).
+  • NUNCA use o campo de peso/quantidade da carga como valor do frete. Se o número que você pensa em usar for igual ao "peso_total", está errado — procure novamente o quadro de valores da prestação do serviço.
+  • Se não encontrar o valor total do serviço/prestação, devolva 0 (não invente e não reaproveite o peso).
 - "transportadora": razão social do EMITENTE (transportadora).
 - "placa": placa do veículo de tração (campo "PLACA DO VEÍCULO" — só a placa principal).
 - "destino_cidade" e "destino_uf": município/UF do DESTINATÁRIO.

@@ -7,12 +7,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, Layers, List, Pencil } from "lucide-react";
+import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, Layers, List, Pencil, AlertTriangle } from "lucide-react";
 import {
   useCtesDacte,
   useDeleteCteDacte,
   useDeleteCtesByIds,
   useSetPesoCargaManualByOrdem,
+  useAtualizarValorFreteCte,
+  freteSuspeito,
   type CteDacteRow,
 } from "@/hooks/useCtesDacte";
 import { useCtesEmAdiantamento } from "@/hooks/useAdiantamentos";
@@ -32,6 +34,7 @@ export function CtesDacteTab() {
   const del = useDeleteCteDacte();
   const delMany = useDeleteCtesByIds();
   const setPesoManual = useSetPesoCargaManualByOrdem();
+  const setValorFrete = useAtualizarValorFreteCte();
   const pesoPorOrdem = usePesoEfetivoPorOrdem(data);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -325,7 +328,13 @@ export function CtesDacteTab() {
                                     <TableCell className="text-xs">{r.data_emissao ? fmtDate(r.data_emissao) : fmtDate(r.created_at)}</TableCell>
                                     <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
                                     <TableCell className="text-right text-xs tabular-nums">{(r.peso_total ?? 0).toLocaleString("pt-BR")}</TableCell>
-                                    <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums">
+                                      <FreteCteCell
+                                        cte={r}
+                                        onSave={(v) => setValorFrete.mutate({ id: r.id, valor_frete: v })}
+                                        isPending={setValorFrete.isPending}
+                                      />
+                                    </TableCell>
                                     <TableCell className="text-xs">{r.carga_id ?? "—"}</TableCell>
                                     <TableCell>
                                       <Badge variant={r.status === "vinculado" ? "default" : r.status === "divergente" ? "destructive" : "outline"}>
@@ -395,7 +404,13 @@ export function CtesDacteTab() {
                   <TableCell className="text-xs">{r.placa ?? "—"}</TableCell>
                   <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
                   <TableCell className="text-xs tabular-nums">{(r.peso_total ?? 0).toLocaleString("pt-BR")}</TableCell>
-                  <TableCell className="text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
+                  <TableCell className="text-xs tabular-nums">
+                    <FreteCteCell
+                      cte={r}
+                      onSave={(v) => setValorFrete.mutate({ id: r.id, valor_frete: v })}
+                      isPending={setValorFrete.isPending}
+                    />
+                  </TableCell>
                   <TableCell className="text-xs">{r.carga_id ?? "—"}</TableCell>
                   <TableCell className="text-xs font-mono">{(r as any).ordem_carga ?? "—"}</TableCell>
                   <TableCell>
@@ -423,6 +438,81 @@ export function CtesDacteTab() {
       <ImportarDacteDialog open={open} onOpenChange={setOpen} />
       <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={viewerUrl} alt="DACTE" />
     </Card>
+  );
+}
+
+function FreteCteCell({
+  cte,
+  onSave,
+  isPending,
+}: {
+  cte: CteDacteRow;
+  onSave: (valor: number) => void;
+  isPending: boolean;
+}) {
+  const [popOpen, setPopOpen] = useState(false);
+  const [valor, setValor] = useState<string>(String(Number(cte.valor_frete ?? 0)));
+  const suspeito = freteSuspeito(cte);
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <span className={suspeito ? "text-amber-700 font-medium" : undefined}>
+        {fmtBRL(Number(cte.valor_frete))}
+      </span>
+      {suspeito && (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-56 text-xs">
+              Valor do frete suspeito: parece ter sido lido do campo de peso do DACTE. Confira e corrija no lápis.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+      <Popover
+        open={popOpen}
+        onOpenChange={(o) => {
+          setPopOpen(o);
+          if (o) setValor(String(Number(cte.valor_frete ?? 0)));
+        }}
+      >
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-6 w-6" title="Editar valor do frete">
+            <Pencil className="h-3 w-3" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 space-y-2" align="end">
+          <div className="text-xs font-semibold">Valor do frete (R$)</div>
+          <p className="text-[11px] text-muted-foreground">
+            CT-e <span className="font-mono">{cte.numero_cte}</span>. Os adiantamentos vinculados
+            são recalculados automaticamente.
+          </p>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            placeholder="Ex.: 21467.05"
+            autoFocus
+          />
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              disabled={isPending || !valor || Number(valor) <= 0}
+              onClick={() => {
+                onSave(Number(valor));
+                setPopOpen(false);
+              }}
+            >
+              Salvar
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 
