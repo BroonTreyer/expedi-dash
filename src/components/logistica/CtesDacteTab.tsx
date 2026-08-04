@@ -7,12 +7,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, Layers, List, Pencil } from "lucide-react";
+import { Search, Upload, Trash2, Loader2, FileText, ChevronDown, ChevronRight, Layers, List, Pencil, AlertTriangle } from "lucide-react";
 import {
   useCtesDacte,
   useDeleteCteDacte,
   useDeleteCtesByIds,
   useSetPesoCargaManualByOrdem,
+  useAtualizarValorFreteCte,
+  freteSuspeito,
   type CteDacteRow,
 } from "@/hooks/useCtesDacte";
 import { useCtesEmAdiantamento } from "@/hooks/useAdiantamentos";
@@ -32,6 +34,7 @@ export function CtesDacteTab() {
   const del = useDeleteCteDacte();
   const delMany = useDeleteCtesByIds();
   const setPesoManual = useSetPesoCargaManualByOrdem();
+  const setValorFrete = useAtualizarValorFreteCte();
   const pesoPorOrdem = usePesoEfetivoPorOrdem(data);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -325,7 +328,13 @@ export function CtesDacteTab() {
                                     <TableCell className="text-xs">{r.data_emissao ? fmtDate(r.data_emissao) : fmtDate(r.created_at)}</TableCell>
                                     <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
                                     <TableCell className="text-right text-xs tabular-nums">{(r.peso_total ?? 0).toLocaleString("pt-BR")}</TableCell>
-                                    <TableCell className="text-right text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums">
+                                      <FreteCteCell
+                                        cte={r}
+                                        onSave={(v) => setValorFrete.mutate({ id: r.id, valor_frete: v })}
+                                        isPending={setValorFrete.isPending}
+                                      />
+                                    </TableCell>
                                     <TableCell className="text-xs">{r.carga_id ?? "—"}</TableCell>
                                     <TableCell>
                                       <Badge variant={r.status === "vinculado" ? "default" : r.status === "divergente" ? "destructive" : "outline"}>
@@ -395,7 +404,13 @@ export function CtesDacteTab() {
                   <TableCell className="text-xs">{r.placa ?? "—"}</TableCell>
                   <TableCell className="text-xs">{r.destino_cidade ? `${r.destino_cidade}/${r.destino_uf ?? ""}` : "—"}</TableCell>
                   <TableCell className="text-xs tabular-nums">{(r.peso_total ?? 0).toLocaleString("pt-BR")}</TableCell>
-                  <TableCell className="text-xs tabular-nums">{fmtBRL(Number(r.valor_frete))}</TableCell>
+                  <TableCell className="text-xs tabular-nums">
+                    <FreteCteCell
+                      cte={r}
+                      onSave={(v) => setValorFrete.mutate({ id: r.id, valor_frete: v })}
+                      isPending={setValorFrete.isPending}
+                    />
+                  </TableCell>
                   <TableCell className="text-xs">{r.carga_id ?? "—"}</TableCell>
                   <TableCell className="text-xs font-mono">{(r as any).ordem_carga ?? "—"}</TableCell>
                   <TableCell>
