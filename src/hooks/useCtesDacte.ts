@@ -178,10 +178,6 @@ export function useDeleteCtesByIds() {
 }
 
 /**
- * Define (ou limpa) o peso manual da carga para todos os CT-es de uma mesma
- * ordem de carga. Passe `peso = null` para limpar e voltar ao peso automático.
- */
-/**
  * Heurística de valor de frete suspeito: quando a extração do DACTE confunde o
  * campo de peso com o valor da prestação, `valor_frete` fica idêntico ao
  * `peso_total` (ou o R$/kg fica absurdamente baixo).
@@ -261,6 +257,10 @@ export function useAtualizarValorFreteCte() {
   });
 }
 
+/**
+ * Define (ou limpa) o peso manual da carga para todos os CT-es de uma mesma
+ * ordem de carga. Passe `peso = null` para limpar e voltar ao peso automático.
+ */
 export function useSetPesoCargaManualByOrdem() {
   const qc = useQueryClient();
   return useMutation({
