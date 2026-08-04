@@ -181,6 +181,86 @@ export function useDeleteCtesByIds() {
  * Define (ou limpa) o peso manual da carga para todos os CT-es de uma mesma
  * ordem de carga. Passe `peso = null` para limpar e voltar ao peso automático.
  */
+/**
+ * Heurística de valor de frete suspeito: quando a extração do DACTE confunde o
+ * campo de peso com o valor da prestação, `valor_frete` fica idêntico ao
+ * `peso_total` (ou o R$/kg fica absurdamente baixo).
+ */
+export function freteSuspeito(c: { valor_frete: number | null; peso_total: number | null }): boolean {
+  const v = Number(c.valor_frete ?? 0);
+  const p = Number(c.peso_total ?? 0);
+  if (v <= 0 || p <= 0) return false;
+  if (Math.abs(v - p) < 0.01) return true;
+  return v / p < 0.05; // menos de R$ 0,05/kg é irreal
+}
+
+/**
+ * Atualiza o valor do frete de um CT-e e recalcula os adiantamentos vinculados
+ * (valor total, adiantamento e saldo mantendo o percentual).
+ */
+export function useAtualizarValorFreteCte() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, valor_frete }: { id: string; valor_frete: number }) => {
+      const valor = +Number(valor_frete).toFixed(2);
+      const { error } = await (supabase as any)
+        .from("ctes_dacte")
+        .update({ valor_frete: valor, updated_at: new Date().toISOString() } as any)
+        .eq("id", id);
+      if (error) throw error;
+
+      // vínculos deste CT-e
+      const { data: links } = await (supabase as any)
+        .from("adiantamentos_frete_ctes")
+        .select("adiantamento_id")
+        .eq("cte_id", id);
+      const adtIds = Array.from(
+        new Set(((links ?? []) as any[]).map((l) => l.adiantamento_id).filter(Boolean)),
+      ) as string[];
+
+      for (const adtId of adtIds) {
+        const { data: adt } = await (supabase as any)
+          .from("adiantamentos_frete")
+          .select("id, percentual")
+          .eq("id", adtId)
+          .maybeSingle();
+        if (!adt) continue;
+        const { data: pivots } = await (supabase as any)
+          .from("adiantamentos_frete_ctes")
+          .select("cte_id, ctes_dacte(valor_frete)")
+          .eq("adiantamento_id", adtId);
+        const total = ((pivots ?? []) as any[]).reduce(
+          (s, p) => s + Number(p?.ctes_dacte?.valor_frete ?? 0),
+          0,
+        );
+        const pct = Number(adt.percentual ?? 0);
+        const valor_adiantamento = +((total * pct) / 100).toFixed(2);
+        const valor_saldo = +(total - valor_adiantamento).toFixed(2);
+        await (supabase as any)
+          .from("adiantamentos_frete")
+          .update({
+            valor_total_ctes: +total.toFixed(2),
+            valor_adiantamento,
+            valor_saldo,
+          } as any)
+          .eq("id", adtId);
+      }
+      return { adiantamentos: adtIds.length };
+    },
+    onSuccess: ({ adiantamentos }) => {
+      qc.invalidateQueries({ queryKey: ["ctes_dacte"] });
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      qc.invalidateQueries({ queryKey: ["adt_ctes"] });
+      toast.success(
+        adiantamentos > 0
+          ? `Valor do frete atualizado — ${adiantamentos} adiantamento(s) recalculado(s)`
+          : "Valor do frete atualizado",
+      );
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao salvar valor do frete"),
+  });
+}
+
 export function useSetPesoCargaManualByOrdem() {
   const qc = useQueryClient();
   return useMutation({
