@@ -34,7 +34,13 @@ const lazyWithRetry = <T extends ComponentType<unknown>>(
     }
     // Final attempt: hard reload to fetch fresh asset manifest
     if (typeof window !== "undefined") {
-      window.location.reload();
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("_r", Date.now().toString(36));
+        window.location.replace(url.toString());
+      } catch {
+        window.location.reload();
+      }
     }
     throw lastErr;
   });
