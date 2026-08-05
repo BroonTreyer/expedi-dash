@@ -65,7 +65,15 @@ const recoverFromChunkError = async () => {
   } catch {
     /* ignore */
   } finally {
-    window.location.reload();
+    // Um reload simples pode reusar o index.html em cache (que aponta para
+    // chunks já inexistentes). Forçamos uma URL nova para buscar o manifest atual.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("_r", Date.now().toString(36));
+      window.location.replace(url.toString());
+    } catch {
+      window.location.reload();
+    }
   }
 };
 
