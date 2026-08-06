@@ -57,7 +57,16 @@ function deriveEtapa(movs: MovRow[]): EtapaPortaria {
       m.etapa_carga_propria === "em_rota" ||
       m.etapa_carga_propria === "retornou";
 
-    if (finalizado) {
+    // Movimento "fantasma": entrada marcada como finalizada sem NUNCA ter
+    // entrado no pátio (horario_entrada null). Isso acontece quando uma
+    // viagem antiga é encerrada manualmente e depois é vinculada por engano
+    // a uma carga nova. Nunca deve marcar a carga como Expedido.
+    const fantasmaFinalizado =
+      finalizado && m.tipo_movimento === "entrada" && !m.horario_entrada;
+
+    if (fantasmaFinalizado) {
+      continue;
+    } else if (finalizado) {
       cur = "expedido";
     } else if (m.tipo_movimento === "saida") {
       // Saída sem etapa final: só conta como expedido se houver entrada correspondente.
