@@ -107,7 +107,16 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
     if (!cargaId) return;
     setVinculandoCarga(true);
     try {
-      const isCargaPropria = grupo === "PRÓPRIA";
+      // A classificação vem da própria carga, não apenas da tela que abriu o diálogo.
+      // Assim, uma carga com transportadora nunca é gravada por engano como Varejo.
+      const { data: cargaRows, error: cargaError } = await supabase
+        .from("carregamentos_dia")
+        .select("transportadora")
+        .eq("carga_id", cargaId)
+        .limit(1);
+      if (cargaError) throw cargaError;
+      const transportadoraCarga = cargaRows?.[0]?.transportadora?.trim() || null;
+      const isCargaPropria = !transportadoraCarga;
       const categoria = isCargaPropria ? "carga_propria" : "terceirizado";
       const nowIso = new Date().toISOString();
 
@@ -150,7 +159,7 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           motorista: motoristaNorm,
           tipo_caminhao: tipoVeiculo,
           carga_id: cargaId,
-          empresa: transportadora,
+          empresa: transportadoraCarga || transportadora,
           // Fluxo de 2 passos: chegada registra apenas a fila.
           // A liberação para o pátio é um UPDATE posterior feito no
           // CargasFechadasAguardandoPanel ("Liberar entrada no pátio").
