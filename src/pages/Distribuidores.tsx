@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { useDistribuidores, marcarComoDistribuidor } from "@/hooks/useDistribuidores";
+import { useDistribuidores, marcarComoDistribuidor, useSugestoesDistribuidores } from "@/hooks/useDistribuidores";
 import { useClientes } from "@/hooks/useClientes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Building2, Clock, Search, UserPlus, AlertTriangle } from "lucide-react";
+import { Building2, Clock, Search, UserPlus, AlertTriangle, Sparkles, Plus } from "lucide-react";
 import { TimelineDrawer } from "@/components/timeline/TimelineDrawer";
 import { formatDuracao } from "@/lib/timeline-utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -45,6 +45,7 @@ function diffMin(a: string | null, b: string | null): number | null {
 export default function Distribuidores() {
   const { data, isLoading } = useDistribuidores(60);
   const { data: todosClientes = [] } = useClientes();
+  const { data: sugestoes = [] } = useSugestoesDistribuidores(60);
   const qc = useQueryClient();
   const [busca, setBusca] = useState("");
   const [pedidoSelecionado, setPedidoSelecionado] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export default function Distribuidores() {
   const [marcarBusca, setMarcarBusca] = useState("");
   const [marcarSelecionados, setMarcarSelecionados] = useState<Set<string>>(new Set());
   const [salvando, setSalvando] = useState(false);
+  const [sugestaoBusy, setSugestaoBusy] = useState<string | null>(null);
 
   const distribuidores = data?.distribuidores ?? [];
 
@@ -124,6 +126,22 @@ export default function Distribuidores() {
     }
   }
 
+  async function marcarSugestao(codigos: string[]) {
+    if (codigos.length === 0) return;
+    setSugestaoBusy(codigos.length === 1 ? codigos[0] : "__todos__");
+    try {
+      const n = await marcarComoDistribuidor(codigos, "distribuidor");
+      toast.success(`${n} cliente(s) marcado(s) como distribuidor.`);
+      qc.invalidateQueries({ queryKey: ["distribuidores"] });
+      qc.invalidateQueries({ queryKey: ["distribuidores_sugestoes"] });
+      qc.invalidateQueries({ queryKey: ["clientes"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao marcar cliente");
+    } finally {
+      setSugestaoBusy(null);
+    }
+  }
+
   return (
     <Layout>
       <main className="container mx-auto p-4 sm:p-6 space-y-4">
@@ -159,6 +177,58 @@ export default function Distribuidores() {
           <Kpi label="Ciclo médio" value={formatDuracao(kpis.cicloMedio)} />
           <Kpi label="Tempo médio no pátio" value={formatDuracao(kpis.patioMedio)} />
         </div>
+
+        {sugestoes.length > 0 && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-3 sm:p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-start gap-2 min-w-0">
+                  <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Sugestões de distribuidores</div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Clientes com pedidos em cargas de transportadora (60 dias) que ainda não estão marcados como distribuidor.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  disabled={!!sugestaoBusy}
+                  onClick={() => marcarSugestao(sugestoes.map((s) => s.codigo_cliente))}
+                >
+                  {sugestaoBusy === "__todos__" ? "Marcando..." : `Marcar todos (${sugestoes.length})`}
+                </Button>
+              </div>
+              <div className="max-h-56 overflow-y-auto divide-y rounded-md border bg-card">
+                {sugestoes.slice(0, 100).map((s) => (
+                  <div key={s.codigo_cliente} className="flex items-center gap-2 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-medium truncate">{s.nome_cliente}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        Cód. {s.codigo_cliente}
+                        {s.cidade && ` · ${s.cidade}${s.uf ? "/" + s.uf : ""}`}
+                        {` · ${s.pedidos} pedido${s.pedidos === 1 ? "" : "s"}`}
+                        {s.transportadoras.length > 0 && ` · ${s.transportadoras.slice(0, 2).join(", ")}`}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs gap-1 shrink-0"
+                      disabled={!!sugestaoBusy}
+                      onClick={() => marcarSugestao([s.codigo_cliente])}
+                    >
+                      <Plus className="h-3 w-3" />
+                      {sugestaoBusy === s.codigo_cliente ? "..." : "Marcar"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">

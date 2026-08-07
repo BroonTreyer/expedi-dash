@@ -147,3 +147,90 @@ export async function marcarComoDistribuidor(codigosCliente: string[], tipo: "di
   if (error) throw error;
   return data?.length ?? 0;
 }
+
+export interface SugestaoDistribuidor {
+  codigo_cliente: string;
+  nome_cliente: string;
+  cidade: string | null;
+  uf: string | null;
+  pedidos: number;
+  transportadoras: string[];
+}
+
+/**
+ * Clientes que apareceram em cargas de terceirizados (com transportadora
+ * preenchida) nos últimos `dias` dias e que ainda NÃO estão marcados como
+ * distribuidor. Serve de sugestão para não deixar cliente novo invisível
+ * na página Distribuidores.
+ */
+export function useSugestoesDistribuidores(dias = 60) {
+  const session = useSession();
+  return useQuery({
+    queryKey: ["distribuidores_sugestoes", dias],
+    enabled: !!session,
+    staleTime: 60_000,
+    queryFn: async (): Promise<SugestaoDistribuidor[]> => {
+      const dataLimite = new Date(Date.now() - dias * 86400000)
+        .toISOString()
+        .slice(0, 10);
+
+      const { data: pedidos, error } = await supabase
+        .from("carregamentos_dia")
+        .select("codigo_cliente, cliente, cidade, uf, transportadora")
+        .not("transportadora", "is", null)
+        .not("codigo_cliente", "is", null)
+        .gte("data", dataLimite)
+        .limit(5000);
+      if (error) throw error;
+      if (!pedidos || pedidos.length === 0) return [];
+
+      const codigos = Array.from(
+        new Set(pedidos.map((p: any) => p.codigo_cliente).filter(Boolean))
+      );
+      if (codigos.length === 0) return [];
+
+      // tipos atuais desses clientes
+      const tipos = new Map<string, string>();
+      const nomes = new Map<string, { nome: string; cidade: string | null; uf: string | null }>();
+      for (let i = 0; i < codigos.length; i += 200) {
+        const chunk = codigos.slice(i, i + 200);
+        const { data, error: errC } = await supabase
+          .from("clientes")
+          .select("codigo_cliente, nome_cliente, cidade, uf, tipo")
+          .in("codigo_cliente", chunk);
+        if (errC) throw errC;
+        for (const c of (data ?? []) as any[]) {
+          tipos.set(c.codigo_cliente, c.tipo);
+          nomes.set(c.codigo_cliente, { nome: c.nome_cliente, cidade: c.cidade, uf: c.uf });
+        }
+      }
+
+      const acc = new Map<string, SugestaoDistribuidor>();
+      for (const p of pedidos as any[]) {
+        const cod = p.codigo_cliente as string;
+        if (!cod) continue;
+        if (tipos.get(cod) === "distribuidor") continue;
+        const info = nomes.get(cod);
+        let item = acc.get(cod);
+        if (!item) {
+          item = {
+            codigo_cliente: cod,
+            nome_cliente: info?.nome ?? p.cliente ?? cod,
+            cidade: info?.cidade ?? p.cidade ?? null,
+            uf: info?.uf ?? p.uf ?? null,
+            pedidos: 0,
+            transportadoras: [],
+          };
+          acc.set(cod, item);
+        }
+        item.pedidos += 1;
+        const t = (p.transportadora ?? "").trim();
+        if (t && !item.transportadoras.includes(t)) item.transportadoras.push(t);
+      }
+
+      return Array.from(acc.values()).sort(
+        (a, b) => b.pedidos - a.pedidos || a.nome_cliente.localeCompare(b.nome_cliente)
+      );
+    },
+  });
+}
