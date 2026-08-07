@@ -193,7 +193,10 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
     reorderTo(key, grupo.ordemAtual + delta);
   };
 
+  const transportadoraOk = frotaPropria || transportadora.trim().length > 0;
+
   const handleSave = () => {
+    if (!transportadoraOk) return;
     const ids = visibleItems.map((i) => i.id);
     // Monta ordemUpdates apenas se o usuário reordenou manualmente — então grava 1..N
     // para todos os itens (mesmo os que ainda não tinham ordem_entrega no banco).
@@ -449,7 +452,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
             </div>
             <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
               <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancelar</Button>
-              <Button onClick={handleSave} disabled={saving || deleting || inverting || visibleItems.length === 0} className="w-full sm:w-auto">
+              <Button onClick={handleSave} disabled={saving || deleting || inverting || visibleItems.length === 0 || !transportadoraOk} className="w-full sm:w-auto">
                 {saving ? "Salvando…" : "Salvar"}
               </Button>
             </div>
