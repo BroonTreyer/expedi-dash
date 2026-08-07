@@ -154,7 +154,56 @@ export function useCarregamentos(dateFrom: string, dateTo?: string) {
       });
       // Esconde rascunhos e pedidos aguardando aprovação do faturamento
       // do painel operacional principal.
-      const filtered = (data as Carregamento[]).filter(
+      let rows = (data ?? []) as Carregamento[];
+
+      // Rede de segurança: quando estamos vendo "hoje", também trazer cargas
+      // com data anterior que ainda NÃO saíram pela portaria (no pátio /
+      // movimento registrado hoje), mesmo que já estejam "Carregado".
+      // Sem isso, marcar Carregando/Carregado em uma carga cuja data original
+      // é anterior faz a carga desaparecer do painel antes de ser expedida.
+      if (isSingleDay && dateFrom === todayStr) {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const janela = sevenDaysAgo.toISOString();
+        const [{ data: movsHoje }, { data: noPatio }] = await Promise.all([
+          supabase
+            .from("movimentacoes_portaria")
+            .select("carga_id")
+            .not("carga_id", "is", null)
+            .gte("data_hora", `${dateFrom}T00:00:00`)
+            .lte("data_hora", `${dateFrom}T23:59:59.999`),
+          supabase
+            .from("movimentacoes_portaria")
+            .select("carga_id")
+            .not("carga_id", "is", null)
+            .not("horario_entrada", "is", null)
+            .is("horario_saida_final", null)
+            .gte("horario_entrada", janela),
+        ]);
+        const candidatos = Array.from(
+          new Set(
+            [...((movsHoje ?? []) as { carga_id: string | null }[]), ...((noPatio ?? []) as { carga_id: string | null }[])]
+              .map((m) => m.carga_id)
+              .filter((v): v is string => !!v),
+          ),
+        );
+        const jaPresentes = new Set(rows.map((r) => r.carga_id).filter(Boolean) as string[]);
+        const faltantes = candidatos.filter((cid) => !jaPresentes.has(cid));
+        if (faltantes.length > 0) {
+          const extra = await fetchAllPaginated<any>((from, to) =>
+            supabase
+              .from("carregamentos_dia")
+              .select("*, vendedores(nome_vendedor)")
+              .in("carga_id", faltantes)
+              .lt("data", dateFrom)
+              .order("id", { ascending: true })
+              .range(from, to),
+          );
+          if (extra && extra.length > 0) rows = [...rows, ...(extra as Carregamento[])];
+        }
+      }
+
+      const filtered = rows.filter(
         (c) => c.etapa !== "rascunho" && c.etapa !== "aguardando_faturamento",
       );
       // Dedup defensivo por id — protege a UI contra qualquer linha
@@ -897,10 +946,19 @@ async function promoverPreCargaSeNecessario(cargaId: string): Promise<string> {
       .eq("carga_id", cand);
     if (!count) { novoId = cand; break; }
   }
+  // Ao fechar (promover) a carga, a data operacional passa a ser o dia do
+  // fechamento — pedidos antigos não podem manter a data original, senão a
+  // carga fica fora do painel do dia atual.
+  const hojeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   await supabase
     .from("carregamentos_dia")
     .update({ carga_id: novoId, etapa: "logistica" } as any)
     .eq("carga_id", cargaId);
+  await supabase
+    .from("carregamentos_dia")
+    .update({ data: hojeStr } as any)
+    .eq("carga_id", novoId)
+    .lt("data", hojeStr);
   await supabase
     .from("veiculos_esperados" as any)
     .update({ carga_id: novoId } as any)
