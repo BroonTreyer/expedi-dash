@@ -117,6 +117,7 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [motorista, setMotorista] = useState("");
   const origemEstavel = useMemo(() => ({ cidade: "Goiânia", uf: "GO" }), []);
   const [transportadora, setTransportadora] = useState("");
+  const [frotaPropria, setFrotaPropria] = useState(false);
   const [horarioPrevisto, setHorarioPrevisto] = useState("");
   const [dataCarregamento, setDataCarregamento] = useState("");
   const [nomeCarga, setNomeCarga] = useState("");
@@ -419,7 +420,11 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
     () => Object.values(ordemCargaPorPedido).filter((v) => v.trim().length > 0).length,
     [ordemCargaPorPedido],
   );
-  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0 && (
+  // Transportadora é obrigatória, exceto quando a carga é explicitamente
+  // marcada como frota própria (Varejo). Sem isso, cargas de distribuidores
+  // fechadas sem transportadora caíam na portaria do Varejo.
+  const transportadoraOk = frotaPropria || transportadora.trim().length > 0;
+  const canSubmit = tipoCaminhao && placa && motorista && dataCarregamento && totalPedidos > 0 && transportadoraOk && (
     modoOc === "unica"
       ? ordemCarga.trim().length > 0
       : modoOc === "porGrupo"
@@ -1091,8 +1096,30 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Transportadora</Label>
-              <Input value={transportadora} onChange={(e) => setTransportadora(e.target.value)} />
+              <Label className="text-xs">Transportadora {frotaPropria ? "" : "*"}</Label>
+              <Input
+                value={transportadora}
+                onChange={(e) => setTransportadora(e.target.value)}
+                disabled={frotaPropria}
+                placeholder={frotaPropria ? "Frota própria (Varejo)" : "Obrigatório"}
+              />
+              <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 accent-primary"
+                  checked={frotaPropria}
+                  onChange={(e) => {
+                    setFrotaPropria(e.target.checked);
+                    if (e.target.checked) setTransportadora("");
+                  }}
+                />
+                Frota própria (Varejo)
+              </label>
+              {!frotaPropria && transportadora.trim().length === 0 && (
+                <p className="text-[10px] text-destructive">
+                  Informe a transportadora ou marque "Frota própria (Varejo)".
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Horário Previsto</Label>

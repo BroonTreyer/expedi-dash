@@ -1,2 +1,3 @@
 - [Data efetiva terceirizadas](mem://features/data-efetiva-terceirizadas) — Consolidado/Expedição usam data da saída pela portaria para terceirizadas
 - [Pre-carga data prevista](mem://features/pre-carga-data-prevista) — Data do Carregamento em /pre-cargas é informativa (data_prevista_carregamento); rupturas só somem quando status=Carregado
+- [Varejo vs Distribuidores](mem://features/portaria-varejo-vs-distribuidores) — Transportadora vazia = Varejo; obrigatória no fechamento salvo "Frota própria"
