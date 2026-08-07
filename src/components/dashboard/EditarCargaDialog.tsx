@@ -41,6 +41,10 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
   const [motorista, setMotorista] = useState("");
   const [tipoCaminhao, setTipoCaminhao] = useState("");
   const [transportadora, setTransportadora] = useState("");
+  // Marcação explícita de frota própria (Varejo). Só com ela é permitido
+  // salvar a carga sem transportadora — sem transportadora a carga vai para
+  // a portaria do Varejo.
+  const [frotaPropria, setFrotaPropria] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Carregamento | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteCarga, setConfirmDeleteCarga] = useState(false);
@@ -61,6 +65,7 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
       setMotorista(group.motorista ?? "");
       setTipoCaminhao(group.tipoCaminhao ?? "");
       setTransportadora(group.items[0]?.transportadora ?? "");
+      setFrotaPropria(false);
       setRemovedIds(new Set());
       setPedidoEditando(null);
       // Inicializa ordem por cliente a partir dos pedidos existentes
@@ -260,7 +265,30 @@ export function EditarCargaDialog({ open, onOpenChange, group, onSave, onRemoveI
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ec-transp">Transportadora</Label>
-                <Input id="ec-transp" value={transportadora} onChange={(e) => setTransportadora(e.target.value)} />
+                <Input
+                  id="ec-transp"
+                  value={transportadora}
+                  onChange={(e) => setTransportadora(e.target.value)}
+                  disabled={frotaPropria}
+                  placeholder={frotaPropria ? "Frota própria (Varejo)" : "Obrigatório"}
+                />
+                <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 accent-primary"
+                    checked={frotaPropria}
+                    onChange={(e) => {
+                      setFrotaPropria(e.target.checked);
+                      if (e.target.checked) setTransportadora("");
+                    }}
+                  />
+                  Frota própria (Varejo)
+                </label>
+                {!transportadoraOk && (
+                  <p className="text-[10px] text-destructive">
+                    Informe a transportadora ou marque "Frota própria (Varejo)".
+                  </p>
+                )}
               </div>
             </div>
 
