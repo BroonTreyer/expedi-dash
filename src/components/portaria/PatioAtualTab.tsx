@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 interface Props {
@@ -111,6 +111,33 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
   const qc = useQueryClient();
   const { sort, toggleSort, sortData } = useSortableTable("data_hora", "asc");
 
+  const cargaIds = useMemo(
+    () => Array.from(new Set(movimentacoes.map((m) => m.carga_id).filter((id): id is string => Boolean(id)))).sort(),
+    [movimentacoes],
+  );
+
+  const { data: cargasPorId = new Map<string, { nome: string; transportadora: string | null }>() } = useQuery({
+    queryKey: ["identificacao_cargas_patio", cargaIds],
+    enabled: Boolean(user) && cargaIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("carregamentos_dia")
+        .select("carga_id, nome_carga, transportadora")
+        .in("carga_id", cargaIds);
+      if (error) throw error;
+
+      const mapa = new Map<string, { nome: string; transportadora: string | null }>();
+      for (const row of data ?? []) {
+        if (!row.carga_id || mapa.has(row.carga_id)) continue;
+        mapa.set(row.carga_id, {
+          nome: row.nome_carga || row.carga_id,
+          transportadora: row.transportadora || null,
+        });
+      }
+      return mapa;
+    },
+  });
+
   // Reset saidaRapidaId when movimentacoes change (e.g. tab switch, data refresh)
   useEffect(() => {
     setSaidaRapidaId(null);
@@ -156,6 +183,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
         if (categoriaFilter && m.categoria !== categoriaFilter) return false;
         if (!search) return true;
         const s = search.toLowerCase();
+         const carga = m.carga_id ? cargasPorId.get(m.carga_id) : undefined;
         return (
           m.placa?.toLowerCase().includes(s) ||
           m.motorista?.toLowerCase().includes(s) ||
@@ -165,6 +193,8 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           m.pessoa_visitada?.toLowerCase().includes(s) ||
           m.servico_executar?.toLowerCase().includes(s) ||
           m.rota?.toLowerCase().includes(s)
+           || carga?.nome.toLowerCase().includes(s)
+           || carga?.transportadora?.toLowerCase().includes(s)
         );
       });
     // Dedupe por placa normalizada: o mesmo motorista não pode aparecer
@@ -194,7 +224,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
       deduped.push(sorted[0]);
     }
     return deduped;
-  }, [movimentacoes, search, categoriaFilter]);
+  }, [movimentacoes, search, categoriaFilter, cargasPorId]);
 
   const sortedVeiculos = useMemo(() => {
     const sorted = sortData(veiculosNoPatio, {
@@ -440,6 +470,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
           const podeReabrir = podeReabrirRegistro(m);
           const aguardandoLib = isAguardandoLiberacao(m);
           const aguardandoVinculo = isAguardandoVinculoCarga(m);
+           const carga = m.carga_id ? cargasPorId.get(m.carga_id) : undefined;
 
           return (
             <Card key={m.id} className={aguardandoVinculo ? "border-destructive/60 bg-destructive/5 ring-1 ring-destructive/30" : aguardandoLib ? "border-amber-500/40 bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "border-destructive/40 bg-destructive/5" : minutos >= 240 ? "border-yellow-500/40 bg-yellow-500/5" : ""}>
@@ -504,6 +535,17 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                       <span className="text-muted-foreground">Empresa: </span>{m.empresa}
                     </div>
                   )}
+                   {carga && (
+                     <div className="col-span-2 min-w-0">
+                       <span className="text-muted-foreground">Carga: </span>
+                       <span className="font-medium">{carga.nome}</span>
+                       {(carga.transportadora || m.empresa) && (
+                         <span className="block truncate text-muted-foreground">
+                           Transportadora: {carga.transportadora || m.empresa}
+                         </span>
+                       )}
+                     </div>
+                   )}
                   {m.destino_setor && (
                     <div className="col-span-2 truncate">
                       <span className="text-muted-foreground">Setor: </span>{m.destino_setor}
@@ -674,6 +716,7 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
             const podeReabrir = podeReabrirRegistro(m);
             const aguardandoLib = isAguardandoLiberacao(m);
             const aguardandoVinculo = isAguardandoVinculoCarga(m);
+             const carga = m.carga_id ? cargasPorId.get(m.carga_id) : undefined;
 
             return (
               <TableRow key={m.id} className={aguardandoVinculo ? "bg-destructive/10 hover:bg-destructive/15" : aguardandoLib ? "bg-amber-500/5" : emRota ? "" : minutos >= 480 ? "bg-destructive/5" : minutos >= 240 ? "bg-yellow-500/5" : ""}>
@@ -727,7 +770,12 @@ export function PatioAtualTab({ movimentacoes, search, categoriaFilter, onRegist
                 <TableCell className="font-mono font-medium">{m.placa || "—"}</TableCell>
                 <TableCell>{m.motorista || "—"}</TableCell>
                 <TableCell className="text-sm max-w-[200px]">
-                  <div className="truncate">{infoExtra || m.empresa || m.destino_setor || "—"}</div>
+                   <div className="truncate font-medium">{carga?.nome || infoExtra || m.empresa || m.destino_setor || "—"}</div>
+                   {(carga?.transportadora || (carga && m.empresa)) && (
+                     <div className="truncate text-xs text-muted-foreground">
+                       {carga.transportadora || m.empresa}
+                     </div>
+                   )}
                   {m.categoria === "terceirizado" && (
                     <div className="text-[11px] text-muted-foreground flex gap-x-2 mt-0.5">
                       <span>Chegada: {format(new Date(m.horario_chegada || m.data_hora), "HH:mm")}</span>
