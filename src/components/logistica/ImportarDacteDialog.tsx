@@ -123,8 +123,8 @@ function isFrico(s: string | undefined | null): boolean {
   return normalizeTomador(s).includes("frico");
 }
 
-/** CNPJs conhecidos da Frico (usados como fallback quando a razão social não é lida). */
-const FRICO_CNPJS = ["05427963000185"];
+/** CNPJs conhecidos da Frico (apenas dígitos). Preencha para habilitar o fallback por CNPJ. */
+const FRICO_CNPJS: string[] = [];
 
 /**
  * Deduz a razão social do tomador quando a IA não conseguiu lê-la direto do
