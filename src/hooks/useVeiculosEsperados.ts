@@ -449,7 +449,7 @@ export function useVeiculosEsperados(
         "postgres_changes",
         { event: "*", schema: "public", table: "veiculos_esperados" },
         () => {
-          queryClient.invalidateQueries({ queryKey });
+          queryClient.invalidateQueries({ queryKey: ["veiculos_esperados"], refetchType: "all" });
           queryClient.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
           queryClient.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
           queryClient.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
