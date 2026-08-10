@@ -28,7 +28,16 @@ Regras por CT-e:
   • Se mesmo após inspeção não encontrar peso bruto, devolva 0 (não invente).
 - "data_emissao": data de emissão do CT-e em formato YYYY-MM-DD.
 - "notas_fiscais": array de strings com TODOS os números das notas fiscais listadas em "DOCUMENTOS ORIGINÁRIOS" / "NF-e". Apenas o número (sem chave de acesso, sem série).
-- "tomador": razão social do TOMADOR DO SERVIÇO (quadro "TOMADOR DO SERVIÇO" do DACTE). Se o quadro indicar o tomador como remetente/destinatário/expedidor/recebedor, use a razão social desse papel correspondente.
+- "remetente": razão social do REMETENTE (quadro "REMETENTE").
+- "destinatario": razão social do DESTINATÁRIO (quadro "DESTINATÁRIO").
+- "tomador_papel": qual papel está marcado como tomador no quadro "TOMADOR DO SERVIÇO". Use exatamente um destes valores: "remetente", "destinatario", "expedidor", "recebedor" ou "" se não conseguir identificar.
+  • No DACTE esse quadro normalmente NÃO repete a razão social — ele apenas marca (X) o papel. Leia a marcação.
+- "tomador": razão social do TOMADOR DO SERVIÇO. Procedimento obrigatório:
+  1) Se o quadro "TOMADOR DO SERVIÇO" traz razão social/nome, use essa.
+  2) Caso contrário, identifique o papel marcado ("tomador_papel") e COPIE a razão social do quadro correspondente (REMETENTE, DESTINATÁRIO, EXPEDIDOR ou RECEBEDOR). Nunca deixe vazio quando o papel for identificável.
+  3) Se não houver quadro de tomador nem marcação, use a razão social do REMETENTE.
+  • NUNCA use a razão social do EMITENTE (transportadora) como tomador.
+- "tomador_cnpj": CNPJ/CPF do tomador (apenas dígitos), se legível.
 
 Não invente dados. Se um campo não estiver legível, retorne string vazia, 0 ou array vazio.`;
 
@@ -78,7 +87,7 @@ Deno.serve(async (req) => {
     const dataUrl = `data:application/pdf;base64,${fileBase64}`;
 
     const gatewayBody = JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -114,6 +123,10 @@ Deno.serve(async (req) => {
                         data_emissao: { type: "string" },
                         notas_fiscais: { type: "array", items: { type: "string" } },
                         tomador: { type: "string" },
+                        tomador_papel: { type: "string" },
+                        tomador_cnpj: { type: "string" },
+                        remetente: { type: "string" },
+                        destinatario: { type: "string" },
                       },
                       required: ["numero_cte", "valor_frete", "notas_fiscais"],
                       additionalProperties: false,
