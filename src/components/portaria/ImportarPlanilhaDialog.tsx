@@ -26,6 +26,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onConfirm: (rows: ParsedRow[]) => void;
   isImporting?: boolean;
+  grupoDestino?: string;
 }
 
 function parseNum(val: unknown): number | null {
@@ -251,7 +252,7 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
   return rows;
 }
 
-export function ImportarPlanilhaDialog({ open, onOpenChange, onConfirm, isImporting }: Props) {
+export function ImportarPlanilhaDialog({ open, onOpenChange, onConfirm, isImporting, grupoDestino }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
 
@@ -263,7 +264,10 @@ export function ImportarPlanilhaDialog({ open, onOpenChange, onConfirm, isImport
     reader.onload = (e) => {
       const data = e.target?.result as ArrayBuffer;
       try {
-        const parsed = parseXlsx(data);
+        const parsed = parseXlsx(data).map((row) => ({
+          ...row,
+          grupo: grupoDestino || row.grupo,
+        }));
         setRows(parsed);
         if (parsed.length === 0) {
           import("sonner").then(({ toast }) => toast.error("Nenhum dado encontrado na planilha"));
@@ -274,7 +278,7 @@ export function ImportarPlanilhaDialog({ open, onOpenChange, onConfirm, isImport
       }
     };
     reader.readAsArrayBuffer(file);
-  }, []);
+  }, [grupoDestino]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
