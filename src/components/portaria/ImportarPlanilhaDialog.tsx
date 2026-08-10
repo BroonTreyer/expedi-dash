@@ -84,6 +84,59 @@ function extractDateFromText(text: string): string {
   return "";
 }
 
+const PLACA_RE = /^[A-Z]{3}\d[A-Z0-9]\d{2}$/;
+
+function isPlacaLike(val: unknown): boolean {
+  const s = String(val ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return PLACA_RE.test(s);
+}
+
+function isDateLike(val: unknown): boolean {
+  if (val instanceof Date) return true;
+  const num = Number(val);
+  if (!isNaN(num) && num > 40000 && num < 60000) return true;
+  return /\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(String(val ?? ""));
+}
+
+/**
+ * Planilhas sem cabeçalho (dados já na 1ª linha) usam mapa posicional fixo:
+ * 0=data 1=placa 2=destino 3=carga 4=peso 5=entregas 8=tipo veículo
+ * 9=motorista 10=transportadora/ajudantes. Colunas 6/7 (flag e fator) ignoradas.
+ */
+function parseHeaderless(raw: unknown[][]): ParsedRow[] {
+  const rows: ParsedRow[] = [];
+  for (const row of raw) {
+    if (!row || row.length < 3) continue;
+    if (!isDateLike(row[0]) || !isPlacaLike(row[1])) continue;
+
+    const placa = String(row[1] ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const tipoRaw = String(row[8] ?? "").trim();
+    const tipoVeiculo = tipoRaw.length > 0 && tipoRaw.length <= 12 && /[A-Za-z]/.test(tipoRaw) ? tipoRaw : "";
+    const transpOrAjudante = String(row[10] ?? "").trim();
+    const transpUpper = transpOrAjudante.toUpperCase();
+    const isTranspByValue =
+      transpUpper.startsWith("TRANSP") ||
+      (transpOrAjudante.length > 0 && !transpOrAjudante.includes("/") && /TRANSPORTE|LOG|FRIO|FP\b/.test(transpUpper));
+    const transpClean = transpOrAjudante.replace(/^TRANSP\.?\s*/i, "").trim();
+
+    rows.push({
+      grupo: isTranspByValue ? "INTERIOR" : "PRÓPRIA",
+      data: formatDateValue(row[0]),
+      placa,
+      destino: String(row[2] ?? "").trim(),
+      carga_id: String(row[3] ?? "").trim(),
+      peso: parseNum(row[4]),
+      qtd_entregas: parseNum(row[5]),
+      motorista: String(row[9] ?? "").trim(),
+      transportadora: isTranspByValue ? transpClean : "",
+      ajudantes: isTranspByValue ? "" : transpOrAjudante,
+      tipo_veiculo: tipoVeiculo,
+      valid: placa.length >= 3,
+    });
+  }
+  return rows;
+}
+
 function parseXlsx(data: ArrayBuffer): ParsedRow[] {
   const wb = XLSX.read(data, { type: "array", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
@@ -191,6 +244,9 @@ function parseXlsx(data: ArrayBuffer): ParsedRow[] {
       valid: placa.length >= 3,
     });
   }
+
+  // Nenhum cabeçalho encontrado (planilha começa direto nos dados): modo posicional
+  if (rows.length === 0) return parseHeaderless(raw);
 
   return rows;
 }
