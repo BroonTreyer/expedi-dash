@@ -365,12 +365,14 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
   };
 
   const handleSaveAll = async () => {
-    const ok = items.filter((i) => i.status === "ok" && i.parsed && isFrico(i.parsed.tomador));
+    // Salvável: tudo que não foi recusado (tomador lido e diferente de Frico).
+    // Tomador em branco não bloqueia mais — fica "a confirmar" e pode ser salvo.
+    const ok = items.filter((i) => i.status === "ok" && !!i.parsed);
     const recusados = items.filter((i) => i.status === "rejected").length;
-    const semTomador = items.filter((i) => i.status === "ok" && !((i.parsed?.tomador ?? "").trim())).length;
+    const aConfirmar = items.filter((i) => i.status === "ok" && !((i.parsed?.tomador ?? "").trim())).length;
     if (!ok.length) {
-      if (recusados || semTomador) {
-        toast.error(`Nada para salvar — ${recusados} recusado(s)${semTomador ? `, ${semTomador} sem tomador` : ""}.`);
+      if (recusados) {
+        toast.error(`Nada para salvar — ${recusados} recusado(s) por tomador diferente de Frico.`);
       }
       return;
     }
@@ -406,11 +408,12 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
         setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "error", error: e.message } : x));
       }
     }
-    const skipped = recusados + semTomador;
-    toast.success(`CT-es salvos${skipped ? ` · ${skipped} ignorado(s) (tomador inválido)` : ""}`);
+    toast.success(
+      `CT-es salvos${recusados ? ` · ${recusados} recusado(s) (tomador não é Frico)` : ""}${aConfirmar ? ` · ${aConfirmar} sem tomador confirmado` : ""}`,
+    );
   };
 
-  const okCount = items.filter((i) => i.status === "ok" && isFrico(i.parsed?.tomador)).length;
+  const okCount = items.filter((i) => i.status === "ok" && !!i.parsed).length;
   const rateLimitedCount = items.filter((i) => i.status === "rate_limited").length;
 
   return (
