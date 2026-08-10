@@ -546,7 +546,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
                     {it.status === "ok" && it.vinculo_status === "pendente" && <Badge variant="outline">Sem vínculo automático</Badge>}
                     {it.status === "ok" && it.vinculo_status === "divergente" && <Badge className="bg-amber-500 text-white">Múltiplas cargas — revisar</Badge>}
                     {it.status === "ok" && !((it.parsed?.tomador ?? "").trim()) && (
-                      <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" /> Tomador não identificado</Badge>
+                      <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" /> Tomador a confirmar</Badge>
                     )}
                   </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(it.fileId)}><X className="h-4 w-4" /></Button>
