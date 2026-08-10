@@ -92,6 +92,10 @@ type Parsed = {
   data_emissao?: string;
   notas_fiscais: string[];
   tomador?: string;
+  tomador_papel?: string;
+  tomador_cnpj?: string;
+  remetente?: string;
+  destinatario?: string;
 };
 
 type Item = {
@@ -117,6 +121,25 @@ function normalizeTomador(s: string): string {
 function isFrico(s: string | undefined | null): boolean {
   if (!s) return false;
   return normalizeTomador(s).includes("frico");
+}
+
+/** CNPJs conhecidos da Frico (apenas dígitos). Preencha para habilitar o fallback por CNPJ. */
+const FRICO_CNPJS: string[] = [];
+
+/**
+ * Deduz a razão social do tomador quando a IA não conseguiu lê-la direto do
+ * quadro "TOMADOR DO SERVIÇO" (que no DACTE muitas vezes só marca o papel).
+ */
+function resolverTomador(p: Parsed): string {
+  const direto = (p.tomador ?? "").trim();
+  if (direto) return direto;
+  const papel = normalizeTomador(p.tomador_papel ?? "");
+  if (papel.includes("remet")) return (p.remetente ?? "").trim();
+  if (papel.includes("destinat")) return (p.destinatario ?? "").trim();
+  const cnpj = (p.tomador_cnpj ?? "").replace(/\D/g, "");
+  if (cnpj && FRICO_CNPJS.includes(cnpj)) return "FRICO";
+  // Último recurso: remetente (no fluxo da Frico o CT-e é quase sempre CIF/FOB da própria fábrica)
+  return (p.remetente ?? "").trim();
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -219,7 +242,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
         return { parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status };
       }));
       const newItems: Item[] = enriched.map((e, i) => {
-        const tomador = (e.parsed.tomador ?? "").trim();
+        const tomador = resolverTomador(e.parsed);
         const tomadorPresente = tomador.length > 0;
         const tomadorFrico = isFrico(tomador);
         const rejected = tomadorPresente && !tomadorFrico;
@@ -231,7 +254,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
           ctTotal: enriched.length,
           status: rejected ? ("rejected" as const) : ("ok" as const),
           error: rejected ? `Tomador não é Frico: ${tomador}` : undefined,
-          parsed: e.parsed,
+          parsed: { ...e.parsed, tomador },
           carga_id: rejected ? null : e.carga_id,
           vinculo_status: rejected ? undefined : e.vinculo_status,
         };
@@ -342,12 +365,14 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
   };
 
   const handleSaveAll = async () => {
-    const ok = items.filter((i) => i.status === "ok" && i.parsed && isFrico(i.parsed.tomador));
+    // Salvável: tudo que não foi recusado (tomador lido e diferente de Frico).
+    // Tomador em branco não bloqueia mais — fica "a confirmar" e pode ser salvo.
+    const ok = items.filter((i) => i.status === "ok" && !!i.parsed);
     const recusados = items.filter((i) => i.status === "rejected").length;
-    const semTomador = items.filter((i) => i.status === "ok" && !((i.parsed?.tomador ?? "").trim())).length;
+    const aConfirmar = items.filter((i) => i.status === "ok" && !((i.parsed?.tomador ?? "").trim())).length;
     if (!ok.length) {
-      if (recusados || semTomador) {
-        toast.error(`Nada para salvar — ${recusados} recusado(s)${semTomador ? `, ${semTomador} sem tomador` : ""}.`);
+      if (recusados) {
+        toast.error(`Nada para salvar — ${recusados} recusado(s) por tomador diferente de Frico.`);
       }
       return;
     }
@@ -383,11 +408,12 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
         setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "error", error: e.message } : x));
       }
     }
-    const skipped = recusados + semTomador;
-    toast.success(`CT-es salvos${skipped ? ` · ${skipped} ignorado(s) (tomador inválido)` : ""}`);
+    toast.success(
+      `CT-es salvos${recusados ? ` · ${recusados} recusado(s) (tomador não é Frico)` : ""}${aConfirmar ? ` · ${aConfirmar} sem tomador confirmado` : ""}`,
+    );
   };
 
-  const okCount = items.filter((i) => i.status === "ok" && isFrico(i.parsed?.tomador)).length;
+  const okCount = items.filter((i) => i.status === "ok" && !!i.parsed).length;
   const rateLimitedCount = items.filter((i) => i.status === "rate_limited").length;
 
   return (
@@ -520,7 +546,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
                     {it.status === "ok" && it.vinculo_status === "pendente" && <Badge variant="outline">Sem vínculo automático</Badge>}
                     {it.status === "ok" && it.vinculo_status === "divergente" && <Badge className="bg-amber-500 text-white">Múltiplas cargas — revisar</Badge>}
                     {it.status === "ok" && !((it.parsed?.tomador ?? "").trim()) && (
-                      <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" /> Tomador não identificado</Badge>
+                      <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" /> Tomador a confirmar</Badge>
                     )}
                   </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(it.fileId)}><X className="h-4 w-4" /></Button>
