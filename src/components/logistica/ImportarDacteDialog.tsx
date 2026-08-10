@@ -242,7 +242,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
         return { parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status };
       }));
       const newItems: Item[] = enriched.map((e, i) => {
-        const tomador = (e.parsed.tomador ?? "").trim();
+        const tomador = resolverTomador(e.parsed);
         const tomadorPresente = tomador.length > 0;
         const tomadorFrico = isFrico(tomador);
         const rejected = tomadorPresente && !tomadorFrico;
@@ -254,7 +254,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
           ctTotal: enriched.length,
           status: rejected ? ("rejected" as const) : ("ok" as const),
           error: rejected ? `Tomador não é Frico: ${tomador}` : undefined,
-          parsed: e.parsed,
+          parsed: { ...e.parsed, tomador },
           carga_id: rejected ? null : e.carga_id,
           vinculo_status: rejected ? undefined : e.vinculo_status,
         };
