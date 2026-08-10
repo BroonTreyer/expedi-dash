@@ -92,6 +92,10 @@ type Parsed = {
   data_emissao?: string;
   notas_fiscais: string[];
   tomador?: string;
+  tomador_papel?: string;
+  tomador_cnpj?: string;
+  remetente?: string;
+  destinatario?: string;
 };
 
 type Item = {
@@ -117,6 +121,25 @@ function normalizeTomador(s: string): string {
 function isFrico(s: string | undefined | null): boolean {
   if (!s) return false;
   return normalizeTomador(s).includes("frico");
+}
+
+/** CNPJs conhecidos da Frico (usados como fallback quando a razão social não é lida). */
+const FRICO_CNPJS = ["05427963000185"];
+
+/**
+ * Deduz a razão social do tomador quando a IA não conseguiu lê-la direto do
+ * quadro "TOMADOR DO SERVIÇO" (que no DACTE muitas vezes só marca o papel).
+ */
+function resolverTomador(p: Parsed): string {
+  const direto = (p.tomador ?? "").trim();
+  if (direto) return direto;
+  const papel = normalizeTomador(p.tomador_papel ?? "");
+  if (papel.includes("remet")) return (p.remetente ?? "").trim();
+  if (papel.includes("destinat")) return (p.destinatario ?? "").trim();
+  const cnpj = (p.tomador_cnpj ?? "").replace(/\D/g, "");
+  if (cnpj && FRICO_CNPJS.includes(cnpj)) return "FRICO";
+  // Último recurso: remetente (no fluxo da Frico o CT-e é quase sempre CIF/FOB da própria fábrica)
+  return (p.remetente ?? "").trim();
 }
 
 function fileToBase64(file: File): Promise<string> {
