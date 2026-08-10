@@ -470,18 +470,29 @@ export function useVeiculosEsperados(
     enabled: !!session,
     refetchOnWindowFocus: true,
     queryFn: async () => {
-      let q = supabase
-        .from("veiculos_esperados" as any)
-        .select("*")
-        .order("data_referencia", { ascending: true })
-        .order("created_at", { ascending: true })
-        .limit(2000);
-      if (!showAll) {
-        q = q.gte("data_referencia", dataInicio).lte("data_referencia", dataLimite);
+      const pageSize = 1000;
+      const allRows: VeiculoEsperado[] = [];
+
+      for (let from = 0; ; from += pageSize) {
+        let q = supabase
+          .from("veiculos_esperados" as any)
+          .select("*")
+          .order("data_referencia", { ascending: true })
+          .order("created_at", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (!showAll) {
+          q = q.gte("data_referencia", dataInicio).lte("data_referencia", dataLimite);
+        }
+
+        const { data, error } = await q;
+        if (error) throw error;
+
+        const page = (data ?? []) as unknown as VeiculoEsperado[];
+        allRows.push(...page);
+        if (page.length < pageSize) break;
       }
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as unknown as VeiculoEsperado[];
+
+      return allRows;
     },
   });
 }
