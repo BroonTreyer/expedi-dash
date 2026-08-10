@@ -449,7 +449,7 @@ export function useVeiculosEsperados(
         "postgres_changes",
         { event: "*", schema: "public", table: "veiculos_esperados" },
         () => {
-          queryClient.invalidateQueries({ queryKey });
+          queryClient.invalidateQueries({ queryKey: ["veiculos_esperados"], refetchType: "all" });
           queryClient.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
           queryClient.invalidateQueries({ queryKey: ["veiculos_walkin_ativos"] });
           queryClient.invalidateQueries({ queryKey: ["veiculos_walkin_pendentes_count"] });
@@ -469,6 +469,9 @@ export function useVeiculosEsperados(
       : ["veiculos_esperados", dataInicio, dataLimite],
     enabled: !!session,
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    refetchInterval: 15000,
+    staleTime: 0,
     queryFn: async () => {
       const pageSize = 1000;
       const allRows: VeiculoEsperado[] = [];
@@ -596,8 +599,12 @@ export function useImportarVeiculosEsperados() {
         .insert(inserts);
       if (error) throw error;
     },
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["veiculos_esperados"] });
+    onSuccess: async (_, vars) => {
+      // Força refetch imediato (inclusive de queries inativas) para que a lista
+      // de Esperados apareça sem precisar atualizar a página.
+      await qc.refetchQueries({ queryKey: ["veiculos_esperados"], type: "all" });
+      qc.invalidateQueries({ queryKey: ["veiculos_esperados_pendentes"] });
+      qc.invalidateQueries({ queryKey: ["veiculos_aguardando_vinculo"] });
       toast.success(`${vars.rows.length} veículos carregados na lista de esperados`);
     },
     onError: (err: any) => {
