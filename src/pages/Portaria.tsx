@@ -247,14 +247,15 @@ export default function Portaria({ categoria }: PortariaProps) {
   };
 
   const handleImportConfirm = (rows: ParsedRow[]) => {
+    const rowsDoGrupo = rows.map((row) => ({ ...row, grupo: meta.grupoEsperado }));
     importarMutation.mutate(
-      { rows, dataReferencia: dateFromStr },
+      { rows: rowsDoGrupo, dataReferencia: dateFromStr },
       {
         onSuccess: () => {
           // Coleta as datas reais que vieram na planilha e expande o
           // intervalo da tela se algo ficou de fora — assim o usuário vê
           // imediatamente o que acabou de importar.
-          const datas = rows
+           const datas = rowsDoGrupo
             .map((r) => {
               const raw = (r as any).data as string | undefined;
               if (!raw) return null;
@@ -577,7 +578,13 @@ export default function Portaria({ categoria }: PortariaProps) {
         forcedCategoria={categoria}
       />
       {!isPortaria && (
-        <ImportarPlanilhaDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onConfirm={handleImportConfirm} isImporting={importarMutation.isPending} />
+        <ImportarPlanilhaDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          onConfirm={handleImportConfirm}
+          isImporting={importarMutation.isPending}
+          grupoDestino={meta.grupoEsperado}
+        />
       )}
       <MovimentoDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} movimento={detailsMov} movimentoSaida={detailsSaida} />
     </Layout>
