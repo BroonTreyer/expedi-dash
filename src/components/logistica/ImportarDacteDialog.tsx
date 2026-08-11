@@ -9,7 +9,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, FileText, Loader2, AlertTriangle, CheckCircle2, X, Search, Link2, Wand2, Eraser, RotateCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { autoVincularCarga, useInsertCteDacte, buscarCargasPorOrdem, type CargaPorOrdemRow } from "@/hooks/useCtesDacte";
+import {
+  autoVincularCarga,
+  useInsertCteDacte,
+  buscarCargasPorOrdem,
+  buscarCtesExistentes,
+  cteKey,
+  type CargaPorOrdemRow,
+} from "@/hooks/useCtesDacte";
 
 function OrdemCargaPicker({ value, onChange, cargaIdAtual }: { value: string; onChange: (v: string, picked?: CargaPorOrdemRow | null) => void; cargaIdAtual: string | null }) {
   const [results, setResults] = useState<CargaPorOrdemRow[]>([]);
@@ -104,8 +111,10 @@ type Item = {
   fileName: string;
   ctIndex?: number;
   ctTotal?: number;
-  status: "loading" | "ok" | "error" | "saving" | "saved" | "rejected" | "rate_limited";
+  status: "loading" | "ok" | "error" | "saving" | "saved" | "rejected" | "rate_limited" | "duplicado";
   error?: string;
+  /** Info do CT-e já existente quando o arquivo é uma reimportação. */
+  duplicadoDe?: { ordem_carga: string | null; created_at: string };
   parsed?: Parsed;
   carga_id?: string | null;
   ordem_carga?: string;
@@ -241,26 +250,46 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
         const vinc = await autoVincularCarga(parsed.notas_fiscais ?? []);
         return { parsed, carga_id: vinc.carga_id, vinculo_status: vinc.status };
       }));
-      const newItems: Item[] = enriched.map((e, i) => {
+      // Trava anti-duplicidade: CT-e já cadastrado não pode ser importado de novo.
+      const existentes = await buscarCtesExistentes(enriched.map((e) => e.parsed.numero_cte));
+      const baseItems: Item[] = enriched.map((e, i) => {
         const tomador = resolverTomador(e.parsed);
         const tomadorPresente = tomador.length > 0;
         const tomadorFrico = isFrico(tomador);
         const rejected = tomadorPresente && !tomadorFrico;
+        const jaExiste = existentes.get(cteKey(e.parsed));
         return {
           fileId: `${phFileId}-${i}`,
           file,
           fileName: file.name,
           ctIndex: i + 1,
           ctTotal: enriched.length,
-          status: rejected ? ("rejected" as const) : ("ok" as const),
-          error: rejected ? `Tomador não é Frico: ${tomador}` : undefined,
+          status: jaExiste ? ("duplicado" as const) : rejected ? ("rejected" as const) : ("ok" as const),
+          error: jaExiste
+            ? `CT-e ${e.parsed.numero_cte} já importado`
+            : rejected
+              ? `Tomador não é Frico: ${tomador}`
+              : undefined,
+          duplicadoDe: jaExiste ? { ordem_carga: jaExiste.ordem_carga, created_at: jaExiste.created_at } : undefined,
           parsed: { ...e.parsed, tomador },
-          carga_id: rejected ? null : e.carga_id,
-          vinculo_status: rejected ? undefined : e.vinculo_status,
+          carga_id: rejected || jaExiste ? null : e.carga_id,
+          vinculo_status: rejected || jaExiste ? undefined : e.vinculo_status,
         };
       });
       setItems((prev) => {
         const without = prev.filter((p) => p.fileId !== phFileId);
+        // Dedup também dentro do mesmo lote (o mesmo PDF selecionado duas vezes).
+        const jaNoLote = new Set(
+          without.filter((p) => p.parsed && p.status !== "duplicado").map((p) => cteKey(p.parsed as any)),
+        );
+        const newItems = baseItems.map((it) => {
+          const k = cteKey(it.parsed as any);
+          if (it.status !== "duplicado" && jaNoLote.has(k)) {
+            return { ...it, status: "duplicado" as const, error: `CT-e ${it.parsed?.numero_cte} repetido neste lote` };
+          }
+          if (it.status !== "duplicado") jaNoLote.add(k);
+          return it;
+        });
         return [...without, ...newItems];
       });
     } catch (e: any) {
@@ -369,10 +398,14 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
     // Tomador em branco não bloqueia mais — fica "a confirmar" e pode ser salvo.
     const ok = items.filter((i) => i.status === "ok" && !!i.parsed);
     const recusados = items.filter((i) => i.status === "rejected").length;
+    const duplicados = items.filter((i) => i.status === "duplicado").length;
     const aConfirmar = items.filter((i) => i.status === "ok" && !((i.parsed?.tomador ?? "").trim())).length;
     if (!ok.length) {
       if (recusados) {
         toast.error(`Nada para salvar — ${recusados} recusado(s) por tomador diferente de Frico.`);
+      }
+      if (duplicados) {
+        toast.error(`Nada para salvar — ${duplicados} CT-e(s) já estavam importados (duplicidade bloqueada).`);
       }
       return;
     }
@@ -409,12 +442,13 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
       }
     }
     toast.success(
-      `CT-es salvos${recusados ? ` · ${recusados} recusado(s) (tomador não é Frico)` : ""}${aConfirmar ? ` · ${aConfirmar} sem tomador confirmado` : ""}`,
+      `CT-es salvos${duplicados ? ` · ${duplicados} bloqueado(s) por duplicidade` : ""}${recusados ? ` · ${recusados} recusado(s) (tomador não é Frico)` : ""}${aConfirmar ? ` · ${aConfirmar} sem tomador confirmado` : ""}`,
     );
   };
 
   const okCount = items.filter((i) => i.status === "ok" && !!i.parsed).length;
   const rateLimitedCount = items.filter((i) => i.status === "rate_limited").length;
+  const duplicadoCount = items.filter((i) => i.status === "duplicado").length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -437,6 +471,15 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
         {items.length > 0 && (
           <div className="space-y-3 mt-2">
+            {duplicadoCount > 0 && (
+              <div className="border border-destructive/40 bg-destructive/10 rounded-lg p-3 text-xs text-destructive flex items-start gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  <strong>{duplicadoCount} CT-e(s) já importado(s)</strong> — bloqueados para não gerar adiantamento em duplicidade.
+                  Eles não serão salvos.
+                </span>
+              </div>
+            )}
             {rateLimitedCount > 0 && (
               <div className="border border-amber-500/40 bg-amber-500/10 rounded-lg p-3 flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
@@ -531,6 +574,13 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
                     )}
                     {it.status === "loading" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Lendo</Badge>}
                     {it.status === "rejected" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Recusado · Tomador: {it.parsed?.tomador || "—"}</Badge>}
+                    {it.status === "duplicado" && (
+                      <Badge variant="destructive" className="gap-1">
+                        <AlertTriangle className="h-3 w-3" /> JÁ IMPORTADO
+                        {it.duplicadoDe?.ordem_carga ? ` · OC ${it.duplicadoDe.ordem_carga}` : ""}
+                        {it.duplicadoDe?.created_at ? ` · ${new Date(it.duplicadoDe.created_at).toLocaleDateString("pt-BR")}` : ""}
+                      </Badge>
+                    )}
                     {it.status === "rate_limited" && (
                       <>
                         <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" /> Limite da IA atingido</Badge>

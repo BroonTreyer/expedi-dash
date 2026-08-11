@@ -133,6 +133,26 @@ export function useCriarAdiantamento() {
           : calculado;
       const valor_saldo = +(valor_total_ctes - valor_adiantamento).toFixed(2);
 
+      // Trava anti-duplicidade: nenhum CT-e pode entrar em dois adiantamentos.
+      const ids = input.ctes.map((c) => c.id);
+      if (ids.length > 0) {
+        const { data: jaVinculados } = await (supabase as any)
+          .from("adiantamentos_frete_ctes")
+          .select("cte_id, adiantamentos_frete!inner(numero, status)")
+          .in("cte_id", ids);
+        const conflitos = ((jaVinculados ?? []) as any[]).filter(
+          (r) => r?.adiantamentos_frete?.status !== "cancelado",
+        );
+        if (conflitos.length > 0) {
+          const numeros = Array.from(
+            new Set(conflitos.map((c) => c?.adiantamentos_frete?.numero).filter(Boolean)),
+          );
+          throw new Error(
+            `${conflitos.length} CT-e(s) já pertencem a outro adiantamento (${numeros.join(", ")}). Operação bloqueada para evitar pagamento em duplicidade.`,
+          );
+        }
+      }
+
       const { data: numeroData, error: numErr } = await (supabase as any).rpc("next_adiantamento_numero");
       if (numErr) throw numErr;
 

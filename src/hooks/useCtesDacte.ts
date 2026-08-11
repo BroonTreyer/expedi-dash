@@ -124,7 +124,14 @@ export function useInsertCteDacte() {
         .insert({ ...row, created_by: u.user?.id })
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        if (String((error as any).code) === "23505") {
+          throw new Error(
+            `CT-e ${row.numero_cte ?? ""} já está cadastrado no sistema — importação bloqueada para evitar valor duplicado.`,
+          );
+        }
+        throw error;
+      }
       return data as CteDacteRow;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ctes_dacte"] }),
@@ -188,6 +195,63 @@ export function freteSuspeito(c: { valor_frete: number | null; peso_total: numbe
   if (v <= 0 || p <= 0) return false;
   if (Math.abs(v - p) < 0.01) return true;
   return v / p < 0.05; // menos de R$ 0,05/kg é irreal
+}
+
+/** Chave de identidade de um CT-e: número + série + transportadora (igual ao índice único do banco). */
+export function cteKey(c: { numero_cte?: string | null; serie?: string | null; transportadora?: string | null }): string {
+  const num = String(c.numero_cte ?? "").trim();
+  const serie = String(c.serie ?? "").trim();
+  const transp = String(c.transportadora ?? "").trim().toUpperCase();
+  return `${num}|${serie}|${transp}`;
+}
+
+export type CteExistente = { id: string; numero_cte: string; serie: string | null; transportadora: string | null; ordem_carga: string | null; valor_frete: number; created_at: string };
+
+/**
+ * Consulta em lote quais CT-es já existem no banco, para bloquear reimportação
+ * do mesmo DACTE (causa raiz de adiantamento pago em dobro).
+ */
+export async function buscarCtesExistentes(numeros: string[]): Promise<Map<string, CteExistente>> {
+  const nums = Array.from(new Set(numeros.map((n) => String(n ?? "").trim()).filter(Boolean)));
+  const out = new Map<string, CteExistente>();
+  if (nums.length === 0) return out;
+  for (let i = 0; i < nums.length; i += 200) {
+    const slice = nums.slice(i, i + 200);
+    const { data } = await (supabase as any)
+      .from("ctes_dacte")
+      .select("id, numero_cte, serie, transportadora, ordem_carga, valor_frete, created_at")
+      .in("numero_cte", slice);
+    for (const r of (data ?? []) as CteExistente[]) out.set(cteKey(r), r);
+  }
+  return out;
+}
+
+export type GrupoDuplicado = { key: string; numero_cte: string; serie: string | null; transportadora: string | null; ctes: CteDacteRow[]; valor_extra: number };
+
+/** Agrupa CT-es repetidos (mesmo número/série/transportadora) para auditoria. */
+export function agruparDuplicados(list: CteDacteRow[]): GrupoDuplicado[] {
+  const map = new Map<string, CteDacteRow[]>();
+  for (const c of list) {
+    const k = cteKey(c);
+    const arr = map.get(k) ?? [];
+    arr.push(c);
+    map.set(k, arr);
+  }
+  const out: GrupoDuplicado[] = [];
+  for (const [key, ctes] of map) {
+    if (ctes.length < 2) continue;
+    const ordenados = [...ctes].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const valor_extra = ordenados.slice(1).reduce((s, c) => s + Number(c.valor_frete ?? 0), 0);
+    out.push({
+      key,
+      numero_cte: ordenados[0].numero_cte,
+      serie: ordenados[0].serie,
+      transportadora: ordenados[0].transportadora,
+      ctes: ordenados,
+      valor_extra,
+    });
+  }
+  return out.sort((a, b) => b.valor_extra - a.valor_extra);
 }
 
 /**
