@@ -33,6 +33,8 @@ import { acharTranspPorNome } from "@/lib/transportadora-match";
 import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
 import { usePesoEfetivoPorOrdem, ordemKeyOf } from "@/hooks/usePesoEfetivoPorOrdem";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
+import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
+import { supabase } from "@/integrations/supabase/client";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
 import { exportarAdiantamentosXLSX } from "@/lib/adiantamentos-export";
 import { toast } from "sonner";
@@ -308,6 +310,34 @@ export function AdiantamentosTab() {
   const [selPagos, setSelPagos] = useState<Set<string>>(new Set());
   const [selQuitados, setSelQuitados] = useState<Set<string>>(new Set());
   const [ctesAbertos, setCtesAbertos] = useState<Set<string>>(new Set());
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+
+  /** Mapa nº CT-e -> caminho do PDF/foto no storage, para abrir o documento. */
+  const pdfPorNumero = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const c of ctes) {
+      const k = String(c.numero_cte ?? "").trim();
+      if (!k) continue;
+      if (!m.get(k)) m.set(k, c.pdf_url ?? null);
+    }
+    return m;
+  }, [ctes]);
+
+  const abrirPdfCte = async (numero: string) => {
+    const path = pdfPorNumero.get(String(numero).trim()) ?? null;
+    if (!path) {
+      toast.error(`Sem documento anexado para o CT-e ${numero}`);
+      return;
+    }
+    const { data, error } = await supabase.storage.from("dacte").createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      toast.error("Não foi possível abrir o documento", { description: error?.message });
+      return;
+    }
+    setViewerUrl(data.signedUrl);
+    setViewerOpen(true);
+  };
 
   // Busca livre (transportadora, OC, nº adiantamento, nº CT-e, valor)
   const [searchInput, setSearchInput] = useState("");
@@ -1180,12 +1210,16 @@ export function AdiantamentosTab() {
                                   g.items
                                     .flatMap((a) => a.cteNumbers ?? [])
                                     .map((n, i) => (
-                                      <span
+                                      <button
+                                        type="button"
                                         key={`${n}-${i}`}
-                                        className="text-[11px] font-mono border rounded px-1.5 py-0.5 bg-background"
+                                        onClick={() => abrirPdfCte(String(n))}
+                                        title={pdfPorNumero.get(String(n).trim()) ? "Ver documento do CT-e" : "Sem documento anexado"}
+                                        className="text-[11px] font-mono border rounded px-1.5 py-0.5 bg-background inline-flex items-center gap-1 hover:bg-muted hover:text-primary"
                                       >
+                                        <FileText className="h-3 w-3" />
                                         CT-e {n}
-                                      </span>
+                                      </button>
                                     ))
                                 )}
                               </div>
@@ -1251,6 +1285,7 @@ export function AdiantamentosTab() {
         </TabsContent>
       </Tabs>
 
+      <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={viewerUrl} alt="DACTE" />
       <ComprovanteAdiantamentoDialog
         open={comprovantesAdt.length > 0}
         onOpenChange={(o) => {
