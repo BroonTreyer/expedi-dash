@@ -448,6 +448,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
   const okCount = items.filter((i) => i.status === "ok" && !!i.parsed).length;
   const rateLimitedCount = items.filter((i) => i.status === "rate_limited").length;
+  const duplicadoCount = items.filter((i) => i.status === "duplicado").length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -470,6 +471,15 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
         {items.length > 0 && (
           <div className="space-y-3 mt-2">
+            {duplicadoCount > 0 && (
+              <div className="border border-destructive/40 bg-destructive/10 rounded-lg p-3 text-xs text-destructive flex items-start gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  <strong>{duplicadoCount} CT-e(s) já importado(s)</strong> — bloqueados para não gerar adiantamento em duplicidade.
+                  Eles não serão salvos.
+                </span>
+              </div>
+            )}
             {rateLimitedCount > 0 && (
               <div className="border border-amber-500/40 bg-amber-500/10 rounded-lg p-3 flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
