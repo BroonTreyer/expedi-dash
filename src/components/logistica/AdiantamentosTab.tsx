@@ -310,6 +310,34 @@ export function AdiantamentosTab() {
   const [selPagos, setSelPagos] = useState<Set<string>>(new Set());
   const [selQuitados, setSelQuitados] = useState<Set<string>>(new Set());
   const [ctesAbertos, setCtesAbertos] = useState<Set<string>>(new Set());
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+
+  /** Mapa nº CT-e -> caminho do PDF/foto no storage, para abrir o documento. */
+  const pdfPorNumero = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const c of ctes) {
+      const k = String(c.numero_cte ?? "").trim();
+      if (!k) continue;
+      if (!m.get(k)) m.set(k, c.pdf_url ?? null);
+    }
+    return m;
+  }, [ctes]);
+
+  const abrirPdfCte = async (numero: string) => {
+    const path = pdfPorNumero.get(String(numero).trim()) ?? null;
+    if (!path) {
+      toast.error(`Sem documento anexado para o CT-e ${numero}`);
+      return;
+    }
+    const { data, error } = await supabase.storage.from("dacte").createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      toast.error("Não foi possível abrir o documento", { description: error?.message });
+      return;
+    }
+    setViewerUrl(data.signedUrl);
+    setViewerOpen(true);
+  };
 
   // Busca livre (transportadora, OC, nº adiantamento, nº CT-e, valor)
   const [searchInput, setSearchInput] = useState("");
