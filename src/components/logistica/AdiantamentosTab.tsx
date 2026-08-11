@@ -33,6 +33,8 @@ import { acharTranspPorNome } from "@/lib/transportadora-match";
 import { useValoresTabelaPorCte } from "@/hooks/useValoresTabelaPorCte";
 import { usePesoEfetivoPorOrdem, ordemKeyOf } from "@/hooks/usePesoEfetivoPorOrdem";
 import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
+import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
+import { supabase } from "@/integrations/supabase/client";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
 import { exportarAdiantamentosXLSX } from "@/lib/adiantamentos-export";
 import { toast } from "sonner";
