@@ -1210,12 +1210,16 @@ export function AdiantamentosTab() {
                                   g.items
                                     .flatMap((a) => a.cteNumbers ?? [])
                                     .map((n, i) => (
-                                      <span
+                                      <button
+                                        type="button"
                                         key={`${n}-${i}`}
-                                        className="text-[11px] font-mono border rounded px-1.5 py-0.5 bg-background"
+                                        onClick={() => abrirPdfCte(String(n))}
+                                        title={pdfPorNumero.get(String(n).trim()) ? "Ver documento do CT-e" : "Sem documento anexado"}
+                                        className="text-[11px] font-mono border rounded px-1.5 py-0.5 bg-background inline-flex items-center gap-1 hover:bg-muted hover:text-primary"
                                       >
+                                        <FileText className="h-3 w-3" />
                                         CT-e {n}
-                                      </span>
+                                      </button>
                                     ))
                                 )}
                               </div>
