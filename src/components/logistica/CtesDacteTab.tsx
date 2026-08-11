@@ -224,6 +224,10 @@ export function CtesDacteTab() {
       toast.error("Não foi possível abrir o PDF", { description: error?.message });
       return;
     }
+    if (/\.pdf($|\?)/i.test(path)) {
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     setViewerUrl(data.signedUrl);
     setViewerOpen(true);
   };

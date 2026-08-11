@@ -335,6 +335,11 @@ export function AdiantamentosTab() {
       toast.error("Não foi possível abrir o documento", { description: error?.message });
       return;
     }
+    // PDFs em iframe são bloqueados pelo Chrome dentro do preview: abre em nova aba.
+    if (/\.pdf($|\?)/i.test(path)) {
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     setViewerUrl(data.signedUrl);
     setViewerOpen(true);
   };
