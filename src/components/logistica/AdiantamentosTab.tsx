@@ -1285,6 +1285,7 @@ export function AdiantamentosTab() {
         </TabsContent>
       </Tabs>
 
+      <PhotoViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} url={viewerUrl} alt="DACTE" />
       <ComprovanteAdiantamentoDialog
         open={comprovantesAdt.length > 0}
         onOpenChange={(o) => {
