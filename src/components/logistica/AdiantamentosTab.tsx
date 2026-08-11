@@ -307,6 +307,7 @@ export function AdiantamentosTab() {
   const [selPendentes, setSelPendentes] = useState<Set<string>>(new Set());
   const [selPagos, setSelPagos] = useState<Set<string>>(new Set());
   const [selQuitados, setSelQuitados] = useState<Set<string>>(new Set());
+  const [ctesAbertos, setCtesAbertos] = useState<Set<string>>(new Set());
 
   // Busca livre (transportadora, OC, nº adiantamento, nº CT-e, valor)
   const [searchInput, setSearchInput] = useState("");
