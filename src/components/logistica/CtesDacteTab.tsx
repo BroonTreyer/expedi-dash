@@ -15,6 +15,7 @@ import {
   useSetPesoCargaManualByOrdem,
   useAtualizarValorFreteCte,
   freteSuspeito,
+  agruparDuplicados,
   type CteDacteRow,
 } from "@/hooks/useCtesDacte";
 import { useCtesEmAdiantamento } from "@/hooks/useAdiantamentos";
@@ -27,6 +28,59 @@ import { toast } from "sonner";
 const fmtBRL = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 const fmtKg = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(n || 0);
 const fmtDate = (s: string) => new Date(s).toLocaleDateString("pt-BR");
+
+/** Painel de auditoria: CT-es repetidos (mesmo nº/série/transportadora). */
+function DuplicidadesPanel({ data }: { data: CteDacteRow[] }) {
+  const grupos = useMemo(() => agruparDuplicados(data), [data]);
+  if (grupos.length === 0) return null;
+  const totalExtra = grupos.reduce((s, g) => s + g.valor_extra, 0);
+
+  const exportar = async () => {
+    const XLSX = await import("xlsx");
+    const rows = grupos.flatMap((g) =>
+      g.ctes.map((c, i) => ({
+        "CT-e": g.numero_cte,
+        Série: g.serie ?? "",
+        Transportadora: g.transportadora ?? "",
+        "Ordem de Carga": c.ordem_carga ?? "",
+        Placa: c.placa ?? "",
+        "Valor do frete": Number(c.valor_frete ?? 0),
+        Importado: fmtDate(c.created_at),
+        Situação: i === 0 ? "Original" : "Duplicado (valor a recuperar)",
+      })),
+    );
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Duplicidades");
+    XLSX.writeFile(wb, `auditoria-ctes-duplicados-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  return (
+    <div className="border border-destructive/40 bg-destructive/10 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="text-sm font-semibold text-destructive flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4" />
+          Duplicidades detectadas — {grupos.length} CT-e(s) repetido(s) · {fmtBRL(totalExtra)} contado em dobro
+        </div>
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={exportar}>
+          Exportar auditoria
+        </Button>
+      </div>
+      <div className="space-y-1">
+        {grupos.slice(0, 10).map((g) => (
+          <div key={g.key} className="text-xs text-destructive/90">
+            CT-e <span className="font-mono font-bold">{g.numero_cte}</span>
+            {g.serie ? `/${g.serie}` : ""} · {g.transportadora ?? "—"} · {g.ctes.length}x ·{" "}
+            OCs: {Array.from(new Set(g.ctes.map((c) => c.ordem_carga ?? "—"))).join(", ")} · excesso {fmtBRL(g.valor_extra)}
+          </div>
+        ))}
+        {grupos.length > 10 && (
+          <div className="text-xs text-destructive/70">+ {grupos.length - 10} outros — veja a planilha exportada.</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function CtesDacteTab() {
   const { data = [], isLoading } = useCtesDacte();
@@ -176,6 +230,7 @@ export function CtesDacteTab() {
 
   return (
     <Card className="p-4 space-y-4">
+      <DuplicidadesPanel data={data} />
       <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
         <div className="flex gap-2 flex-wrap">
           <div className="relative">
