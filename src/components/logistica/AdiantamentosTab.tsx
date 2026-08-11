@@ -1132,10 +1132,8 @@ export function AdiantamentosTab() {
                           const label =
                             g.items.length > 1 ? `${g.items.length} ADTs` : repNum;
                           return (
-                            <label
-                              key={g.key}
-                              className="flex items-center gap-2 text-xs hover:bg-muted/40 rounded px-1 py-0.5 cursor-pointer"
-                            >
+                            <div key={g.key} className="rounded px-1 py-0.5 hover:bg-muted/40">
+                            <div className="flex items-center gap-2 text-xs">
                               <Checkbox
                                 checked={allSel}
                                 onCheckedChange={() => {
@@ -1155,11 +1153,44 @@ export function AdiantamentosTab() {
                                   : "Lote"}
                               </span>
                               <span className="text-muted-foreground">·</span>
-                              <span>{g.qtdCtes} CT-e</span>
+                              <button
+                                type="button"
+                                className="underline decoration-dotted hover:text-primary"
+                                onClick={() =>
+                                  setCtesAbertos((p) => {
+                                    const n = new Set(p);
+                                    n.has(g.key) ? n.delete(g.key) : n.add(g.key);
+                                    return n;
+                                  })
+                                }
+                              >
+                                {g.qtdCtes} CT-e
+                              </button>
                               <span className="ml-auto tabular-nums font-semibold">
                                 {fmtBRL(g.valorSaldo)}
                               </span>
-                            </label>
+                            </div>
+                            {ctesAbertos.has(g.key) && (
+                              <div className="ml-6 mt-1 mb-1 flex flex-wrap gap-1">
+                                {g.items.flatMap((a) => a.cteNumbers ?? []).length === 0 ? (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Nenhum CT-e vinculado
+                                  </span>
+                                ) : (
+                                  g.items
+                                    .flatMap((a) => a.cteNumbers ?? [])
+                                    .map((n, i) => (
+                                      <span
+                                        key={`${n}-${i}`}
+                                        className="text-[11px] font-mono border rounded px-1.5 py-0.5 bg-background"
+                                      >
+                                        CT-e {n}
+                                      </span>
+                                    ))
+                                )}
+                              </div>
+                            )}
+                            </div>
                           );
                         })}
                       </div>
