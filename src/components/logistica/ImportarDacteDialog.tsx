@@ -398,10 +398,14 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
     // Tomador em branco não bloqueia mais — fica "a confirmar" e pode ser salvo.
     const ok = items.filter((i) => i.status === "ok" && !!i.parsed);
     const recusados = items.filter((i) => i.status === "rejected").length;
+    const duplicados = items.filter((i) => i.status === "duplicado").length;
     const aConfirmar = items.filter((i) => i.status === "ok" && !((i.parsed?.tomador ?? "").trim())).length;
     if (!ok.length) {
       if (recusados) {
         toast.error(`Nada para salvar — ${recusados} recusado(s) por tomador diferente de Frico.`);
+      }
+      if (duplicados) {
+        toast.error(`Nada para salvar — ${duplicados} CT-e(s) já estavam importados (duplicidade bloqueada).`);
       }
       return;
     }
@@ -438,7 +442,7 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
       }
     }
     toast.success(
-      `CT-es salvos${recusados ? ` · ${recusados} recusado(s) (tomador não é Frico)` : ""}${aConfirmar ? ` · ${aConfirmar} sem tomador confirmado` : ""}`,
+      `CT-es salvos${duplicados ? ` · ${duplicados} bloqueado(s) por duplicidade` : ""}${recusados ? ` · ${recusados} recusado(s) (tomador não é Frico)` : ""}${aConfirmar ? ` · ${aConfirmar} sem tomador confirmado` : ""}`,
     );
   };
 
@@ -560,6 +564,13 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
                     )}
                     {it.status === "loading" && <Badge variant="secondary" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Lendo</Badge>}
                     {it.status === "rejected" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Recusado · Tomador: {it.parsed?.tomador || "—"}</Badge>}
+                    {it.status === "duplicado" && (
+                      <Badge variant="destructive" className="gap-1">
+                        <AlertTriangle className="h-3 w-3" /> JÁ IMPORTADO
+                        {it.duplicadoDe?.ordem_carga ? ` · OC ${it.duplicadoDe.ordem_carga}` : ""}
+                        {it.duplicadoDe?.created_at ? ` · ${new Date(it.duplicadoDe.created_at).toLocaleDateString("pt-BR")}` : ""}
+                      </Badge>
+                    )}
                     {it.status === "rate_limited" && (
                       <>
                         <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" /> Limite da IA atingido</Badge>
