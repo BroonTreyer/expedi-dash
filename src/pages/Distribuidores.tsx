@@ -179,21 +179,27 @@ export default function Distribuidores() {
         </div>
 
         {sugestoes.length > 0 && (
-          <Card className="border-primary/30 bg-primary/5">
+          <Card className="border-2 border-amber-500/50 bg-amber-500/10">
             <CardContent className="p-3 sm:p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-start gap-2 min-w-0">
-                  <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-sm font-medium">Sugestões de distribuidores</div>
+                    <div className="text-sm font-semibold flex items-center gap-2">
+                      Clientes fora de Distribuidores
+                      <Badge variant="outline" className="text-[11px] border-amber-500/60">
+                        {sugestoes.length}
+                      </Badge>
+                    </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Clientes com pedidos em cargas de transportadora (60 dias) que ainda não estão marcados como distribuidor.
+                      Estes clientes têm pedidos em cargas de transportadora (60 dias) mas não estão marcados como distribuidor —
+                      por isso as cargas deles não aparecem nesta tela. Marque-os para corrigir.
                     </p>
                   </div>
                 </div>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="default"
                   className="h-8 text-xs"
                   disabled={!!sugestaoBusy}
                   onClick={() => marcarSugestao(sugestoes.map((s) => s.codigo_cliente))}
