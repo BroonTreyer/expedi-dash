@@ -439,6 +439,17 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [submitting, setSubmitting] = useState(false);
   const [savingPre, setSavingPre] = useState(false);
 
+  // Data divergente: se a carga for datada em um dia diferente de hoje, ela sai
+  // da esteira/painéis do dia e "desaparece" para a logística e a portaria.
+  const hojeISO = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const dataDivergente = !!dataCarregamento && dataCarregamento !== hojeISO;
+  const dataCarregamentoBR = dataCarregamento
+    ? dataCarregamento.split("-").reverse().slice(0, 2).join("/")
+    : "";
+
   // Reset submitting ao reabrir o dialog
   useEffect(() => {
     if (open) setSubmitting(false);
@@ -1007,6 +1018,13 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           />
           {!dataCarregamento && (
             <p className="text-[11px] text-destructive font-medium">Obrigatório.</p>
+          )}
+          {dataDivergente && (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[11px] font-medium leading-snug text-amber-700 dark:text-amber-300">
+              Atenção: esta carga será datada em {dataCarregamentoBR} — diferente de hoje.
+              Ela não vai aparecer na esteira/painéis do dia de hoje (somente no Consolidado
+              e ao filtrar por {dataCarregamentoBR}).
+            </p>
           )}
         </div>
 
