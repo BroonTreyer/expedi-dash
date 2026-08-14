@@ -1,35 +1,35 @@
-# Reduzir consumo de memória (erro "insuficiência de memória")
+# Carga do Fabiano (BUC8F39) — oculta, portaria duplicada e cliente fora de Distribuidores
 
-O aviso do print é o Chrome derrubando a aba por falta de memória — acontece principalmente nos tablets/celulares da portaria. Levantei os pontos do sistema que mais pesam e o que muda em cada um.
+## O que está acontecendo (confirmado no banco)
 
-## O que está pesando hoje (verificado no código)
+Carga `CG-20260814-110428-TZH` — Fabiano dos Santos Nogueira, placa BUC8F39, DOMINIOS TRANSPORTES, OC 132717, 55 linhas / 9 pedidos.
 
-1. **Fotos enviadas em resolução cheia.** Em `uploadFotoMovimentacao` a foto vai para o storage exatamente como saiu da câmera (8–12 MP, 4–10 MB). Antes disso ela ainda é exibida na tela em `<img>` de 192px de altura — o navegador precisa descomprimir a imagem inteira na memória (uma foto de 12MP ocupa ~48 MB de RAM). Com 3–4 fotos por registro (placa, documento, painel, nota) a aba estoura.
-2. **Pré-visualizações sem limite de tamanho.** `CapturaFoto`, `MovimentoDetailsDialog`, `PhotoViewerDialog` e `ComprovantePortariaDialog` carregam a imagem original, sem versão reduzida e sem `loading="lazy"`.
-3. **Consultas grandes na portaria.** `useMovimentacoes` e `useMovimentacoesAtivasPatio` fazem `select("*")` (todas as ~50 colunas) sem limite de linhas, com atualização automática a cada 15s em 4 hooks de veículos esperados simultâneos. Cada refetch cria um novo array na memória e o cache guarda tudo por 5 minutos.
-4. **Cache do React Query segurando dados antigos** (`gcTime` de 5 min) somado a atualização em segundo plano mesmo com a aba escondida.
+São três problemas somados:
 
-## O que vou fazer
+1. **Data da carga errada → carga "oculta".** Todas as 55 linhas estão com `data = 04/08/2026`, mas a carga foi montada/fechada em **14/08**. As telas do dia filtram por essa data, então a carga não aparece na esteira; só o Consolidado (que agrupa por carga) mostra. Foi fechada com o seletor de data em 04/08 e o sistema aceitou sem avisar.
+2. **Portaria criou processo separado.** Existe um veículo esperado (walk-in de 12/08) já vinculado a essa carga, porém `conferido = false`, e o movimento de entrada da portaria (12/08, etapa "chegada") está com **carga_id vazio**. Ou seja: o vínculo existe do lado da logística, mas o movimento na portaria ficou solto — daí a portaria "não ver" a carga e abrir outro registro.
+3. **Clientes não são distribuidores.** Os 9 clientes da carga (FRIOS E GRAOS, IGACENTER, LACTOFRIOS, JBS, CR FRIOS, ITAPUA, CESTA BASICA, ELIAS, ANDERSON GAVIAO) estão todos cadastrados como tipo **"outros"**. A página Distribuidores só lista clientes marcados como distribuidor — por isso a carga não aparece lá.
 
-**Fotos (maior ganho)**
-- Comprimir e redimensionar toda foto no próprio aparelho antes de enviar: no máximo 1600px no lado maior, JPEG qualidade ~0,7 (fica em 200–500 KB). Usa `createImageBitmap` + canvas e libera o bitmap logo depois.
-- Usar essa versão reduzida tanto no upload quanto na pré-visualização, sempre revogando o object URL ao trocar/fechar.
-- Adicionar `loading="lazy"` e `decoding="async"` nas imagens de detalhe/comprovante, e liberar a imagem quando o diálogo fecha.
+Há também uma duplicidade pontual: pedido 18 (FRIOS E GRAOS) tem a linha de CALABRESA 400G lançada duas vezes.
 
-**Consultas da portaria**
-- Trocar `select("*")` por lista explícita de colunas nos hooks de movimentações (histórico e pátio) — corta o volume de dados por linha.
-- Limitar a janela do histórico e aplicar `limit` de segurança nas consultas de pátio/histórico.
-- Pausar as atualizações automáticas de 15s quando a aba não está visível (`refetchIntervalInBackground: false` + checagem de `document.hidden`).
+## Correção desta carga
 
-**Cache**
-- Reduzir `gcTime` para ~2 min e manter `staleTime` atual, para o navegador soltar dados que não estão em tela.
+- Ajustar a data das 55 linhas para **14/08/2026**, para a carga voltar a aparecer na esteira e nos painéis do dia.
+- Vincular o movimento de portaria de 12/08 (BUC8F39) à carga `CG-20260814-110428-TZH` e marcar o veículo esperado como conferido, eliminando o processo duplicado — sem apagar histórico.
+- Remover a linha duplicada de CALABRESA 400G do pedido 18.
+- Marcar os clientes dessa carga como **distribuidor** (é o que define o lado Distribuidores). Confirmo com você antes se algum deles for varejo.
+
+## Prevenção (para não repetir)
+
+- **Aviso de data divergente no fechamento:** se a data escolhida for diferente do dia atual (ou dos pedidos), o diálogo mostra alerta claro "Esta carga será datada em dd/MM — vai sair da esteira de hoje" com confirmação explícita.
+- **Vínculo automático mais firme na portaria:** ao fechar carga com veículo já no pátio/walk-in da mesma placa, o movimento de entrada em aberto recebe o `carga_id` da carga (hoje só o veículo esperado é vinculado). Assim a portaria vê a carga em vez de abrir outro registro.
+- **Painel de cargas sem vínculo na portaria:** destacar movimentos com placa que casa com carga fechada e `carga_id` vazio, com botão "Vincular" — evita processo paralelo.
+- **Sugestão de distribuidor:** cliente que entra em carga com transportadora e não está marcado como distribuidor já aparece nas sugestões da página Distribuidores; vou deixar o aviso mais visível para não ficar cliente invisível.
 
 ## Detalhes técnicos
-- Novo helper `src/lib/image-compress.ts` (`comprimirImagem(file, { maxLado: 1600, qualidade: 0.7 })`), com fallback para o arquivo original se o canvas falhar.
-- `src/components/portaria/CapturaFoto.tsx`: comprime no `handleChange`/paste e entrega o File reduzido em `onCapture`.
-- `src/hooks/useMovimentacoesPortaria.ts`: `uploadFotoMovimentacao` comprime antes do `storage.upload`; colunas explícitas nos dois hooks de query; `limit` de segurança.
-- `src/hooks/useVeiculosEsperados.ts` e `SolicitacoesPendentesPanel.tsx` / `useCargasDiaExpedicao.ts`: `refetchIntervalInBackground: false`.
-- `src/components/portaria/MovimentoDetailsDialog.tsx`, `PhotoViewerDialog.tsx`, `ComprovantePortariaDialog.tsx`: `loading="lazy"`, `decoding="async"`, imagem desmontada ao fechar.
-- `src/App.tsx`: `gcTime: 2 * 60 * 1000`.
 
-Nada muda no fluxo operacional nem nos dados já gravados — as fotos antigas continuam como estão; só as novas passam a ser mais leves.
+- Correções de dados por SQL: `carregamentos_dia.data` da carga, `movimentacoes_portaria.carga_id` do movimento aberto de BUC8F39, `veiculos_esperados.conferido`, delete da linha duplicada, `clientes.tipo`.
+- `src/components/dashboard/FechamentoLoteDialog.tsx`: alerta/confirmação de data divergente.
+- `src/hooks/useCarregamentos.ts` (fechamento de carga) + trigger `on_carga_fechada`: propagar `carga_id` para o movimento de entrada em aberto da mesma placa.
+- `src/components/portaria/PatioAtualTab.tsx`: destaque e ação de vincular para movimentos sem `carga_id` com placa de carga fechada.
+- `src/pages/Distribuidores.tsx`: sugestões em evidência.
