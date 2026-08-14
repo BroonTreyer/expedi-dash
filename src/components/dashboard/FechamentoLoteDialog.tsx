@@ -439,6 +439,17 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
   const [submitting, setSubmitting] = useState(false);
   const [savingPre, setSavingPre] = useState(false);
 
+  // Data divergente: se a carga for datada em um dia diferente de hoje, ela sai
+  // da esteira/painéis do dia e "desaparece" para a logística e a portaria.
+  const hojeISO = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const dataDivergente = !!dataCarregamento && dataCarregamento !== hojeISO;
+  const dataCarregamentoBR = dataCarregamento
+    ? dataCarregamento.split("-").reverse().slice(0, 2).join("/")
+    : "";
+
   // Reset submitting ao reabrir o dialog
   useEffect(() => {
     if (open) setSubmitting(false);
@@ -512,6 +523,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
   const handleSubmit = async () => {
     if (submitGuard.current || submitting) return;
+    // Confirmação explícita quando a data escolhida não é hoje — evita cargas
+    // "ocultas" (datadas no passado) que a logística e a portaria não enxergam.
+    if (dataDivergente) {
+      const ok = window.confirm(
+        `Esta carga será datada em ${dataCarregamentoBR}, diferente de hoje.\n\n` +
+          `Ela vai sair da esteira e dos painéis do dia de hoje. Deseja continuar?`,
+      );
+      if (!ok) return;
+    }
     submitGuard.current = true;
     setSubmitting(true);
     try {
@@ -654,6 +674,32 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       } catch (e) {
         // Silencioso: fechamento de carga não deve quebrar por isso
         console.error("Falha ao autorizar walk-in vinculado:", e);
+      }
+    }
+
+    // Propaga o carga_id para o movimento de entrada em aberto da MESMA placa.
+    // Sem isso a portaria não enxerga o vínculo e abre um processo paralelo
+    // para o mesmo caminhão (caso Fabiano/BUC8F39).
+    if (placaNorm) {
+      try {
+        const { data: movsAbertos } = await supabase
+          .from("movimentacoes_portaria")
+          .select("id, data_hora")
+          .eq("placa", placaNorm)
+          .is("carga_id", null)
+          .eq("tipo_movimento", "entrada")
+          .is("horario_saida_final", null)
+          .order("data_hora", { ascending: false })
+          .limit(1);
+        const mov = (movsAbertos ?? [])[0] as { id?: string } | undefined;
+        if (mov?.id) {
+          await supabase
+            .from("movimentacoes_portaria")
+            .update({ carga_id: cargaId } as any)
+            .eq("id", mov.id);
+        }
+      } catch (e) {
+        console.error("Falha ao vincular movimento de portaria à carga:", e);
       }
     }
 
@@ -1007,6 +1053,13 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
           />
           {!dataCarregamento && (
             <p className="text-[11px] text-destructive font-medium">Obrigatório.</p>
+          )}
+          {dataDivergente && (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[11px] font-medium leading-snug text-amber-700 dark:text-amber-300">
+              Atenção: esta carga será datada em {dataCarregamentoBR} — diferente de hoje.
+              Ela não vai aparecer na esteira/painéis do dia de hoje (somente no Consolidado
+              e ao filtrar por {dataCarregamentoBR}).
+            </p>
           )}
         </div>
 
