@@ -523,6 +523,15 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
 
   const handleSubmit = async () => {
     if (submitGuard.current || submitting) return;
+    // Confirmação explícita quando a data escolhida não é hoje — evita cargas
+    // "ocultas" (datadas no passado) que a logística e a portaria não enxergam.
+    if (dataDivergente) {
+      const ok = window.confirm(
+        `Esta carga será datada em ${dataCarregamentoBR}, diferente de hoje.\n\n` +
+          `Ela vai sair da esteira e dos painéis do dia de hoje. Deseja continuar?`,
+      );
+      if (!ok) return;
+    }
     submitGuard.current = true;
     setSubmitting(true);
     try {
@@ -665,6 +674,32 @@ export function FechamentoLoteDialog({ open, onOpenChange, items, tiposCaminhao,
       } catch (e) {
         // Silencioso: fechamento de carga não deve quebrar por isso
         console.error("Falha ao autorizar walk-in vinculado:", e);
+      }
+    }
+
+    // Propaga o carga_id para o movimento de entrada em aberto da MESMA placa.
+    // Sem isso a portaria não enxerga o vínculo e abre um processo paralelo
+    // para o mesmo caminhão (caso Fabiano/BUC8F39).
+    if (placaNorm) {
+      try {
+        const { data: movsAbertos } = await supabase
+          .from("movimentacoes_portaria")
+          .select("id, data_hora")
+          .eq("placa", placaNorm)
+          .is("carga_id", null)
+          .eq("tipo_movimento", "entrada")
+          .is("horario_saida_final", null)
+          .order("data_hora", { ascending: false })
+          .limit(1);
+        const mov = (movsAbertos ?? [])[0] as { id?: string } | undefined;
+        if (mov?.id) {
+          await supabase
+            .from("movimentacoes_portaria")
+            .update({ carga_id: cargaId } as any)
+            .eq("id", mov.id);
+        }
+      } catch (e) {
+        console.error("Falha ao vincular movimento de portaria à carga:", e);
       }
     }
 
