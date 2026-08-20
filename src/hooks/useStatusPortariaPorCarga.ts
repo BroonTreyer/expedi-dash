@@ -185,12 +185,63 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
     enabled: !!session && cargaIds.length > 0,
     staleTime: 15_000,
     queryFn: async () => {
+      const COLS =
+        "carga_id, tipo_movimento, categoria, etapa_terceirizado, etapa_carga_propria, horario_entrada, horario_chegada, horario_saida_final, data_hora, placa";
+
       const { data, error } = await supabase
         .from("movimentacoes_portaria")
-        .select("carga_id, tipo_movimento, categoria, etapa_terceirizado, etapa_carga_propria, horario_entrada, horario_chegada, horario_saida_final, data_hora, placa")
+        .select(COLS)
         .in("carga_id", cargaIds)
         .in("categoria", ["terceirizado", "carga_propria"]);
       if (error) throw error;
+
+      // Também busca TODOS os movimentos das placas envolvidas (mesmo de
+      // outras cargas) para detectar ciclos posteriores já finalizados —
+      // é assim que a aba Pátio descarta entradas antigas órfãs.
+      const placasEnvolvidas = Array.from(
+        new Set(
+          ((data ?? []) as { placa?: string | null }[])
+            .map((r) => (r.placa ?? "").trim().toUpperCase())
+            .filter(Boolean),
+        ),
+      );
+      let movsPorPlaca: (MovRow & { placa?: string | null })[] = [];
+      if (placasEnvolvidas.length > 0) {
+        const { data: dataPlacas } = await supabase
+          .from("movimentacoes_portaria")
+          .select(COLS)
+          .in("placa", placasEnvolvidas)
+          .in("categoria", ["terceirizado", "carga_propria"]);
+        movsPorPlaca = (dataPlacas ?? []) as (MovRow & { placa?: string | null })[];
+      }
+
+      const normPlaca = (p?: string | null) => (p || "").trim().toUpperCase();
+      const ehFinalizado = (m: MovRow) =>
+        m.tipo_movimento === "saida" ||
+        m.etapa_terceirizado === "finalizado" ||
+        m.etapa_carga_propria === "finalizado" ||
+        !!m.horario_saida_final;
+
+      // Timestamp do movimento finalizado mais recente por placa.
+      const tsFinalPorPlaca = new Map<string, number>();
+      for (const m of movsPorPlaca) {
+        if (!ehFinalizado(m)) continue;
+        const k = normPlaca(m.placa);
+        if (!k) continue;
+        const t = new Date(m.data_hora ?? 0).getTime();
+        if (!Number.isFinite(t)) continue;
+        const prev = tsFinalPorPlaca.get(k);
+        if (prev === undefined || t > prev) tsFinalPorPlaca.set(k, t);
+      }
+
+      /** Entrada em aberto que já foi superada por um ciclo posterior finalizado. */
+      const ehObsoleto = (m: MovRow & { placa?: string | null }) => {
+        if (m.tipo_movimento !== "entrada") return false;
+        if (ehFinalizado(m)) return false;
+        const tsFinal = tsFinalPorPlaca.get(normPlaca(m.placa));
+        if (tsFinal === undefined) return false;
+        return tsFinal > new Date(m.data_hora ?? 0).getTime();
+      };
 
       // Agrupa por combinação (carga_id, placa). Quando o mesmo nome de
       // carga é reutilizado em viagens diferentes (placas distintas), cada
@@ -203,6 +254,7 @@ export function useStatusPortariaPorCarga(input: string[] | CargaRef[], options?
       const rowsByCarga = new Map<string, (MovRow & { placa?: string | null })[]>();
       for (const row of (data ?? []) as (MovRow & { placa?: string | null })[]) {
         if (!row.carga_id) continue;
+        if (ehObsoleto(row)) continue;
         const arr = rowsByCarga.get(row.carga_id) ?? [];
         arr.push(row);
         rowsByCarga.set(row.carga_id, arr);
