@@ -8,6 +8,7 @@ import { useAuthState, AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ChunkErrorBoundary } from "@/components/ChunkErrorBoundary";
 
 // Auth is kept eager since it's the landing page (LCP)
 import Auth from "./pages/Auth";
@@ -147,6 +148,7 @@ function AppRoutes() {
 
   return (
     <AuthProvider value={auth}>
+      <ChunkErrorBoundary>
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
@@ -203,6 +205,7 @@ function AppRoutes() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      </ChunkErrorBoundary>
     </AuthProvider>
   );
 }
