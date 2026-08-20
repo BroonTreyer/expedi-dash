@@ -150,7 +150,16 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
     try {
       const nowIso = new Date().toISOString();
       const isPropria = !c.transportadora;
-      const update: Record<string, any> = { horario_entrada: nowIso };
+      // Ao liberar a entrada, zeramos horários de etapas POSTERIORES que possam
+      // ter sobrado de um ciclo anterior revertido. Sem isso, o trigger
+      // `validate_horarios_ordem` recusa a atualização ("Horário de saída não
+      // pode ser anterior à entrada no pátio") e a portaria fica travada.
+      const update: Record<string, any> = {
+        horario_entrada: nowIso,
+        horario_real_saida: null,
+        horario_real_retorno: null,
+        horario_saida_final: null,
+      };
       if (isPropria) update.etapa_carga_propria = "chegou";
       else update.etapa_terceirizado = "no_patio";
       // C2 — além do id, filtrar por placa (quando houver) para que um
@@ -185,7 +194,14 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
       toast.success("Entrada liberada — veículo no pátio");
       invalidateAll();
     } catch (e: any) {
-      toast.error(e.message || "Erro ao liberar entrada");
+      const msg = String(e?.message || "");
+      if (/não pode ser anterior/i.test(msg)) {
+        toast.error(
+          "Este registro tem horários de etapas posteriores preenchidos. Abra o registro e corrija em 'Editar horários' antes de liberar a entrada.",
+        );
+      } else {
+        toast.error(msg || "Erro ao liberar entrada");
+      }
     } finally {
       setBusyId(null);
     }

@@ -166,6 +166,11 @@ export function RegistroEntradaDialog({ open, onOpenChange, grupo, prefill }: Pr
           etapa_terceirizado: "chegada",
           horario_entrada: null,
           horario_chegada: nowIso,
+          // Zera etapas posteriores de um ciclo anterior (evita bloqueio do
+          // trigger de ordem de horários ao liberar a entrada depois).
+          horario_real_saida: null,
+          horario_real_retorno: null,
+          horario_saida_final: null,
           data_hora: nowIso,
           usuario_id: user?.id ?? null,
         };
