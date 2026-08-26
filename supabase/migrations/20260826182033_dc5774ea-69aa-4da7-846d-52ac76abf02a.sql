@@ -1,0 +1,2 @@
+ALTER TABLE public.ctes_dacte DROP CONSTRAINT IF EXISTS ctes_dacte_status_check;
+ALTER TABLE public.ctes_dacte ADD CONSTRAINT ctes_dacte_status_check CHECK (status = ANY (ARRAY['pendente'::text, 'vinculado'::text, 'divergente'::text, 'cancelado'::text]));

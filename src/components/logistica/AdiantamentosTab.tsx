@@ -1362,10 +1362,14 @@ export function consolidarPorOC(data: Adiantamento[]): GrupoAdt[] {
       (b.created_at ?? "").localeCompare(a.created_at ?? ""),
     );
     const rep = sorted[0];
-    const valorTotal = items.reduce((s, a) => s + Number(a.valor_total_ctes || 0), 0);
-    const valorAdt = items.reduce((s, a) => s + Number(a.valor_adiantamento || 0), 0);
-    const valorSaldo = items.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
-    const qtdCtes = items.reduce((s, a) => s + Number(a.qtd_ctes || 0), 0);
+    // Cancelados não entram nos totais — senão um CT-e substituído continua
+    // somando valor na OC (caso OC 132296).
+    const ativos = items.filter((a) => a.status !== "cancelado");
+    const base = ativos.length ? ativos : items;
+    const valorTotal = base.reduce((s, a) => s + Number(a.valor_total_ctes || 0), 0);
+    const valorAdt = base.reduce((s, a) => s + Number(a.valor_adiantamento || 0), 0);
+    const valorSaldo = base.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
+    const qtdCtes = base.reduce((s, a) => s + Number(a.qtd_ctes || 0), 0);
     const pctMedio = valorTotal > 0 ? (valorAdt / valorTotal) * 100 : 0;
     const statuses = new Set(items.map((a) => a.status));
     const statusUnico = statuses.size === 1 ? items[0].status : "misto";

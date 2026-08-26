@@ -10,6 +10,8 @@ import { consolidarPorOC } from "./AdiantamentosTab";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { detectarSubstituicoes, type CteValor } from "@/lib/cte-substituicao";
+import { AlertTriangle } from "lucide-react";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
@@ -59,6 +61,29 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
     return linhas.join("\n");
   }, [adiantamentos, grupos, info, totalSaldo]);
 
+  // Alerta de possível CT-e substituído: se o valor de um adiantamento fecha a
+  // soma de 2-3 outros da mesma OC, o frete provavelmente está lançado em dobro.
+  const avisosSubst = useMemo(() => {
+    const out: string[] = [];
+    for (const g of grupos) {
+      const ativos = g.items.filter((a) => a.status !== "cancelado");
+      if (ativos.length < 3) continue;
+      const valores: CteValor[] = ativos.map((a) => ({
+        id: a.id,
+        numero: (a.cteNumbers ?? []).join("/") || a.numero,
+        valor: Number(a.valor_total_ctes || 0),
+      }));
+      for (const s of detectarSubstituicoes(valores, valores)) {
+        out.push(
+          `CT-e ${s.alvo.numero} (${fmtBRL(s.alvo.valor)}) = ${s.partes
+            .map((p) => `${p.numero} (${fmtBRL(p.valor)})`)
+            .join(" + ")}`,
+        );
+      }
+    }
+    return out;
+  }, [grupos]);
+
   const copy = async () => {
     await navigator.clipboard.writeText(texto);
     toast.success("Texto copiado");
@@ -74,6 +99,21 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
         </DialogHeader>
 
         <div className="space-y-3">
+          {avisosSubst.length > 0 && (
+            <div className="border border-destructive/40 bg-destructive/10 rounded-md p-3 text-xs text-destructive space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Possível CT-e substituído nesta OC — confira antes de quitar
+              </div>
+              {avisosSubst.map((a) => (
+                <div key={a} className="font-mono">{a}</div>
+              ))}
+              <div>
+                Se o CT-e maior foi cancelado e reemitido, cancele o adiantamento dele
+                em "Editar" antes de registrar a quitação.
+              </div>
+            </div>
+          )}
           <div className="border rounded-md overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-emerald-700 text-white">

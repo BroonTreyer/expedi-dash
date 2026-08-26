@@ -17,6 +17,28 @@ import {
   cteKey,
   type CargaPorOrdemRow,
 } from "@/hooks/useCtesDacte";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { detectarSubstituicoes, type CteValor } from "@/lib/cte-substituicao";
+
+type SubstAviso = {
+  oc: string;
+  transportadora: string;
+  alvo: CteValor;
+  partes: CteValor[];
+  soma: number;
+};
+
+const fmtBRL = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 
 function OrdemCargaPicker({ value, onChange, cargaIdAtual }: { value: string; onChange: (v: string, picked?: CargaPorOrdemRow | null) => void; cargaIdAtual: string | null }) {
   const [results, setResults] = useState<CargaPorOrdemRow[]>([]);
@@ -178,6 +200,9 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
   const [bulkLista, setBulkLista] = useState("");
   const [sobrescrever, setSobrescrever] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [substAvisos, setSubstAvisos] = useState<SubstAviso[]>([]);
+  const [substOpen, setSubstOpen] = useState(false);
+  const [checandoSubst, setChecandoSubst] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -393,22 +418,56 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
     toast.success("OCs limpas");
   };
 
-  const handleSaveAll = async () => {
-    // Salvável: tudo que não foi recusado (tomador lido e diferente de Frico).
-    // Tomador em branco não bloqueia mais — fica "a confirmar" e pode ser salvo.
-    const ok = items.filter((i) => i.status === "ok" && !!i.parsed);
+  /**
+   * Trava anti-substituição: dentro da mesma OC + transportadora, se um CT-e já
+   * cadastrado tem valor igual à soma de 2-3 CT-es deste lote, é quase certo que
+   * ele foi cancelado e reemitido (desdobrado). Salvar sem tratar isso duplica o
+   * valor da carga e gera adiantamento/quitação a mais.
+   */
+  const checarSubstituicoes = async (ok: Item[]): Promise<SubstAviso[]> => {
+    const grupos = new Map<string, Item[]>();
+    for (const it of ok) {
+      const oc = (it.ordem_carga ?? "").trim();
+      if (!oc) continue;
+      const transp = (it.parsed?.transportadora ?? "").trim();
+      const k = `${oc}|${transp}`;
+      if (!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k)!.push(it);
+    }
+    const avisos: SubstAviso[] = [];
+    for (const [k, lote] of grupos.entries()) {
+      if (lote.length < 2) continue;
+      const [oc, transp] = k.split("|");
+      let q = (supabase as any)
+        .from("ctes_dacte")
+        .select("id, numero_cte, valor_frete, transportadora")
+        .eq("ordem_carga", oc)
+        .neq("status", "cancelado");
+      if (transp) q = q.eq("transportadora", transp);
+      const { data, error } = await q;
+      if (error) continue;
+      const existentes: CteValor[] = ((data ?? []) as any[]).map((r) => ({
+        id: r.id,
+        numero: r.numero_cte,
+        valor: Number(r.valor_frete || 0),
+      }));
+      if (!existentes.length) continue;
+      const novos: CteValor[] = lote.map((it) => ({
+        id: it.fileId,
+        numero: it.parsed!.numero_cte,
+        valor: Number(it.parsed!.valor_frete || 0),
+      }));
+      for (const s of detectarSubstituicoes(existentes, novos)) {
+        avisos.push({ oc, transportadora: transp, alvo: s.alvo, partes: s.partes, soma: s.soma });
+      }
+    }
+    return avisos;
+  };
+
+  const salvarItens = async (ok: Item[]) => {
     const recusados = items.filter((i) => i.status === "rejected").length;
     const duplicados = items.filter((i) => i.status === "duplicado").length;
     const aConfirmar = items.filter((i) => i.status === "ok" && !((i.parsed?.tomador ?? "").trim())).length;
-    if (!ok.length) {
-      if (recusados) {
-        toast.error(`Nada para salvar — ${recusados} recusado(s) por tomador diferente de Frico.`);
-      }
-      if (duplicados) {
-        toast.error(`Nada para salvar — ${duplicados} CT-e(s) já estavam importados (duplicidade bloqueada).`);
-      }
-      return;
-    }
     for (const it of ok) {
       try {
         setItems((p) => p.map((x) => x.fileId === it.fileId ? { ...x, status: "saving" } : x));
@@ -445,6 +504,66 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
       `CT-es salvos${duplicados ? ` · ${duplicados} bloqueado(s) por duplicidade` : ""}${recusados ? ` · ${recusados} recusado(s) (tomador não é Frico)` : ""}${aConfirmar ? ` · ${aConfirmar} sem tomador confirmado` : ""}`,
     );
   };
+
+  /** Cancela os CT-es antigos substituídos e os adiantamentos ligados a eles. */
+  const cancelarSubstituidos = async (avisos: SubstAviso[]) => {
+    const ids = [...new Set(avisos.map((a) => a.alvo.id))];
+    if (!ids.length) return;
+    const nums = avisos.map((a) => a.alvo.numero).join(", ");
+    const { error: e1 } = await (supabase as any)
+      .from("ctes_dacte")
+      .update({ status: "cancelado" })
+      .in("id", ids);
+    if (e1) throw e1;
+    const { data: vincs } = await (supabase as any)
+      .from("adiantamentos_frete_ctes")
+      .select("adiantamento_id")
+      .in("cte_id", ids);
+    const adtIds = [...new Set(((vincs ?? []) as any[]).map((v) => v.adiantamento_id))];
+    if (adtIds.length) {
+      const { error: e2 } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({
+          status: "cancelado",
+          observacoes: `Cancelado automaticamente: CT-e(s) ${nums} substituido(s) por reemissao/desdobramento.`,
+        })
+        .in("id", adtIds)
+        .neq("status", "quitado");
+      if (e2) throw e2;
+    }
+    toast.success(`CT-e(s) ${nums} cancelado(s) por substituição${adtIds.length ? ` · ${adtIds.length} adiantamento(s) cancelado(s)` : ""}`);
+  };
+
+  const handleSaveAll = async () => {
+    // Salvável: tudo que não foi recusado (tomador lido e diferente de Frico).
+    // Tomador em branco não bloqueia mais — fica "a confirmar" e pode ser salvo.
+    const ok = items.filter((i) => i.status === "ok" && !!i.parsed);
+    const recusados = items.filter((i) => i.status === "rejected").length;
+    const duplicados = items.filter((i) => i.status === "duplicado").length;
+    if (!ok.length) {
+      if (recusados) {
+        toast.error(`Nada para salvar — ${recusados} recusado(s) por tomador diferente de Frico.`);
+      }
+      if (duplicados) {
+        toast.error(`Nada para salvar — ${duplicados} CT-e(s) já estavam importados (duplicidade bloqueada).`);
+      }
+      return;
+    }
+    setChecandoSubst(true);
+    let avisos: SubstAviso[] = [];
+    try {
+      avisos = await checarSubstituicoes(ok);
+    } finally {
+      setChecandoSubst(false);
+    }
+    if (avisos.length) {
+      setSubstAvisos(avisos);
+      setSubstOpen(true);
+      return;
+    }
+    await salvarItens(ok);
+  };
+
 
   const okCount = items.filter((i) => i.status === "ok" && !!i.parsed).length;
   const rateLimitedCount = items.filter((i) => i.status === "rate_limited").length;
@@ -689,11 +808,66 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Fechar</Button>
-          <Button onClick={handleSaveAll} disabled={okCount === 0 || insertMut.isPending}>
-            {insertMut.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+          <Button onClick={handleSaveAll} disabled={okCount === 0 || insertMut.isPending || checandoSubst}>
+            {insertMut.isPending || checandoSubst ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
             Salvar {okCount > 0 ? `(${okCount})` : ""}
           </Button>
         </DialogFooter>
+
+        <AlertDialog open={substOpen} onOpenChange={setSubstOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                Possível CT-e substituído
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-left">
+                  <p>
+                    Na mesma Ordem de Carga existe CT-e já cadastrado com valor igual à soma
+                    dos CT-es deste lote. Provavelmente ele foi cancelado e reemitido —
+                    manter os dois duplica o valor do frete.
+                  </p>
+                  {substAvisos.map((a, i) => (
+                    <div key={`${a.alvo.id}-${i}`} className="rounded border p-2 text-xs bg-muted/40">
+                      <div className="font-semibold">OC {a.oc}</div>
+                      <div>
+                        CT-e antigo <strong>{a.alvo.numero}</strong> · {fmtBRL(a.alvo.valor)}
+                      </div>
+                      <div>
+                        = {a.partes.map((p) => `${p.numero} (${fmtBRL(p.valor)})`).join(" + ")}
+                      </div>
+                    </div>
+                  ))}
+                  <p>
+                    Escolha: <strong>Substituir</strong> cancela o CT-e antigo (e o adiantamento
+                    ligado a ele) e salva os novos. <strong>Cancelar</strong> não salva nada.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar importação</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  const avisos = substAvisos;
+                  setSubstOpen(false);
+                  setSubstAvisos([]);
+                  try {
+                    await cancelarSubstituidos(avisos);
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Erro ao cancelar CT-e antigo");
+                    return;
+                  }
+                  const ok = items.filter((i) => i.status === "ok" && !!i.parsed);
+                  await salvarItens(ok);
+                }}
+              >
+                Substituir e salvar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
