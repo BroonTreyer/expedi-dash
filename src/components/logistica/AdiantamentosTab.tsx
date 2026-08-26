@@ -1335,6 +1335,8 @@ export type GrupoAdt = {
   items: Adiantamento[];
   rep: Adiantamento; // representativo (mais recente)
   qtdCtes: number;
+  /** Avisos de integridade: adiantamento órfão (sem CT-e) ou duplicado na OC. */
+  alertas: string[];
   valorTotal: number;
   valorAdt: number;
   valorSaldo: number;
