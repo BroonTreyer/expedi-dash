@@ -17,6 +17,28 @@ import {
   cteKey,
   type CargaPorOrdemRow,
 } from "@/hooks/useCtesDacte";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { detectarSubstituicoes, type CteValor } from "@/lib/cte-substituicao";
+
+type SubstAviso = {
+  oc: string;
+  transportadora: string;
+  alvo: CteValor;
+  partes: CteValor[];
+  soma: number;
+};
+
+const fmtBRL = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 
 function OrdemCargaPicker({ value, onChange, cargaIdAtual }: { value: string; onChange: (v: string, picked?: CargaPorOrdemRow | null) => void; cargaIdAtual: string | null }) {
   const [results, setResults] = useState<CargaPorOrdemRow[]>([]);
