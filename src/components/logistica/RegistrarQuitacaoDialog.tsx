@@ -99,6 +99,21 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
         </DialogHeader>
 
         <div className="space-y-3">
+          {avisosSubst.length > 0 && (
+            <div className="border border-destructive/40 bg-destructive/10 rounded-md p-3 text-xs text-destructive space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Possível CT-e substituído nesta OC — confira antes de quitar
+              </div>
+              {avisosSubst.map((a) => (
+                <div key={a} className="font-mono">{a}</div>
+              ))}
+              <div>
+                Se o CT-e maior foi cancelado e reemitido, cancele o adiantamento dele
+                em "Editar" antes de registrar a quitação.
+              </div>
+            </div>
+          )}
           <div className="border rounded-md overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-emerald-700 text-white">
