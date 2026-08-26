@@ -157,6 +157,25 @@ export function useCriarAdiantamento() {
           );
         }
       }
+      // Trava anti-duplicidade por Ordem de Carga: mesma OC + transportadora +
+      // mesmo valor total já lançado (caso do ADT duplicado da OC 132724).
+      if (input.tipo_agrupamento === "ordem" && input.ordem_carga) {
+        const { data: mesmaOc } = await (supabase as any)
+          .from("adiantamentos_frete")
+          .select("numero, status, valor_total_ctes")
+          .eq("ordem_carga", input.ordem_carga)
+          .eq("transportadora", input.transportadora)
+          .neq("status", "cancelado");
+        const dup = ((mesmaOc ?? []) as any[]).find(
+          (r) => Math.abs(Number(r.valor_total_ctes || 0) - valor_total_ctes) <= 0.02,
+        );
+        if (dup) {
+          throw new Error(
+            `Já existe adiantamento ativo (${dup.numero}) para a OC ${input.ordem_carga} da ${input.transportadora} com o mesmo valor total. Operação bloqueada para evitar pagamento em duplicidade.`,
+          );
+        }
+      }
+
 
       const { data: numeroData, error: numErr } = await (supabase as any).rpc("next_adiantamento_numero");
       if (numErr) throw numErr;
