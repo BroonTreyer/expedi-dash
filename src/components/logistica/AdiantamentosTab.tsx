@@ -1552,8 +1552,16 @@ function ListaAdiantamentos({
                   </TableCell>
                   <TableCell className="text-xs">{g.rep.transportadora}</TableCell>
                   <TableCell className="text-xs font-mono">
-                    {g.rep.tipo_agrupamento === "ordem" ? g.rep.ordem_carga ?? "—" : "Lote"}
+                    <span className="inline-flex items-center gap-1">
+                      {g.rep.tipo_agrupamento === "ordem" ? g.rep.ordem_carga ?? "—" : "Lote"}
+                      {g.alertas.length > 0 && (
+                        <span title={g.alertas.join("\n")}>
+                          <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                        </span>
+                      )}
+                    </span>
                   </TableCell>
+
                   <TableCell className="text-right text-xs">{g.qtdCtes}</TableCell>
                   <TableCell className="text-right text-xs tabular-nums">
                     <span className="inline-flex items-center gap-1 justify-end">
