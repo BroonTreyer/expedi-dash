@@ -200,6 +200,9 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
   const [bulkLista, setBulkLista] = useState("");
   const [sobrescrever, setSobrescrever] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [substAvisos, setSubstAvisos] = useState<SubstAviso[]>([]);
+  const [substOpen, setSubstOpen] = useState(false);
+  const [checandoSubst, setChecandoSubst] = useState(false);
 
   useEffect(() => {
     if (!open) {
