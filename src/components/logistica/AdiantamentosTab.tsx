@@ -1335,6 +1335,8 @@ export type GrupoAdt = {
   items: Adiantamento[];
   rep: Adiantamento; // representativo (mais recente)
   qtdCtes: number;
+  /** Avisos de integridade: adiantamento órfão (sem CT-e) ou duplicado na OC. */
+  alertas: string[];
   valorTotal: number;
   valorAdt: number;
   valorSaldo: number;
@@ -1370,6 +1372,30 @@ export function consolidarPorOC(data: Adiantamento[]): GrupoAdt[] {
     const valorAdt = base.reduce((s, a) => s + Number(a.valor_adiantamento || 0), 0);
     const valorSaldo = base.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
     const qtdCtes = base.reduce((s, a) => s + Number(a.qtd_ctes || 0), 0);
+    // Integridade: adiantamento sem CT-e vinculado (órfão) ou duplicado na OC.
+    const alertas: string[] = [];
+    for (const a of ativos) {
+      const vinculos = (a.cteNumbers ?? []).length;
+      if (Number(a.qtd_ctes || 0) > 0 && vinculos === 0) {
+        alertas.push(
+          `${a.numero}: nenhum CT-e vinculado (registro órfão) — pode estar somando valor em duplicidade.`,
+        );
+      }
+    }
+    for (let i = 0; i < ativos.length; i++) {
+      for (let j = i + 1; j < ativos.length; j++) {
+        const x = ativos[i];
+        const y = ativos[j];
+        if (
+          Number(x.valor_total_ctes || 0) > 0 &&
+          Math.abs(Number(x.valor_total_ctes || 0) - Number(y.valor_total_ctes || 0)) <= 0.02
+        ) {
+          alertas.push(
+            `${x.numero} e ${y.numero} têm o mesmo valor total (${x.valor_total_ctes}) — possível adiantamento duplicado.`,
+          );
+        }
+      }
+    }
     const pctMedio = valorTotal > 0 ? (valorAdt / valorTotal) * 100 : 0;
     const statuses = new Set(items.map((a) => a.status));
     const statusUnico = statuses.size === 1 ? items[0].status : "misto";
@@ -1381,6 +1407,7 @@ export function consolidarPorOC(data: Adiantamento[]): GrupoAdt[] {
       items,
       rep,
       qtdCtes,
+      alertas,
       valorTotal,
       valorAdt,
       valorSaldo,
@@ -1525,8 +1552,16 @@ function ListaAdiantamentos({
                   </TableCell>
                   <TableCell className="text-xs">{g.rep.transportadora}</TableCell>
                   <TableCell className="text-xs font-mono">
-                    {g.rep.tipo_agrupamento === "ordem" ? g.rep.ordem_carga ?? "—" : "Lote"}
+                    <span className="inline-flex items-center gap-1">
+                      {g.rep.tipo_agrupamento === "ordem" ? g.rep.ordem_carga ?? "—" : "Lote"}
+                      {g.alertas.length > 0 && (
+                        <span title={g.alertas.join("\n")}>
+                          <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                        </span>
+                      )}
+                    </span>
                   </TableCell>
+
                   <TableCell className="text-right text-xs">{g.qtdCtes}</TableCell>
                   <TableCell className="text-right text-xs tabular-nums">
                     <span className="inline-flex items-center gap-1 justify-end">
