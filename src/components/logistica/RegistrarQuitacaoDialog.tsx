@@ -59,6 +59,29 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
     return linhas.join("\n");
   }, [adiantamentos, grupos, info, totalSaldo]);
 
+  // Alerta de possível CT-e substituído: se o valor de um adiantamento fecha a
+  // soma de 2-3 outros da mesma OC, o frete provavelmente está lançado em dobro.
+  const avisosSubst = useMemo(() => {
+    const out: string[] = [];
+    for (const g of grupos) {
+      const ativos = g.items.filter((a) => a.status !== "cancelado");
+      if (ativos.length < 3) continue;
+      const valores: CteValor[] = ativos.map((a) => ({
+        id: a.id,
+        numero: (a.cteNumbers ?? []).join("/") || a.numero,
+        valor: Number(a.valor_total_ctes || 0),
+      }));
+      for (const s of detectarSubstituicoes(valores, valores)) {
+        out.push(
+          `CT-e ${s.alvo.numero} (${fmtBRL(s.alvo.valor)}) = ${s.partes
+            .map((p) => `${p.numero} (${fmtBRL(p.valor)})`)
+            .join(" + ")}`,
+        );
+      }
+    }
+    return out;
+  }, [grupos]);
+
   const copy = async () => {
     await navigator.clipboard.writeText(texto);
     toast.success("Texto copiado");
