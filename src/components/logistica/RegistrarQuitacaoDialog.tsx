@@ -84,6 +84,12 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
     return out;
   }, [grupos]);
 
+  // Alerta de adiantamento órfão (sem CT-e vinculado) ou duplicado na mesma OC.
+  const avisosIntegridade = useMemo(
+    () => grupos.flatMap((g) => g.alertas),
+    [grupos],
+  );
+
   const copy = async () => {
     await navigator.clipboard.writeText(texto);
     toast.success("Texto copiado");
