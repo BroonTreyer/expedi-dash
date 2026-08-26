@@ -10,6 +10,8 @@ import { consolidarPorOC } from "./AdiantamentosTab";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { detectarSubstituicoes, type CteValor } from "@/lib/cte-substituicao";
+import { AlertTriangle } from "lucide-react";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
