@@ -124,6 +124,11 @@ export function useCriarAdiantamento() {
       valor_adiantamento_override?: number | null;
       created_at?: string;
     }) => {
+      if (!input.ctes || input.ctes.length === 0) {
+        throw new Error(
+          "Não é possível gerar adiantamento sem CT-e vinculado. Selecione pelo menos um CT-e.",
+        );
+      }
       const valor_total_ctes = input.ctes.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
       const peso_total = input.ctes.reduce((s, c) => s + Number(c.peso_total || 0), 0);
       const calculado = +(valor_total_ctes * (input.percentual / 100)).toFixed(2);
