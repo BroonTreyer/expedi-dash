@@ -808,11 +808,66 @@ export function ImportarDacteDialog({ open, onOpenChange }: Props) {
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Fechar</Button>
-          <Button onClick={handleSaveAll} disabled={okCount === 0 || insertMut.isPending}>
-            {insertMut.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+          <Button onClick={handleSaveAll} disabled={okCount === 0 || insertMut.isPending || checandoSubst}>
+            {insertMut.isPending || checandoSubst ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
             Salvar {okCount > 0 ? `(${okCount})` : ""}
           </Button>
         </DialogFooter>
+
+        <AlertDialog open={substOpen} onOpenChange={setSubstOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                Possível CT-e substituído
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-left">
+                  <p>
+                    Na mesma Ordem de Carga existe CT-e já cadastrado com valor igual à soma
+                    dos CT-es deste lote. Provavelmente ele foi cancelado e reemitido —
+                    manter os dois duplica o valor do frete.
+                  </p>
+                  {substAvisos.map((a, i) => (
+                    <div key={`${a.alvo.id}-${i}`} className="rounded border p-2 text-xs bg-muted/40">
+                      <div className="font-semibold">OC {a.oc}</div>
+                      <div>
+                        CT-e antigo <strong>{a.alvo.numero}</strong> · {fmtBRL(a.alvo.valor)}
+                      </div>
+                      <div>
+                        = {a.partes.map((p) => `${p.numero} (${fmtBRL(p.valor)})`).join(" + ")}
+                      </div>
+                    </div>
+                  ))}
+                  <p>
+                    Escolha: <strong>Substituir</strong> cancela o CT-e antigo (e o adiantamento
+                    ligado a ele) e salva os novos. <strong>Cancelar</strong> não salva nada.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar importação</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  const avisos = substAvisos;
+                  setSubstOpen(false);
+                  setSubstAvisos([]);
+                  try {
+                    await cancelarSubstituidos(avisos);
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Erro ao cancelar CT-e antigo");
+                    return;
+                  }
+                  const ok = items.filter((i) => i.status === "ok" && !!i.parsed);
+                  await salvarItens(ok);
+                }}
+              >
+                Substituir e salvar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
