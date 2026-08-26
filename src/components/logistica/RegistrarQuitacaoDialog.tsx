@@ -105,6 +105,21 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
         </DialogHeader>
 
         <div className="space-y-3">
+          {avisosIntegridade.length > 0 && (
+            <div className="border border-destructive/40 bg-destructive/10 rounded-md p-3 text-xs text-destructive space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Adiantamento duplicado ou sem CT-e nesta OC — confira antes de quitar
+              </div>
+              {avisosIntegridade.map((a) => (
+                <div key={a}>{a}</div>
+              ))}
+              <div>
+                Se for duplicata, cancele o adiantamento indevido em "Editar" antes de
+                registrar a quitação.
+              </div>
+            </div>
+          )}
           {avisosSubst.length > 0 && (
             <div className="border border-destructive/40 bg-destructive/10 rounded-md p-3 text-xs text-destructive space-y-1">
               <div className="flex items-center gap-1.5 font-semibold">
