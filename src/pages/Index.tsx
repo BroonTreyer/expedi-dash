@@ -140,12 +140,18 @@ export default function Index() {
           ordemCarga: c.ordem_carga,
           data: c.data,
           transportadora: c.transportadora,
+          status: c.status,
         });
       }
       const entry = map.get(c.carga_id)!;
+      // Situação predominante: "Carregado" > "Pronto para carregar" > demais.
+      const prioridade = (s?: string | null) =>
+        s === "Carregado" ? 3 : s === "Pronto para carregar" ? 2 : 1;
+      if (prioridade(c.status) > prioridade(entry.status)) entry.status = c.status;
       entry.pesoTotal += c.peso ?? 0;
       entry.qtdPedidos += 1;
     }
+
     return Array.from(map.values());
   }, [carregamentos]);
 
