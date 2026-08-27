@@ -128,7 +128,7 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
           <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma carga fechada encontrada para este dia.</p>
         ) : (
           <div className="space-y-2 max-h-60 overflow-y-auto">
-            {cargas.map((c) => (
+            {cargasOrdenadas.map((c) => (
               <button
                 key={c.cargaId}
                 type="button"
@@ -139,21 +139,31 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
                     : "border-border hover:bg-accent/50"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
                     {c.etapa === "pre_carga" || c.cargaId.startsWith("PRE-") ? (
-                      <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      <Package className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                     ) : (
-                      <Truck className="h-4 w-4 text-muted-foreground" />
+                      <Truck className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
                     <span className="font-medium text-sm">{c.nomeCarga || c.cargaId}</span>
+                    {fmtData(c.data) && (
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        {fmtData(c.data)}
+                      </Badge>
+                    )}
+                    {c.ordemCarga && (
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        OC {c.ordemCarga}
+                      </Badge>
+                    )}
                     {(c.etapa === "pre_carga" || c.cargaId.startsWith("PRE-")) && (
                       <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300">
                         Pré-carga
                       </Badge>
                     )}
                   </div>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-xs shrink-0">
                     {c.qtdPedidos} pedido{c.qtdPedidos > 1 ? "s" : ""}
                   </Badge>
                 </div>
@@ -167,6 +177,18 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
             ))}
           </div>
         )}
+
+        {dataAnterior && (
+          <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              Esta carga é de <strong>{fmtData(carga?.data)}</strong>. Os pedidos serão movidos para essa
+              data e <strong>não aparecerão no painel de hoje</strong> — confira se é a carga correta
+              (podem existir cargas com o mesmo nome em dias diferentes).
+            </span>
+          </div>
+        )}
+
 
         {selectedCarga && (
           <div className="flex items-center gap-3">
