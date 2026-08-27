@@ -140,12 +140,18 @@ export default function Index() {
           ordemCarga: c.ordem_carga,
           data: c.data,
           transportadora: c.transportadora,
+          status: c.status,
         });
       }
       const entry = map.get(c.carga_id)!;
+      // Situação predominante: "Carregado" > "Pronto para carregar" > demais.
+      const prioridade = (s?: string | null) =>
+        s === "Carregado" ? 3 : s === "Pronto para carregar" ? 2 : 1;
+      if (prioridade(c.status) > prioridade(entry.status)) entry.status = c.status;
       entry.pesoTotal += c.peso ?? 0;
       entry.qtdPedidos += 1;
     }
+
     return Array.from(map.values());
   }, [carregamentos]);
 
@@ -545,7 +551,7 @@ export default function Index() {
   }, []);
 
   const handleAdicionarCargaSubmit = useCallback(async (
-    updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number; nome_carga?: string | null; ordem_carga?: string | null; data?: string | null; transportadora?: string | null }[],
+    updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number; nome_carga?: string | null; ordem_carga?: string | null; data?: string | null; transportadora?: string | null; status?: string | null }[],
     meta: { isPreCarga: boolean; cargaLabel: string }
   ) => {
     try {
