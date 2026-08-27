@@ -551,7 +551,7 @@ export default function Index() {
   }, []);
 
   const handleAdicionarCargaSubmit = useCallback(async (
-    updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number; nome_carga?: string | null; ordem_carga?: string | null; data?: string | null; transportadora?: string | null }[],
+    updates: { id: string; carga_id: string; placa: string | null; motorista: string | null; tipo_caminhao: string | null; horario_previsto: string | null; etapa: string; ordem_entrega: number; nome_carga?: string | null; ordem_carga?: string | null; data?: string | null; transportadora?: string | null; status?: string | null }[],
     meta: { isPreCarga: boolean; cargaLabel: string }
   ) => {
     try {
