@@ -67,7 +67,17 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
   const [selectedCarga, setSelectedCarga] = useState<string | null>(null);
   const [ordemInicial, setOrdemInicial] = useState(1);
 
+  // Cargas mais recentes primeiro — evita escolha às cegas entre homônimas
+  // (ex.: duas cargas chamadas "ELIAS ROTA" de dias diferentes).
+  const cargasOrdenadas = useMemo(
+    () => [...cargas].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "")),
+    [cargas],
+  );
+
   const carga = useMemo(() => cargas.find(c => c.cargaId === selectedCarga), [cargas, selectedCarga]);
+
+  const hojeStr = format(new Date(), "yyyy-MM-dd");
+  const dataAnterior = !!carga?.data && carga.data < hojeStr;
 
   const handleConfirm = () => {
     if (!carga || items.length === 0) return;
@@ -85,12 +95,16 @@ export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubm
       ordem_carga: carga.ordemCarga ?? null,
       transportadora: carga.transportadora ?? null,
       ...(carga.data ? { data: carga.data } : {}),
+      // Herda a situação da carga de destino para o pedido não ficar
+      // "Aguardando" isolado dentro de uma carga já pronta (viraria fantasma).
+      ...(carga.status ? { status: carga.status } : {}),
     }));
     onSubmit(updates, { isPreCarga: isPre, cargaLabel: carga.nomeCarga || carga.cargaId });
     onOpenChange(false);
     setSelectedCarga(null);
     setOrdemInicial(1);
   };
+
 
   const handleOpenChange = (o: boolean) => {
     if (!o) {
