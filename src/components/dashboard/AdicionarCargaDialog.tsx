@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Truck, Package } from "lucide-react";
+import { Truck, Package, AlertTriangle } from "lucide-react";
+import { format } from "date-fns";
 import type { Carregamento } from "@/hooks/useCarregamentos";
 
 export interface CargaResumo {
@@ -27,6 +28,8 @@ export interface CargaResumo {
   ordemCarga?: string | null;
   data?: string | null;
   transportadora?: string | null;
+  /** Situação predominante dos itens da carga (herdada pelos novos pedidos). */
+  status?: string | null;
 }
 
 interface Props {
@@ -48,10 +51,17 @@ interface Props {
       ordem_carga?: string | null;
       data?: string | null;
       transportadora?: string | null;
+      status?: string | null;
     }[],
     meta: { isPreCarga: boolean; cargaLabel: string }
   ) => void;
 }
+
+const fmtData = (d?: string | null) => {
+  if (!d) return null;
+  try { return format(new Date(d + "T00:00"), "dd/MM"); } catch { return d; }
+};
+
 
 export function AdicionarCargaDialog({ open, onOpenChange, cargas, items, onSubmit }: Props) {
   const [selectedCarga, setSelectedCarga] = useState<string | null>(null);
