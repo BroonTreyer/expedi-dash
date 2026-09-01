@@ -1,0 +1,1 @@
+ALTER FUNCTION public.criar_adiantamentos_lote(jsonb) SECURITY INVOKER;
