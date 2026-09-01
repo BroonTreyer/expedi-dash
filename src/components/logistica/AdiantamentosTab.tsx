@@ -1039,6 +1039,53 @@ export function AdiantamentosTab() {
         {/* PENDENTES */}
         <TabsContent value="pendentes">
           <div className="space-y-2">
+            {(() => {
+              const orfaos = pendentes.filter(
+                (a) => Number(a.qtd_ctes || 0) > 0 && (a.cteNumbers ?? []).length === 0,
+              );
+              if (orfaos.length === 0) return null;
+              return (
+                <Card className="p-3 border-destructive/40 bg-destructive/5 space-y-2">
+                  <div className="flex items-start gap-2 text-sm">
+                    <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                    <div>
+                      <strong>{orfaos.length}</strong> adiantamento{orfaos.length > 1 ? "s" : ""} sem
+                      nenhum CT-e vinculado (registro órfão). Eles bloqueiam a geração de novos
+                      adiantamentos e não devem ser pagos.
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {orfaos.map((a) => (
+                      <Button
+                        key={a.id}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={cancelar.isPending}
+                        onClick={() => {
+                          if (confirm(`Cancelar ${a.numero} (${a.transportadora} · OC ${a.ordem_carga ?? "—"})?`))
+                            cancelar.mutate(a.id);
+                        }}
+                      >
+                        <XCircle className="h-3.5 w-3.5 mr-1" /> Cancelar {a.numero}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={cancelar.isPending}
+                      onClick={async () => {
+                        if (!confirm(`Cancelar todos os ${orfaos.length} registros órfãos?`)) return;
+                        for (const a of orfaos) await cancelar.mutateAsync(a.id);
+                      }}
+                    >
+                      Cancelar todos
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })()}
             {selPendentes.size > 0 && (
               <Card className="p-3 flex flex-wrap items-center justify-between gap-2 border-primary/40 bg-primary/5">
                 <div className="text-sm">
