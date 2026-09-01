@@ -17,6 +17,7 @@ import {
   useCtesEmAdiantamento,
   useCriarAdiantamentosLote,
   useCancelarAdiantamento,
+  useCancelarAdiantamentosLote,
   useMarcarAdiantamentoPago,
   useAtualizarDataAdiantamento,
   useDeleteAdiantamentosComCtes,
@@ -36,6 +37,7 @@ import { ComprovanteAdiantamentoDialog } from "./ComprovanteAdiantamentoDialog";
 import { PhotoViewerDialog } from "@/components/portaria/PhotoViewerDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { RegistrarQuitacaoDialog } from "./RegistrarQuitacaoDialog";
+import { ApagarAdiantamentosDialog } from "./ApagarAdiantamentosDialog";
 import { exportarAdiantamentosXLSX } from "@/lib/adiantamentos-export";
 import { toast } from "sonner";
 
