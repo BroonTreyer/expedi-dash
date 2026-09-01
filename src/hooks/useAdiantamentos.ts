@@ -471,6 +471,15 @@ export function useDeleteAdiantamentosComCtes() {
       qc.invalidateQueries({ queryKey: ["ctes_dacte"] });
       toast.success(`${adts} adiantamento(s) e ${ctes} CT-e(s) apagado(s)`);
     },
-    onError: (e: any) => toast.error(e.message ?? "Erro ao apagar"),
+    onError: (e: any) => {
+      const msg = String(e?.message ?? "");
+      if (/permission|policy|denied|42501/i.test(msg) || e?.code === "42501") {
+        toast.error(
+          "Sem permissão para apagar: Logística só pode apagar adiantamentos pendentes; outros status exigem administrador. Use 'Cancelar' como alternativa.",
+        );
+        return;
+      }
+      toast.error(msg || "Erro ao apagar");
+    },
   });
 }
