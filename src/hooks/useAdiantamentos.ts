@@ -158,16 +158,18 @@ export function useCriarAdiantamento() {
         }
       }
       // Trava anti-duplicidade por Ordem de Carga: mesma OC + transportadora +
-      // mesmo valor total já lançado (caso do ADT duplicado da OC 132724).
+      // mesmo valor total já lançado. Ignora registros órfãos (sem CT-e vinculado).
       if (input.tipo_agrupamento === "ordem" && input.ordem_carga) {
         const { data: mesmaOc } = await (supabase as any)
           .from("adiantamentos_frete")
-          .select("numero, status, valor_total_ctes")
+          .select("numero, status, valor_total_ctes, adiantamentos_frete_ctes(id)")
           .eq("ordem_carga", input.ordem_carga)
           .eq("transportadora", input.transportadora)
           .neq("status", "cancelado");
         const dup = ((mesmaOc ?? []) as any[]).find(
-          (r) => Math.abs(Number(r.valor_total_ctes || 0) - valor_total_ctes) <= 0.02,
+          (r) =>
+            ((r.adiantamentos_frete_ctes ?? []) as any[]).length > 0 &&
+            Math.abs(Number(r.valor_total_ctes || 0) - valor_total_ctes) <= 0.02,
         );
         if (dup) {
           throw new Error(
@@ -176,20 +178,13 @@ export function useCriarAdiantamento() {
         }
       }
 
-
-      const { data: numeroData, error: numErr } = await (supabase as any).rpc("next_adiantamento_numero");
-      if (numErr) throw numErr;
-
-      const { data: u } = await supabase.auth.getUser();
-      const { data: header, error: hErr } = await (supabase as any)
-        .from("adiantamentos_frete")
-        .insert({
-          numero: numeroData,
+      // Criação atômica (cabeçalho + vínculos em uma única transação no banco)
+      const { data: header, error: hErr } = await (supabase as any).rpc("criar_adiantamento", {
+        _payload: {
           transportadora: input.transportadora,
           transportadora_id: input.transportadora_id ?? null,
           tipo_agrupamento: input.tipo_agrupamento,
           ordem_carga: input.ordem_carga ?? null,
-          qtd_ctes: input.ctes.length,
           peso_total,
           valor_total_ctes,
           percentual:
@@ -198,25 +193,12 @@ export function useCriarAdiantamento() {
               : input.percentual,
           valor_adiantamento,
           valor_saldo,
-          status: "pendente",
           observacoes: input.observacoes ?? null,
-          created_by: u.user?.id,
-          ...(input.created_at ? { created_at: input.created_at } : {}),
-        })
-        .select()
-        .single();
+          created_at: input.created_at ?? null,
+          ctes: input.ctes.map((c) => ({ id: c.id, valor_frete: c.valor_frete })),
+        },
+      });
       if (hErr) throw hErr;
-
-      const rows = input.ctes.map((c) => ({
-        adiantamento_id: header.id,
-        cte_id: c.id,
-        valor_frete: c.valor_frete,
-      }));
-      const { error: pErr } = await (supabase as any).from("adiantamentos_frete_ctes").insert(rows);
-      if (pErr) {
-        await (supabase as any).from("adiantamentos_frete").delete().eq("id", header.id);
-        throw pErr;
-      }
       return header as Adiantamento;
     },
     onSuccess: () => {
