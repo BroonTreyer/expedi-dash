@@ -1882,6 +1882,40 @@ export type Database = {
       }
     }
     Functions: {
+      criar_adiantamento: {
+        Args: { _payload: Json }
+        Returns: {
+          comprovante_pagamento_url: string | null
+          comprovante_quitacao_url: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          numero: string
+          observacoes: string | null
+          ordem_carga: string | null
+          pago_em: string | null
+          pago_por: string | null
+          percentual: number
+          peso_total: number
+          qtd_ctes: number
+          quitado_em: string | null
+          quitado_por: string | null
+          status: string
+          tipo_agrupamento: string
+          transportadora: string
+          transportadora_id: string | null
+          updated_at: string
+          valor_adiantamento: number
+          valor_saldo: number
+          valor_total_ctes: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "adiantamentos_frete"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_my_vendedor_id: { Args: never; Returns: string }
       get_portal_data_public: { Args: { _token: string }; Returns: Json }
       get_portal_token_public: {
