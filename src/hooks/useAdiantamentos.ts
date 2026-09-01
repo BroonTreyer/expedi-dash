@@ -139,6 +139,7 @@ export function useCriarAdiantamentosLote() {
           input.valor_adiantamento_override != null && input.valor_adiantamento_override >= 0
             ? +Number(input.valor_adiantamento_override).toFixed(2)
             : calculado;
+        const valor_saldo = +(valor_total_ctes - valor_adiantamento).toFixed(2);
         return {
           transportadora: input.transportadora,
           transportadora_id: input.transportadora_id ?? null,
