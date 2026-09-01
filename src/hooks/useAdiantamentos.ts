@@ -252,6 +252,28 @@ export function useCancelarAdiantamento() {
   });
 }
 
+/** Cancela vários adiantamentos de uma vez — os CT-es permanecem e voltam a ficar disponíveis. */
+export function useCancelarAdiantamentosLote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return 0;
+      const { error } = await (supabase as any)
+        .from("adiantamentos_frete")
+        .update({ status: "cancelado" })
+        .in("id", ids);
+      if (error) throw error;
+      return ids.length;
+    },
+    onSuccess: (n) => {
+      qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
+      qc.invalidateQueries({ queryKey: ["adt_ctes_ativos"] });
+      toast.success(`${n} adiantamento(s) cancelado(s) — CT-es liberados`);
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao cancelar"),
+  });
+}
+
 export function useAtualizarDataAdiantamento() {
   const qc = useQueryClient();
   return useMutation({
