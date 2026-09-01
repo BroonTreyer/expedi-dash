@@ -15,7 +15,7 @@ import { useCtesDacte, type CteDacteRow } from "@/hooks/useCtesDacte";
 import {
   useAdiantamentos,
   useCtesEmAdiantamento,
-  useCriarAdiantamento,
+  useCriarAdiantamentosLote,
   useCancelarAdiantamento,
   useMarcarAdiantamentoPago,
   useAtualizarDataAdiantamento,
@@ -287,7 +287,7 @@ export function AdiantamentosTab() {
   const { data: ctesAtivos } = useCtesEmAdiantamento();
   const { data: transp = [] } = useTransportadorasFinanceiro();
   const { data: adiantamentos = [] } = useAdiantamentos();
-  const criar = useCriarAdiantamento();
+  const criar = useCriarAdiantamentosLote();
   const cancelar = useCancelarAdiantamento();
   const marcarPago = useMarcarAdiantamentoPago();
   const apagarAdts = useDeleteAdiantamentosComCtes();
@@ -517,8 +517,8 @@ export function AdiantamentosTab() {
 
   const handleGerar = async () => {
     if (resumoPorTransp.length === 0) return;
-    const criados: Adiantamento[] = [];
     try {
+      const payloads = [];
       for (const r of resumoPorTransp) {
         const now = new Date();
         const merged = new Date(dataAdiantamento);
@@ -542,7 +542,7 @@ export function AdiantamentosTab() {
             const override = r.manual && r.total > 0
               ? +((valorCte / r.total) * r.adt).toFixed(2)
               : null;
-            const novo = await criar.mutateAsync({
+            payloads.push({
               transportadora: r.nome,
               transportadora_id: transpInfoByName.get(r.nome)?.id ?? null,
               tipo_agrupamento: "ordem",
@@ -557,13 +557,12 @@ export function AdiantamentosTab() {
                 peso_total: pesoDoCte(c),
               }],
             });
-            criados.push(novo);
           }
         } else {
           const ocs = new Set(r.ctes.map((c) => (c.ordem_carga ?? "").trim()).filter(Boolean));
           const tipo: "ordem" | "lote" = ocs.size === 1 ? "ordem" : "lote";
           const ordem = tipo === "ordem" ? [...ocs][0] : null;
-          const novo = await criar.mutateAsync({
+          payloads.push({
             transportadora: r.nome,
             transportadora_id: transpInfoByName.get(r.nome)?.id ?? null,
             tipo_agrupamento: tipo,
@@ -578,9 +577,9 @@ export function AdiantamentosTab() {
               peso_total: pesoDoCte(c),
             })),
           });
-          criados.push(novo);
         }
       }
+      const criados = await criar.mutateAsync(payloads);
       setSelecionados(new Set());
       setObservacoes("");
       setAdtManuais({});
@@ -588,7 +587,7 @@ export function AdiantamentosTab() {
       setDataAdiantamento(new Date());
       if (criados.length > 0) setComprovantesAdt(criados);
     } catch {
-      // toast já é exibido pelo hook
+      // O hook informa o erro; a seleção permanece para uma nova tentativa.
     }
   };
 
@@ -1020,7 +1019,7 @@ export function AdiantamentosTab() {
                 </Popover>
               </div>
               <Button className="w-full" disabled={resumoPorTransp.length === 0 || criar.isPending} onClick={handleGerar}>
-                <FileText className="h-4 w-4 mr-1" /> {totalAdtsAGerar > 1 ? `Gerar ${totalAdtsAGerar} adiantamentos` : "Gerar Adiantamento"}
+                <FileText className="h-4 w-4 mr-1" /> {criar.isPending ? `Gerando ${totalAdtsAGerar}...` : totalAdtsAGerar > 1 ? `Gerar ${totalAdtsAGerar} adiantamentos` : "Gerar Adiantamento"}
               </Button>
               {selecionados.size > 0 && (
                 <Button

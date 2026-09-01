@@ -110,77 +110,36 @@ export function useAdiantamentoCtes(adiantamento_id: string | null) {
   });
 }
 
-export function useCriarAdiantamento() {
+export type CriarAdiantamentoInput = {
+  transportadora: string;
+  transportadora_id?: string | null;
+  tipo_agrupamento: "ordem" | "lote";
+  ordem_carga?: string | null;
+  percentual: number;
+  ctes: Array<{ id: string; valor_frete: number; peso_total: number }>;
+  observacoes?: string | null;
+  valor_adiantamento_override?: number | null;
+  created_at?: string;
+};
+
+export function useCriarAdiantamentosLote() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      transportadora: string;
-      transportadora_id?: string | null;
-      tipo_agrupamento: "ordem" | "lote";
-      ordem_carga?: string | null;
-      percentual: number;
-      ctes: Array<{ id: string; valor_frete: number; peso_total: number }>;
-      observacoes?: string | null;
-      valor_adiantamento_override?: number | null;
-      created_at?: string;
-    }) => {
-      if (!input.ctes || input.ctes.length === 0) {
+    mutationFn: async (inputs: CriarAdiantamentoInput[]) => {
+      if (inputs.length === 0 || inputs.some((input) => input.ctes.length === 0)) {
         throw new Error(
           "Não é possível gerar adiantamento sem CT-e vinculado. Selecione pelo menos um CT-e.",
         );
       }
-      const valor_total_ctes = input.ctes.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
-      const peso_total = input.ctes.reduce((s, c) => s + Number(c.peso_total || 0), 0);
-      const calculado = +(valor_total_ctes * (input.percentual / 100)).toFixed(2);
-      const valor_adiantamento =
-        input.valor_adiantamento_override != null && input.valor_adiantamento_override >= 0
-          ? +Number(input.valor_adiantamento_override).toFixed(2)
-          : calculado;
-      const valor_saldo = +(valor_total_ctes - valor_adiantamento).toFixed(2);
-
-      // Trava anti-duplicidade: nenhum CT-e pode entrar em dois adiantamentos.
-      const ids = input.ctes.map((c) => c.id);
-      if (ids.length > 0) {
-        const { data: jaVinculados } = await (supabase as any)
-          .from("adiantamentos_frete_ctes")
-          .select("cte_id, adiantamentos_frete!inner(numero, status)")
-          .in("cte_id", ids);
-        const conflitos = ((jaVinculados ?? []) as any[]).filter(
-          (r) => r?.adiantamentos_frete?.status !== "cancelado",
-        );
-        if (conflitos.length > 0) {
-          const numeros = Array.from(
-            new Set(conflitos.map((c) => c?.adiantamentos_frete?.numero).filter(Boolean)),
-          );
-          throw new Error(
-            `${conflitos.length} CT-e(s) já pertencem a outro adiantamento (${numeros.join(", ")}). Operação bloqueada para evitar pagamento em duplicidade.`,
-          );
-        }
-      }
-      // Trava anti-duplicidade por Ordem de Carga: mesma OC + transportadora +
-      // mesmo valor total já lançado. Ignora registros órfãos (sem CT-e vinculado).
-      if (input.tipo_agrupamento === "ordem" && input.ordem_carga) {
-        const { data: mesmaOc } = await (supabase as any)
-          .from("adiantamentos_frete")
-          .select("numero, status, valor_total_ctes, adiantamentos_frete_ctes(id)")
-          .eq("ordem_carga", input.ordem_carga)
-          .eq("transportadora", input.transportadora)
-          .neq("status", "cancelado");
-        const dup = ((mesmaOc ?? []) as any[]).find(
-          (r) =>
-            ((r.adiantamentos_frete_ctes ?? []) as any[]).length > 0 &&
-            Math.abs(Number(r.valor_total_ctes || 0) - valor_total_ctes) <= 0.02,
-        );
-        if (dup) {
-          throw new Error(
-            `Já existe adiantamento ativo (${dup.numero}) para a OC ${input.ordem_carga} da ${input.transportadora} com o mesmo valor total. Operação bloqueada para evitar pagamento em duplicidade.`,
-          );
-        }
-      }
-
-      // Criação atômica (cabeçalho + vínculos em uma única transação no banco)
-      const { data: header, error: hErr } = await (supabase as any).rpc("criar_adiantamento", {
-        _payload: {
+      const payloads = inputs.map((input) => {
+        const valor_total_ctes = input.ctes.reduce((s, c) => s + Number(c.valor_frete || 0), 0);
+        const peso_total = input.ctes.reduce((s, c) => s + Number(c.peso_total || 0), 0);
+        const calculado = +(valor_total_ctes * (input.percentual / 100)).toFixed(2);
+        const valor_adiantamento =
+          input.valor_adiantamento_override != null && input.valor_adiantamento_override >= 0
+            ? +Number(input.valor_adiantamento_override).toFixed(2)
+            : calculado;
+        return {
           transportadora: input.transportadora,
           transportadora_id: input.transportadora_id ?? null,
           tipo_agrupamento: input.tipo_agrupamento,
@@ -196,17 +155,23 @@ export function useCriarAdiantamento() {
           observacoes: input.observacoes ?? null,
           created_at: input.created_at ?? null,
           ctes: input.ctes.map((c) => ({ id: c.id, valor_frete: c.valor_frete })),
-        },
+        };
       });
-      if (hErr) throw hErr;
-      return header as Adiantamento;
+      const { data, error } = await (supabase as any).rpc("criar_adiantamentos_lote", {
+        _payloads: payloads,
+      });
+      if (error) throw error;
+      return (data ?? []) as Adiantamento[];
     },
-    onSuccess: () => {
+    onSuccess: (criados) => {
       qc.invalidateQueries({ queryKey: ["adiantamentos_frete"] });
       qc.invalidateQueries({ queryKey: ["adt_ctes_ativos"] });
-      toast.success("Adiantamento gerado");
+      toast.success(
+        criados.length === 1 ? "Adiantamento gerado" : `${criados.length} adiantamentos gerados`,
+      );
     },
-    onError: (e: any) => toast.error(e.message ?? "Erro ao gerar adiantamento"),
+    onError: (e: any) =>
+      toast.error(e.message ?? "Erro ao gerar adiantamentos — nenhum registro foi criado"),
   });
 }
 
