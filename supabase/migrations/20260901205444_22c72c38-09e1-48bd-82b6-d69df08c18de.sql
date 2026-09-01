@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.audit_ctes_dacte() FROM PUBLIC, anon, authenticated;
