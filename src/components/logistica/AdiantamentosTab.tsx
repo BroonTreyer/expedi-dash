@@ -1123,6 +1123,21 @@ export function AdiantamentosTab() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    disabled={cancelarLote.isPending}
+                    onClick={() =>
+                      cancelarAdtsLote(
+                        pendentes.filter((a) => selPendentes.has(a.id)),
+                        () => setSelPendentes(new Set()),
+                      )
+                    }
+                  >
+                    <XCircle className="h-4 w-4 mr-1" /> Cancelar selecionados
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    title="Exclusão definitiva: apaga o adiantamento E os CT-es vinculados"
                     disabled={apagarAdts.isPending}
                     onClick={() =>
                       apagarAdtsLote(
@@ -1131,7 +1146,7 @@ export function AdiantamentosTab() {
                       )
                     }
                   >
-                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar + CT-es
                   </Button>
                 </div>
               </Card>
@@ -1167,6 +1182,21 @@ export function AdiantamentosTab() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    disabled={cancelarLote.isPending}
+                    onClick={() =>
+                      cancelarAdtsLote(
+                        pagos.filter((a) => selPagos.has(a.id)),
+                        () => setSelPagos(new Set()),
+                      )
+                    }
+                  >
+                    <XCircle className="h-4 w-4 mr-1" /> Cancelar selecionados
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    title="Exclusão definitiva: apaga o adiantamento E os CT-es vinculados"
                     disabled={apagarAdts.isPending}
                     onClick={() =>
                       apagarAdtsLote(
@@ -1175,7 +1205,7 @@ export function AdiantamentosTab() {
                       )
                     }
                   >
-                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar + CT-es
                   </Button>
                 </div>
               </Card>
@@ -1323,6 +1353,21 @@ export function AdiantamentosTab() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    disabled={cancelarLote.isPending}
+                    onClick={() =>
+                      cancelarAdtsLote(
+                        quitados.filter((a) => selQuitados.has(a.id)),
+                        () => setSelQuitados(new Set()),
+                      )
+                    }
+                  >
+                    <XCircle className="h-4 w-4 mr-1" /> Cancelar selecionados
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    title="Exclusão definitiva: apaga o adiantamento E os CT-es vinculados"
                     disabled={apagarAdts.isPending}
                     onClick={() =>
                       apagarAdtsLote(
@@ -1331,7 +1376,7 @@ export function AdiantamentosTab() {
                       )
                     }
                   >
-                    <Trash2 className="h-4 w-4 mr-1" /> Apagar selecionados
+                    <Trash2 className="h-4 w-4 mr-1" /> Apagar + CT-es
                   </Button>
                 </div>
               </Card>
