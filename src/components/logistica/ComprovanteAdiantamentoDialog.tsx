@@ -28,8 +28,6 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { gerarTextoComprovante, gruposParaComprovante } from "@/lib/comprovante-texto";
 
-const fmtBRL = (n: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
 const fmtDate = (iso?: string | null) => {
   if (!iso) return "";
   const d = new Date(iso);
