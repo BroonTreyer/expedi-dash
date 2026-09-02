@@ -1,5 +1,5 @@
 import type { Adiantamento } from "@/hooks/useAdiantamentos";
-import type { TransportadoraFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
+import type { TransportadoraFin } from "@/hooks/useTransportadorasFinanceiro";
 import { resolveTranspInfo } from "@/lib/transportadora-match";
 import { consolidarPorOC, type GrupoAdt } from "@/lib/adiantamentos-consolidar";
 
@@ -56,7 +56,7 @@ function linhasDoBloco(
 function rodape(
   itens: Adiantamento[],
   modo: ModoComprovante,
-  info: TransportadoraFinanceiro | null,
+  info: TransportadoraFin | null,
   nomeFallback: string,
 ): string[] {
   const out: string[] = [];
@@ -84,7 +84,7 @@ function rodape(
 export function gerarTextoComprovante(params: {
   adiantamentos: Adiantamento[];
   modo: ModoComprovante;
-  transportadoras: TransportadoraFinanceiro[];
+  transportadoras: TransportadoraFin[];
 }): string {
   const { modo, transportadoras } = params;
   const ativos = params.adiantamentos.filter((a) => a.status !== "cancelado");
