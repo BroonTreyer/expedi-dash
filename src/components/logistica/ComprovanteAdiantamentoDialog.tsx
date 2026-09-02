@@ -30,8 +30,6 @@ import { gerarTextoComprovante, gruposParaComprovante } from "@/lib/comprovante-
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
-const fmtKg = (n: number) =>
-  new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(n || 0);
 const fmtDate = (iso?: string | null) => {
   if (!iso) return "";
   const d = new Date(iso);
@@ -76,11 +74,6 @@ export function ComprovanteAdiantamentoDialog({ open, onOpenChange, adiantamento
     })),
   });
 
-  const totalCtes = adiantamentos.reduce((s, a) => s + (a.valor_total_ctes || 0), 0);
-  const totalAdt = adiantamentos.reduce((s, a) => s + (a.valor_adiantamento || 0), 0);
-  const totalSaldo = adiantamentos.reduce((s, a) => s + Number(a.valor_saldo || 0), 0);
-  const percentuaisDistintos = Array.from(new Set(adiantamentos.map((a) => a.percentual)));
-  const percUnico = percentuaisDistintos.length === 1 ? percentuaisDistintos[0] : null;
 
   const modoQuitacao =
     adiantamentos.length > 0 &&
