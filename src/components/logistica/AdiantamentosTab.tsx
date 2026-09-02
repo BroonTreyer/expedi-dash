@@ -1248,7 +1248,7 @@ export function AdiantamentosTab() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setComprovantesAdt(lista)}>
+                          <Button variant="outline" size="sm" onClick={() => setComprovantesAdt(selDaTransp.length ? selDaTransp : lista)}>
                             Ver comprovantes
                           </Button>
                           <Button size="sm" onClick={() => setQuitarTransp(nome)}>
