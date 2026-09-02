@@ -6,7 +6,8 @@ import { Copy, CheckCircle2, Printer, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRegistrarQuitacao, type Adiantamento } from "@/hooks/useAdiantamentos";
 import { useTransportadorasFinanceiro } from "@/hooks/useTransportadorasFinanceiro";
-import { consolidarPorOC } from "./AdiantamentosTab";
+import { consolidarPorOC } from "@/lib/adiantamentos-consolidar";
+import { gerarTextoComprovante } from "@/lib/comprovante-texto";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -38,28 +39,10 @@ export function RegistrarQuitacaoDialog({ open, onOpenChange, adiantamentos }: P
 
   const grupos = useMemo(() => consolidarPorOC(adiantamentos), [adiantamentos]);
 
-  const texto = useMemo(() => {
-    if (adiantamentos.length === 0) return "";
-    const fmtKg = (n: number) =>
-      new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
-    const linhas: string[] = ["QUITAÇÃO DO FRETE CIF, FORA DO ESTADO.", ""];
-    grupos.forEach((g, i) => {
-      const rotulo =
-        g.rep.tipo_agrupamento === "ordem" && g.rep.ordem_carga
-          ? `OC ${g.rep.ordem_carga}`
-          : `Lote ${g.rep.numero}`;
-      const peso = g.items.reduce((s, a) => s + Number(a.peso_total || 0), 0);
-      const ctes = g.items.flatMap((a) => a.cteNumbers ?? []);
-      const cteTxt = ctes.length ? `  CTE ${ctes.join("/")}` : "";
-      linhas.push(
-        `${i + 1}. ${rotulo} (${fmtKg(peso)} KG)${cteTxt}   VLR ${fmtBRL(g.valorSaldo)}`,
-      );
-    });
-    linhas.push("", `Valor Total a Quitar ${fmtBRL(totalSaldo)}`);
-    if (info?.codigo) linhas.push(`Código ${info.codigo} – ${info.nome}`);
-    if (info?.pix_chave) linhas.push(`Pix: ${info.pix_chave}`);
-    return linhas.join("\n");
-  }, [adiantamentos, grupos, info, totalSaldo]);
+  const texto = useMemo(
+    () => gerarTextoComprovante({ adiantamentos, modo: "quitacao", transportadoras: transp }),
+    [adiantamentos, transp],
+  );
 
   // Alerta de possível CT-e substituído: se o valor de um adiantamento fecha a
   // soma de 2-3 outros da mesma OC, o frete provavelmente está lançado em dobro.
