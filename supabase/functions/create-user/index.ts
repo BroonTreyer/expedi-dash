@@ -11,6 +11,13 @@ const VALID_ROLES = ["admin", "logistica", "faturamento", "portaria", "vendedor"
 const isValidEmail = (s: unknown) => typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const isUuid = (s: unknown) => typeof s === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
+const authErrorMessage = (message: string) => {
+  if (message.includes("known to be weak") || message.includes("easy to guess")) {
+    return "Esta senha é muito comum e fácil de adivinhar. Escolha uma senha diferente e mais segura.";
+  }
+  return message;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -91,7 +98,7 @@ Deno.serve(async (req) => {
     });
 
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
+      return new Response(JSON.stringify({ error: authErrorMessage(createError.message) }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

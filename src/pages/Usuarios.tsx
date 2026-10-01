@@ -21,6 +21,32 @@ interface UserRow {
   role: AppRole | null;
 }
 
+const getCreateUserError = async (error: unknown): Promise<string> => {
+  const fallback = "Erro ao criar usuário";
+  if (!error || typeof error !== "object") return fallback;
+
+  const functionError = error as {
+    message?: string;
+    context?: { json?: () => Promise<unknown> };
+  };
+
+  try {
+    const payload = await functionError.context?.json?.();
+    if (payload && typeof payload === "object" && "error" in payload) {
+      const message = (payload as { error?: unknown }).error;
+      if (typeof message === "string" && message.trim()) return message;
+    }
+  } catch {
+    // The response body may already have been consumed; use the SDK message below.
+  }
+
+  const message = functionError.message;
+  if (message?.includes("known to be weak") || message?.includes("easy to guess")) {
+    return "Esta senha é muito comum e fácil de adivinhar. Escolha uma senha diferente e mais segura.";
+  }
+  return message || fallback;
+};
+
 const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Admin",
   logistica: "Logística",
@@ -170,7 +196,7 @@ export default function Usuarios() {
         body: { email: form.email, password: form.password, nome: form.nome, role: form.role, vendedor_id: form.role === "vendedor" ? form.vendedor_id : undefined },
       });
       if (error) {
-        toast.error(error.message || "Erro ao criar usuário");
+         toast.error(await getCreateUserError(error));
       } else if (data?.error) {
         toast.error(data.error);
       } else {
@@ -179,8 +205,8 @@ export default function Usuarios() {
         setDialogOpen(false);
         fetchUsers();
       }
-    } catch (err: any) {
-      toast.error(err.message || "Erro inesperado");
+    } catch (err: unknown) {
+      toast.error(await getCreateUserError(err));
     } finally {
       setCreating(false);
     }
