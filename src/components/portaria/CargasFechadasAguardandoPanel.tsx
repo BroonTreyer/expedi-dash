@@ -23,6 +23,7 @@ import { useTelefonesMotoristas } from "@/hooks/useTelefonesMotoristas";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { validarLiberacaoEntrada } from "@/lib/portaria-entrada-validation";
 
 interface Props {
   /** Filter by carga categoria (PRÓPRIA = sem transportadora; TERCEIRIZADO = com transportadora) */
@@ -148,8 +149,25 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
     if (!c.movimentoChegadaId) return;
     setBusyId(c.carga_id);
     try {
+      // Reconsulta os dados atuais antes de gravar uma etapa: a classificação
+      // pode ter mudado desde que o card foi carregado.
+      const [movResult, cargaResult] = await Promise.all([
+        supabase.from("movimentacoes_portaria")
+          .select("categoria, horario_entrada, horario_saida_final, etapa_terceirizado, etapa_carga_propria")
+          .eq("id", c.movimentoChegadaId)
+          .eq("carga_id", c.carga_id)
+          .single(),
+        supabase.from("carregamentos_dia")
+          .select("transportadora")
+          .eq("carga_id", c.carga_id)
+          .limit(1)
+          .single(),
+      ]);
+      if (movResult.error) throw movResult.error;
+      if (cargaResult.error) throw cargaResult.error;
+      validarLiberacaoEntrada(movResult.data, cargaResult.data.transportadora);
       const nowIso = new Date().toISOString();
-      const isPropria = !c.transportadora;
+      const isPropria = movResult.data.categoria === "carga_propria";
       // Ao liberar a entrada, zeramos horários de etapas POSTERIORES que possam
       // ter sobrado de um ciclo anterior revertido. Sem isso, o trigger
       // `validate_horarios_ordem` recusa a atualização ("Horário de saída não
@@ -160,20 +178,30 @@ export function CargasFechadasAguardandoPanel({ categoria }: Props = {}) {
         horario_real_retorno: null,
         horario_saida_final: null,
       };
-      if (isPropria) update.etapa_carga_propria = "chegou";
-      else update.etapa_terceirizado = "no_patio";
+      if (isPropria) {
+        update.etapa_carga_propria = "chegou";
+        update.etapa_terceirizado = null;
+      } else {
+        update.etapa_terceirizado = "no_patio";
+        update.etapa_carga_propria = null;
+      }
       // C2 — além do id, filtrar por placa (quando houver) para que um
       // carga_id reutilizado em outro ciclo não permita marcar a entrada
       // errada caso `movimentoChegadaId` esteja stale.
       let upd = supabase
         .from("movimentacoes_portaria")
         .update(update as any)
-        .eq("id", c.movimentoChegadaId);
+        .eq("id", c.movimentoChegadaId)
+        .eq("categoria", movResult.data.categoria)
+        .eq("carga_id", c.carga_id)
+        .is("horario_entrada", null)
+        .is("horario_saida_final", null);
       if (c.placa && c.placa.trim()) {
         upd = upd.ilike("placa", c.placa.trim());
       }
-      const { error } = await upd;
+      const { data: liberado, error } = await upd.select("id").single();
       if (error) throw error;
+      if (!liberado) throw new Error("A entrada mudou durante a liberação. Atualize a lista antes de continuar.");
       // Marca veiculo_esperado como conferido só agora (entrou de fato)
       // Filtramos por placa (quando houver) e por conferido=false para nunca
       // marcar como conferido um registro de outro veículo com o mesmo carga_id
