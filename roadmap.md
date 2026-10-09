@@ -16,4 +16,4 @@
 - [x] Delete the three exact movements in the third screenshot and verify removal.
 
 # Remove Antônio Gomes Planaltina movement
-- [ ] Delete only the exact NKG0H70 returned movement shown in the screenshot and verify removal.
+- [x] Delete only the exact NKG0H70 returned movement shown in the screenshot and verify removal.
