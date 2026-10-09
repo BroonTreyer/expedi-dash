@@ -7,3 +7,7 @@
 # Remove screenshot gatehouse movements
 - [x] Identify and permanently delete all nine exact screenshot matches without affecting other trips, including Caio's movement stored with a trailing letter O in its plate.
 - [x] Verify deleted IDs in the database and refresh the gatehouse view.
+
+# Remove five additional screenshot movements
+- [x] Identify and delete only the five movements in the second screenshot.
+- [x] Verify deletion and preserve other trips.
