@@ -13,4 +13,4 @@
 - [x] Verify deletion and preserve other trips.
 
 # Remove three additional screenshot movements
-- [ ] Delete the three exact movements in the third screenshot and verify removal.
+- [x] Delete the three exact movements in the third screenshot and verify removal.
