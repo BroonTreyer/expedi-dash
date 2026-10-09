@@ -9,5 +9,5 @@
 - [x] Verify deleted IDs in the database and refresh the gatehouse view.
 
 # Remove five additional screenshot movements
-- [ ] Identify and delete only the five movements in the second screenshot.
-- [ ] Verify deletion and preserve other trips.
+- [x] Identify and delete only the five movements in the second screenshot.
+- [x] Verify deletion and preserve other trips.
