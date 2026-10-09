@@ -3,3 +3,7 @@
 - [x] Guard entry release against conflicting categories and already released movements.
 - [x] Verify regression tests and gatehouse visibility.
 - [ ] Complete load carrier name — waiting for the user to provide the correct carrier.
+
+# Remove screenshot gatehouse movements
+- [x] Identify and permanently delete all nine exact screenshot matches without affecting other trips, including Caio's movement stored with a trailing letter O in its plate.
+- [x] Verify deleted IDs in the database and refresh the gatehouse view.
