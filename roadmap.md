@@ -11,3 +11,6 @@
 # Remove five additional screenshot movements
 - [x] Identify and delete only the five movements in the second screenshot.
 - [x] Verify deletion and preserve other trips.
+
+# Remove three additional screenshot movements
+- [ ] Delete the three exact movements in the third screenshot and verify removal.
